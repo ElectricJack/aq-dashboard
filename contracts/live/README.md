@@ -31,3 +31,15 @@ are exposed to the browser.
 The daemon's `protocol/dashboard-read/v1/` artifacts and route tests own the
 published subset. This profile does not complete API-02 or any terminal, mutation,
 provider-quota or supervisor contract.
+
+The checked-in schema and five nonempty response fixtures are pinned by
+[source.json](source.json). Adapter tests consume those actual router responses.
+They were produced from explicitly synthetic authority records in disposable
+PostgreSQL, and are excluded from the production JavaScript bundle.
+
+Every envelope must match the negotiated API version and requested scope before
+adaptation/cache insertion. Resource 401/403 and contract errors immediately close
+protected views, cancel pending reads and evict protected query caches. Recovery
+requires explicit retry or reload; background bootstrap success cannot reopen a
+denied resource. Ordinary transport failures may retain labelled stale observations.
+Malformed capability values and malformed refreshed bootstrap data fail closed.

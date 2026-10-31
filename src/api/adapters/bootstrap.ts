@@ -1,5 +1,5 @@
 import type { Bootstrap, Scope } from "../wire/proposed";
-import { ContractError } from "./contract";
+import { ContractError, isRecord } from "./contract";
 
 export type CapabilityState = { enabled: true } | { enabled: false; reason: string };
 export type SupervisorStatus = Bootstrap["global_supervisor"]["status"] | "unsupported";
@@ -17,6 +17,23 @@ const REVISION = /^[1-9][0-9]*$/;
 const SUPERVISOR_STATUSES = new Set<string>(["available", "unconfigured", "unavailable"]);
 
 export function adaptBootstrap(raw: Bootstrap): BootstrapView {
+  // HTTP JSON is untrusted even when its caller supplies a TypeScript type.
+  if (!isRecord(raw) || !isRecord(raw.principal) ||
+      typeof raw.principal.id !== "string" || typeof raw.principal.display_name !== "string" ||
+      !isRecord(raw.product) || typeof raw.product.version !== "string" ||
+      !isRecord(raw.limits) || !Number.isSafeInteger(raw.limits.page_size) || raw.limits.page_size < 1 ||
+      !isRecord(raw.default_scope) || !(raw.default_scope.kind === "all_authorized" ||
+        (raw.default_scope.kind === "project" && typeof raw.default_scope.project_id === "string")) ||
+      !isRecord(raw.global_supervisor) || typeof raw.global_supervisor.status !== "string" ||
+      !(raw.global_supervisor.conversation_id === null || typeof raw.global_supervisor.conversation_id === "string") ||
+      !Array.isArray(raw.capabilities) || raw.capabilities.some((cap: unknown) =>
+        !isRecord(cap) || typeof cap.name !== "string" || typeof cap.version !== "string" ||
+        typeof cap.enabled !== "boolean" || !(cap.reason === undefined || typeof cap.reason === "string"))) {
+    throw new ContractError("Invalid bootstrap shape");
+  }
+  if (new Set(raw.capabilities.map((cap) => cap.name)).size !== raw.capabilities.length) {
+    throw new ContractError("Duplicate capability names");
+  }
   const revision: unknown = raw.principal.authorization_revision;
   if (typeof revision !== "string" || !REVISION.test(revision)) {
     throw new ContractError("authorization_revision must be a positive decimal string");
@@ -40,7 +57,7 @@ export function adaptBootstrap(raw: Bootstrap): BootstrapView {
       const cap = capabilities.get(name);
       if (!cap) return { enabled: false, reason: "Not offered by this AQ server" };
       if (cap.version !== "1") return { enabled: false, reason: "This capability version is not supported by the dashboard" };
-      if (cap.enabled) return { enabled: true };
+      if (cap.enabled === true) return { enabled: true };
       return { enabled: false, reason: cap.reason ?? "Disabled by this AQ server" };
     },
   };

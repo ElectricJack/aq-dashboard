@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -77,4 +77,114 @@ test("an older daemon without bootstrap reports a compatibility problem", async 
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ error: "not_found" }, { status: 404 })));
   renderApp("/settings");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+});
+
+test.each([401, 403])("resource %s clears private worker data even when bootstrap becomes unreachable", async (status) => {
+  server.use(
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(liveBootstrap(["workers.read"]))),
+    http.get("/api/workers", () => HttpResponse.json([
+      { id: "private-node", name: "Private worker name", worker_version: "1", status: "online", last_seen_at: null },
+    ])),
+  );
+  const { queryClient } = renderApp("/settings");
+  await screen.findByText("Private worker name");
+  server.use(
+    http.get("/api/v1/bootstrap", () => HttpResponse.error()),
+    http.get("/api/workers", () => HttpResponse.json({}, { status })),
+  );
+  await act(() => queryClient.refetchQueries({ predicate: (q) => q.queryKey[0] === "aq" }));
+  expect(await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" })).toBeInTheDocument();
+  expect(screen.queryByText("Private worker name")).not.toBeInTheDocument();
+  expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
+  if (status === 403) {
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.queryByText("Private worker name")).not.toBeInTheDocument();
+  }
+});
+
+test("session detail revocation clears the detail and roster without a bootstrap refresh", async () => {
+  const { queryClient } = renderApp("/agents/sess-07");
+  await screen.findByRole("region", { name: "Worker 07" });
+  server.use(http.get("/api/v1/sessions/sess-07", () => HttpResponse.json({}, { status: 403 })));
+  await act(() => queryClient.refetchQueries({ predicate: (q) => q.queryKey[0] === "aq" && JSON.stringify(q.queryKey).includes("/api/v1/sessions/sess-07") }));
+  expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Worker 07" })).not.toBeInTheDocument();
+  expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
+});
+
+test.each(["version", "scope"])("paged read rejects a mismatched %s before caching data", async (mismatch) => {
+  server.use(http.get("/api/v1/sessions", () => HttpResponse.json({
+    ...fixture, api_version: mismatch === "version" ? "future-99" : fixture.api_version,
+    scope: mismatch === "scope" ? { kind: "project", project_id: "other-project" } : fixture.scope,
+    data: { items: [], has_more: false, next_cursor: null, snapshot_id: "unexpected", total: { value: 0, accuracy: "exact" } },
+  })));
+  const { queryClient } = renderApp("/agents");
+  expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+  expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
+});
+
+test("malformed bootstrap refresh gates and clears already loaded protected data", async () => {
+  const { queryClient } = renderApp("/agents/sess-07");
+  await screen.findByRole("region", { name: "Worker 07" });
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...fixture, data: {} })));
+  await act(() => queryClient.refetchQueries({ queryKey: ["bootstrap"] }));
+  expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+  await waitFor(() => expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0));
+  expect(screen.queryByRole("region", { name: "Worker 07" })).not.toBeInTheDocument();
+});
+
+test.each(["version", "scope"])("single read clears previously cached projects after a mismatched %s", async (mismatch) => {
+  const projectEnvelope = { ...fixture, api_version: "dashboard-read-1", data: {
+    items: [{ id: "private-project", label: "Private project label" }], next_cursor: null,
+    has_more: false, snapshot_id: "current", total: { value: 1, accuracy: "exact" },
+  } };
+  server.use(
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(liveBootstrap(["projects.read"]))),
+    http.get("/api/v1/projects", () => HttpResponse.json(projectEnvelope)),
+  );
+  const { queryClient } = renderApp("/settings");
+  await screen.findByRole("option", { name: "Private project label" });
+  server.use(http.get("/api/v1/projects", () => HttpResponse.json({
+    ...projectEnvelope,
+    ...(mismatch === "version" ? { api_version: "future-99" } : { scope: { kind: "project", project_id: "other" } }),
+  })));
+  await act(() => queryClient.refetchQueries({ predicate: (q) => q.queryKey[0] === "aq" }));
+  expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: "Private project label" })).not.toBeInTheDocument();
+  expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
+});
+
+test("unchanged background bootstrap cannot reopen a denied session", async () => {
+  let deniedReads = 0;
+  const { queryClient } = renderApp("/agents/sess-07");
+  await screen.findByRole("region", { name: "Worker 07" });
+  server.use(http.get("/api/v1/sessions/sess-07", () => {
+    deniedReads += 1;
+    return HttpResponse.json({}, { status: 403 });
+  }));
+  await act(() => queryClient.refetchQueries({ predicate: (q) => JSON.stringify(q.queryKey).includes("/api/v1/sessions/sess-07") }));
+  await screen.findByRole("heading", { name: "Access denied" });
+  await act(() => queryClient.refetchQueries({ queryKey: ["bootstrap"] }));
+  expect(screen.getByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+  expect(deniedReads).toBe(1);
+});
+
+test("fresh bootstrap sign-out takes priority over an older resource denial", async () => {
+  const { queryClient } = renderApp("/agents/sess-07");
+  await screen.findByRole("region", { name: "Worker 07" });
+  server.use(http.get("/api/v1/sessions/sess-07", () => HttpResponse.json({}, { status: 403 })));
+  await act(() => queryClient.refetchQueries({ predicate: (q) => JSON.stringify(q.queryKey).includes("/api/v1/sessions/sess-07") }));
+  await screen.findByRole("heading", { name: "Access denied" });
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({}, { status: 401 })));
+  await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+});
+
+test("missing envelope data is a compatibility failure, not an ordinary stale refresh", async () => {
+  server.use(http.get("/api/v1/sessions", () => HttpResponse.json({ ...fixture, data: undefined })));
+  const { queryClient } = renderApp("/agents");
+  expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+  expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
 });

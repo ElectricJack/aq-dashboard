@@ -1,4 +1,4 @@
-import { isRecord } from "./adapters/contract";
+import { ContractError, isRecord } from "./adapters/contract";
 import type { ErrorEnvelope } from "./wire/proposed";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -88,4 +88,10 @@ export function apiSend<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   return request<T>(method, path, body, signal);
+}
+
+/** Authorization and compatibility failures must never retain private stale reads. */
+export function isProtectedReadFailure(error: unknown): error is Error {
+  return error instanceof ContractError || (error instanceof ApiError &&
+    (error.kind === "contract" || error.status === 401 || error.status === 403));
 }

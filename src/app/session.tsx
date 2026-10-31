@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from "react";
 import { adaptBootstrap, type BootstrapView } from "../api/adapters/bootstrap";
-import { ApiError, apiGet } from "../api/client";
+import { ContractError, isRecord } from "../api/adapters/contract";
+import { ApiError, apiGet, isProtectedReadFailure } from "../api/client";
 import type { QueryContext } from "../api/queryKeys";
 import type { Bootstrap, Envelope } from "../api/wire/proposed";
 import styles from "./Shell.module.css";
@@ -25,6 +26,7 @@ export function useSession(): Session {
 
 async function fetchBootstrap(signal: AbortSignal): Promise<Omit<Session, "connection">> {
   const env = await apiGet<Envelope<Bootstrap>>("/api/v1/bootstrap", signal);
+  if (!isRecord(env)) throw new ContractError("Invalid bootstrap envelope");
   const mockContract = (import.meta.env.MODE === "mock" || import.meta.env.MODE === "test") && env.api_version === "proposed-0";
   if (env.api_version !== "dashboard-read-1" && !mockContract) {
     throw new ApiError("contract", "This AQ dashboard API version is not supported");
@@ -43,6 +45,17 @@ async function fetchBootstrap(signal: AbortSignal): Promise<Omit<Session, "conne
 /** Blocks the app until AQ identifies the principal and its capabilities. */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
+  // A protected read can revoke authority before bootstrap's next refresh.
+  // Latch the failure until explicit recovery, so an unchanged bootstrap cannot
+  // reopen a denied resource in a repeated request/remount loop.
+  const [resourceFailure, setResourceFailure] = useState<Error | null>(null);
+  useLayoutEffect(() => client.getQueryCache().subscribe((event) => {
+    if (event.type !== "updated" || event.action.type !== "error" || event.query.queryKey[0] !== "aq") return;
+    const error = event.query.state.error;
+    if (isProtectedReadFailure(error)) {
+      setResourceFailure(error);
+    }
+  }), [client]);
   const query = useQuery({
     queryKey: ["bootstrap"],
     queryFn: ({ signal }) => fetchBootstrap(signal),
@@ -50,11 +63,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  const unauthenticated = query.error instanceof ApiError && query.error.status === 401;
-  const incompatible = query.error instanceof ApiError && (query.error.kind === "contract" || [404, 426].includes(query.error.status ?? 0));
-  const forbidden = query.error instanceof ApiError && query.error.status === 403;
+  const failure = isProtectedReadFailure(query.error) ? query.error : resourceFailure ?? query.error;
+  const unauthenticated = failure instanceof ApiError && failure.status === 401;
+  const incompatible = failure instanceof ContractError || (failure instanceof ApiError && (failure.kind === "contract" || [404, 426].includes(failure.status ?? 0)));
+  const forbidden = failure instanceof ApiError && failure.status === 403;
   const context = query.data?.queryContext;
-  useEffect(() => {
+  useLayoutEffect(() => {
     // A role/identity/API change must not keep another authorization scope's
     // protected data in the browser cache. Bootstrap itself stays for recovery.
     const obsolete = (key: readonly unknown[]) => key[0] === "aq" && (
@@ -74,7 +88,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       <SessionContext.Provider value={{ ...query.data, connection }}>{children}</SessionContext.Provider>
     );
   }
-  if (query.isError) {
+  if (failure) {
     return (
       <main className={styles.gate}>
         <p className={styles.brand}>Agent Q</p>
@@ -83,13 +97,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           {unauthenticated
             ? "Sign in through AQ, then reload this page."
             : forbidden
-              ? "Your account does not have access to this AQ installation."
+              ? "Access to this dashboard or a requested resource was denied."
               : incompatible
                 ? "This dashboard and AQ server do not support the same API. Install compatible versions, then reload."
                 : "The dashboard could not load your identity and capabilities from AQ."}
         </p>
         {!unauthenticated && (
-          <button type="button" className={styles.button} onClick={() => void query.refetch()}>
+          <button type="button" className={styles.button} onClick={() => {
+            void query.refetch().then((result) => {
+              if (result.isSuccess) setResourceFailure(null);
+            });
+          }}>
             Try again
           </button>
         )}

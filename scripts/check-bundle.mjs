@@ -12,6 +12,7 @@ const FORBIDDEN = [
   "Sample Owner",
   "account-sample-",
   "fixture-provider-usage",
+  "Synthetic authority fixture",
 ];
 
 const dir = process.argv[2] ?? "dist";

@@ -1,3 +1,4 @@
+import { validateReadEnvelope } from "../api/adapters/envelope";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../api/client";
 import { queryKey, scopedKey } from "../api/queryKeys";
@@ -41,6 +42,7 @@ export function useRead<W, V>(opts: {
       : queryKey(queryContext, opts.resource, keyParams),
     queryFn: async ({ signal }): Promise<Read<V>> => {
       const env = await apiGet<Envelope<W>>(url(opts.path, params, opts.scope), signal);
+      validateReadEnvelope(env, queryContext.contractVersion, opts.scope);
       return { view: opts.adapt(env.data, env.server_time), serverTime: env.server_time, coverage: env.coverage };
     },
     ...(opts.pollMs !== undefined && { refetchInterval: opts.pollMs }),

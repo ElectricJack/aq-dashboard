@@ -47,3 +47,19 @@ test("live settings remains usable on a narrow screen", async ({ page }) => {
   await expect(page.getByText("Daemon: ok")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
+
+test("visible sessions connect roster, exact detail and deep-link refresh", async ({ page, request }) => {
+  const response = await request.get("/api/v1/sessions?limit=25");
+  expect(response.status()).toBe(200);
+  const envelope = await response.json();
+  test.skip(envelope.data.items.length === 0, "No visible sessions in this installation");
+  const session = envelope.data.items[0];
+  await page.goto("/agents");
+  await page.getByRole("list", { name: "Sessions" }).getByRole("link", { name: session.label, exact: true }).click();
+  await expect(page.getByRole("heading", { level: 2, name: session.label })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 2, name: session.label })).toBeVisible();
+  await expect(page.getByText("Terminal is not available", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+});

@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 if (!process.env.AQ_LIVE_URL) throw new Error("AQ_LIVE_URL must name the running AQ human listener");
 export default defineConfig({
+  outputDir: "test-results-live",
   testDir: "tests/live",
   workers: 1,
   forbidOnly: !!process.env.CI,

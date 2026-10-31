@@ -1,3 +1,4 @@
+import { validateReadEnvelope } from "../api/adapters/envelope";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { adaptPage, type PageView } from "../api/adapters/inspection";
 import { apiGet } from "../api/client";
@@ -31,6 +32,7 @@ export function usePagedRead<W, V>(opts: {
         readUrl(opts.path, { ...opts.params, cursor: pageParam }, opts.scope),
         signal,
       );
+      validateReadEnvelope(env, queryContext.contractVersion, opts.scope);
       return {
         page: adaptPage(env.data, (w) => opts.adapt(w, env.server_time)),
         coverage: env.coverage,

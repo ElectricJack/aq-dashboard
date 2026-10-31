@@ -56,3 +56,13 @@ test("unsupported capability versions remain disabled", () => {
   raw.capabilities[0]!.version = "99";
   expect(adaptBootstrap(raw).capability("dashboard.inspect").enabled).toBe(false);
 });
+
+test.each(["false", "true", 1, null, undefined])("rejects malformed capability enabled %s", (enabled) => {
+  const raw = bootstrap();
+  (raw.capabilities[0] as { enabled: unknown }).enabled = enabled;
+  expect(() => adaptBootstrap(raw)).toThrow(/contract/i);
+});
+
+test("rejects incomplete bootstrap objects with a contract error", () => {
+  expect(() => adaptBootstrap({} as Bootstrap)).toThrow(/contract/i);
+});

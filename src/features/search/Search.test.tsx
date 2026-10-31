@@ -103,7 +103,7 @@ test("a failed search shows an error, not 'no matches'", async () => {
   expect(within(dialog).queryByText(/no matches/i)).not.toBeInTheDocument();
 });
 
-test("a malformed search response is contained in the dialog", async () => {
+test("a malformed search response closes protected views with a compatibility gate", async () => {
   server.use(
     http.get("/api/v1/search", () =>
       HttpResponse.json({
@@ -117,8 +117,8 @@ test("a malformed search response is contained in the dialog", async () => {
   renderApp("/overview");
   const dialog = await openSearch();
   await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
-  expect(await within(dialog).findByRole("alert")).toHaveTextContent(/can't read/i);
-  expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
 });
 
 test("results are announced as a count, not read out in full", async () => {

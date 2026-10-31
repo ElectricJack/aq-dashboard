@@ -1,0 +1,16 @@
+{
+  "profile": "dashboard-read-1",
+  "source_repository": "agent-q",
+  "source_commit": "44dcab8ee656c251208ce20356a0273432663b25",
+  "upstream_source_commit": "3632eada81389f2dd9d0ab3a1f148c78746c9a42",
+  "source_directory": "protocol/dashboard-read/v1",
+  "fixtures": "Actual router responses over explicitly synthetic PostgreSQL owner records; not production agents.",
+  "sha256": {
+    "schema.json": "ceac05fc1648faa4ff884530da1c69360270bba3ae1b6073e6880f2f7385a5ba",
+    "fixtures/bootstrap.json": "4e599a5cd2e2f27fd4000396da15b57c5b2fd6043fbe06021b7ce4951fffc958",
+    "fixtures/overview.json": "ecf68ff0b67e47169ed22b1fd716729d47f935b3493d0a9231212040b7b90bb9",
+    "fixtures/projects.json": "730b0236aa495c5098e716ef458dd8868853792798f28c0780e84beb1f008b80",
+    "fixtures/session.json": "996efc9fe3e2c9109166ce23e23fd3b5f4c4ef62aa3150098d630d9fe1d4008e",
+    "fixtures/sessions.json": "9f9c776fb120c337bac62d228156b68f0e433d118c41728c880f087e9a30d332"
+  }
+}
