@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
+import { Link } from "react-router";
 import { useParams, useSearchParams } from "react-router";
 import { scopeSearch, useScope } from "../../app/scope";
 import { READINESS_FILTERS, READINESS_LABEL } from "./labels";
@@ -6,11 +7,25 @@ import { TaskDetail } from "./TaskDetail";
 import { TaskList } from "./TaskList";
 import styles from "./Work.module.css";
 
+const TaskGraph = lazy(() => import("./graph/TaskGraph"));
+
+function withParams(params: URLSearchParams, changes: Record<string, string | null>): string {
+  const next = new URLSearchParams(params);
+  for (const [k, v] of Object.entries(changes)) {
+    if (v === null) next.delete(k);
+    else next.set(k, v);
+  }
+  const s = next.toString();
+  return s ? `?${s}` : "";
+}
+
 export function Work() {
   const { taskId } = useParams();
   const [scope] = useScope();
   const [params, setParams] = useSearchParams();
   const readiness = params.get("readiness") ?? "";
+  const graphView = params.get("view") === "graph";
+  const root = params.get("root") ?? taskId ?? null;
   // Links keep scope and filters so Back and "All tasks" return to the same list.
   const search = params.toString() ? `?${params.toString()}` : scopeSearch(scope);
 
@@ -30,6 +45,20 @@ export function Work() {
   return (
     <div className={styles.work} data-has-detail={taskId ? "true" : "false"}>
       <div className={styles.toolbar}>
+        <nav aria-label="Work view" className={styles.views}>
+          <Link
+            to={{ search: withParams(params, { view: null, root: null }) }}
+            aria-current={graphView ? undefined : "page"}
+          >
+            List
+          </Link>
+          <Link
+            to={{ search: withParams(params, { view: "graph", root }) }}
+            aria-current={graphView ? "page" : undefined}
+          >
+            Graph
+          </Link>
+        </nav>
         <label>
           <span className="visually-hidden">Readiness</span>
           <select
@@ -53,7 +82,19 @@ export function Work() {
         </label>
       </div>
       <div className={styles.panes}>
-        <TaskList ref={listRef} scope={scope} readiness={readiness} selectedId={taskId} search={search} />
+        {graphView ? (
+          root ? (
+            <div className={styles.listPane}>
+              <Suspense fallback={<p role="status">Loading graph…</p>}>
+                <TaskGraph rootId={root} selectedId={taskId} search={search} />
+              </Suspense>
+            </div>
+          ) : (
+            <p className={styles.muted}>Choose a task to see its dependency neighbourhood.</p>
+          )
+        ) : (
+          <TaskList ref={listRef} scope={scope} readiness={readiness} selectedId={taskId} search={search} />
+        )}
         {taskId && <TaskDetail key={taskId} taskId={taskId} search={search} />}
       </div>
     </div>

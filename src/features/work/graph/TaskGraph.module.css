@@ -1,0 +1,136 @@
+.graph {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+.summary,
+.muted {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-meta);
+  color: var(--color-text-secondary);
+}
+
+.legend li::before {
+  content: "";
+  display: inline-block;
+  inline-size: 24px;
+  margin-inline-end: var(--space-2);
+  vertical-align: middle;
+  border-block-start: 2px solid var(--color-accent);
+}
+
+.legend li[data-category="hierarchy"]::before {
+  border-block-start-style: dashed;
+  border-color: var(--color-text-secondary);
+}
+
+.legend li[data-category="informational"]::before {
+  border-block-start-style: dotted;
+  border-color: var(--color-border);
+}
+
+.canvas {
+  overflow: auto;
+  max-block-size: 70dvh;
+}
+
+.stage {
+  position: relative;
+}
+
+.edges {
+  position: absolute;
+  inset: 0;
+  fill: none;
+}
+
+.edges path {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.edges path[data-category="hierarchy"] {
+  stroke: var(--color-text-secondary);
+  stroke-dasharray: 6 4;
+}
+
+.edges path[data-category="informational"] {
+  stroke: #5b6878;
+  stroke-dasharray: 2 4;
+}
+
+.arrow {
+  fill: var(--color-accent);
+}
+
+.node {
+  position: absolute;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-raised);
+  text-align: start;
+  cursor: pointer;
+}
+
+.node[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-accent);
+}
+
+.node[data-readiness="done"] {
+  border-color: var(--color-success);
+}
+
+.node[data-readiness="needs_decision"],
+.node[data-readiness="waiting"],
+.node[data-readiness="blocked"] {
+  border-color: var(--color-attention);
+}
+
+.node[data-readiness="failed"] {
+  border-color: var(--color-error);
+}
+
+.nodeTitle {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeState {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+
+.listHeading {
+  font-size: 16px;
+}
+
+.relations {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  font-size: var(--font-size-meta);
+}
