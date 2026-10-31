@@ -165,7 +165,7 @@
   min-inline-size: 160px;
   text-align: start;
   color: var(--color-text-secondary);
-  cursor: not-allowed;
+  cursor: pointer;
 }
 
 .main {

@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { SearchDialog } from "../features/search/SearchDialog";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { ProviderUsageStrip } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
@@ -80,6 +81,22 @@ export function Shell() {
   const [scope, setScope] = useScope();
   const usage = useProviderUsage();
   const lastTitlePath = useRef<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchButton = useRef<HTMLButtonElement>(null);
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    searchButton.current?.focus();
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const status = connection === "connected" && usage.unreachable ? "unreachable" : connection;
   const search = scopeSearch(scope);
   const isMock = import.meta.env.MODE === "mock";
@@ -120,16 +137,14 @@ export function Shell() {
         </p>
         <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={[]} />
         <button
+          ref={searchButton}
           type="button"
           className={styles.search}
-          aria-disabled="true"
-          aria-describedby="search-unavailable"
+          aria-keyshortcuts="Control+K Meta+K"
+          onClick={() => setSearchOpen(true)}
         >
           Search
         </button>
-        <span id="search-unavailable" hidden>
-          Search is not available until AQ publishes the search read model.
-        </span>
         <ProviderUsageStrip state={usage.state} />
         <span className={styles.connection} data-state={status} role="status">
           {CONNECTION_TEXT[status]}
@@ -141,6 +156,7 @@ export function Shell() {
         </TitleFocusContext>
       </main>
       <PhoneNav search={search} />
+      {searchOpen && <SearchDialog onClose={closeSearch} />}
     </div>
   );
 }
