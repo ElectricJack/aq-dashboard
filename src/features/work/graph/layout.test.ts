@@ -52,3 +52,31 @@ test("edges are routed only between placed nodes", () => {
   expect(l.width).toBeGreaterThan(0);
   expect(l.height).toBeGreaterThan(0);
 });
+
+test("the cap always keeps the root and prefers nodes nearest to it", () => {
+  const ids = Array.from({ length: MAX_NODES + 20 }, (_, i) => `n${String(i).padStart(3, "0")}`);
+  const g = graph(ids, [["n001", "zroot", "dependency"]]);
+  g.nodes.push({ ...g.nodes[0]!, id: "zroot", title: "zzz root" });
+  g.rootId = "zroot";
+  const l = layoutGraph(g);
+  const placed = new Set(l.nodes.map((n) => n.id));
+  expect(placed.has("zroot")).toBe(true);
+  expect(placed.has("n001")).toBe(true);
+});
+
+test("edges cut by the cap are counted", () => {
+  const ids = Array.from({ length: MAX_NODES + 1 }, (_, i) => `n${String(i).padStart(3, "0")}`);
+  const g = graph(ids, [["n000", `n${MAX_NODES}`, "informational"]]);
+  // n099 is unreachable from the root and last by title, so the cap cuts it and its edge.
+  g.edges.push({ from: "n098", to: "n099", type: "blocks", category: "dependency" });
+  const l = layoutGraph(g);
+  expect(l.clientOmitted).toBe(1);
+  expect(l.nodes.some((n) => n.id === "n099")).toBe(false);
+  expect(l.clientOmittedEdges).toBe(1);
+});
+
+test("a cycle among many nodes keeps every node inside the canvas", () => {
+  const ids = Array.from({ length: 50 }, (_, i) => `n${String(i).padStart(2, "0")}`);
+  const l = layoutGraph(graph(ids, [["n00", "n01", "hierarchy"], ["n01", "n00", "dependency"]]));
+  expect(Math.max(...l.nodes.map((n) => n.x))).toBeLessThan(l.width);
+});

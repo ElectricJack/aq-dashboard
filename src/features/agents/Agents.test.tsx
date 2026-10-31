@@ -74,3 +74,11 @@ test("task detail links to the running session", async () => {
   await userEvent.click(await screen.findByRole("link", { name: "Open session" }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/agents/sess-07"));
 });
+
+test("Back from a session returns focus to its roster row", async () => {
+  const { router } = renderApp("/agents");
+  await userEvent.click(within(await roster()).getByRole("link", { name: "Worker 12" }));
+  await screen.findByRole("heading", { level: 2, name: "Worker 12" });
+  await router.navigate(-1);
+  await waitFor(() => expect(within(screen.getByRole("list", { name: "Sessions" })).getByRole("link", { name: "Worker 12" })).toHaveFocus());
+});

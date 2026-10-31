@@ -1,3 +1,4 @@
+import { ContractError } from "../../api/adapters/contract";
 import { ApiError } from "../../api/client";
 import styles from "./QueryStatus.module.css";
 
@@ -10,6 +11,9 @@ type Props = {
 };
 
 function describe(error: unknown, label: string): { text: string; retry: boolean } {
+  if (error instanceof ContractError) {
+    return { text: `This dashboard can't read AQ's response for ${label}. It may need updating.`, retry: false };
+  }
   if (error instanceof ApiError) {
     if (error.status === 401) return { text: "Your sign-in has expired. Sign in through AQ, then reload.", retry: false };
     if (error.status === 403) return { text: `Viewing ${label} is not permitted for your account.`, retry: false };

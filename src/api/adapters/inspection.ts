@@ -1,5 +1,6 @@
 import type {
   ActionDescriptor,
+  SearchResults,
   AttentionItem,
   EdgeType,
   Fact,
@@ -14,7 +15,7 @@ import type {
   TaskSummary,
   Total,
 } from "../wire/proposed";
-import { ContractError, isStale } from "./contract";
+import { ContractError, isRecord, isStale } from "./contract";
 
 type Unsupported = "unsupported";
 
@@ -34,11 +35,14 @@ function revision(value: unknown, what: string): string {
 /* ----- Shared ----- */
 
 export type TotalView = { value: number | null; accuracy: Total["accuracy"] };
+const ACCURACIES = ["exact", "estimated", "unknown"] as const;
 export function adaptTotal(total: Total): TotalView {
-  if (total.accuracy === "unknown" || total.value === null || !Number.isFinite(total.value)) {
+  const accuracy = known(total.accuracy, ACCURACIES);
+  if (accuracy === "unknown" || total.value === null || !Number.isFinite(total.value)) {
     return { value: null, accuracy: "unknown" };
   }
-  return { value: total.value, accuracy: total.accuracy };
+  // An accuracy this client doesn't know is never presented as exact.
+  return { value: total.value, accuracy: accuracy === "unsupported" ? "estimated" : accuracy };
 }
 
 export type PageView<T> = {
@@ -357,5 +361,32 @@ export function adaptSessionDetail(s: SessionDetail, serverTime: string): Sessio
     profileRevisions: s.profile_revisions,
     permissions: s.permissions,
     lastActivityAt: s.last_activity_at,
+  };
+}
+
+/* ----- Search ----- */
+
+const SEARCH_TYPES = ["task", "session", "result", "playbook", "knowledge"] as const;
+
+export type SearchView = {
+  groups: {
+    type: SearchResults["groups"][number]["type"] | Unsupported;
+    hits: SearchResults["groups"][number]["hits"];
+    hasMore: boolean;
+  }[];
+};
+
+export function adaptSearch(data: SearchResults): SearchView {
+  if (!isRecord(data) || !Array.isArray(data.groups)) throw new ContractError("search groups must be a list");
+  return {
+    groups: data.groups.map((g) => {
+      if (!isRecord(g) || !Array.isArray(g.hits)) throw new ContractError("search hits must be a list");
+      for (const h of g.hits) {
+        if (!isRecord(h) || !isRecord(h.ref) || typeof h.ref.id !== "string" || typeof h.title !== "string") {
+          throw new ContractError("search hit must have a ref and title");
+        }
+      }
+      return { type: known(String(g.type), SEARCH_TYPES), hits: g.hits, hasMore: g.has_more === true };
+    }),
   };
 }

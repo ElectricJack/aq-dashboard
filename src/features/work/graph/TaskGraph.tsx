@@ -47,7 +47,7 @@ export default function TaskGraph({ rootId, selectedId, search }: { rootId: stri
   const { view } = query.data;
   const titles = new Map(view.nodes.map((n) => [n.id, n.title]));
   const hiddenNodes = view.omitted.nodes + layout.clientOmitted;
-  const hiddenEdges = view.omitted.edges;
+  const hiddenEdges = view.omitted.edges + layout.clientOmittedEdges;
 
   return (
     <section className={styles.graph} aria-label="Dependency graph">
@@ -87,6 +87,7 @@ export default function TaskGraph({ rootId, selectedId, search }: { rootId: stri
             <button
               key={n.id}
               type="button"
+              data-node-id={n.id}
               className={styles.node}
               data-readiness={n.readiness.state}
               aria-pressed={n.id === selectedId}

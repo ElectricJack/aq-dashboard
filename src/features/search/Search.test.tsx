@@ -102,3 +102,30 @@ test("a failed search shows an error, not 'no matches'", async () => {
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(/couldn't load search results/i);
   expect(within(dialog).queryByText(/no matches/i)).not.toBeInTheDocument();
 });
+
+test("a malformed search response is contained in the dialog", async () => {
+  server.use(
+    http.get("/api/v1/search", () =>
+      HttpResponse.json({
+        api_version: "proposed-0", request_id: "r", server_time: "2026-10-31T12:00:00.000Z",
+        scope: { kind: "all_authorized" },
+        observation: { observed_at: "2026-10-31T12:00:00.000Z", fresh_until: "2026-10-31T12:01:00.000Z", source: "t", quality: "reported", coverage: "complete" },
+        pending_operations: [], coverage: { state: "complete" }, data: { nope: true },
+      }),
+    ),
+  );
+  renderApp("/overview");
+  const dialog = await openSearch();
+  await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(/can't read/i);
+  expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+});
+
+test("results are announced as a count, not read out in full", async () => {
+  renderApp("/overview");
+  const dialog = await openSearch();
+  await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
+  const tasks = await within(dialog).findByRole("list", { name: "Tasks" });
+  expect(tasks.closest("[aria-live]")).toBeNull();
+  expect(within(dialog).getByRole("status")).toHaveTextContent(/\d+ results?/);
+});

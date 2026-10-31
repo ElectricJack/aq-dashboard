@@ -139,3 +139,27 @@ test("moving from one task to another shows the second task, not a cached first"
   await userEvent.click(within(detail).getByRole("link", { name: "Define lease contract" }));
   expect(await screen.findByRole("heading", { level: 2, name: "Define lease contract" })).toBeInTheDocument();
 });
+
+test("an unrecognised readiness value in the URL is ignored, not sent", async () => {
+  let sent: string | null = "unset";
+  server.events.on("request:start", ({ request }) => {
+    const u = new URL(request.url);
+    if (u.pathname === "/api/v1/tasks") sent = u.searchParams.get("readiness");
+  });
+  renderApp("/work?readiness=bogus");
+  const list = await taskList();
+  expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+  expect(sent).toBeNull();
+  server.events.removeAllListeners();
+});
+
+test("Back from a task opened in the graph returns focus to its node", async () => {
+  const { router } = renderApp("/work?view=graph&root=aq-104");
+  const region = await screen.findByRole("region", { name: /dependency graph/i });
+  await userEvent.click(await within(region).findByRole("button", { name: /Implement safe recovery/ }));
+  await screen.findByRole("heading", { level: 2, name: "Implement safe recovery" });
+  await router.navigate(-1);
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Implement safe recovery/ })).toHaveFocus(),
+  );
+});

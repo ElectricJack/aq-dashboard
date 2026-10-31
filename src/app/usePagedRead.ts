@@ -16,8 +16,11 @@ export function usePagedRead<W, V>(opts: {
   params: Record<string, string | number | undefined>;
   adapt(item: W, serverTime: string): V;
   pollMs?: number;
-  /** Cursor-paged lists that reorder must not refetch under the reader. */
-  refetchOnWindowFocus?: boolean;
+  /**
+   * A list whose rows may reorder must never re-page itself under the reader
+   * (D-A04): no refetch on focus or on returning to it; only explicit refresh.
+   */
+  stable?: boolean;
 }) {
   const { queryContext } = useSession();
   return useInfiniteQuery({
@@ -36,6 +39,6 @@ export function usePagedRead<W, V>(opts: {
     },
     getNextPageParam: (last) => (last.page.hasMore ? (last.page.nextCursor ?? undefined) : undefined),
     ...(opts.pollMs !== undefined && { refetchInterval: opts.pollMs }),
-    ...(opts.refetchOnWindowFocus !== undefined && { refetchOnWindowFocus: opts.refetchOnWindowFocus }),
+    ...(opts.stable && { refetchOnWindowFocus: false, refetchOnMount: false }),
   });
 }

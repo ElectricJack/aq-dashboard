@@ -10,6 +10,7 @@ import type {
 import {
   adaptAction,
   adaptOverview,
+  adaptSearch,
   adaptPage,
   adaptSession,
   adaptTaskDetail,
@@ -243,4 +244,18 @@ test("a session with an unknown controller state is unsupported", () => {
   const raw = session();
   (raw.controller as { state: string }).state = "shared";
   expect(adaptSession(raw, T).controller.state).toBe("unsupported");
+});
+
+test("an unrecognised total accuracy is never shown as exact", () => {
+  const page: Page<TaskSummary> = {
+    items: [], next_cursor: null, has_more: false, snapshot_id: "s",
+    total: { value: 5, accuracy: "approximate" as "exact" },
+  };
+  expect(adaptPage(page, adaptTaskSummary).total).toEqual({ value: 5, accuracy: "estimated" });
+});
+
+test("search results are validated and malformed groups are a contract error", () => {
+  expect(adaptSearch({ groups: [{ type: "task", hits: [{ ref: { type: "task", id: "a" }, title: "A", excerpt: "", project: null }], has_more: false }] }).groups).toHaveLength(1);
+  expect(() => adaptSearch({} as never)).toThrow(/contract/i);
+  expect(() => adaptSearch({ groups: [{ type: "task", hits: "nope", has_more: false }] } as never)).toThrow(/contract/i);
 });

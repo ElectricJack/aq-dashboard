@@ -18,6 +18,8 @@ export type GraphLayout = {
   height: number;
   /** Nodes dropped by the client cap, in addition to server-omitted ones. */
   clientOmitted: number;
+  /** Edges lost because the cap dropped an endpoint. */
+  clientOmittedEdges: number;
 };
 
 const byTitle = (a: { title: string; id: string }, b: { title: string; id: string }) =>
@@ -28,9 +30,39 @@ const byTitle = (a: { title: string; id: string }, b: { title: string; id: strin
  * (dependency or hierarchy) path reaching it. Informational edges never
  * move nodes. Same input set always gives the same positions.
  */
+/** Hop distance from the root over all edges, ignoring direction. Unreachable nodes are Infinity. */
+function distances(graph: TaskGraphView): Map<string, number> {
+  const adj = new Map<string, string[]>();
+  for (const e of graph.edges) {
+    adj.set(e.from, [...(adj.get(e.from) ?? []), e.to]);
+    adj.set(e.to, [...(adj.get(e.to) ?? []), e.from]);
+  }
+  const dist = new Map<string, number>([[graph.rootId, 0]]);
+  const queue = [graph.rootId];
+  while (queue.length) {
+    const id = queue.shift()!;
+    for (const next of adj.get(id) ?? []) {
+      if (!dist.has(next)) {
+        dist.set(next, dist.get(id)! + 1);
+        queue.push(next);
+      }
+    }
+  }
+  return dist;
+}
+
 export function layoutGraph(graph: TaskGraphView): GraphLayout {
-  const sorted = [...graph.nodes].sort(byTitle);
+  // The cap keeps the root and the nodes nearest to it, then title order.
+  const dist = distances(graph);
+  const d = (id: string) => dist.get(id) ?? Number.POSITIVE_INFINITY;
+  // Compare distances explicitly: Infinity - Infinity is NaN and breaks the sort.
+  const sorted = [...graph.nodes].sort((a, b) => {
+    const da = d(a.id);
+    const db = d(b.id);
+    return (da === db ? 0 : da < db ? -1 : 1) || byTitle(a, b);
+  });
   const kept = sorted.slice(0, MAX_NODES);
+  const graphIds = new Set(graph.nodes.map((n) => n.id));
   const ids = new Set(kept.map((n) => n.id));
   const structural = graph.edges.filter((e) => e.category !== "informational" && ids.has(e.from) && ids.has(e.to));
 
@@ -48,9 +80,11 @@ export function layoutGraph(graph: TaskGraphView): GraphLayout {
     if (!changed) break;
   }
 
+  // Compress layer numbers to their rank so cycles can't leave empty columns.
+  const ranks = new Map([...new Set(layer.values())].sort((a, b) => a - b).map((l, i) => [l, i]));
   const columns = new Map<number, typeof kept>();
   for (const n of kept) {
-    const l = layer.get(n.id)!;
+    const l = ranks.get(layer.get(n.id)!)!;
     columns.set(l, [...(columns.get(l) ?? []), n]);
   }
   const nodes: PlacedNode[] = [];
@@ -84,5 +118,8 @@ export function layoutGraph(graph: TaskGraphView): GraphLayout {
     width: PAD * 2 + layers * NODE_W + (layers - 1) * COL_GAP,
     height: PAD * 2 + Math.max(rows, 1) * NODE_H + Math.max(rows - 1, 0) * ROW_GAP,
     clientOmitted: sorted.length - kept.length,
+    clientOmittedEdges: graph.edges.filter(
+      (e) => graphIds.has(e.from) && graphIds.has(e.to) && !(pos.has(e.from) && pos.has(e.to)),
+    ).length,
   };
 }

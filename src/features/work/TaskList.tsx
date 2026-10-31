@@ -26,8 +26,7 @@ export const TaskList = forwardRef<HTMLUListElement, Props>(function TaskList(
     scope,
     params: { readiness, limit: PAGE_SIZE },
     adapt: adaptTaskSummary,
-    // A cursor-paged list must not re-page itself under the reader (D-A04).
-    refetchOnWindowFocus: false,
+    stable: true,
   });
 
   if (!query.data) {

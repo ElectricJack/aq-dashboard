@@ -55,7 +55,7 @@ function Roster({ search }: { search: string }) {
       ) : (
         <ul aria-label="Sessions" className={styles.list}>
           {sessions.map((s) => (
-            <li key={s.id} className={styles.row} data-state={s.observation.state}>
+            <li key={s.id} className={styles.row} data-state={s.observation.state} data-session-id={s.id}>
               <Link to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }} className={styles.rowLink}>
                 {s.label}
               </Link>
@@ -179,9 +179,24 @@ export function Agents() {
   const { sessionId } = useParams();
   const [scope] = useScope();
   const search = scopeSearch(scope);
-  return sessionId ? (
-    <SessionPage key={sessionId} sessionId={sessionId} search={search} />
-  ) : (
-    <Roster search={search} />
+  const container = useRef<HTMLDivElement>(null);
+  const lastSelected = useRef<string | null>(null);
+  // Back from a session returns focus to the roster row that opened it.
+  useEffect(() => {
+    if (sessionId) {
+      lastSelected.current = sessionId;
+      return;
+    }
+    const id = lastSelected.current;
+    if (id) container.current?.querySelector<HTMLElement>(`li[data-session-id="${CSS.escape(id)}"] a`)?.focus();
+  }, [sessionId]);
+  return (
+    <div ref={container}>
+      {sessionId ? (
+        <SessionPage key={sessionId} sessionId={sessionId} search={search} />
+      ) : (
+        <Roster search={search} />
+      )}
+    </div>
   );
 }

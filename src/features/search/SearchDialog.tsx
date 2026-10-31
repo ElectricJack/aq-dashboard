@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router";
+import { adaptSearch, type SearchView } from "../../api/adapters/inspection";
 import type { SearchResults } from "../../api/wire/proposed";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { scopeSearch, useScope } from "../../app/scope";
@@ -31,12 +32,12 @@ function useDebounced(value: string, ms: number) {
 function Results({ q, onChoose }: { q: string; onChoose(): void }) {
   const [scope] = useScope();
   const search = scopeSearch(scope);
-  const query = useRead<SearchResults, SearchResults>({
+  const query = useRead<SearchResults, SearchView>({
     resource: "search",
     path: "/api/v1/search",
     scope,
     params: { q },
-    adapt: (data) => data,
+    adapt: adaptSearch,
   });
   if (!query.data) {
     return (
@@ -61,8 +62,12 @@ function Results({ q, onChoose }: { q: string; onChoose(): void }) {
       </p>
     );
   }
+  const count = view.groups.reduce((n, g) => n + g.hits.length, 0);
   return (
     <div className={styles.results}>
+      <p className="visually-hidden" role="status">
+        {count} result{count === 1 ? "" : "s"}
+      </p>
       {!complete && <p className={styles.warning}>Some projects didn't respond; results may be incomplete.</p>}
       {view.groups.map((g) => {
         const label = GROUP_LABEL[g.type] ?? "Other results";
@@ -95,7 +100,7 @@ function Results({ q, onChoose }: { q: string; onChoose(): void }) {
                 );
               })}
             </ul>
-            {g.has_more && <p className={styles.muted}>More {label.toLowerCase()} match. Refine your search.</p>}
+            {g.hasMore && <p className={styles.muted}>More {label.toLowerCase()} match. Refine your search.</p>}
           </section>
         );
       })}
@@ -153,7 +158,7 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
           Close search
         </button>
       </div>
-      <div className={styles.body} aria-live="polite">
+      <div className={styles.body}>
         {!capability.enabled ? (
           <p className={styles.muted}>{capability.reason}</p>
         ) : q.length < MIN_CHARS ? (

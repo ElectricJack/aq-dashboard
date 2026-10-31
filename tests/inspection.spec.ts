@@ -100,4 +100,25 @@ test("phone: Graph opens from a task, a node opens its detail and Back returns t
   await expect(graph).toBeHidden();
   await page.goBack();
   await expect(page.getByRole("region", { name: "Dependency graph" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Implement safe recovery/ })).toBeFocused();
+});
+
+test("returning to Work does not re-page the loaded list in the background", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/work");
+  const list = page.getByRole("list", { name: "Tasks" });
+  await expect(list.getByRole("listitem")).toHaveCount(25);
+  await page.getByRole("button", { name: "Load more tasks" }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(47);
+  await page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { name: "Agents" }).click();
+  await expect(page.getByRole("list", { name: "Sessions" })).toBeVisible();
+  await page.waitForTimeout(5_500); // past the 5s stale time
+  let taskRequests = 0;
+  page.on("request", (r) => {
+    if (new URL(r.url()).pathname === "/api/v1/tasks") taskRequests++;
+  });
+  await page.goBack();
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(47);
+  await page.waitForTimeout(1_000);
+  expect(taskRequests).toBe(0);
 });

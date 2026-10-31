@@ -24,7 +24,9 @@ export function Work() {
   const { taskId } = useParams();
   const [scope] = useScope();
   const [params, setParams] = useSearchParams();
-  const readiness = params.get("readiness") ?? "";
+  // A value this client doesn't offer is ignored rather than sent or shown as "All".
+  const rawReadiness = params.get("readiness") ?? "";
+  const readiness = (READINESS_FILTERS as readonly string[]).includes(rawReadiness) ? rawReadiness : "";
   const graphView = params.get("view") === "graph";
   const root = params.get("root") ?? taskId ?? null;
   // Wide screens show graph and inspector together, so Graph keeps the selection.
@@ -35,6 +37,7 @@ export function Work() {
   const search = params.toString() ? `?${params.toString()}` : scopeSearch(scope);
 
   const listRef = useRef<HTMLUListElement>(null);
+  const panesRef = useRef<HTMLDivElement>(null);
   const lastSelected = useRef<string | null>(null);
   useEffect(() => {
     if (taskId) {
@@ -43,8 +46,11 @@ export function Work() {
     }
     const id = lastSelected.current;
     if (!id) return;
-    const link = listRef.current?.querySelector<HTMLAnchorElement>(`li[data-task-id="${CSS.escape(id)}"] a`);
-    link?.focus();
+    const sel = CSS.escape(id);
+    const target = panesRef.current?.querySelector<HTMLElement>(
+      `li[data-task-id="${sel}"] a, button[data-node-id="${sel}"]`,
+    );
+    target?.focus();
   }, [taskId]);
 
   return (
@@ -86,7 +92,7 @@ export function Work() {
           </select>
         </label>
       </div>
-      <div className={styles.panes}>
+      <div className={styles.panes} ref={panesRef}>
         {graphView ? (
           root ? (
             <div className={styles.listPane}>
