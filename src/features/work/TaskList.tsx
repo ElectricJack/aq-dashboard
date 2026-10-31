@@ -1,13 +1,9 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { forwardRef } from "react";
 import { Link } from "react-router";
-import { adaptPage, adaptTaskSummary, type PageView, type TaskSummaryView } from "../../api/adapters/inspection";
-import { apiGet } from "../../api/client";
-import { scopedKey } from "../../api/queryKeys";
-import type { Coverage, Envelope, Page, Scope, TaskSummary } from "../../api/wire/proposed";
+import { adaptTaskSummary, type PageView, type TaskSummaryView } from "../../api/adapters/inspection";
+import type { Scope, TaskSummary } from "../../api/wire/proposed";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
-import { useSession } from "../../app/session";
-import { readUrl } from "../../app/useRead";
+import { usePagedRead } from "../../app/usePagedRead";
 import { READINESS_LABEL } from "./labels";
 import styles from "./Work.module.css";
 
@@ -24,19 +20,12 @@ export const TaskList = forwardRef<HTMLUListElement, Props>(function TaskList(
   { scope, readiness, selectedId, search },
   ref,
 ) {
-  const { queryContext } = useSession();
-  const params = { readiness, limit: PAGE_SIZE };
-  const query = useInfiniteQuery({
-    queryKey: scopedKey(queryContext, scope, "tasks", params),
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam, signal }) => {
-      const env = await apiGet<Envelope<Page<TaskSummary>>>(
-        readUrl("/api/v1/tasks", { ...params, cursor: pageParam }, scope),
-        signal,
-      );
-      return { page: adaptPage(env.data, adaptTaskSummary), coverage: env.coverage as Coverage };
-    },
-    getNextPageParam: (last) => (last.page.hasMore ? (last.page.nextCursor ?? undefined) : undefined),
+  const query = usePagedRead<TaskSummary, TaskSummaryView>({
+    resource: "tasks",
+    path: "/api/v1/tasks",
+    scope,
+    params: { readiness, limit: PAGE_SIZE },
+    adapt: adaptTaskSummary,
     // A cursor-paged list must not re-page itself under the reader (D-A04).
     refetchOnWindowFocus: false,
   });

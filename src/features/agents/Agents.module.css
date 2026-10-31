@@ -1,0 +1,128 @@
+.roster {
+  display: grid;
+  gap: var(--space-3);
+  max-inline-size: 1100px;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+.rowLink {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 32px;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.meta,
+.muted {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+
+.state {
+  font-size: var(--font-size-meta);
+}
+
+.row[data-state="reported_running"] .state {
+  color: var(--color-success);
+}
+
+.warning {
+  margin: 0;
+  color: var(--color-attention);
+}
+
+.secondary {
+  justify-self: start;
+  min-block-size: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-panel);
+  cursor: pointer;
+}
+
+.detail {
+  display: grid;
+  gap: var(--space-3);
+  max-inline-size: 1100px;
+}
+
+.back {
+  justify-self: start;
+  font-size: var(--font-size-meta);
+}
+
+.title {
+  font-size: 22px;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.title:focus-visible {
+  outline: 3px solid var(--color-focus);
+}
+
+.terminal {
+  display: grid;
+  place-content: center;
+  gap: var(--space-2);
+  min-block-size: 240px;
+  padding: var(--space-5);
+  text-align: center;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  background: #0b0e11;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+.terminal strong {
+  color: var(--color-text);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--font-size-meta);
+}
+
+.facts dt {
+  color: var(--color-text-secondary);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail h3 {
+  font-size: 16px;
+}
+
+.bullets {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  font-size: var(--font-size-meta);
+}
