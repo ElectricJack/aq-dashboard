@@ -72,3 +72,9 @@ test("unsupported live contract versions fail before loading dashboard data", as
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
 });
+
+test("an older daemon without bootstrap reports a compatibility problem", async () => {
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ error: "not_found" }, { status: 404 })));
+  renderApp("/settings");
+  expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
+});

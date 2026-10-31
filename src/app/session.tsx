@@ -51,7 +51,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   });
 
   const unauthenticated = query.error instanceof ApiError && query.error.status === 401;
-  const incompatible = query.error instanceof ApiError && query.error.kind === "contract";
+  const incompatible = query.error instanceof ApiError && (query.error.kind === "contract" || [404, 426].includes(query.error.status ?? 0));
   const forbidden = query.error instanceof ApiError && query.error.status === 403;
   const context = query.data?.queryContext;
   useEffect(() => {
@@ -85,7 +85,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             : forbidden
               ? "Your account does not have access to this AQ installation."
               : incompatible
-                ? "The dashboard cannot read this AQ server's API. Reload after installing a compatible dashboard bundle."
+                ? "This dashboard and AQ server do not support the same API. Install compatible versions, then reload."
                 : "The dashboard could not load your identity and capabilities from AQ."}
         </p>
         {!unauthenticated && (
