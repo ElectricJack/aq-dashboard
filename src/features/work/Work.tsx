@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { useParams, useSearchParams } from "react-router";
 import { scopeSearch, useScope } from "../../app/scope";
+import { useMediaQuery } from "../../components/useMediaQuery";
 import { READINESS_FILTERS, READINESS_LABEL } from "./labels";
 import { TaskDetail } from "./TaskDetail";
 import { TaskList } from "./TaskList";
@@ -26,6 +27,10 @@ export function Work() {
   const readiness = params.get("readiness") ?? "";
   const graphView = params.get("view") === "graph";
   const root = params.get("root") ?? taskId ?? null;
+  // Wide screens show graph and inspector together, so Graph keeps the selection.
+  // Narrower screens show one pane: Graph shows the graph, and a node opens its detail.
+  const wide = useMediaQuery("(min-width: 1200px)");
+  const graphPath = wide && taskId ? `/work/${encodeURIComponent(taskId)}` : "/work";
   // Links keep scope and filters so Back and "All tasks" return to the same list.
   const search = params.toString() ? `?${params.toString()}` : scopeSearch(scope);
 
@@ -43,7 +48,7 @@ export function Work() {
   }, [taskId]);
 
   return (
-    <div className={styles.work} data-has-detail={taskId ? "true" : "false"}>
+    <div className={styles.work} data-has-detail={taskId ? "true" : "false"} data-view={graphView ? "graph" : "list"}>
       <div className={styles.toolbar}>
         <nav aria-label="Work view" className={styles.views}>
           <Link
@@ -53,7 +58,7 @@ export function Work() {
             List
           </Link>
           <Link
-            to={{ search: withParams(params, { view: "graph", root }) }}
+            to={{ pathname: graphPath, search: withParams(params, { view: "graph", root }) }}
             aria-current={graphView ? "page" : undefined}
           >
             Graph

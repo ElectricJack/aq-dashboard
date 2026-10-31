@@ -6,6 +6,7 @@ import { appRoutes } from "../app/routes";
 
 export function renderApp(path = "/") {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Mirror production cache timing (App.tsx) so tests see the same cache reuse.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5_000 } } });
   return { router, queryClient, ...render(<App router={router} queryClient={queryClient} />) };
 }

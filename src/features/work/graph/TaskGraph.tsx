@@ -91,11 +91,12 @@ export default function TaskGraph({ rootId, selectedId, search }: { rootId: stri
               data-readiness={n.readiness.state}
               aria-pressed={n.id === selectedId}
               style={{ left: n.x, top: n.y, width: NODE_W, height: NODE_H }}
+              title={n.title}
               onClick={() => navigate({ pathname: `/work/${encodeURIComponent(n.id)}`, search })}
             >
               <span className={styles.nodeTitle}>{n.title}</span>
               <span className={styles.nodeState}>
-                {" · "}
+                <span className="visually-hidden"> · </span>
                 {READINESS_LABEL[n.readiness.state]}
               </span>
             </button>

@@ -132,3 +132,10 @@ test("task titles are rendered as text, never markup", async () => {
   expect(list.querySelector("img")).toBeNull();
   expect(list.querySelector("b")).toBeNull();
 });
+
+test("moving from one task to another shows the second task, not a cached first", async () => {
+  renderApp("/work/aq-104");
+  const detail = await screen.findByRole("region", { name: "Replay reconciliation" });
+  await userEvent.click(within(detail).getByRole("link", { name: "Define lease contract" }));
+  expect(await screen.findByRole("heading", { level: 2, name: "Define lease contract" })).toBeInTheDocument();
+});

@@ -75,6 +75,10 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
 }
 
+.work[data-has-detail="true"][data-view="graph"] .panes {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+}
+
 .listPane {
   display: grid;
   gap: var(--space-3);
@@ -289,8 +293,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The List/Graph toggle stays so Graph is reachable from a task on phones. */
   .work[data-has-detail="true"] .listPane,
-  .work[data-has-detail="true"] .toolbar {
+  .work[data-has-detail="true"] .toolbar label {
     display: none;
   }
 

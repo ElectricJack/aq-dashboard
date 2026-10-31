@@ -33,10 +33,12 @@ export function useRead<W, V>(opts: {
 }) {
   const { queryContext } = useSession();
   const params = opts.params ?? {};
+  // The path identifies the entity (e.g. /tasks/{id}); it must be part of the key.
+  const keyParams = { path: opts.path, ...params };
   return useQuery({
     queryKey: opts.scope
-      ? scopedKey(queryContext, opts.scope, opts.resource, params)
-      : queryKey(queryContext, opts.resource, params),
+      ? scopedKey(queryContext, opts.scope, opts.resource, keyParams)
+      : queryKey(queryContext, opts.resource, keyParams),
     queryFn: async ({ signal }): Promise<Read<V>> => {
       const env = await apiGet<Envelope<W>>(url(opts.path, params, opts.scope), signal);
       return { view: opts.adapt(env.data, env.server_time), serverTime: env.server_time, coverage: env.coverage };

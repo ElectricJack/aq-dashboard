@@ -21,7 +21,7 @@ export function usePagedRead<W, V>(opts: {
 }) {
   const { queryContext } = useSession();
   return useInfiniteQuery({
-    queryKey: scopedKey(queryContext, opts.scope, opts.resource, opts.params),
+    queryKey: scopedKey(queryContext, opts.scope, opts.resource, { path: opts.path, ...opts.params }),
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam, signal }): Promise<PagedRead<V>> => {
       const env = await apiGet<Envelope<Page<W>>>(
