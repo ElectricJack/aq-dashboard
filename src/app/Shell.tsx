@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { SearchDialog } from "../features/search/SearchDialog";
 import { NavLink, Outlet, useLocation } from "react-router";
+import { Ellipsis, Search } from "lucide-react";
+import { DESTINATION_ICON, Icon } from "../components/icons";
 import { ProviderUsageStrip } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
@@ -13,7 +15,8 @@ import { useProviderUsage } from "./useProviderUsage";
 function DestinationLink({ dest, search }: { dest: Destination; search: string }) {
   return (
     <NavLink to={{ pathname: `/${dest.id}`, search }} className={styles.navLink}>
-      {dest.label}
+      <Icon icon={DESTINATION_ICON[dest.id]} />
+      <span>{dest.label}</span>
     </NavLink>
   );
 }
@@ -52,7 +55,8 @@ function PhoneNav({ search }: { search: string }) {
             aria-controls={listId}
             onClick={() => setOpen((v) => !v)}
           >
-            More
+            <Icon icon={Ellipsis} />
+            <span>More</span>
           </button>
         </li>
       </ul>
@@ -107,7 +111,12 @@ export function Shell() {
         Skip to content
       </a>
       <aside className={styles.rail}>
-        <p className={styles.brand}>Agent Q</p>
+        <p className={styles.brand}>
+          <span className={styles.mark} aria-hidden="true">
+            aq
+          </span>
+          Agent Q
+        </p>
         <nav aria-label="Primary" className={styles.railNav}>
           <ul>
             {DESTINATIONS.filter((d) => d.id !== "settings").map((d) => (
@@ -133,6 +142,7 @@ export function Shell() {
           </p>
         )}
         <p className={styles.phoneBrand} aria-hidden="true">
+          <span className={styles.mark}>aq</span>
           Agent Q
         </p>
         <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={[]} />
@@ -143,7 +153,11 @@ export function Shell() {
           aria-keyshortcuts="Control+K Meta+K"
           onClick={() => setSearchOpen(true)}
         >
-          Search
+          <Icon icon={Search} size={18} />
+          <span>Search</span>
+          <kbd className={styles.kbd} aria-hidden="true">
+            Ctrl K
+          </kbd>
         </button>
         <ProviderUsageStrip state={usage.state} />
         <span className={styles.connection} data-state={status} role="status">

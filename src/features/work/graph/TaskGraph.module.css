@@ -82,8 +82,10 @@
 .node {
   position: absolute;
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-content: center;
-  gap: 2px;
+  column-gap: var(--space-3);
+  row-gap: 2px;
   padding: var(--space-2) var(--space-3);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-panel);
@@ -109,6 +111,30 @@
 
 .node[data-readiness="failed"] {
   border-color: var(--color-error);
+}
+
+.nodeIcon {
+  grid-row: span 2;
+  align-self: center;
+  color: var(--color-text-secondary);
+}
+
+.node[data-readiness="done"] .nodeIcon {
+  color: var(--color-success);
+}
+
+.node[data-readiness="needs_decision"] .nodeIcon,
+.node[data-readiness="waiting"] .nodeIcon,
+.node[data-readiness="blocked"] .nodeIcon {
+  color: var(--color-attention);
+}
+
+.node[data-readiness="running"] .nodeIcon {
+  color: var(--color-accent);
+}
+
+.node[data-readiness="failed"] .nodeIcon {
+  color: var(--color-error);
 }
 
 .nodeTitle {

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { adaptTaskGraph, type TaskGraphView } from "../../../api/adapters/inspection";
 import type { TaskGraph as TaskGraphWire } from "../../../api/wire/proposed";
+import { Icon, READINESS_ICON } from "../../../components/icons";
 import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { useRead } from "../../../app/useRead";
 import { READINESS_LABEL } from "../labels";
@@ -95,6 +96,7 @@ export default function TaskGraph({ rootId, selectedId, search }: { rootId: stri
               title={n.title}
               onClick={() => navigate({ pathname: `/work/${encodeURIComponent(n.id)}`, search })}
             >
+              <Icon icon={READINESS_ICON[n.readiness.state]} size={22} className={styles.nodeIcon} />
               <span className={styles.nodeTitle}>{n.title}</span>
               <span className={styles.nodeState}>
                 <span className="visually-hidden"> · </span>

@@ -245,3 +245,18 @@ test("live mode shows no mock banner", async () => {
   await screen.findByRole("heading", { level: 1, name: "Overview" });
   expect(screen.queryByText(/mock data/i)).not.toBeInTheDocument();
 });
+
+test("every destination link has a decorative icon and keeps its text name", async () => {
+  renderApp("/overview");
+  const navs = [await rail(), screen.getByRole("navigation", { name: "Primary (compact)" })];
+  for (const nav of navs) {
+    for (const link of within(nav).getAllByRole("link")) {
+      const icon = link.querySelector("svg");
+      expect(icon, link.textContent ?? "").not.toBeNull();
+      expect(icon).toHaveAttribute("aria-hidden", "true");
+    }
+  }
+  const more = within(navs[1]!).getByRole("button", { name: "More" });
+  expect(more.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  expect(screen.getByRole("button", { name: "Search" }).querySelector("svg")).not.toBeNull();
+});

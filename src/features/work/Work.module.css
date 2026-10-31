@@ -30,6 +30,7 @@
 .views a {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-block-size: var(--touch-target);
   padding: 0 var(--space-4);
   color: var(--color-text);
@@ -59,6 +60,7 @@
 .views a {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-block-size: var(--touch-target);
   padding: 0 var(--space-4);
   color: var(--color-text);
@@ -146,6 +148,13 @@
 .muted {
   color: var(--color-text-secondary);
   font-size: var(--font-size-meta);
+}
+
+.readiness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  vertical-align: middle;
 }
 
 .rowExplain {
@@ -277,6 +286,7 @@
 .views a {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-block-size: var(--touch-target);
   padding: 0 var(--space-4);
   color: var(--color-text);

@@ -55,3 +55,10 @@ test("graph view without a selected task asks for one", async () => {
   renderApp("/work?view=graph");
   expect(await screen.findByText(/choose a task to see its dependency neighbourhood/i)).toBeInTheDocument();
 });
+
+test("graph nodes and task rows show a readiness icon alongside the text", async () => {
+  renderApp("/work/aq-104?view=graph&root=aq-104");
+  const region = await graphRegion();
+  const nodes = await within(region).findAllByRole("button", { name: /·/ });
+  for (const n of nodes) expect(n.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+});

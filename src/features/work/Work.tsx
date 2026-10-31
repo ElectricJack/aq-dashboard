@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Link } from "react-router";
+import { List, Workflow } from "lucide-react";
+import { Icon } from "../../components/icons";
 import { useParams, useSearchParams } from "react-router";
 import { scopeSearch, useScope } from "../../app/scope";
 import { useMediaQuery } from "../../components/useMediaQuery";
@@ -61,12 +63,14 @@ export function Work() {
             to={{ search: withParams(params, { view: null, root: null }) }}
             aria-current={graphView ? undefined : "page"}
           >
+            <Icon icon={List} size={18} />
             List
           </Link>
           <Link
             to={{ pathname: graphPath, search: withParams(params, { view: "graph", root }) }}
             aria-current={graphView ? "page" : undefined}
           >
+            <Icon icon={Workflow} size={18} />
             Graph
           </Link>
         </nav>

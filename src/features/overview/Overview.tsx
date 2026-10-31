@@ -1,6 +1,8 @@
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView } from "../../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../../api/wire/proposed";
+import { CircleCheck } from "lucide-react";
+import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { formatAge, formatElapsed } from "../../components/time/relative";
@@ -25,6 +27,7 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   const label = ACTION_LABEL[item.kind];
   return (
     <li className={styles.attentionRow} data-kind={item.kind}>
+      <Icon icon={ATTENTION_ICON[item.kind]} size={28} className={styles.kindIcon} />
       <div className={styles.attentionMain}>
         <span className={styles.rowTitle}>{item.title}</span>
         <span className={styles.meta}>
@@ -112,7 +115,8 @@ export function Overview() {
             ["recovering", "recovering"],
           ] as const
         ).map(([key, label]) => (
-          <li key={key}>
+          <li key={key} data-count={key}>
+            <Icon icon={COUNT_ICON[key]} size={24} className={styles.countIcon} />
             <strong>
               <CountLabel total={view.counts[key]} />
             </strong>{" "}
@@ -159,6 +163,7 @@ export function Overview() {
               const path = subjectPath(r.subject);
               return (
                 <li key={`${r.subject.id}:${r.outcome}`}>
+                  <Icon icon={CircleCheck} size={20} className={styles.outcomeIcon} />
                   {path ? <Link to={{ pathname: path, search }}>{r.subject.title}</Link> : <span>{r.subject.title}</span>}
                   <span className={styles.meta}>
                     {FACT_LABEL[r.outcome]} · {r.project.label} · {formatAge(serverTime, r.at)}

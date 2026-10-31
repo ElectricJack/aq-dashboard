@@ -46,6 +46,35 @@
   padding-inline: var(--space-3);
 }
 
+.brand,
+.phoneBrand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mark {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.kbd {
+  margin-inline-start: auto;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: 12px var(--font-sans);
+  color: var(--color-text-secondary);
+}
+
 .railNav {
   display: flex;
   flex: 1;
@@ -69,6 +98,7 @@
 .navLink {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   min-block-size: var(--touch-target);
   padding: 0 var(--space-3);
   border: 0;
@@ -162,7 +192,10 @@
 }
 
 .search {
-  min-inline-size: 160px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 200px;
   text-align: start;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -252,12 +285,16 @@
   }
 
   .phoneBrand {
-    display: block;
+    display: flex;
     flex: 1;
   }
 
   .search {
     min-inline-size: 0;
+  }
+
+  .kbd {
+    display: none;
   }
 
   .top > section {
@@ -291,10 +328,13 @@
   }
 
   .phoneBar .navLink {
+    flex-direction: column;
     justify-content: center;
+    gap: 2px;
     inline-size: 100%;
-    padding: 0 var(--space-1);
-    font-size: 13px;
+    min-block-size: 56px;
+    padding: var(--space-1);
+    font-size: 12px;
   }
 
   .phoneBar .navLink[aria-current="page"] {

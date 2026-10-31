@@ -81,3 +81,13 @@ test("shows work in motion and recent outcomes", async () => {
   expect(within(outcomes).getByText("Renderer fix")).toBeInTheDocument();
   expect(within(outcomes).getByText(/merged/i)).toBeInTheDocument();
 });
+
+test("attention rows and counts carry decorative icons", async () => {
+  renderApp("/overview");
+  const rows = await within(await attention()).findAllByRole("listitem");
+  for (const row of rows) expect(row.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  const counts = screen.getByRole("list", { name: "Work counts" });
+  for (const item of within(counts).getAllByRole("listitem")) {
+    expect(item.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  }
+});

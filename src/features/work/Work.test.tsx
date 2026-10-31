@@ -163,3 +163,9 @@ test("Back from a task opened in the graph returns focus to its node", async () 
     expect(screen.getByRole("button", { name: /Implement safe recovery/ })).toHaveFocus(),
   );
 });
+
+test("task rows show a readiness icon alongside the readiness text", async () => {
+  renderApp("/work");
+  const rows = within(await taskList()).getAllByRole("listitem");
+  for (const r of rows) expect(r.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+});

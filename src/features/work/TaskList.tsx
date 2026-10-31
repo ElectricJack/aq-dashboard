@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { Link } from "react-router";
 import { adaptTaskSummary, type PageView, type TaskSummaryView } from "../../api/adapters/inspection";
 import type { Scope, TaskSummary } from "../../api/wire/proposed";
+import { Icon, READINESS_ICON } from "../../components/icons";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { usePagedRead } from "../../app/usePagedRead";
 import { READINESS_LABEL } from "./labels";
@@ -68,7 +69,11 @@ export const TaskList = forwardRef<HTMLUListElement, Props>(function TaskList(
                 {t.title}
               </Link>
               <span className={styles.rowMeta}>
-                {t.project.label} · <span className={styles.readiness}>{READINESS_LABEL[t.readiness.state]}</span>
+                {t.project.label} ·{" "}
+                <span className={styles.readiness}>
+                  <Icon icon={READINESS_ICON[t.readiness.state]} size={16} />
+                  {READINESS_LABEL[t.readiness.state]}
+                </span>
                 {t.execution.agentLabel && <> · {t.execution.agentLabel}</>}
               </span>
               <span className={styles.rowExplain}>{t.blocker?.explanation ?? t.readiness.explanation}</span>
