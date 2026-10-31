@@ -4,7 +4,8 @@ import type {
   ProviderUsageView,
   QuotaWindowView,
 } from "../../api/adapters/providerUsage";
-import { formatAge, formatUntil } from "../time/relative";
+import { FreshnessLabel } from "../QueryStatus/FreshnessLabel";
+import { formatUntil } from "../time/relative";
 import styles from "./ProviderUsageStrip.module.css";
 
 export type ProviderUsageState =
@@ -50,11 +51,8 @@ function WindowSummary({ win, serverTime }: { win: QuotaWindowView; serverTime: 
         {win.label}
         {win.coverage === "partial" && <span className={styles.qualifier}> · partial data</span>}
         {win.resetsAt && <> · resets {formatUntil(serverTime, win.resetsAt)}</>}
-        {win.freshness === "stale" ? (
-          <span className={styles.stale}> · Stale, observed {formatAge(serverTime, win.observedAt)}</span>
-        ) : (
-          <> · updated {formatAge(serverTime, win.observedAt)}</>
-        )}
+        {" · "}
+        <FreshnessLabel serverTime={serverTime} observedAt={win.observedAt} stale={win.freshness === "stale"} />
       </span>
     </>
   );

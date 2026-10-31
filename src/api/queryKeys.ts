@@ -1,3 +1,5 @@
+import type { Scope } from "./wire/proposed";
+
 export type QueryContext = {
   principalId: string;
   authorizationRevision: string;
@@ -16,6 +18,24 @@ export function queryKey(ctx: QueryContext, resource: string, params: Record<str
     ctx.authorizationRevision,
     ctx.contractVersion,
     resource,
+    params,
+  ] as const;
+}
+
+/** Key for a scoped read; the scope is its own element, never folded into params. */
+export function scopedKey(
+  ctx: QueryContext,
+  scope: Scope,
+  resource: string,
+  params: Record<string, unknown>,
+) {
+  return [
+    "aq",
+    ctx.principalId,
+    ctx.authorizationRevision,
+    ctx.contractVersion,
+    resource,
+    scope,
     params,
   ] as const;
 }
