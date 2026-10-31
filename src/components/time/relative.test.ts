@@ -1,4 +1,4 @@
-import { formatAge, formatUntil } from "./relative";
+import { formatAge, formatElapsed, formatUntil } from "./relative";
 
 const NOW = "2026-10-31T12:00:00.000Z";
 
@@ -26,4 +26,8 @@ test.each([
 test("unparseable timestamps format as unknown", () => {
   expect(formatAge(NOW, "garbage")).toBe("unknown time");
   expect(formatUntil(NOW, "garbage")).toBe("unknown time");
+});
+
+test("formatElapsed gives a bare duration", () => {
+  expect(formatElapsed(NOW, "2026-10-31T11:42:00.000Z")).toBe("18m");
 });

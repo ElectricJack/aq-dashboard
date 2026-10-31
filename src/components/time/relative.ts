@@ -21,8 +21,12 @@ export function formatUntil(serverTime: string, target: string): string {
   return ms <= 0 ? "due now" : `in ${compact(ms)}`;
 }
 
+export function formatElapsed(serverTime: string, since: string): string {
+  const ms = diff(since, serverTime);
+  return ms === null ? "unknown time" : compact(Math.max(0, ms));
+}
+
 export function formatAge(serverTime: string, observed: string): string {
-  const ms = diff(observed, serverTime);
-  if (ms === null) return "unknown time";
-  return `${compact(Math.max(0, ms))} ago`;
+  const elapsed = formatElapsed(serverTime, observed);
+  return elapsed === "unknown time" ? elapsed : `${elapsed} ago`;
 }
