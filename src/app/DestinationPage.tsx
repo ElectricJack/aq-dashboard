@@ -4,21 +4,22 @@ import { destination, type DestinationId } from "./destinations";
 import { useSession } from "./session";
 import styles from "./Shell.module.css";
 
-/** Last focused pathname, owned by the Shell so it survives route component remounts. */
+/** Last focused destination, owned by the Shell so it survives route component remounts. */
 export const TitleFocusContext = createContext<RefObject<string | null> | null>(null);
 
 /** Page title that receives focus after in-app navigation, for screen readers. */
 export function PageTitle({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLHeadingElement>(null);
-  const { pathname } = useLocation();
+  const destination = useLocation().pathname.split("/")[1] ?? "";
   const shared = useContext(TitleFocusContext);
   const local = useRef<string | null>(null);
   const previous = shared ?? local;
   useEffect(() => {
-    // Focus only when the page changes; search-param updates (scope, filters) keep focus.
-    if (previous.current !== null && previous.current !== pathname) ref.current?.focus();
-    previous.current = pathname;
-  }, [pathname, previous]);
+    // Focus only when the destination changes. Search-param updates (scope, filters) and
+    // in-destination navigation (list -> detail) manage their own focus.
+    if (previous.current !== null && previous.current !== destination) ref.current?.focus();
+    previous.current = destination;
+  }, [destination, previous]);
   return (
     <h1 ref={ref} tabIndex={-1} className={styles.title}>
       {children}

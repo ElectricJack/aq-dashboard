@@ -123,7 +123,8 @@ export function Overview() {
       <Attention view={view} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
-        <div className={styles.tableWrap}>
+        {/* Scrolls on its own at narrow widths; focusable so keyboard users can scroll it. */}
+        <div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
           <table aria-labelledby="motion-heading" className={styles.table}>
             <thead>
               <tr>

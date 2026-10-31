@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setupServer } from "msw/node";
 import { handlersFor } from "../../mocks/handlers";
@@ -30,7 +30,7 @@ test("the next-action link opens the exact subject", async () => {
   const region = await attention();
   const rows = await within(region).findAllByRole("listitem");
   await userEvent.click(within(rows[2]!).getByRole("link", { name: /inspect.*resolve integration conflict/i }));
-  expect(router.state.location.pathname).toBe("/work/me-301");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/work/me-301"));
 });
 
 test("shows counts with unknown rendered as unknown, not zero", async () => {
