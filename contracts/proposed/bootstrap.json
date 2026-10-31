@@ -1,0 +1,27 @@
+{
+  "api_version": "proposed-0",
+  "request_id": "fixture-bootstrap",
+  "server_time": "2026-10-31T12:00:00.000Z",
+  "scope": { "kind": "all_authorized" },
+  "data": {
+    "principal": { "id": "principal-sample", "display_name": "Sample Owner", "authorization_revision": "1" },
+    "product": { "version": "0.0.0-fixture", "dashboard_digest": "sha256:fixture" },
+    "contracts": [],
+    "capabilities": [
+      { "name": "dashboard.inspect", "version": "proposed-0", "enabled": true },
+      { "name": "provider.quota", "version": "proposed-0", "enabled": true }
+    ],
+    "limits": { "page_size": 25 },
+    "default_scope": { "kind": "all_authorized" },
+    "global_supervisor": { "status": "unconfigured", "conversation_id": null, "reason": "Central supervisor (AQ-17) is not available" }
+  },
+  "observation": {
+    "observed_at": "2026-10-31T12:00:00.000Z",
+    "fresh_until": "2026-10-31T12:01:00.000Z",
+    "source": "fixture",
+    "quality": "reported",
+    "coverage": "complete"
+  },
+  "pending_operations": [],
+  "coverage": { "state": "complete" }
+}

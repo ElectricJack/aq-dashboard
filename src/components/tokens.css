@@ -1,0 +1,55 @@
+/* Initial design tokens from docs/specs/0002-product-design.md section 2.
+   Rendered contrast must be rechecked before release. */
+:root {
+  color-scheme: dark;
+
+  --color-canvas: #111418;
+  --color-panel: #191f26;
+  --color-raised: #222a34;
+  --color-text: #eef1f5;
+  --color-text-secondary: #b6c1ce;
+  --color-accent: #b1b2ff;
+  --color-accent-contrast: #111418;
+  --color-focus: #f3c576;
+  --color-border: #36414f;
+  --color-attention: #f0b450;
+  --color-error: #ff8f80;
+  --color-success: #8fd3a5;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --shadow-overlay: 0 12px 32px rgb(0 0 0 / 0.45);
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-size-body: 16px;
+  --font-size-meta: 14px;
+  --font-size-title: clamp(24px, 4vw, 32px);
+
+  --rail-width: 224px;
+  --gutter-desktop: 24px;
+  --gutter-mobile: 16px;
+  --touch-target: 44px;
+
+  --motion-duration: 150ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

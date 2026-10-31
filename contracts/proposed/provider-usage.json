@@ -1,0 +1,49 @@
+{
+  "api_version": "proposed-0",
+  "request_id": "fixture-provider-usage",
+  "server_time": "2026-10-31T12:00:00.000Z",
+  "scope": { "kind": "all_authorized" },
+  "data": [
+    {
+      "provider_id": "anthropic",
+      "account_ref": "account-sample-claude",
+      "account_label": "Claude",
+      "scope": "provider_account",
+      "preferred_window_id": "week",
+      "availability_ref": null,
+      "windows": [
+        {
+          "id": "week", "label": "Week",
+          "starts_at": "2026-10-26T12:00:00.000Z", "resets_at": "2026-11-02T12:00:00.000Z",
+          "used_percent": 42, "used": null, "limit": null, "unit": null, "state": "known",
+          "observation": { "observed_at": "2026-10-31T11:59:58.000Z", "fresh_until": "2026-10-31T12:01:00.000Z", "source": "fixture", "quality": "reported", "coverage": "complete" }
+        },
+        {
+          "id": "session", "label": "5-hour",
+          "starts_at": "2026-10-31T09:00:00.000Z", "resets_at": "2026-10-31T14:00:00.000Z",
+          "used_percent": 18, "used": null, "limit": null, "unit": null, "state": "known",
+          "observation": { "observed_at": "2026-10-31T11:59:58.000Z", "fresh_until": "2026-10-31T12:01:00.000Z", "source": "fixture", "quality": "reported", "coverage": "complete" }
+        }
+      ]
+    },
+    {
+      "provider_id": "openai",
+      "account_ref": "account-sample-codex",
+      "account_label": "Codex",
+      "scope": "provider_account",
+      "preferred_window_id": "primary",
+      "availability_ref": null,
+      "windows": [
+        {
+          "id": "primary", "label": "Primary",
+          "starts_at": null, "resets_at": "2026-11-01T06:00:00.000Z",
+          "used_percent": 85, "used": null, "limit": null, "unit": null, "state": "known",
+          "observation": { "observed_at": "2026-10-31T11:59:50.000Z", "fresh_until": "2026-10-31T12:01:00.000Z", "source": "fixture", "quality": "reported", "coverage": "complete" }
+        }
+      ]
+    }
+  ],
+  "observation": { "observed_at": "2026-10-31T11:59:58.000Z", "fresh_until": "2026-10-31T12:01:00.000Z", "source": "fixture", "quality": "reported", "coverage": "complete" },
+  "pending_operations": [],
+  "coverage": { "state": "complete" }
+}
