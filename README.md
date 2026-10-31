@@ -24,6 +24,8 @@ The Markdown documents are canonical. Regenerate the local HTML reader with `pyt
 
 ## Development
 
+CI (`.github/workflows/ci.yml`) runs the typecheck, unit tests, production build with the mock-leak check, and the Playwright/axe browser checks on every push and pull request.
+
 Requires Node 24 and pnpm 10 (exact versions pinned in `package.json` and `pnpm-lock.yaml`).
 
 ```sh
