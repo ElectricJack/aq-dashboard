@@ -24,6 +24,9 @@ export default defineConfig({
   // reloads mid-page after discovering it.
   optimizeDeps: { include: ["msw/browser"] },
   test: {
+    // Keep cold jsdom/module work bounded while Rust components build nearby.
+    // Assertion deadlines remain unchanged.
+    maxWorkers: 4,
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
