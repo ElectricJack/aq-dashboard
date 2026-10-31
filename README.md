@@ -79,3 +79,11 @@ It does not launch agents or qualify terminal streaming. The first profile leave
 Work, Decisions, Results, Search, Playbooks, Knowledge and supervisor chat disabled
 until their respective live read/action owners are connected. Provider account
 quota remains unavailable; absent measurements are never displayed as zero.
+
+The initial live connection is qualified in
+[D05](docs/evidence/d05-live-framework.md), with exact source/bundle pins and
+retained results. The live browser suite also opens a session and checks its deep
+link when the configured installation has one; an empty installation skips that
+case. The retained qualification uses a nonempty, clearly labelled development
+fixture and does not run a harness. Live and mock browser runs use separate output
+directories so they can run concurrently without deleting each other's traces.

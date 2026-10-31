@@ -1,6 +1,7 @@
 # Live framework connection
 
-Status: implementation in progress, 2026-10-31.
+Status: initial live read connection implemented and qualified, 2026-10-31.
+Broader API-02/UI-01 delivery remains in progress.
 
 Connect the existing dashboard to the central AQ human listener. The first live
 profile is `dashboard-read-1`: identity/capabilities, authorized projects, session
@@ -34,3 +35,10 @@ asset integrity/path separation. Final acceptance exercises the production
 bundle in a browser against an actual AQ daemon and disposable PostgreSQL,
 including page refresh/deep links and unavailable capabilities. That smoke test
 does not qualify real harness execution, provider usage or terminal streaming.
+
+Acceptance for this first subset is recorded in
+[D05 live framework evidence](../evidence/d05-live-framework.md): real daemon and
+PostgreSQL, a nonempty development fixture session, immutable production bundle,
+and no browser API interception. Protected resource authorization/contract errors
+close views and evict caches immediately; explicit recovery avoids repeated denied
+reads. Future write, terminal and additional domain owners require separate work.

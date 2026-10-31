@@ -1,0 +1,17 @@
+
+> aq-dashboard@0.0.0 test /home/jkern/dev/aq-dashboard
+> vitest run
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-dashboard
+
+
+ Test Files  21 passed (21)
+      Tests  234 passed (234)
+   Start at  15:12:45
+   Duration  10.33s (tests 44%, environment 39%, setup 8%, import 7%, transform 2%)
+
+Environment  jsdom was created 21 times · 14.66s total, 39% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

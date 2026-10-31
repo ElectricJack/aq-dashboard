@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-31",
+  "dashboard_source": "dbbba20936a9ff9c8767796832aa29b9a0523368",
+  "daemon_source": "8bc7a63bac9cab843d307b584c87683c1b51c6b9",
+  "daemon_binary_sha256": "4cdd28eb45c73bb8a92fd85bf9465e05785b7f1ac646ee126f35a370330a617a",
+  "node": "v24.15.0",
+  "pnpm": "10.34.5",
+  "results": {
+    "unit": 234,
+    "mock_browser": 35,
+    "live_browser": 4,
+    "live_skipped": 0,
+    "build": "passed"
+  },
+  "files_sha256": {
+    "unit.log": "d525a585d13e1df55c703cb2b6ed9691afb285382fd70fd81cbdc9b3e34de801",
+    "build.log": "1081ab58882a2f2471fcacb985211c866c5a09f596c39ccda4da499b40f2cf27",
+    "mock-browser.log": "d7045398138d3086442644ec7e2d7ec919b710e26c66c14d7bda928128d6d4c4",
+    "live-browser.log": "a89f38a105636e3407a2a9122b3f2d507e40d399165f048bcb48eceaa7ddb43b",
+    "daemon-build.log": "2de8b7b00f2d1a661c91e741091a4abd77e67af774558b4cfb63ee7c4a4ea98d",
+    "negative-unit-roster-timeout.log": "0bc5c493b33073f7dad3aed2f68909d828e23145e99b51862ce99b6ff5a28869",
+    "negative-browser-artifact-collision.log": "05239a5e19426ebeccba7f436031ccf22c114decfeaab484a7b8636738973916",
+    "running-bundle.json": "4a2955917cfd04e9e298c1e76be2825b3394196aaca0d70e5a9d98b572016e6f",
+    "mobile-session.png": "7f72d44bb329623f1235e5060e9ab1fc03b80b431c5eb274cf942d23bd334ac8",
+    "seed-fixture.py": "e0a0baa96db1f06c7b0ed10281efc329868f0a7177bbf356ba97842fc2a8df78",
+    "dashboard-manifest.json": "6d19f55ac7103e3993ddc0ea6f10cd9b20250abdf940690f99afee7198228f68"
+  },
+  "manifest_bootstrap_digest_equal": true,
+  "scope": "Initial live read connection only; synthetic development session, no grant or agent process."
+}
