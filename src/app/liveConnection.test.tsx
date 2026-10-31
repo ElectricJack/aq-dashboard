@@ -134,7 +134,7 @@ test("malformed bootstrap refresh gates and clears already loaded protected data
   expect(screen.queryByRole("region", { name: "Worker 07" })).not.toBeInTheDocument();
 });
 
-test.each(["version", "scope"])("single read clears previously cached projects after a mismatched %s", async (mismatch) => {
+test.each(["version", "scope", "upgrade required"])("single read clears previously cached projects after a mismatched %s", async (mismatch) => {
   const projectEnvelope = { ...fixture, api_version: "dashboard-read-1", data: {
     items: [{ id: "private-project", label: "Private project label" }], next_cursor: null,
     has_more: false, snapshot_id: "current", total: { value: 1, accuracy: "exact" },
@@ -145,7 +145,7 @@ test.each(["version", "scope"])("single read clears previously cached projects a
   );
   const { queryClient } = renderApp("/settings");
   await screen.findByRole("option", { name: "Private project label" });
-  server.use(http.get("/api/v1/projects", () => HttpResponse.json({
+  server.use(http.get("/api/v1/projects", () => mismatch === "upgrade required" ? HttpResponse.json({}, { status: 426 }) : HttpResponse.json({
     ...projectEnvelope,
     ...(mismatch === "version" ? { api_version: "future-99" } : { scope: { kind: "project", project_id: "other" } }),
   })));

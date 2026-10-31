@@ -93,5 +93,5 @@ export function apiSend<T>(
 /** Authorization and compatibility failures must never retain private stale reads. */
 export function isProtectedReadFailure(error: unknown): error is Error {
   return error instanceof ContractError || (error instanceof ApiError &&
-    (error.kind === "contract" || error.status === 401 || error.status === 403));
+    (error.kind === "contract" || error.status === 401 || error.status === 403 || error.status === 426));
 }
