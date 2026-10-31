@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-31",
+  "status": "Accepted visual direction; sample data; static media previews",
+  "assets": [
+    {
+      "file": "01-overview-v3.png",
+      "title": "Overview",
+      "source": "dashboard-design-review-2026-10-30/01-overview-v3.png",
+      "sha256": "6203c6be88a8c5ce3409544365b5921a4c6ae1e8bed5e199b0f3ab4837434c93",
+      "bytes": 1637672
+    },
+    {
+      "file": "02-work-explorer-v3.png",
+      "title": "Work explorer",
+      "source": "dashboard-design-review-2026-10-30/02-work-explorer-v3.png",
+      "sha256": "d921e722e7a937ade91a04cbb0476518b13b5d8e1dda519bcb27fbb4f4153d6e",
+      "bytes": 1689423
+    },
+    {
+      "file": "03-decision-workspace-v3.png",
+      "title": "Decision workspace",
+      "source": "dashboard-design-review-2026-10-30/03-decision-workspace-v3.png",
+      "sha256": "b79866eb864c01f5fa226394b01ee11cccb88af28e976c4b1e8e2c87a3680fcf",
+      "bytes": 1716517
+    },
+    {
+      "file": "04-supervisor-chat.png",
+      "title": "Docked supervisor",
+      "source": "dashboard-design-review-2026-10-30/04-supervisor-chat.png",
+      "sha256": "f0ae6dbbde8ff647509d912ec0ad059e06a716f263d7b547cadf7d2a3e1ef026",
+      "bytes": 1611292
+    },
+    {
+      "file": "06-playbooks.png",
+      "title": "Playbooks",
+      "source": "dashboard-design-review-2026-10-30/06-playbooks.png",
+      "sha256": "38dd210d8fe78d6af5c3aa26d06c55896ef103318cc187ab42272f2ac40f614c",
+      "bytes": 1495685
+    },
+    {
+      "file": "07-knowledge-v2.png",
+      "title": "Knowledge",
+      "source": "dashboard-design-review-2026-10-30/07-knowledge-v2.png",
+      "sha256": "b2731af6f799b524fb7cfbf55e97f933fad6c7ac68dc6ebf3e1f29dc0e05142f",
+      "bytes": 1711169
+    },
+    {
+      "file": "08-agents-focus-desktop.png",
+      "title": "Agents \u2014 focused desktop",
+      "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/08-agents-focus-desktop.png",
+      "sha256": "9e322c9ebbd72699baffd96ef73839f023dacf402d9da954a8103297e235e329",
+      "bytes": 1450196
+    },
+    {
+      "file": "09-supervisor-full-desktop.png",
+      "title": "Supervisor \u2014 full page",
+      "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/09-supervisor-full-desktop.png",
+      "sha256": "f6f3a26b739c6fcf97ef1124eac39c3799da5c15e95678147f2415d7d6eb12b5",
+      "bytes": 1462225
+    },
+    {
+      "file": "10-results-desktop-v2.png",
+      "title": "Results \u2014 desktop",
+      "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/10-results-desktop-v2.png",
+      "sha256": "0a0bf13607035f9ea235d31011e85fab2d152846572b21a3203b0eba8b075c32",
+      "bytes": 1599318
+    },
+    {
+      "file": "11-agent-mobile-v2.png",
+      "title": "Agents \u2014 mobile",
+      "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/11-agent-mobile-v2.png",
+      "sha256": "2ff1d3abc08caed62852d046f011a84647e2c6a07ede6288965a724d8166ac38",
+      "bytes": 1331074
+    },
+    {
+      "file": "12-supervisor-mobile.png",
+      "title": "Supervisor \u2014 mobile",
+      "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/12-supervisor-mobile.png",
+      "sha256": "afab154385721d9345e66bddbb78138ff04c8c6e4e2157fbe113c1a36e2ad656",
+      "bytes": 1543547
+    },
+    {
+      "file": "13-results-mobile-v2.png",
+      "title": "Results \u2014 mobile",
+      "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/13-results-mobile-v2.png",
+      "sha256": "a61ece2491ae4716408280909db1678214147c724093f837d80935d65e5de052",
+      "bytes": 1533662
+    }
+  ]
+}

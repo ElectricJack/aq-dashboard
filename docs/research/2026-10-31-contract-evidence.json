@@ -1,0 +1,182 @@
+{
+  "captured_at": "2026-10-31T15:29:56.584884+00:00",
+  "scope": "Selected local evidence, not full repository or runtime attestation",
+  "validation": "Source inspection only; backend tests not rerun",
+  "files": [
+    {
+      "path": "agent-q/crates/aq-observation-api/artifacts/usage.schema.json",
+      "sha256": "38673e7c2bb1b6acaf9a2da533663597e25c2c826fdb68124a6b14bca726c3b5",
+      "bytes": 11412
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/admin_api.rs",
+      "sha256": "bb7081f926c331574c96d2c4ead201843e06068772ff401b010fc6c4c418ddde",
+      "bytes": 7370
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/agent_access/messaging.rs",
+      "sha256": "62aaf98bc796a6077f3e8fd37a875215055f505384a342ad46185b878521e8f9",
+      "bytes": 25957
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/authz.rs",
+      "sha256": "4a51f29ab06b64b4b5c5739e86966cd9dcdbddbd9256e2b8ddc1b71d9dcb2a57",
+      "bytes": 4091
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/execution/api.rs",
+      "sha256": "7d7f2d24893402c771113f9775f7f5c0be7d7d94d68928fa7f70d1524e471fcc",
+      "bytes": 9604
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/intelligence.rs",
+      "sha256": "ecff45f6ace4b4d17c7ae6d30cf1cc6969ed94d8c8d3776696b88708edf36f50",
+      "bytes": 9050
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/lib.rs",
+      "sha256": "6431f49a8590c8543518e2d5360f9552939db0cc19670c08c9abd79d1c6f514d",
+      "bytes": 10545
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/notifications/api.rs",
+      "sha256": "c42f440dc65b8d0069c2d18a7d352a3a4431e63dded517dadb9b6d98bc269202",
+      "bytes": 2629
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/observations/api.rs",
+      "sha256": "4ed312e3b0d7615ce6dd7850b096221c2f22575095163b27e6f11f4ba6000033",
+      "bytes": 4682
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/profile_catalog.rs",
+      "sha256": "e79b9bb32c0d06effa763eae560d47a8641c59a6b45b18f9049ef0ae035cf086",
+      "bytes": 8488
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/profiled_execution/artifacts.rs",
+      "sha256": "198cfcb02b53ea4e2323dfd01aaf9b4e2357d3bd00c55a92a5d6e4f207ab801a",
+      "bytes": 10499
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/project_bindings.rs",
+      "sha256": "c0fdcccea8fa2e81bfb032639977cdd9b3a945ec45e0210ad70b9d96ba10297e",
+      "bytes": 23735
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/source_retention.rs",
+      "sha256": "50b19f8b1dac6250f2af66fc30afdc0d482ff01f38748a0032a3576b39351e04",
+      "bytes": 42163
+    },
+    {
+      "path": "agent-q/crates/aq-server/src/terminal/api.rs",
+      "sha256": "766b4c641f61ce26c38e0dec9dc94ec42e48070c30f795579d37010f2dcad8cf",
+      "bytes": 5978
+    },
+    {
+      "path": "agent-q/crates/aq-server/tests/authz.rs",
+      "sha256": "782a1d3fac7c7dee4799a02537e8c29cd07daa006395934383281a8044650c51",
+      "bytes": 10175
+    },
+    {
+      "path": "agent-q/crates/aq-server/tests/messaging.rs",
+      "sha256": "f3e5252805901cb2d5000205f5c9ace07741620c7e6932b97a92ee5684e6e3c6",
+      "bytes": 35880
+    },
+    {
+      "path": "agent-q/crates/aq-server/tests/terminal_store.rs",
+      "sha256": "878a44b6e773188514e5885e106b9017fc91729801cc828cc22fcf023744a2b8",
+      "bytes": 65755
+    },
+    {
+      "path": "agent-q/crates/aq-terminal-relay/src/api.rs",
+      "sha256": "963d93248e73745683adb56ebb63422a3a8061fca6652aafefe136e0bb22556e",
+      "bytes": 4345
+    },
+    {
+      "path": "agent-q/docs/architecture/0001-ecosystem-and-releases.md",
+      "sha256": "05afad659d75175ef37db296670060a4686628ea5496316de5d5704ea1d9a30b",
+      "bytes": 17221
+    },
+    {
+      "path": "agent-q/docs/architecture/0002-execution-and-recovery.md",
+      "sha256": "c689a0fdf2619f8c21448e43a7296ea39ec4165c539c00ba2b258ec3d6ecd883",
+      "bytes": 17600
+    },
+    {
+      "path": "agent-q/docs/architecture/0003-agent-profiles-harnesses-and-terminals.md",
+      "sha256": "f8560db82f21cd566c58750e72f04966b4214231838430b23721e76faecc6049",
+      "bytes": 30373
+    },
+    {
+      "path": "agent-q/docs/architecture/0004-session-operations-waits-and-notifications.md",
+      "sha256": "867e1165130c8f1b2f7259fadee8619a02c10be7b4deea7cac9d231c8e06b4f4",
+      "bytes": 30131
+    },
+    {
+      "path": "agent-q/docs/implementation/AQ-22-inspection.md",
+      "sha256": "b4241090b091e600f4700b8cec48fbb4fb5fca8e3626d7f81c044bcf244e33d4",
+      "bytes": 2611
+    },
+    {
+      "path": "agent-q/docs/implementation/AQ-24.md",
+      "sha256": "c942df206bb8a836f215f3d95569254201cd7ab30e34ec32e2e234bb4ab66a44",
+      "bytes": 1896
+    },
+    {
+      "path": "agent-q/docs/operations/messaging.md",
+      "sha256": "cf335d60d7160002c53f6820afeee8cdecb213fa437000e7584111b63fb919f9",
+      "bytes": 6947
+    },
+    {
+      "path": "agent-q/docs/operations/profile-catalogs.md",
+      "sha256": "1a2b6992935e072d22b424b7c8bcdbf8b6c45be69b88d773c7c87ef73de3fdad",
+      "bytes": 4572
+    },
+    {
+      "path": "agent-q/docs/plans/0001-v2-milestones.md",
+      "sha256": "26150290cd9269960d33dd03b7944a50d5561548ccd0ef3f4a912831b0fb7819",
+      "bytes": 107665
+    },
+    {
+      "path": "agent-q/protocol/agent-access/v1/README.md",
+      "sha256": "c1ad1191e9525ec50c36af56cbf282abf7873f7de4d72c8e0dc5335b090cf3fe",
+      "bytes": 17194
+    },
+    {
+      "path": "agent-q/protocol/lifecycle-api/v1/request.schema.json",
+      "sha256": "9bd00cca5269763f3307b5fff80f4cabb6eee768c7387beeb6b12cde8ee449c3",
+      "bytes": 27007
+    },
+    {
+      "path": "agent-q/protocol/lifecycle-api/v1/response.schema.json",
+      "sha256": "ea366c968f92befcbe687fd2205774fdc024731ab7339f6bacbf387be256796c",
+      "bytes": 50703
+    },
+    {
+      "path": "agent-q/protocol/session-api/v1/README.md",
+      "sha256": "ca5c29e40424895c1700371752ca615a35f71506aa2ff117e8fc457f7c5aba9e",
+      "bytes": 6204
+    },
+    {
+      "path": "agent-q/protocol/terminal-relay/draft-v1/README.md",
+      "sha256": "478ce91e16f1c53da47b699eacaed2bd69a64542f086c34e9d9f920bef69311d",
+      "bytes": 5075
+    },
+    {
+      "path": "aq-graph/docs/openapi.json",
+      "sha256": "a06393e0557fe06bfcaf9820c073f6e3e585441282561b1e53638e80600b46bc",
+      "bytes": 175201
+    },
+    {
+      "path": "aq-graph/docs/specs/0004-shared-node-model.md",
+      "sha256": "ec601bc2ea687ff3cd7284a71b03e0872b1cf87bcc4ce19ffe8cf54800a0843b",
+      "bytes": 7789
+    },
+    {
+      "path": "aq-playbooks/docs/specs/0001-aq-playbooks.md",
+      "sha256": "a0d3381754625875955d02153f103c2a7f3cdeac409d82029698f4d9bc40c907",
+      "bytes": 68734
+    }
+  ]
+}

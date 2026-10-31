@@ -1,0 +1,1015 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent Q dashboard specification</title><style>
+:root{color-scheme:dark;--bg:#111418;--panel:#191f26;--text:#eef1f5;--muted:#b6c1ce;--accent:#b1b2ff;--border:#36414f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}
+main{max-width:1200px;margin:auto;padding:36px 28px 80px}h1{font-size:34px;line-height:1.2}h2{margin-top:40px;font-size:26px}h3{font-size:20px}
+p,li{max-width:100ch}a{color:var(--accent);text-underline-offset:3px}a:focus-visible{outline:3px solid #f3c576;outline-offset:4px}
+nav{display:flex;flex-wrap:wrap;gap:12px 24px;padding:18px 24px;background:var(--panel);border-bottom:1px solid var(--border)}
+.intro{padding:20px 24px;background:var(--panel);border:1px solid var(--border);border-radius:12px}.muted{color:var(--muted)}
+section{margin-top:50px;padding-top:12px;border-top:1px solid var(--border);scroll-margin-top:20px}.source{font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}th{color:var(--accent);background:var(--panel)}
+.table-wrap{overflow:auto;margin:24px 0}code{font-size:.9em;background:var(--panel);padding:2px 4px;overflow-wrap:anywhere}pre{padding:20px;background:var(--panel);overflow:auto}pre code{padding:0}
+li{margin:8px 0}figure{margin:28px 0}img{max-width:100%;height:auto;border:1px solid var(--border);border-radius:10px}figcaption{color:var(--muted);margin-top:8px}
+@media(max-width:700px){main{padding:24px 16px}h1{font-size:28px}h2{font-size:23px}nav{padding:16px}th,td{min-width:140px}}
+@media print{:root{color-scheme:light}body{background:white;color:#111}nav{display:none}a{color:#334}.intro,th,pre,code{background:#f2f3f6}section{break-before:page}main{max-width:none;padding:0}}
+</style></head><body><nav aria-label="Specification sections"><a href="#design">Product design</a><a href="#contracts">API contracts</a><a href="#plan">Implementation</a><a href="#audit">Contract audit</a><a href="design/index.html">Mockup gallery</a></nav><main><h1>Agent Q dashboard specification</h1><div class="intro"><p><strong>Contract readiness: partial.</strong> Existing human APIs provide a strong foundation. The complete dashboard API, provider quota, global conversation integration and Results/comment/feedback contracts still need publication and implementation.</p><p class="muted">October 31, 2026 · Proposed implementation specification based on the accepted visual direction. Markdown source documents are canonical. This reader is documentation, not the dashboard application.</p></div><section id="design"><p class="source"><a href="specs/0002-product-design.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard product and interaction design</h1>
+<p>Status: implementation specification proposed from the accepted visual direction. Date: 2026-10-31. The user approved the mockup direction; this document supplies implementation decisions, not a claim that the APIs or application are implemented.</p>
+<p>Read with the <a href="specs/0001-dashboard.md">architecture baseline</a>, <a href="#contracts">API contract proposal</a>, <a href="#plan">implementation plan</a>, and <a href="#audit">contract audit</a>. Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.</p>
+<h2>1. Product outcome and boundaries</h2>
+<p>An operator should immediately understand what needs attention, what is running, what it produced, and how to intervene. Reading a result and requesting a correction should be possible on a phone. Desktop provides space for investigation and terminal work; mobile provides a deliberate single-pane composition.</p>
+<p>AQ remains the authority for authentication, scope, scheduling, actions, lifecycle, evidence retention and decisions. The browser owns presentation, navigation, drafts and disposable caches. It connects only to AQ's human API. Component databases, worker endpoints, provider credentials and internal graph services are never browser dependencies.</p>
+<p>The complete target includes Overview, Supervisor, Work, Results, Decisions, Agents, Playbooks, Knowledge and basic Settings. Implementation can ship coherent capability-gated slices; the first inspection release does not constitute delivery of the full design. Bulk administration, arbitrary workflow editors, offline committed edits and a separate dashboard server are outside this release.</p>
+<h2>2. Visual references and design system</h2>
+<p>The <a href="design/index.html">visual gallery</a> preserves twelve selected PNGs, including desktop and mobile variants. All displayed projects, sessions, quota values and media controls are illustrative. The <a href="design/manifest.json">asset manifest</a> records source paths and content hashes.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overview</td>
+<td><a href="design/01-overview-v3.png">Overview</a></td>
+</tr>
+<tr>
+<td>Work and Decisions</td>
+<td><a href="design/02-work-explorer-v3.png">Work</a>, <a href="design/03-decision-workspace-v3.png">Decisions</a></td>
+</tr>
+<tr>
+<td>Supervisor</td>
+<td><a href="design/04-supervisor-chat.png">Docked</a>, <a href="design/09-supervisor-full-desktop.png">Full page</a>, <a href="design/12-supervisor-mobile.png">Mobile</a></td>
+</tr>
+<tr>
+<td>Agents</td>
+<td><a href="design/08-agents-focus-desktop.png">Focused desktop</a>, <a href="design/11-agent-mobile-v2.png">Mobile</a></td>
+</tr>
+<tr>
+<td>Results</td>
+<td><a href="design/10-results-desktop-v2.png">Desktop</a>, <a href="design/13-results-mobile-v2.png">Mobile</a></td>
+</tr>
+<tr>
+<td>Playbooks and Knowledge</td>
+<td><a href="design/06-playbooks.png">Playbooks</a>, <a href="design/07-knowledge-v2.png">Knowledge</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>Use these initial tokens; check actual rendered contrast before release:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value / behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Canvas / panel / raised panel</td>
+<td><code>#111418</code> / <code>#191f26</code> / <code>#222a34</code></td>
+</tr>
+<tr>
+<td>Main / secondary text</td>
+<td><code>#eef1f5</code> / <code>#b6c1ce</code></td>
+</tr>
+<tr>
+<td>Accent / focus</td>
+<td><code>#b1b2ff</code> / <code>#f3c576</code></td>
+</tr>
+<tr>
+<td>Border</td>
+<td><code>#36414f</code>; do not rely on border alone for focus</td>
+</tr>
+<tr>
+<td>Attention / error / success</td>
+<td>Amber / coral / sage, always paired with text or icon</td>
+</tr>
+<tr>
+<td>Spacing</td>
+<td>4, 8, 12, 16, 24, 32, 48 CSS px</td>
+</tr>
+<tr>
+<td>Radius</td>
+<td>8px controls, 12px panels; subtle shadows only on overlays</td>
+</tr>
+<tr>
+<td>Typography</td>
+<td>System sans; 16px default, 14px metadata, 24–32px page titles; system monospace for terminal/code</td>
+</tr>
+<tr>
+<td>Layout</td>
+<td>224px desktop rail; 24px desktop gutters, 16px mobile; content width determined per surface</td>
+</tr>
+<tr>
+<td>Motion</td>
+<td>Short opacity/position transitions; honor reduced motion; no animated live row reordering</td>
+</tr>
+</tbody>
+</table></div>
+<p>Prefer dense, legible rows and deliberate empty space over a grid of decorative metrics. One primary action per local context. A chart must answer a question that a count or sentence cannot.</p>
+<h2>3. Application shell and information hierarchy</h2>
+<p>Navigation order is <strong>Overview, Supervisor, Work, Results, Decisions, Agents, Playbooks, Knowledge</strong>, with Settings and identity at the bottom. Supervisor is directly below Overview. The desktop rail stays visible in full-page chat. Explicit terminal Expand may collapse it.</p>
+<p>The persistent top area contains scope, provider quota, search and connection/freshness affordances. The quota strip remains above every destination, including full chat and terminal focus. Quota is account-scoped and labelled accordingly; selecting a project must not imply that an account-wide percentage became project usage.</p>
+<p>Each provider entry shows provider/account label, <strong>percent used</strong>, actual window name, reset time and observation freshness. Never invert remaining percentage into used without a defined source field. Unknown is “Usage unavailable,” never zero. A stale value retains its timestamp and stale label. Multiple windows disclose their individual percentages and reset times; do not invent a combined percentage. The preferred window comes from server policy, not a hard-coded assumption that “primary” means weekly. Distinguish quota, provider availability, session token/cost accounting and worker capacity.</p>
+<p>All projects means all projects the current principal may see, with server-derived aggregate counts. Changing scope updates applicable queries and URL state. Global supervisor identity does not change. Counts must state when partial, filtered or estimated. Search returns bounded, scoped results grouped by task, session, result, playbook and knowledge; keyboard and touch share the same search dialog.</p>
+<p>Routes:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Purpose and restorable URL state</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/overview</code></td>
+<td>Scope and attention filter</td>
+</tr>
+<tr>
+<td><code>/supervisor</code></td>
+<td>Stable global conversation; optional message/context reference</td>
+</tr>
+<tr>
+<td><code>/work</code>, <code>/work/:taskId</code></td>
+<td>Scope, list/graph, filters, sort, selected task/revision</td>
+</tr>
+<tr>
+<td><code>/results</code>, <code>/results/:resultId/revisions/:revision</code></td>
+<td>Feed mode, filters; immutable result deep link</td>
+</tr>
+<tr>
+<td><code>/decisions</code>, <code>/decisions/:decisionId</code></td>
+<td>Kind/status filter and exact subject revision</td>
+</tr>
+<tr>
+<td><code>/agents</code>, <code>/agents/:sessionId</code></td>
+<td>Roster filters or focus; terminal identity resolved by server</td>
+</tr>
+<tr>
+<td><code>/playbooks</code>, <code>/playbooks/runs/:runId</code></td>
+<td>Runs/definitions/activations and selection</td>
+</tr>
+<tr>
+<td><code>/knowledge</code>, <code>/knowledge/:nodeId</code></td>
+<td>Scope/search/category; optional pinned revision</td>
+</tr>
+<tr>
+<td><code>/settings</code></td>
+<td>Identity, display/accessibility preferences, authorized configuration links</td>
+</tr>
+</tbody>
+</table></div>
+<p>Use IDs and filters in URLs, never secrets, message bodies or draft content. Browser Back restores list/feed position and focus to the initiating item. A deep link to inaccessible content returns a neutral unavailable view, without leaking its title. Docked supervisor is shell state; expansion navigates to <code>/supervisor</code> and remembers the return location.</p>
+<h2>4. Overview, Work and Decisions</h2>
+<p><strong>Overview.</strong> Lead with Needs attention: pending human decisions, blocked or failed work requiring intervention, and uncertain operations requiring reconciliation. Each row shows reason, impact, age, exact subject and next permitted action. Follow with active work and recent results. Capacity and operational health are secondary. Empty attention means “Nothing needs your attention” only after a successful complete query; loading or failed reads must not resemble an empty queue.</p>
+<p><strong>Work.</strong> List and graph use the same scope/filter/selection. Rows show title, project, lifecycle, execution observation, blocker/wait reason, relevant agent and latest result. Detail contains requirements, acceptance criteria, dependency explanation, attempts, evidence, source/delivery state and history. Server explanations determine readiness; the browser must not derive runnable status from a graph traversal.</p>
+<p>The graph initially renders a bounded neighborhood around the selected task, with a 100-node target cap and explicit omitted counts/expansion controls. Hierarchy, execution dependencies and informational evidence links have distinct styling and labels. Stable positions preserve orientation when data changes. A textual dependency list offers the same navigation without graph interaction. Mobile opens a dedicated graph view deliberately; task lists remain the default.</p>
+<p><strong>Decisions.</strong> One inbox can discover reviews, questions and failure interventions, but each retains its domain-specific form and permission. Show exact source/task/result revision, requested judgment, evidence availability, previous responses and downstream effect. Approve/reject/answer binds that revision. A newer subject shows a superseded warning; no automatic retargeting. The mobile action bar must not hide evidence or keyboard focus. Submission remains pending until the server confirms; a conflict retains the draft and presents a deliberate refresh/review path.</p>
+<p>Cancellation is an intent, not proof the process stopped. Source retained, result submitted, result accepted, task complete, candidate published and change merged/deployed are distinct facts wherever shown.</p>
+<h2>5. Supervisor: docked and full-page conversation</h2>
+<p>The docked panel and full-page view share one conversation state, message collection, attachments, draft and reading position. Full page fills the area beside the rail and below the provider strip; message text has a comfortable maximum reading width. The phone always uses a full-page conversation. No duplicate conversation or new supervisor session is created by changing presentation.</p>
+<p>The header explicitly says Global supervisor. Project scope can attach context but never silently changes recipient. A context chip identifies the exact task/result/document revision and can be removed before send. Result cards link to retained evidence. Message history is paginated; auto-scroll only when the reader is already at the bottom. Otherwise show a new-message marker.</p>
+<p>The composer supports plain text and authorized artifact/context references. Enter sends on desktop; Shift+Enter adds a newline; mobile provides a labelled Send button. IME composition must not send prematurely. A local pending message remains identifiable through send retries. Show admitted/queued, delivery evidence, unknown and failure separately; an acknowledgement is not proof that the requested work was performed.</p>
+<p>The supervisor can propose a feedback task. Display its editable draft and the explicit Create action unless an existing configured workflow already authorizes creation. An ordinary chat message must not imply blanket approval of later actions. If central supervisor authority is unavailable, show a clear unavailable state and preserve the draft; do not route messages to an arbitrary worker.</p>
+<h2>6. Agents and terminal workspace</h2>
+<p>The roster shows current sessions with task, project, chosen provider/model/harness, observed state/freshness, wait reason and controller presence. Session detail distinguishes profile/configuration revisions, effective permissions, actual execution authority and last observed process activity. Secrets and unscoped prompts are excluded.</p>
+<p>Opening a session uses <strong>one large terminal</strong> by default. Compact session tabs/switcher replace a permanent roster. Details, transcript and durable Message are on-demand drawers. Split is explicit, at most two visible panes initially, available only when each pane fits at least 80 columns at the selected readable font size. Never shrink font to force a split. On smaller widths offer tabs; preserve selected session and local view state through layout changes.</p>
+<p>Watch is read-only. Taking control requires a distinct action and confirmed exclusive server lease/fence; display controller identity, lease state and expiry. Other viewers do not resize the shared tmux pane. Only confirmed control enables keystrokes, paste and resize. On mobile, use internal horizontal terminal panning and a minimum 14px monospace default; provide text-size controls. The plain-text transcript is an alternative reading mode with provenance/gaps, not a fake editable terminal.</p>
+<p>Connection loss freezes input and labels the last observation. Reconnect requests authorized replay/snapshot for the same identity and epoch; it never relaunches a process or acquires control automatically. Unknown input delivery blocks later input until the specified fresh-capture resolution. Do not replay buffered keystrokes after reconnect. Follow the exact negotiated finite/epoch input mode and published limits; ordinary mutation retries are not a terminal-input recovery algorithm.</p>
+<p>On phones, Back returns to the roster. Hide normal bottom navigation in focused terminal mode. Use visible viewport height and safe-area insets when the keyboard opens; keep quota, terminal status and essential input controls visible while collapsing secondary chrome. Offer Esc, Tab, Ctrl and arrows with clear active modifier state. Rotation must not acquire control or restart; a controller resize is debounced and sequenced, never sent from a viewer. Test real IME, paste, selection, alternate-screen programs and wide Unicode.</p>
+<p>Disable unsafe terminal escape actions, automatic clipboard access and untrusted links. Bound scrollback, frame queues and renderer work. Durable Message and domain Cancel remain separate from terminal input; Ctrl-C is not authoritative cancellation.</p>
+<h2>7. Results, capture requirements and feedback</h2>
+<p>Results is a first-class media feed: Latest, Needs review and Following. Scope, task, media type and time filters apply consistently. Latest sorts by submitted time and stable identity. New arrivals create a “New results available” prompt without moving the current card. Load bounded pages with a keyboard-accessible Load more option, thumbnails first, and no autoplay with sound. Pause offscreen video and retain a bounded window of cards while restoring reading position.</p>
+<p>Each card contains a summary, task/project, originating attempt, exact result revision and source commit where applicable, submission time, required-evidence status, artifacts and separate acceptance status. A result may have no Git commit; it must declare the applicable source identity rather than inventing one. Open images at full resolution, clips with native accessible playback controls, and before/after comparisons with explicit artifact identities. Expired, processing, withheld, missing or failed media has an informative placeholder.</p>
+<p>Capture requirements are a versioned task policy snapshot. Visual changes ordinarily request named desktop/mobile screenshots; interaction changes request a short clip demonstrating named steps; backend work requests tests, logs or API evidence. A backend task does not need a meaningless video. Server policy evaluates applicability and required evidence; the client displays its explanation.</p>
+<p>Required artifacts must be finalized, retained and bound to the evaluated result revision before a configured completion gate passes. Presence alone does not prove correctness, acceptance or completion. A waiver requires the authorized actor, reason, requirement identity and policy revision. Editing requirements after an attempt starts is an explicit versioned change; it cannot silently make old evidence applicable to new criteria.</p>
+<p>Comments may attach to a whole result revision, a normalized screenshot region or a video time/range. The UI shows exact pinned artifact/revision and the original annotation even if a later result supersedes it. Author and time are visible. Mobile uses a full-width comments sheet/page and an explicit media-expand action; touch placement is adjustable before posting.</p>
+<p>Feedback flow:</p>
+<ol>
+<li>Post a comment. This creates discussion only; it does not reopen or schedule work.</li>
+<li>Choose Create feedback task, or Link existing task. A draft contains the requested change, acceptance criteria, project, parent task, result/artifact revision and annotation. The user can edit it.</li>
+<li>Submit with a stable operation ID and required version guards. Display pending/unknown/conflict faithfully; repeated clicks cannot create extra tasks.</li>
+<li>Follow the linked work. A later result references the original feedback and prior result.</li>
+<li>Show “Fix submitted” until the authorized reviewer or configured verification policy resolves the thread against an exact result revision. A successful task alone does not resolve the comment.</li>
+</ol>
+<p>Capture only the intended application/test scenario. AQ enforces authorized upload/retrieval and media limits. Keep artifact references and tombstones when bytes expire so existing discussion still has intelligible provenance. The API proposal defines retention holds, bounds and partial-failure recovery.</p>
+<h2>8. Playbooks and Knowledge</h2>
+<p><strong>Playbooks.</strong> Separate Runs, Definitions and Activations. A run shows its pinned artifact and transitive dependency versions, step timeline, current wait, child runs, pending operations, receipts and authorized actions. Updating an active definition does not relabel existing runs. Source editing, compilation, installation and activation are separate operations. Compilation validates structure; it is not proof of faithful policy translation. Human gates appear only where configured. Resuming a run cannot bypass the outstanding domain decision. Mobile uses a vertical step timeline and one detail page.</p>
+<p><strong>Knowledge.</strong> Search/filter by scope, category, lifecycle and verification independently. Detail shows document content, exact revision, author/provenance, sources, linked work, revision history, verification assertions and validity/review dates. Current and pinned history are unmistakable. A verifier's assertion is not proof of task completion. Retirement and successor links do not erase historical revisions. Authoring, correction, verification and retirement use separate permitted actions and expected versions; no generic JSON editor. Mobile opens one full document, with section navigation and metadata disclosures.</p>
+<h2>9. Responsive and accessible behavior</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Wide desktop, typically ≥1200px</th>
+<th>Tablet, typically 768–1199px</th>
+<th>Phone, &lt;768px</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shell</td>
+<td>Rail, quota header, optional inspector</td>
+<td>Compact rail; one optional overlay</td>
+<td>Menu + persistent compact quota; bottom destinations</td>
+</tr>
+<tr>
+<td>Overview / Work</td>
+<td>List and selected inspector</td>
+<td>List then detail</td>
+<td>Single list then full detail</td>
+</tr>
+<tr>
+<td>Supervisor</td>
+<td>Docked or full workspace</td>
+<td>Full page by default</td>
+<td>Full page, keyboard-aware composer</td>
+</tr>
+<tr>
+<td>Agents</td>
+<td>Focus; optional measured two-pane split</td>
+<td>One terminal</td>
+<td>One terminal; bottom nav hidden</td>
+</tr>
+<tr>
+<td>Results</td>
+<td>Centered feed + selected comment panel</td>
+<td>Feed, comments overlay</td>
+<td>One feed, full-width comments</td>
+</tr>
+<tr>
+<td>Decisions</td>
+<td>Evidence + decision form</td>
+<td>Stacked evidence/form</td>
+<td>Evidence first, safe sticky actions</td>
+</tr>
+<tr>
+<td>Playbooks / Knowledge</td>
+<td>List + detail</td>
+<td>One detail pane</td>
+<td>Timeline/document page</td>
+</tr>
+</tbody>
+</table></div>
+<p>These breakpoints are initial design values; content fit and font scaling govern adaptations. Phone bottom destinations are Overview, Results, Supervisor, Agents and More. More includes Work, Decisions, Playbooks, Knowledge and Settings. Focused text entry may collapse bottom navigation; return restores it. At 320px, provider entries may wrap into two rows; never force whole-app horizontal scrolling. Essential two-dimensional content may scroll inside its own labelled region.</p>
+<p>Target WCAG 2.2 AA, including keyboard operation, visible/unobscured focus, semantic headings/landmarks, labelled icons, contrast, status announcements and reduced motion. Use 44px primary touch targets as a product choice; WCAG's AA minimum target criterion is 24px with defined exceptions. Reflow exceptions for terminals/graphs do not exempt the rest of the application. See <a href="https://www.w3.org/TR/WCAG22/">WCAG 2.2</a> and <a href="https://www.w3.org/WAI/WCAG21/Understanding/reflow">Reflow guidance</a>.</p>
+<p>Drawers/dialogs trap focus only while modal and restore it on close. Never announce every terminal frame through a live region. Provide a bounded transcript/read mode and explicit status changes. Clip instructions should have text equivalents; audio-bearing evidence needs captions/transcript when required for understanding. Color never carries a state alone. Static PNGs do not establish conformance.</p>
+<h2>10. Shared state and failure presentation</h2>
+<p>Every surface supports initial loading, successful empty, partial/truncated, stale, disconnected, unauthorized, unsupported and failed states. Keep previously fetched content only within the active identity/scope and mark its age. Unavailable data must not become a zero count. Server time/freshness drives age and expiry labels; local timers never authorize actions.</p>
+<p>Permitted-action descriptors explain why an action is unavailable, but the server rechecks authorization on every request. Pending operations display their identity and reconciliation link. A lost response is unknown, not failure or success. Conflicts preserve the draft; changing the payload after conflict requires explicit resubmission with a new operation identity. Logout/identity change clears protected caches and drafts; display/layout preferences may persist without content.</p>
+<p>Acceptance is defined by the scenario matrix in the implementation plan. The original U1–U14 remain required; this specification adds quota, responsive composition, expanded chat and the Results/feedback lifecycle.</p></section><section id="contracts"><p class="source"><a href="specs/0003-dashboard-api.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard API and integration contract</h1>
+<p>Status: proposed API-02 expansion, 2026-10-31. <strong>This document defines required behavior and proposed new routes; it does not publish an implemented wire schema.</strong> Existing contracts are identified explicitly below. API-02 must publish versioned OpenAPI/JSON Schema, generated bindings, semantic validators and fixtures before dependent live integrations are accepted.</p>
+<p>Related: <a href="#design">product design</a>, <a href="#audit">current contract audit</a>, <a href="#plan">delivery plan</a>. Browser traffic terminates at AQ's human listener. There is no new dashboard backend and no direct graph/worker/provider access.</p>
+<h2>1. Reuse before extension</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Actual existing interface to qualify and reuse</th>
+<th>Missing dashboard layer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity / status / workers</td>
+<td><code>GET /api/me</code>, <code>/api/status</code>, <code>/api/workers</code>; human identity/CSRF guard</td>
+<td>Capability bootstrap, scoped bounded collections, compatibility manifest</td>
+</tr>
+<tr>
+<td>Projects / profiles</td>
+<td><code>/api/projects</code>, <code>/api/projects/{id}</code>; <code>/api/profiles/catalogs</code>; <code>/api/intelligence/explain</code></td>
+<td>Browser read models, finite action descriptors and generated contract inventory</td>
+</tr>
+<tr>
+<td>Attempt inspection</td>
+<td><code>GET /api/execution/attempts/{id}</code>; cancel route when enabled</td>
+<td>Task-to-attempt discovery, consistent explanations, permitted actions</td>
+</tr>
+<tr>
+<td>Terminal</td>
+<td><code>/api/v1/terminals/{terminal}</code>, <code>/output</code>, <code>/mutations</code>, <code>/receipts/{operation}</code>, <code>/access</code></td>
+<td>Qualified discovery, negotiation and browser renderer integration</td>
+</tr>
+<tr>
+<td>Session observations</td>
+<td><code>/api/observations/sessions/{attempt}/events</code> and <code>/usage</code></td>
+<td>Roster/lineage views and complete producers; quota is separate</td>
+</tr>
+<tr>
+<td>Durable mail</td>
+<td><code>POST /api/messages/send</code>, <code>/api/messages/inbox</code></td>
+<td>Global supervisor authority, stable conversation discovery/history and context attachments</td>
+</tr>
+<tr>
+<td>Human notifications</td>
+<td><code>/api/notifications</code>, <code>/{message}</code>, <code>/routes</code>, <code>/retry</code></td>
+<td>Dashboard projection and typed decision linkage</td>
+</tr>
+<tr>
+<td>Graph / playbooks / lifecycle</td>
+<td>Public component schemas and domain libraries</td>
+<td>AQ-authorized human read/action adapters; component API presence is not browser readiness</td>
+</tr>
+</tbody>
+</table></div>
+<p>Pin terminal runtime artifacts from <code>agent-q/protocol/terminal-relay/draft-v1/{schema,peer-schema,human-runtime.schema}.json</code> plus their referenced shared contracts and semantic vectors. The earlier session API README reserves different future paths; do not implement those reserved paths as if they were mounted. Terminal draft capability must be explicitly negotiated and qualified; availability of source is not a release promise.</p>
+<p>Existing wire types retain their exact field names, numeric representation, timestamps and states. A frontend adapter can normalize them into view models; it must retain original provenance and lossless values. New types below do not retroactively change existing APIs. Large Rust integer revisions must be decoded losslessly; do not pass unsafe JSON integers through JavaScript <code>Number</code>.</p>
+<h2>2. Proposed public API conventions</h2>
+<p>New human resources use <code>/api/v1/...</code>, centrally registered in AQ's contract inventory. Paths in sections 3–7 are proposals unless listed as existing above. Common fields apply to new resources; owner adapters must explicitly map existing responses.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Required meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Id</code></td>
+<td>Opaque nonempty identifier, maximum 128 UTF-8 bytes; preserve existing UUID identities where applicable</td>
+</tr>
+<tr>
+<td><code>Revision</code></td>
+<td>Positive decimal string; compare for equality, never infer ordering across resources</td>
+</tr>
+<tr>
+<td><code>Timestamp</code></td>
+<td>UTC RFC3339 string with milliseconds; nullable only when explicitly unknown</td>
+</tr>
+<tr>
+<td><code>Digest</code></td>
+<td>Algorithm-labelled SHA-256 digest of immutable bytes/canonical payload, with published canonicalization</td>
+</tr>
+<tr>
+<td><code>Scope</code></td>
+<td><code>{kind:"all_authorized"}</code> or <code>{kind:"project", project_id:Id}</code>; server derives the authorized set</td>
+</tr>
+<tr>
+<td><code>EntityRef</code></td>
+<td><code>{type, id, revision?}</code>; pins require revision, current pointers explicitly omit it</td>
+</tr>
+<tr>
+<td><code>Observation</code></td>
+<td><code>{observed_at, fresh_until, source, quality:reported\|estimated\|unknown, coverage:complete\|partial\|unknown}</code></td>
+</tr>
+<tr>
+<td><code>ActionDescriptor</code></td>
+<td><code>{kind, subject, allowed, reason_code?, explanation?, expected_versions, expires_at?}</code>; UI hint, never a grant</td>
+</tr>
+</tbody>
+</table></div>
+<p>All new reads return an envelope with <code>api_version</code>, <code>request_id</code>, <code>server_time</code>, <code>scope</code>, <code>data</code>, <code>observation</code>, <code>pending_operations</code>, and <code>coverage:{state,omitted_count?,reason?}</code>. Mutable entities carry their revision; immutable artifacts carry their digest. A composite read carries a revision vector/source watermarks, not a fictional cross-service transaction revision. Distinguish server-authoritative lifecycle fields from observations inside the response.</p>
+<p>Collections use an opaque, authenticated cursor bound to principal, scope, normalized filters, sort and snapshot/watermark. Page size defaults to 25, maximum 100; Results defaults to 20. Stable order includes an ID tiebreaker. Return <code>next_cursor</code>, <code>has_more</code>, <code>snapshot_id</code>, and <code>total:{value,accuracy:exact\|estimated\|unknown}</code>. On expired cursors return a typed restart instruction; keep the user's reading anchor while refreshing. Newest items do not mutate an existing snapshot. Permission changes invalidate access immediately, including cached thumbnail/download retrieval.</p>
+<p>IDs/cursors alone grant no access. Scope is checked for every returned entity, relationship endpoint, historical revision and artifact. All-authorized aggregation must not reveal excluded project counts. Validate bounded filters and reject unknown mutation fields. Server supplies maximum page/body/media limits through bootstrap and may lower defaults; clients obey lower limits.</p>
+<p>The current human CSRF convention is <code>X-AQ-Request: 1</code> on non-GET/HEAD requests, with same-origin validation when Origin is present. Use the configured human identity flow, never a worker or agent token. Scope/role changes invalidate protected query caches. No persistent sensitive offline cache is included.</p>
+<h2>3. Bootstrap and provider quota</h2>
+<p>Propose <code>GET /api/v1/bootstrap</code>:</p>
+<pre><code class="language-ts">type Bootstrap = {
+  principal: { id: Id; display_name: string; authorization_revision: Revision };
+  product: { version: string; dashboard_digest: Digest };
+  contracts: { name: string; version: string; digest: Digest }[];
+  capabilities: { name: string; version: string; enabled: boolean; reason?: string }[];
+  limits: { page_size: number; media: MediaLimits; polling: PollingLimits };
+  default_scope: Scope;
+  global_supervisor: { status: &quot;available&quot; | &quot;unconfigured&quot; | &quot;unavailable&quot;;
+    conversation_id: Id | null; reason?: string };
+};
+</code></pre>
+<p>Required capability families: <code>dashboard.inspect</code>, <code>dashboard.actions</code>, <code>provider.quota</code>, <code>supervisor.conversation</code>, <code>terminal.watch</code>, <code>terminal.control</code>, <code>results.read</code>, <code>results.comment</code>, <code>results.feedback</code>, <code>artifacts.read</code>, <code>playbooks.inspect</code>, <code>knowledge.read</code>. Independent mutations need their own permissions; a capability does not grant them. Exact capability spellings/version ranges are frozen in API-02 publication, not inferred from a server version number.</p>
+<p>Propose <code>GET /api/v1/provider-usage</code>, account-scoped regardless of project filter:</p>
+<pre><code class="language-ts">type QuotaWindow = {
+  id: Id; label: string; starts_at: Timestamp | null; resets_at: Timestamp | null;
+  used_percent: number | null; used: number | null; limit: number | null;
+  unit: string | null; state: &quot;known&quot; | &quot;unknown&quot; | &quot;unavailable&quot;;
+  observation: Observation;
+};
+type ProviderUsage = {
+  provider_id: Id; account_ref: Id; account_label: string;
+  scope: &quot;provider_account&quot;; windows: QuotaWindow[];
+  preferred_window_id: Id | null; availability_ref: EntityRef | null;
+};
+</code></pre>
+<p><code>used_percent</code> is 0–100 when the upstream contract defines a capped ratio; any over-limit quantity is a separate explicit field in the published schema. Null means unknown. A reset may be unknown. No source percentage is inferred from token totals, worker slots or credential availability. The collector owns upstream semantics, authentication, freshness and shared-account deduplication; the browser never calls the provider. Adapter faults return stale/unknown observations, without blocking all other page content. API-02 must select and qualify actual quota sources; this audit found no provider quota reporting contract to reuse.</p>
+<h2>4. Read-model inventory</h2>
+<p>The following endpoints and projections are required additions. Reuse AQ domain operations internally; do not expose a generic component proxy.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Proposed read</th>
+<th>Required projection beyond common metadata</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/v1/overview</code></td>
+<td>Typed attention items, reason/impact/age, subject pins, permitted action descriptors; active counts and recent result references</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/search</code></td>
+<td>Scoped typed hits, match excerpts, entity pins, bounded pages; never raw secret-bearing configuration</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/tasks</code> and <code>/tasks/{id}</code></td>
+<td>Title/project, task lifecycle, acceptance revision, dependencies, attempt refs, wait/blocker explanations, latest result/source/delivery refs</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/tasks/{id}/graph</code></td>
+<td>Bounded nodes/typed edges, revision pins, cursor/coverage and omitted counts; no client scheduling policy</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/sessions</code> and <code>/sessions/{id}</code></td>
+<td>Exact task/attempt/session identity, central/remote authority, selected profile/provider/model/harness, terminal ref, observation, permissions and wait refs</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/decisions</code> and <code>/decisions/{id}</code></td>
+<td>Kind, subject revision, state, evidence refs, requested response schema, allowed typed actions, expiry/supersession</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/playbook-runs</code> and <code>/{id}</code></td>
+<td>Immutable root/dependency manifest, step states, typed waits, child relationships, pending operations, receipts and actions</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/playbook-definitions</code> and <code>/playbook-activations</code></td>
+<td>Versioned source/artifact metadata and activation revisions, separately scoped</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/knowledge</code> and <code>/{id}</code></td>
+<td>Shared graph node projection, classification/lifecycle/verification, provenance, revision and allowed actions</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/knowledge/{id}/revisions/{revision}</code> and <code>/history</code></td>
+<td>Immutable content, verification assertions/source pins, successor links, bounded history</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/waits/{id}</code></td>
+<td>Predicate/source pins, verified outcomes, deadline policy, continuation generation, retained resources and current blockers</td>
+</tr>
+</tbody>
+</table></div>
+<p>All detail projections include links to authoritative operation receipts, not synthetic completion derived from logs. Existing session/notification endpoints may be used directly behind typed client adapters; no duplicate storage is needed. Browser Settings initially uses current identity and local presentation preferences; privileged configuration surfaces require explicit additional endpoint qualification.</p>
+<h2>5. Supervisor conversation contract</h2>
+<p>Propose <code>GET /api/v1/conversations/global</code>, <code>GET /api/v1/conversations/{id}/messages</code>, and <code>POST /api/v1/conversations/{id}/messages</code>. The global route resolves a stable authorized conversation rather than guessing an active attempt. A new supervisor incarnation may participate in the same logical conversation but must retain exact delivery/authority identities.</p>
+<p>Messages contain <code>message_id</code>, <code>thread_id</code>, <code>conversation_id</code>, server-derived author, <code>created_at</code>, UTF-8 text, pinned context refs, artifact refs and separate logical admission / node-or-host delivery / agent receipt fields. Maximum body initially 16,384 UTF-8 bytes, aligned with current mail; at most 16 context refs. Pagination supports reading older history and observing new messages without changing message identity. Attachments use the artifact service, not arbitrary URLs or base64 bodies in mail.</p>
+<p>Sending carries <code>operation_id</code>, client-minted <code>message_id</code>, expected conversation revision and immutable body/context. The adapter must durably retain accepted intent before handing it to the existing mailbox mechanism. Specify how replies attach to conversation/thread and how oversized historical bodies are recovered. Global scope does not expose all projects: attached context and assistant replies remain authorized for the current reader.</p>
+<p>AQ-17 is required for a central supervisor authority adapter. AQ-11 task/session mailbox identity does not by itself define global conversation identity. Reconnecting or switching dock/full presentation creates neither a message nor a session. Unknown delivery never causes automatic reinjection to a successor. A task proposal is a typed draft reference; executing it uses an authorized domain operation, not an interpretation of arbitrary message prose.</p>
+<h2>6. Results, media, comments and feedback</h2>
+<p>These are <strong>new AQ-owned product contracts</strong>. Reuse existing attempt/source/evidence identities, but do not equate an execution result receipt with a human-facing Result or a graph evidence descriptor with retained media bytes.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Required fields / invariant</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Result</td>
+<td>Stable <code>id</code>, mutable aggregate <code>version</code>, project/task refs, <code>current_revision</code>; revisions remain addressable</td>
+</tr>
+<tr>
+<td>ResultRevision</td>
+<td>Immutable revision/digest, attempt/session refs when applicable, source identity, summary, submitted time, parent result refs, capture-policy snapshot, artifact refs, check/evidence refs, addressed feedback refs</td>
+</tr>
+<tr>
+<td>ResultAssessment</td>
+<td>Own version; result revision, evidence evaluation, acceptance state, actor/policy refs, decision time. Mutable assessment is not stored by rewriting immutable result content</td>
+</tr>
+<tr>
+<td>CaptureRequirement</td>
+<td>ID, policy revision, kind, named scenario/steps, target viewport/environment, count/minimum attributes, required flag, applicability explanation and gate binding</td>
+</tr>
+<tr>
+<td>Artifact</td>
+<td>Immutable content identity/digest/bytes/MIME, filename, dimensions/duration as applicable, capture metadata, uploader identity, processing state, authorized retention/availability, expiry and holds</td>
+</tr>
+<tr>
+<td>Thread / Comment</td>
+<td>Thread ID/version/state; comment ID/revision, server author/time, body, exact result revision and optional artifact anchor; edits retain history</td>
+</tr>
+<tr>
+<td>FeedbackLink</td>
+<td>Origin comment/thread/result refs, exact anchor, created or existing task, creation operation, follow-up result refs, separate resolution assertion</td>
+</tr>
+</tbody>
+</table></div>
+<p>Capture metadata includes scenario ID, viewport CSS width/height, device pixel ratio, capture timestamp, environment label, source revision and applicable checks. It is a producer assertion with provenance, not proof that a video depicts the claimed revision.</p>
+<p>Proposed routes:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Semantics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/v1/results</code></td>
+<td>Bounded feed; <code>mode=latest|needs_review|following</code>, scope/media/time/task filters</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/results/{id}/revisions/{revision}</code></td>
+<td>Exact immutable revision plus separately versioned current assessment</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/results</code> and <code>/results/{id}/revisions</code></td>
+<td>Authorized submission/append; stable operation ID, expected task/aggregate versions, exact artifact refs</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/results/{id}/follow</code></td>
+<td>Explicit desired boolean with operation ID; following is not review acceptance</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/artifacts/{id}</code> and <code>/{id}/content</code></td>
+<td>Scoped metadata and bytes/ranges; thumbnail variants retain origin digest</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/artifact-uploads</code></td>
+<td>Authorized bounded intent: immutable metadata, expected digest/size, expiry, accepted part limits</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/artifact-uploads/{id}/parts/{part}</code></td>
+<td>Part checksum and deterministic part identity; identical replay succeeds, changed bytes conflict</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/artifact-uploads/{id}/finalize</code></td>
+<td>Verify size/digest/type, durably retain and queue safe processing; status may remain pending</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/artifact-uploads/{id}</code></td>
+<td>Read retained intent/finalization disposition after response loss</td>
+</tr>
+<tr>
+<td><code>GET/POST /api/v1/results/{id}/revisions/{revision}/comments</code></td>
+<td>Bounded threads or comment creation; exact result/artifact anchor required</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/comments/{id}/revisions</code></td>
+<td>Version-guarded correction with retained history</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/feedback-tasks</code></td>
+<td>Create one task from explicit editable draft and origin refs; durable cross-owner operation</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/feedback-links</code></td>
+<td>Link an authorized existing task without creating work</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/threads/{id}/resolve</code></td>
+<td>Version-guarded actor/policy assertion with exact follow-up result revision and reason</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/results/{id}/evidence-waivers</code></td>
+<td>Explicit requirement/policy/revision-bound exception under server authorization</td>
+</tr>
+</tbody>
+</table></div>
+<p>Human uploads use the human listener. Agent/worker capture producers need a <strong>separately authenticated machine ingestion adapter</strong> with frozen task/attempt/generation binding; they must never borrow a browser identity. Artifact storage and processing are AQ-owned services/modules even if bytes use configured object storage. AQ mediates access initially; a later signed-URL design needs explicit lifetime/revocation semantics.</p>
+<p>Initial media policy: PNG/JPEG/WebP images up to 20 MiB and 40 megapixels; MP4/WebM clips up to 100 MiB and 120 seconds; UTF-8 text/log/JSON evidence up to 10 MiB. At most 20 artifacts and 250 MiB per result revision, subject to stricter server quotas. Use separate bounded upload admission; 4 MiB maximum parts, at most two concurrent parts per client. Validate actual file content and decoded dimensions/duration, not only declared MIME/extension. No active HTML/SVG execution. Serve inert metadata with content sniffing disabled. Text is escaped. Process thumbnails/transcodes asynchronously with resource ceilings and explicit failures. Original and derived digests are distinct. A processed variant does not silently replace the source.</p>
+<p>Proposed retention default: unfinalized uploads expire after 24 hours; unheld retained result bytes expire 90 days after submission. Open review/feedback and accepted completion-evidence policy place explicit holds; holds cannot silently expire beneath an unresolved decision. Before release, publish per-project storage budgets and an authorized eviction/waiver process. Keep minimal scoped metadata/tombstones and annotation identities after byte deletion. Never claim retained evidence merely because metadata survives. Content retrieval rechecks permission; no public permanent media URLs.</p>
+<p>Anchors are tagged unions:</p>
+<pre><code class="language-ts">type Anchor =
+  | { kind: &quot;result&quot; }
+  | { kind: &quot;image_region&quot;; artifact_id: Id; digest: Digest;
+      x: number; y: number; width: number; height: number }
+  | { kind: &quot;video_range&quot;; artifact_id: Id; digest: Digest;
+      start_ms: number; end_ms: number };
+</code></pre>
+<p>Image coordinates use the displayed image after the server's documented orientation normalization, within [0,1], positive width/height and bounds ≤1. Video bounds are integer milliseconds, <code>0 ≤ start ≤ end ≤ duration</code>; equal endpoints mean one instant. The artifact must belong to that result revision. Transformations may display anchors but cannot mutate their original meaning. Text comments are 1–16,384 UTF-8 bytes; initial nesting is one thread with ordered replies, not arbitrary recursive trees.</p>
+<p>Feedback draft requires title (1–200 characters), description, acceptance criteria, authorized project/parent-task refs, origin thread/comment revision and result/artifact pins. AQ uses a durable intent/outbox with one fixed upstream graph key, then retains the created task receipt and feedback link. If task creation succeeds and linking is uncertain, operation status names the retained task when authorized and reconciles the link with the same identity. It must never repeat task creation under a new key. Thread resolution is a later independent guarded operation; linking and submitting a fix do not resolve it.</p>
+<p>Following/Needs review are server-defined projections: Following is explicitly followed results plus the current user's opted-in feedback threads; Needs review means an unresolved applicable review/evidence decision, not merely an unread card. Changes to those definitions are versioned product semantics, not browser heuristics.</p>
+<h2>7. Actions, receipts and error contract</h2>
+<p>Propose <code>POST /api/v1/actions</code> for a <strong>finite tagged union</strong> of approved domain actions and <code>GET /api/v1/operations/{id}</code> for human lookup. Each action has its own published schema and adapter: task cancellation, typed decision response, authorized knowledge correction/verification/retirement, playbook start/cancel/activation and supported wait interventions. Do not expose arbitrary command names, URLs, shell fragments or graph mutations. Results-specific endpoints use the same durable operation semantics. Existing terminal operations keep their specialized contract.</p>
+<p>New mutation envelope: <code>{operation_id, kind, subject, expected_versions, reason?, payload}</code>. Bind ID to principal, scope and canonical immutable request digest before dispatch. Identical retry returns the retained disposition; changed-byte reuse returns conflict. Authentication and current authorization are checked again on retry. An existing receipt cannot grant a new effect. Declare receipt retention in capability metadata; proposed ordinary action minimum is 90 days plus all unresolved operations, with retired-ID tombstones preventing replay after removal.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Disposition</th>
+<th>Browser behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pending</code></td>
+<td>Durable admission or in-flight work; show pending, poll original operation</td>
+</tr>
+<tr>
+<td><code>confirmed</code></td>
+<td>Show exactly the confirmed effect and affected versions, then refresh relevant reads</td>
+</tr>
+<tr>
+<td><code>conflict</code></td>
+<td>Show version/identity conflict; preserve draft; no automatic overwrite</td>
+</tr>
+<tr>
+<td><code>rejected</code></td>
+<td>Definite refusal; show safe explanation and permitted next step</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>Effect/admission may have occurred; retain original ID/bytes, query, never invent success or a new action</td>
+</tr>
+</tbody>
+</table></div>
+<p>Operation response includes disposition, canonical request digest, created/updated times, subject refs, confirmed receipt refs, affected entities, and permitted recovery action. A missing lookup row means admission unknown unless the server can prove a stronger result. HTTP 202 is not completion. UI may show pending placeholders, never optimistic authoritative lifecycle changes.</p>
+<p>New error envelope: <code>{request_id,code,message,retryable,operation_id?,field_errors?,current_versions?,retry_after_ms?}</code> with bounded safe strings. Use 401 for unauthenticated, 403 for unauthorized, neutral 404 for inaccessible/missing resources, 409 for conditional or identity conflicts, 410 for expired bytes/cursors where disclosure is authorized, 413 for limits, 422 for validation, 426 for unsupported required contract and 429/503 for bounded capacity/unavailability. Before durable admission an error may have no operation ID; after admission return the retained disposition where available. Transport failures alone never prove no effect. Unknown enum values render explicitly unsupported, disabling dependent actions rather than coercing to a success state.</p>
+<h2>8. Publication and contract acceptance</h2>
+<p>API-02 owns the human contract inventory and adapter behavior. Publish:</p>
+<ol>
+<li>Versioned OpenAPI/JSON Schema with explicit limits, enums and discriminators, plus generated TypeScript and a lossless integer strategy.</li>
+<li>Canonical fixtures for every successful, empty, partial, stale, unsupported, unauthorized, conflict, pending and unknown state; error and cursor fixtures included.</li>
+<li>Semantic tests for scoped projections, exact revisions, request digest/replay, expiry and receipt retention. Schema validity alone is insufficient.</li>
+<li>Compatibility manifest tying contract digests, server capabilities and bundle requirements. Unknown required capabilities block that feature; old tabs retain unsent drafts while presenting a safe upgrade path.</li>
+<li>Runtime integration evidence for the mounted human router, current identity/CSRF policy, actual domain adapters and the selected immutable product candidate.</li>
+</ol>
+<p>The dashboard can build components against clearly labelled proposed fixtures now. A live integration is not complete until its published contract, mounted route, authorization, domain effect and recovery behavior are qualified together. Results storage, quota collection and central supervisor authority are explicit backend work, not frontend assumptions.</p></section><section id="plan"><p class="source"><a href="plans/0001-dashboard-implementation.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard implementation plan</h1>
+<p>Status: proposed executable work breakdown, 2026-10-31. This plan completes the <a href="#design">product design</a> through the <a href="#contracts">contract boundary</a>. It expands the existing API-02/UI-01–UI-04 milestones without changing their status or silently modifying the ecosystem task graph. No tasks have been submitted to a daemon by writing this plan.</p>
+<h2>1. Architecture and stack decision</h2>
+<p>Use React with strict TypeScript and Vite to produce a static client bundle. Use React Router for addressable routes, TanStack Query for disposable server-state caching, CSS custom properties/modules for the design system, xterm.js for the terminal renderer, and native image/video elements for evidence. Use Vitest and Testing Library for components, Mock Service Worker for contract-derived HTTP scenarios, and Playwright with axe integration for browser tests. Use one package manager and committed lockfile; pin exact tool/runtime/package versions in UI-01 after a compatibility build. This specifies tools, not an unverified claim about their latest versions.</p>
+<p>The static deployment and bounded client responsibilities are the reasons to choose this stack. No SSR, runtime Node service, persistent global domain store or browser graph replica is required. The existing v1 implementation may supply interaction lessons, but import no legacy client policy or internal API assumptions. TanStack Query's <a href="https://tanstack.com/query/latest/docs/framework/react/overview">official overview</a> describes its server-state role; keep local drafts and terminal transport outside that cache.</p>
+<p>Proposed source layout:</p>
+<pre><code class="language-text">src/
+  app/                 shell, router, identity, capabilities, error boundaries
+  api/generated/       pinned generated wire types and validators
+  api/adapters/        existing/new wire -&gt; explicit view models
+  api/operations/      durable operation client and recovery UI
+  components/          tokens, controls, tables, sheets, status, evidence viewers
+  features/
+    overview/ supervisor/ work/ results/ decisions/
+    agents/ playbooks/ knowledge/ settings/
+  terminal/            transport, epochs, input/control state, renderer adapter
+  state/               in-memory drafts, navigation anchors, safe preferences
+  mocks/               generated-contract fixtures and scenario handlers
+tests/                  browser flows, compatibility, visual/accessibility checks
+contracts/              pinned schemas, semantic vectors, provenance lock
+</code></pre>
+<p>Route modules are lazy loaded. Graph and terminal code do not inflate the first Overview route. Native semantic HTML precedes custom widgets. Use shared components for ScopePicker, ProviderUsageStrip, FreshnessLabel, ActionBar, OperationNotice, RevisionLink, EvidenceViewer, ResponsiveDetail, DraftComposer and Empty/Error states. Components receive typed view models; only the API layer understands wire-version differences.</p>
+<h2>2. State, polling and failure behavior</h2>
+<p>Query keys include principal, authorization revision, project scope, filter, entity identity/revision and contract version. On identity change, abort requests and clear protected caches, drafts, media object URLs and terminal subscriptions. Persist only harmless preferences such as font size, density and panel layout. Drafts remain in memory across route/layout changes; unexpected page/process termination may lose them in the first release and must not be described as durable saving.</p>
+<p>Do not automatically hard-reload an incompatible tab with unsent drafts. Keep a local read-only draft recovery view, allow copy/export under the current user, and ask the user to reload after preserving it. An expired authenticated session can hold an inaccessible in-memory draft pending reauthentication by the same principal; a different principal clears it.</p>
+<p>Starting polling budget: foreground overview/active roster 10s, detail 5s, inactive history 30s, provider quota 60s subject to server freshness and limits. Pause hidden ordinary pages; refresh on focus with jitter and deduplication. Pending operations poll at 1s then exponential backoff to 15s, respect Retry-After, and remain pending/unknown after a bounded foreground wait. Only one request per query key in flight. A client-wide scheduler caps ordinary domain requests at four concurrent and staggers refreshes. These are initial measurement targets, not accepted server capacity.</p>
+<p>Terminal output follows its negotiated bounded transport independently. Do not invent a WebSocket requirement: the current adapter exposes bounded HTTP output reads and specialized mutations. Rendering occurs outside React message-by-message state; batch frames within the transport limits, signal gaps and request legitimate resynchronization. Watch acquisition and controller acquisition use distinct state machines. Terminal input never uses a generic optimistic mutation/retry helper.</p>
+<p>Ordinary mutations allocate one operation ID when a draft is submitted, freeze bytes until a known disposition, and expose lookup/reconciliation. A click handler cannot allocate multiple actions while the first is unresolved. Only a deliberate changed submission creates a new ID. Persisted server operation discovery must allow recovery after a tab reload without persisting sensitive request bodies locally. Telemetry records route, capability, latency and opaque correlation IDs, never terminal text, chat bodies, raw input or media contents.</p>
+<h2>3. Delivery work packages and dependencies</h2>
+<p>IDs below are planning IDs, not existing AQ task IDs. Each package delivers source, schema/fixtures where applicable, tests and a short evidence record with exact artifact revisions. A separate owner can implement a package after its hard dependencies; no calendar or staffing estimate is implied.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>ID / owner</th>
+<th>Deliverable</th>
+<th>Hard dependencies</th>
+<th>Acceptance / existing milestone</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D00 / AQ + UI</td>
+<td>Reconcile audit with selected runtime candidate; publish human route/contract inventory and capability bootstrap</td>
+<td>Current component evidence</td>
+<td>No reserved URL mistaken for live route; contract hashes pinned; API-02</td>
+</tr>
+<tr>
+<td>D01 / AQ</td>
+<td>Task/session/overview/search read models and typed human actions, operation recovery, auth/scope/cursors</td>
+<td>D00, relevant AQ domain adapters</td>
+<td>Scope and stale/conflict/unknown fixtures plus mounted route tests; API-02</td>
+</tr>
+<tr>
+<td>D02 / AQ</td>
+<td>Provider quota collector/aggregation contract and human endpoint</td>
+<td>D00, selected provider sources</td>
+<td>Used/window/reset/stale/unknown semantics, no secret exposure or double-counted accounts</td>
+</tr>
+<tr>
+<td>D03 / UI</td>
+<td>Static app scaffold, tokens, shell, navigation, responsive panels, mock harness</td>
+<td>D00 published minimum schemas</td>
+<td>Independent build/component checks; quota placeholders honest; UI-01</td>
+</tr>
+<tr>
+<td>D04 / UI</td>
+<td>Overview, Work list/detail/bounded graph, workers/session roster and search</td>
+<td>D01, D03</td>
+<td>Filter/back restoration, complete/partial/stale states, bounded rendering; UI-01</td>
+</tr>
+<tr>
+<td>D05 / AQ + UI</td>
+<td>Pending-safe domain actions and Decisions</td>
+<td>D01, D04, actual decision adapter</td>
+<td>Exact-revision decision/cancel flow, lost response recovery, conflict draft; UI-02</td>
+</tr>
+<tr>
+<td>D06 / AQ + UI</td>
+<td>Global conversation projection and dock/full/mobile chat</td>
+<td>D00, D03, AQ-11 and AQ-17</td>
+<td>Stable global recipient, shared draft/scroll, reply history and unknown delivery</td>
+</tr>
+<tr>
+<td>D07 / UI + relay owners</td>
+<td>Focused terminal, safe watch/control, transcript and mobile keyboard</td>
+<td>D03, session discovery from D01, qualified AQ-21/worker bridge contracts</td>
+<td>Actual renderer/relay tests, no view resize/input replay; UI-03 / INT-02</td>
+</tr>
+<tr>
+<td>D08 / AQ + storage/producer owners</td>
+<td>Results/artifact persistence, upload/finalize/retrieval, capture policy and completion-gate integration</td>
+<td>D00, task/source authority, existing completion adapter</td>
+<td>Required retained evidence enforced; bounded media and versioned waiver; new API-02 scope</td>
+</tr>
+<tr>
+<td>D09 / AQ</td>
+<td>Comments, anchors, feedback-task intent/link reconciliation and resolution</td>
+<td>D08, task creation/receipt adapter</td>
+<td>One task under lost response/crash; exact annotation stays pinned</td>
+</tr>
+<tr>
+<td>D10 / UI</td>
+<td>Results feed, media viewer, annotations, feedback draft and review states</td>
+<td>D03, D08, D09</td>
+<td>Desktop/mobile flow, feed position, accessible media, no implicit work from comment</td>
+</tr>
+<tr>
+<td>D11 / AQ + UI</td>
+<td>Playbook and Knowledge authorized projections/forms</td>
+<td>D00, D03, qualified playbook/graph adapters</td>
+<td>Immutable run pins; correct revision/verification/retirement behavior</td>
+</tr>
+<tr>
+<td>D12 / UI + AQ</td>
+<td>Usage/waits/notifications views and recovery</td>
+<td>D04, published observation/lifecycle/delivery adapters</td>
+<td>Truthful incomplete accounting/wait/delivery states; UI-04 / INT-03</td>
+</tr>
+<tr>
+<td>D13 / UI + release owners</td>
+<td>Package/compatibility manifest, embedded static assets, integration and mobile acceptance</td>
+<td>D02, D05–D07, D10–D12</td>
+<td>Exact server+bundle test; stale-tab upgrade; REL-03 / INT-02 / INT-03</td>
+</tr>
+</tbody>
+</table></div>
+<p>Work on visual components and proposed mocks may precede completed backend adapters, but a package's live acceptance still requires its hard dependencies. Existing milestones remain authoritative until owners incorporate this expansion. D02 and D08–D10 must be explicitly added to the product task graph; they were not implicit in the earlier one-action dashboard milestone.</p>
+<h2>4. Release slices</h2>
+<p><strong>Inspection slice:</strong> D00–D04, excluding unsupported future capabilities. Deliver authenticated task/attempt inspection, agent roster, responsive shell and truthful quota states. A provider with no qualified source says unavailable. This slice is useful but not the complete approved dashboard.</p>
+<p><strong>Operator slice:</strong> D05–D07 and available D11/D12 projections. Deliver actual decisions, full/docked supervisor and a large controlled terminal only when their owner adapters qualify. Mock buttons are never enabled in a live build. Central supervisor and remote terminal readiness are independent.</p>
+<p><strong>Evidence slice:</strong> D08–D10, complete provider sources and D11/D12. Deliver media-backed Results and explicit comment-to-feedback workflow, then D13 assembled release acceptance. The full design is delivered only when all required surfaces and runtime workflows pass; a hidden capability cannot count as feature completion.</p>
+<p>Feature flags represent negotiated backend capabilities, not local assertions that an endpoint probably exists. Unsupported routes have an explanatory landing state and preserve shareable navigation, without accidental network fallback to machine APIs.</p>
+<h2>5. Performance and browser targets</h2>
+<p>Initial acceptance budgets, to be measured on a named midrange phone and desktop plus reproducible CI throttling:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Measurement</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Initial shell + Overview JavaScript</td>
+<td>≤300 KiB gzip, excluding lazy terminal/graph/media modules</td>
+</tr>
+<tr>
+<td>Shell + selected route CSS</td>
+<td>≤75 KiB gzip</td>
+</tr>
+<tr>
+<td>Initial visible interface</td>
+<td>≤2.5s under documented 4× CPU / 1.6 Mbps / 150ms RTT lab profile</td>
+</tr>
+<tr>
+<td>Local interaction response</td>
+<td>p95 ≤200ms for selection, tabs, drafts and menus in the measured fixture profile</td>
+</tr>
+<tr>
+<td>Large data</td>
+<td>10,000 tasks / 1,000 sessions / 10,000 results represented through bounded pages, never full downloads</td>
+</tr>
+<tr>
+<td>Live rendered collections</td>
+<td>Typically ≤100 task rows and ≤40 result cards; use pagination/virtualization with accessible focus preservation</td>
+</tr>
+<tr>
+<td>Result thumbnails</td>
+<td>Target ≤150 KiB each; lazy originals; zero automatic audio playback</td>
+</tr>
+<tr>
+<td>Terminal</td>
+<td>Preserve published limits; measure actual output/input latency with INT-02; no additional unqualified latency guarantee</td>
+</tr>
+</tbody>
+</table></div>
+<p>Support current and previous stable desktop Chromium, Firefox and Safari plus current/previous iOS Safari and Android Chrome at release qualification. Record exact tested versions/devices in the release report. Browser emulation does not replace a real mobile keyboard test. Server latency and app rendering are reported separately. These budgets are requirements to test, not results of this documentation pass.</p>
+<h2>6. Acceptance scenarios</h2>
+<p>Original U1–U14 in <a href="specs/0001-dashboard.md">0001</a> remain applicable. Add these scenarios to contract fixtures, component tests or assembled integration as indicated. Automated accessibility checks supplement manual assessment; <a href="https://playwright.dev/docs/accessibility-testing">Playwright's accessibility guidance</a> explicitly describes that combination.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Scenario / required result</th>
+<th>Level</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D-A01</td>
+<td>All projects aggregates only authorized data; changing scope/identity cannot show another cache's items/counts</td>
+<td>API + browser</td>
+</tr>
+<tr>
+<td>D-A02</td>
+<td>Every route, full chat and focused terminal retains provider names/used percentage or explicit unknown; multiple windows and stale data remain truthful</td>
+<td>Component + mobile</td>
+</tr>
+<tr>
+<td>D-A03</td>
+<td>Failed/partial reads never render empty-success or zero; unknown lifecycle enums disable dependent actions</td>
+<td>Contract + component</td>
+</tr>
+<tr>
+<td>D-A04</td>
+<td>List/graph/filter/task navigation and Back restore selection, focus and reading anchor; refresh does not move click targets</td>
+<td>Browser</td>
+</tr>
+<tr>
+<td>D-A05</td>
+<td>Repeated click, dropped response, server restart and lookup uncertainty produce one logical action; changed payload conflicts</td>
+<td>API + assembled</td>
+</tr>
+<tr>
+<td>D-A06</td>
+<td>Decision on superseded source is refused, draft preserved; approval never marks merge/deploy without its receipt</td>
+<td>API + browser</td>
+</tr>
+<tr>
+<td>D-A07</td>
+<td>Dock/full/project navigation preserves one supervisor draft/history/context/scroll; phone keyboard leaves Send usable; IME Enter does not send</td>
+<td>Browser + real phone</td>
+</tr>
+<tr>
+<td>D-A08</td>
+<td>Global supervisor unavailable never sends to a worker; successor delivery uncertainty does not duplicate injection</td>
+<td>API + assembled</td>
+</tr>
+<tr>
+<td>D-A09</td>
+<td>Two viewers and two competing controllers: viewers cannot resize/input, only acknowledged controller operates, expiry/revocation stops input</td>
+<td>Relay + assembled</td>
+</tr>
+<tr>
+<td>D-A10</td>
+<td>Terminal gap/epoch change/disconnect/unknown injection, Unicode/full-screen app and stale lease all render faithfully; no replay or automatic reacquisition</td>
+<td>Renderer + actual bridge</td>
+</tr>
+<tr>
+<td>D-A11</td>
+<td>320/390 portrait, landscape with keyboard, 768 tablet and 1440/1920 desktop preserve usable single-pane layouts; no tiny terminal tiles</td>
+<td>Browser + real phone</td>
+</tr>
+<tr>
+<td>D-A12</td>
+<td>Results paginate without jumping on arrival, return from media/comments to prior card, pause offscreen video and avoid eager original downloads</td>
+<td>Browser</td>
+</tr>
+<tr>
+<td>D-A13</td>
+<td>Missing/processing/expired required artifact blocks the configured gate; an authorized exact-policy waiver is auditable; presence does not equal acceptance</td>
+<td>API + assembled</td>
+</tr>
+<tr>
+<td>D-A14</td>
+<td>Region/time comment remains pinned after a new artifact/result revision; invalid anchors and foreign-scope refs are refused</td>
+<td>API + browser</td>
+</tr>
+<tr>
+<td>D-A15</td>
+<td>Post comment creates no task. Create feedback after response loss/crash creates exactly one task and reconciles link; Fix submitted remains unresolved</td>
+<td>API + assembled</td>
+</tr>
+<tr>
+<td>D-A16</td>
+<td>Forged MIME, oversized decode, digest mismatch, expired upload, permission revocation and range fetch receive bounded safe outcomes</td>
+<td>Artifact API</td>
+</tr>
+<tr>
+<td>D-A17</td>
+<td>Playbook definition update does not change run manifest; waits/unknown effects stay distinct; resume cannot bypass a decision</td>
+<td>API + browser</td>
+</tr>
+<tr>
+<td>D-A18</td>
+<td>Knowledge correction/conflict, pinned history, verification and retirement/successor remain separate and scoped</td>
+<td>API + browser</td>
+</tr>
+<tr>
+<td>D-A19</td>
+<td>Keyboard-only use, screen-reader route/overlay flow, contrast, reduced motion, 200% text/400% zoom and media text equivalents</td>
+<td>Automated + manual</td>
+</tr>
+<tr>
+<td>D-A20</td>
+<td>Malicious Markdown, task names, URLs, logs and terminal escapes cannot execute script or trigger clipboard writes; secrets absent from telemetry</td>
+<td>Security fixtures</td>
+</tr>
+<tr>
+<td>D-A21</td>
+<td>Actual embedded bundle authenticates, deep-links and recovers an incompatible old tab while preserving an unsent draft until deliberate reload</td>
+<td>Product upgrade</td>
+</tr>
+<tr>
+<td>D-A22</td>
+<td>Bounded fixtures meet recorded budgets; graph histories, thumbnail loading and terminal streams cannot starve controls</td>
+<td>Performance</td>
+</tr>
+</tbody>
+</table></div>
+<p>Terminal integration must follow the <a href="https://xtermjs.org/docs/guides/security/">xterm.js security guidance</a> and the stricter AQ watch/control contract. Run automated contrast/axe tests plus manual VoiceOver or NVDA flows; do not declare accessibility from screenshots or a passing scanner alone.</p>
+<h2>7. Packaging, rollout and definition of done</h2>
+<p>Build produces hashed static assets, an entry document and a manifest containing dashboard version, source revision, asset digests, schema digests, required/optional capabilities, toolchain provenance and test-report references. AQ verifies and embeds the bundle; its product manifest pins it. Entry/compatibility metadata revalidates on upgrade, hashed assets may be immutable. Deep links return the application entry only for known UI paths; API errors must never return HTML. Initial release has no service-worker cache.</p>
+<p>Release qualification uses the selected immutable server, worker/relay and dashboard artifacts. Exercise a viewer and owner, scope restriction, unavailable services, a decision, terminal control, supervisor reply, media capture, feedback creation and stale-tab upgrade. Record limitations alongside the release, including terminal receipt/capacity limits and unsupported central authority. Feature rollout cannot claim unqualified providers or mobile platforms.</p>
+<p>Rollback selects a compatible whole product manifest and respects backend migration constraints; replacing only the UI with an incompatible older bundle is not a recovery plan. Stop mutation features when contract compatibility cannot be established, while offering safe draft recovery.</p>
+<p>Done means product behavior, published contracts, mounted authorized adapters, failure recovery, responsive/accessibility checks, measured budgets and embedded-bundle qualification all pass for the declared feature set. No new implementation, schema publication, integration test pass or deployment is asserted by this specification.</p></section><section id="audit"><p class="source"><a href="research/2026-10-31-contract-audit.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard contract readiness audit</h1>
+<p>Date: 2026-10-31. Scope: current local source in sibling component checkouts, read during this design-specification pass. This audit inspected schemas, mounted routes, owner documentation, milestone status and test definitions. It did not run backend tests, authenticate to a live daemon, verify deployments or certify the assembled product. <a href="research/2026-10-31-contract-evidence.json">Evidence hashes</a> identify selected files as captured; repositories may continue changing.</p>
+<h2>Answer</h2>
+<p><strong>Partly. We have substantial foundational contracts and several implemented human APIs, but not a complete dashboard implementation contract.</strong> API-02 is still planned. UI-01–UI-04 are planned, and aq-dashboard contains documentation rather than an application. Central supervisor hosting and the playbook/domain adapters required by several screens are also planned. Provider account quota, media Results, anchored comments and comment-to-feedback operations require additional contracts and backend work.</p>
+<p>The main risk is conflating four different things: a component schema, a reserved route, a mounted human handler, and a qualified product capability. They are not interchangeable. The historical October 30 audit describes an earlier baseline; it is not an accurate inventory of all October 31 code.</p>
+<h2>Evidence matrix</h2>
+<p>Paths below assume side-by-side checkouts. “Implemented” means source/route found, not release or end-to-end acceptance. Test references identify reusable assets; they were not rerun here.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Evidence</th>
+<th>Readiness / missing work</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human identity, CSRF, status, workers</td>
+<td><a href="../../agent-q/crates/aq-server/src/lib.rs">human router</a>, <a href="../../agent-q/crates/aq-server/src/admin_api.rs">admin API</a>, <a href="../../agent-q/crates/aq-server/src/authz.rs">auth</a>, <a href="../../agent-q/crates/aq-server/tests/authz.rs">auth tests</a></td>
+<td>Implemented human routes. Current role checks distinguish Owner/Viewer. No complete capability/bootstrap + dashboard contract inventory found; route-specific permission still applies</td>
+</tr>
+<tr>
+<td>Projects and profile catalog</td>
+<td><a href="../../agent-q/crates/aq-server/src/project_bindings.rs">project routes</a>, <a href="../../agent-q/crates/aq-server/src/profile_catalog.rs">catalog routes</a>, <a href="../../agent-q/docs/operations/profile-catalogs.md">profile operations</a></td>
+<td>Implemented configuration/projection pieces. Do not assume their owner-oriented shape is already a paginated viewer dashboard projection</td>
+</tr>
+<tr>
+<td>Provider quota at top</td>
+<td><a href="../../agent-q/crates/aq-server/src/intelligence.rs">intelligence API</a>, <a href="../../agent-q/docs/implementation/AQ-22-inspection.md">observation inspection</a></td>
+<td>Availability/selection and session accounting exist. Registry explicitly reports accounting/hard-cost enforcement unavailable; session usage is not account quota. No used-percent/window/reset collector + human quota contract found in inspected scope</td>
+</tr>
+<tr>
+<td>Tasks/Overview/Decisions</td>
+<td><a href="../../agent-q/docs/plans/0001-v2-milestones.md">API-02 and UI plan</a>, <a href="../../agent-q/crates/aq-server/src/execution/api.rs">execution routes</a>, <a href="../../agent-q/protocol/lifecycle-api/v1/request.schema.json">lifecycle request schema</a></td>
+<td>Attempt inspection/cancel pieces and domain contracts exist. Broad task/attention/decision human views and action contract remain API-02 work; no assembled decision API inferred from lifecycle types</td>
+</tr>
+<tr>
+<td>Graph and Knowledge</td>
+<td><a href="../../aq-graph/docs/openapi.json">graph OpenAPI</a>, <a href="../../aq-graph/docs/specs/0004-shared-node-model.md">shared node model</a>, <a href="../../agent-q/protocol/agent-access/v1/README.md">agent access</a></td>
+<td>Rich component node/history/verification contracts and scoped machine graph routes exist. Browser must use an AQ human projection/action adapter, not graph service or per-attempt credentials</td>
+</tr>
+<tr>
+<td>Terminal schemas vs actual routes</td>
+<td><a href="../../agent-q/protocol/session-api/v1/README.md">CON-02 README</a>, <a href="../../agent-q/protocol/terminal-relay/draft-v1/README.md">relay draft</a>, <a href="../../agent-q/crates/aq-server/src/terminal/api.rs">actual human handlers</a>, <a href="../../agent-q/crates/aq-terminal-relay/src/api.rs">runtime API types</a>, <a href="../../agent-q/crates/aq-server/tests/terminal_store.rs">tests</a></td>
+<td>Strong reusable contracts and optional mounted implementation. CON-02 reserves <code>/terminals/watch</code>, <code>/control</code>, <code>/input</code>; actual runtime uses <code>/{terminal}/mutations</code>, <code>/output</code>, <code>/receipts/{operation}</code>. Pin runtime schema plus shared types. Central support and full bridge/browser/product qualification remain distinct gates</td>
+</tr>
+<tr>
+<td>Session observation/usage</td>
+<td><a href="../../agent-q/crates/aq-observation-api/artifacts/usage.schema.json">DTO schemas</a>, <a href="../../agent-q/crates/aq-server/src/observations/api.rs">human routes</a>, <a href="../../agent-q/docs/implementation/AQ-22-inspection.md">inspection limitations</a></td>
+<td>Mounted events and usage reads with scoped ACL. Cost/full stream coverage and producer qualification are incomplete; do not show absent totals as zero or infer provider quota</td>
+</tr>
+<tr>
+<td>Durable mail and Supervisor</td>
+<td><a href="../../agent-q/docs/operations/messaging.md">mail operations</a>, <a href="../../agent-q/crates/aq-server/src/agent_access/messaging.rs">handlers</a>, <a href="../../agent-q/crates/aq-server/tests/messaging.rs">tests</a>, <a href="../../agent-q/docs/plans/0001-v2-milestones.md">AQ-17 plan</a></td>
+<td>Owner send/inbox implemented, task/exact-session recipients defined. Global conversation discovery, central authority, history/context projection and actual supervisor execution are not established by that mailbox contract; AQ-17 remains planned</td>
+</tr>
+<tr>
+<td>Notifications / waits</td>
+<td><a href="../../agent-q/crates/aq-server/src/notifications/api.rs">notification routes</a>, <a href="../../agent-q/docs/implementation/AQ-24.md">notification evidence</a>, <a href="../../agent-q/protocol/lifecycle-api/v1/response.schema.json">lifecycle response schema</a></td>
+<td>Human notification routes exist. Wait/continuation and typed decision integration need their owner adapters and UI-04/API-02 projections; delivery receipt does not equal human decision</td>
+</tr>
+<tr>
+<td>Playbooks</td>
+<td><a href="../../aq-playbooks/docs/specs/0001-aq-playbooks.md">component spec</a>, <a href="../../agent-q/docs/plans/0001-v2-milestones.md">AQ-12–16 plan</a></td>
+<td>Standalone runner/artifact/inspection semantics exist. Central embedding/host adapters are planned; no mounted human playbook dashboard API found in inspected server router</td>
+</tr>
+<tr>
+<td>Results and artifact bytes</td>
+<td><a href="../../agent-q/crates/aq-server/src/execution/api.rs">execution result routes</a>, <a href="../../agent-q/crates/aq-server/src/source_retention.rs">source retention</a>, <a href="../../agent-q/crates/aq-server/src/profiled_execution/artifacts.rs">execution artifacts</a>, <a href="../../aq-graph/docs/specs/0004-shared-node-model.md">graph model</a></td>
+<td>Execution result/source/configuration artifacts are useful foundations. They are not a media feed/upload/retention/capture-requirement contract. New Result/Artifact/Assessment ownership and worker capture ingestion required</td>
+</tr>
+<tr>
+<td>Comments and feedback</td>
+<td>Server route inventory and current API-02 scope; <a href="#contracts">new proposal</a></td>
+<td>No anchored comment / create-feedback-task human contract found. Add exact pins, guarded writes, durable cross-owner creation/link reconciliation and explicit resolution</td>
+</tr>
+<tr>
+<td>Bundle compatibility</td>
+<td><a href="specs/0001-dashboard.md">dashboard baseline</a>, <a href="../../agent-q/docs/plans/0001-v2-milestones.md">release/UI milestones</a></td>
+<td>Design requirements exist; dashboard application, generated human bindings and embedded-bundle acceptance are not established by this scaffold</td>
+</tr>
+</tbody>
+</table></div>
+<h2>What can start and what must be published</h2>
+<p>Frontend shell, responsive primitives, route composition and scenario mocks can start from this specification. Existing terminal/mail/observation fixtures should be reused after pinning their exact candidate; do not rewrite semantics from screenshots.</p>
+<p>Before live integration, API-02 must publish the shared read/action envelopes, capability/compatibility metadata, scoped task/session/decision/playbook/knowledge projections and operation recovery. Quota needs an explicit source/collector contract. Global chat needs AQ-17 plus conversation semantics. Results needs retained artifact ingestion/retrieval and capture-policy enforcement; comments/feedback need a durable idempotent domain operation. The <a href="#contracts">API proposal</a> now makes these gaps concrete, and <a href="#plan">D00–D13</a> assigns their ownership and order.</p>
+<p>Publication means machine-readable schemas plus semantic vectors and mounted-route tests, not approval of this prose alone. This pass added specifications and preserved visual assets; it did not publish those contracts, implement missing routes or alter the ecosystem milestones.</p></section></main></body></html>
