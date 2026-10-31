@@ -48,7 +48,7 @@ function Roster({ search }: { search: string }) {
 
   return (
     <div className={styles.roster}>
-      {!complete && <p className={styles.warning}>Some projects didn't respond, so this roster may be incomplete.</p>}
+      {!complete && <p className={styles.warning}>This roster has partial coverage. Some sessions may be missing.</p>}
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
       {sessions.length === 0 ? (
         complete && <p className={styles.muted}>No active sessions</p>
@@ -89,11 +89,13 @@ function Roster({ search }: { search: string }) {
 }
 
 function SessionPage({ sessionId, search }: { sessionId: string; search: string }) {
+  const [scope] = useScope();
   const { bootstrap } = useSession();
   const terminal = bootstrap.capability("terminal.watch");
   const query = useRead<SessionDetailWire, SessionDetailView>({
     resource: "session",
     path: `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
+    scope,
     params: {},
     adapt: adaptSessionDetail,
     pollMs: DETAIL_POLL_MS,
@@ -139,7 +141,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
       <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
-        <span>{terminal.enabled ? "Watching and control arrive with work package D07." : terminal.reason}</span>
+        <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>
 
       <dl className={styles.facts}>

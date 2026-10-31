@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { createContext, useContext, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { adaptBootstrap, type BootstrapView } from "../api/adapters/bootstrap";
 import { ApiError, apiGet } from "../api/client";
 import type { QueryContext } from "../api/queryKeys";
@@ -25,6 +25,10 @@ export function useSession(): Session {
 
 async function fetchBootstrap(signal: AbortSignal): Promise<Omit<Session, "connection">> {
   const env = await apiGet<Envelope<Bootstrap>>("/api/v1/bootstrap", signal);
+  const mockContract = (import.meta.env.MODE === "mock" || import.meta.env.MODE === "test") && env.api_version === "proposed-0";
+  if (env.api_version !== "dashboard-read-1" && !mockContract) {
+    throw new ApiError("contract", "This AQ dashboard API version is not supported");
+  }
   const bootstrap = adaptBootstrap(env.data);
   return {
     bootstrap,
@@ -38,10 +42,29 @@ async function fetchBootstrap(signal: AbortSignal): Promise<Omit<Session, "conne
 
 /** Blocks the app until AQ identifies the principal and its capabilities. */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const query = useQuery({ queryKey: ["bootstrap"], queryFn: ({ signal }) => fetchBootstrap(signal) });
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: ["bootstrap"],
+    queryFn: ({ signal }) => fetchBootstrap(signal),
+    refetchInterval: 30_000,
+    retry: false,
+  });
 
   const unauthenticated = query.error instanceof ApiError && query.error.status === 401;
-  if (query.data) {
+  const incompatible = query.error instanceof ApiError && query.error.kind === "contract";
+  const forbidden = query.error instanceof ApiError && query.error.status === 403;
+  const context = query.data?.queryContext;
+  useEffect(() => {
+    // A role/identity/API change must not keep another authorization scope's
+    // protected data in the browser cache. Bootstrap itself stays for recovery.
+    const obsolete = (key: readonly unknown[]) => key[0] === "aq" && (
+      unauthenticated || forbidden || incompatible || !context ||
+      key[1] !== context.principalId || key[2] !== context.authorizationRevision || key[3] !== context.contractVersion
+    );
+    void client.cancelQueries({ predicate: (q) => obsolete(q.queryKey) });
+    client.removeQueries({ predicate: (q) => obsolete(q.queryKey) });
+  }, [client, context, unauthenticated, forbidden, incompatible]);
+  if (query.data && !unauthenticated && !forbidden && !incompatible) {
     const connection: Connection = !query.isError
       ? "connected"
       : unauthenticated
@@ -55,11 +78,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return (
       <main className={styles.gate}>
         <p className={styles.brand}>Agent Q</p>
-        <h1>{unauthenticated ? "Sign in required" : "Can't reach AQ"}</h1>
+        <h1>{unauthenticated ? "Sign in required" : forbidden ? "Access denied" : incompatible ? "Dashboard update required" : "Can't reach AQ"}</h1>
         <p>
           {unauthenticated
             ? "Sign in through AQ, then reload this page."
-            : "The dashboard could not load your identity and capabilities from AQ."}
+            : forbidden
+              ? "Your account does not have access to this AQ installation."
+              : incompatible
+                ? "The dashboard cannot read this AQ server's API. Reload after installing a compatible dashboard bundle."
+                : "The dashboard could not load your identity and capabilities from AQ."}
         </p>
         {!unauthenticated && (
           <button type="button" className={styles.button} onClick={() => void query.refetch()}>

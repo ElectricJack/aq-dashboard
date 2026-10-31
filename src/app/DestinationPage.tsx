@@ -43,9 +43,6 @@ export function DestinationPage({ id, children }: { id: DestinationId; children?
         <div className={styles.notice} role="status">
           <h2>{dest.label} is not available</h2>
           <p>{capability.reason}</p>
-          <p className={styles.muted}>
-            This view needs the <code>{dest.capability}</code> capability from AQ.
-          </p>
         </div>
       ) : (
         (children ?? (

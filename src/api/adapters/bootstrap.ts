@@ -39,6 +39,7 @@ export function adaptBootstrap(raw: Bootstrap): BootstrapView {
     capability(name) {
       const cap = capabilities.get(name);
       if (!cap) return { enabled: false, reason: "Not offered by this AQ server" };
+      if (cap.version !== "1") return { enabled: false, reason: "This capability version is not supported by the dashboard" };
       if (cap.enabled) return { enabled: true };
       return { enabled: false, reason: cap.reason ?? "Disabled by this AQ server" };
     },

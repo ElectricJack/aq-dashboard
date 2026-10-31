@@ -10,11 +10,12 @@
   "scripts": {
     "dev": "vite",
     "dev:mock": "vite --mode mock",
-    "build": "tsc -b && vite build && node scripts/check-bundle.mjs dist",
+    "build": "tsc -b && vite build && node scripts/check-bundle.mjs dist && node scripts/bundle-manifest.mjs dist",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.105.0",

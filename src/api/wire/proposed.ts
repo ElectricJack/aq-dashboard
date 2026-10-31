@@ -1,7 +1,8 @@
 /**
  * PROPOSED wire types transcribed from docs/specs/0003-dashboard-api.md.
  * API-02 has not published these schemas; replace this file with generated
- * bindings once it does. Nothing here describes a live AQ route.
+ * bindings once it does. The dashboard-read-1 subset is implemented by AQ; see contracts/live/README.md.
+ * Other shapes remain proposed and require their own negotiated capability.
  */
 
 export type Id = string;
@@ -53,7 +54,7 @@ export type Capability = { name: string; version: string; enabled: boolean; reas
 
 export type Bootstrap = {
   principal: { id: Id; display_name: string; authorization_revision: Revision };
-  product: { version: string; dashboard_digest: Digest };
+  product: { version: string; dashboard_digest: Digest | null };
   contracts: { name: string; version: string; digest: Digest }[];
   capabilities: Capability[];
   limits: { page_size: number };

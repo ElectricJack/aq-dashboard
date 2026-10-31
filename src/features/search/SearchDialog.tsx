@@ -115,7 +115,7 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
   const [text, setText] = useState("");
   const q = useDebounced(text.trim(), DEBOUNCE_MS);
   const { bootstrap } = useSession();
-  const capability = bootstrap.capability("dashboard.inspect");
+  const capability = bootstrap.capability("search.read");
 
   useEffect(() => {
     const el = dialog.current;

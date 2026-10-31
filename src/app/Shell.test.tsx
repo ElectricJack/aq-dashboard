@@ -178,7 +178,7 @@ test("reports Disconnected when AQ stops responding after load", async () => {
   await waitFor(() => expect(within(banner).getByRole("status")).toHaveTextContent("Disconnected"));
 });
 
-test("reports an expired sign-in when a refresh is unauthenticated", async () => {
+test("removes protected views and caches when a refresh is unauthenticated", async () => {
   const { queryClient } = renderApp("/overview");
   const banner = await screen.findByRole("banner");
   await within(banner).findByText("Connected");
@@ -191,7 +191,9 @@ test("reports an expired sign-in when a refresh is unauthenticated", async () =>
     ),
   );
   await queryClient.refetchQueries({ queryKey: ["bootstrap"] });
-  await waitFor(() => expect(within(banner).getByRole("status")).toHaveTextContent(/sign-in expired/i));
+  expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+  expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
 });
 
 test("redirecting / keeps the scope", async () => {

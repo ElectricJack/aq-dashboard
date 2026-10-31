@@ -60,7 +60,7 @@ function Attention({ view, serverTime, complete, search }: {
     <section className={styles.panel} aria-labelledby="attention-heading">
       <h2 id="attention-heading">Needs your attention</h2>
       {!complete && (
-        <p className={styles.warning}>Some projects didn't respond, so this list may be incomplete.</p>
+        <p className={styles.warning}>This view has partial coverage, so the list may be incomplete.</p>
       )}
       {view.attention.length > 0 ? (
         <ul className={styles.attentionList}>
@@ -124,6 +124,7 @@ export function Overview() {
           </li>
         ))}
       </ul>
+      {coverage.reason && <p className={styles.warning}>{coverage.reason}</p>}
       <Attention view={view} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>

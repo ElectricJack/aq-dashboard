@@ -10,6 +10,7 @@ import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./de
 import { scopeSearch, useScope } from "./scope";
 import { useSession } from "./session";
 import styles from "./Shell.module.css";
+import { useProjects } from "./useProjects";
 import { useProviderUsage } from "./useProviderUsage";
 
 function DestinationLink({ dest, search }: { dest: Destination; search: string }) {
@@ -84,6 +85,8 @@ export function Shell() {
   const { bootstrap, connection } = useSession();
   const [scope, setScope] = useScope();
   const usage = useProviderUsage();
+  const projects = useProjects();
+  const canSearch = bootstrap.capability("search.read").enabled;
   const lastTitlePath = useRef<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchButton = useRef<HTMLButtonElement>(null);
@@ -93,14 +96,14 @@ export function Shell() {
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (canSearch && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setSearchOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [canSearch]);
   const status = connection === "connected" && usage.unreachable ? "unreachable" : connection;
   const search = scopeSearch(scope);
   const isMock = import.meta.env.MODE === "mock";
@@ -145,11 +148,13 @@ export function Shell() {
           <span className={styles.mark}>aq</span>
           Agent Q
         </p>
-        <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={[]} />
+        <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} />
         <button
           ref={searchButton}
           type="button"
           className={styles.search}
+          disabled={!canSearch}
+          title={canSearch ? undefined : "Search is not available on this AQ server"}
           aria-keyshortcuts="Control+K Meta+K"
           onClick={() => setSearchOpen(true)}
         >
@@ -170,7 +175,7 @@ export function Shell() {
         </TitleFocusContext>
       </main>
       <PhoneNav search={search} />
-      {searchOpen && <SearchDialog onClose={closeSearch} />}
+      {searchOpen && canSearch && <SearchDialog onClose={closeSearch} />}
     </div>
   );
 }

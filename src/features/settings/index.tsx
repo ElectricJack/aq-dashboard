@@ -1,5 +1,6 @@
 import { DestinationPage } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
+import { FrameworkStatus } from "./FrameworkStatus";
 
 export function Component() {
   const { bootstrap } = useSession();
@@ -14,6 +15,7 @@ export function Component() {
           <dd>{bootstrap.productVersion}</dd>
         </dl>
       </section>
+      <FrameworkStatus />
     </DestinationPage>
   );
 }

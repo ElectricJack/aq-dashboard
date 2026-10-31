@@ -50,3 +50,9 @@ test("renders an unrecognised supervisor status as unsupported", () => {
   (raw.global_supervisor as { status: string }).status = "warming";
   expect(adaptBootstrap(raw).globalSupervisor.status).toBe("unsupported");
 });
+
+test("unsupported capability versions remain disabled", () => {
+  const raw = bootstrap();
+  raw.capabilities[0]!.version = "99";
+  expect(adaptBootstrap(raw).capability("dashboard.inspect").enabled).toBe(false);
+});
