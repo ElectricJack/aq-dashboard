@@ -3,7 +3,16 @@ import usageFixture from "../../contracts/proposed/provider-usage.json";
 import type { Bootstrap, Envelope, ErrorEnvelope, ProviderUsage } from "../api/wire/proposed";
 
 /** Mock-only scenarios over PROPOSED fixtures; never shipped in a live build. */
-export const SCENARIOS = ["default", "stale", "unknown", "unavailable", "failed"] as const;
+export const SCENARIOS = [
+  "default",
+  "stale",
+  "unknown",
+  "unavailable",
+  "failed",
+  "partial",
+  "empty",
+  "reads-failed",
+] as const;
 export type ScenarioName = (typeof SCENARIOS)[number];
 
 export type MockResponse<T> =
@@ -13,6 +22,8 @@ export type MockResponse<T> =
 export type Scenario = {
   bootstrap: Bootstrap;
   providerUsage: MockResponse<Envelope<ProviderUsage[]>>;
+  /** How D04 domain reads (overview, tasks, sessions, search) behave. */
+  reads: "ok" | "partial" | "empty" | "failed";
 };
 
 const baseBootstrap = (bootstrapFixture as Envelope<Bootstrap>).data;
@@ -36,10 +47,19 @@ const quotaDisabled: Bootstrap = {
   ),
 };
 
+const defaults: Scenario = {
+  bootstrap: baseBootstrap,
+  providerUsage: { kind: "ok", body: baseUsage },
+  reads: "ok",
+};
+
 const built: Record<ScenarioName, Scenario> = {
-  default: { bootstrap: baseBootstrap, providerUsage: { kind: "ok", body: baseUsage } },
+  default: defaults,
+  partial: { ...defaults, reads: "partial" },
+  empty: { ...defaults, reads: "empty" },
+  "reads-failed": { ...defaults, reads: "failed" },
   stale: {
-    bootstrap: baseBootstrap,
+    ...defaults,
     providerUsage: {
       kind: "ok",
       body: mapWindows((w) => ({
@@ -53,13 +73,14 @@ const built: Record<ScenarioName, Scenario> = {
     },
   },
   unknown: {
-    bootstrap: baseBootstrap,
+    ...defaults,
     providerUsage: {
       kind: "ok",
       body: mapWindows((w) => ({ ...w, state: "unknown", used_percent: null, resets_at: null })),
     },
   },
   unavailable: {
+    ...defaults,
     bootstrap: quotaDisabled,
     providerUsage: {
       kind: "ok",
@@ -67,7 +88,7 @@ const built: Record<ScenarioName, Scenario> = {
     },
   },
   failed: {
-    bootstrap: baseBootstrap,
+    ...defaults,
     providerUsage: {
       kind: "error",
       status: 503,
