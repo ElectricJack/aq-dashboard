@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
 import { scopedKey } from "../../api/queryKeys";
@@ -8,6 +8,7 @@ import { useSession } from "../../app/session";
 import { scopeSearch, useScope } from "../../app/scope";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layout/Workspace";
+import { LoadedDefinitions } from "./LoadedDefinitions";
 import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
@@ -21,7 +22,8 @@ export function Playbooks() {
   const [scope] = useScope(); const search = scopeSearch(scope);
   const project = scope.kind === "project" ? scope.project_id : null;
   const { queryContext } = useSession();
-  const [params, setParams] = useSearchParams(); const tab = params.get("view") === "admissions" ? "admissions" : "runs";
+  const [params, setParams] = useSearchParams(); const navigate = useNavigate();
+  const tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : "runs";
   const [filter, setFilter] = useState("all");
   const runs = useInfiniteQuery({ queryKey: scopedKey(queryContext, scope, "playbook-runs", {}), initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => adaptRuns(await apiGet<unknown>(url("/runs", project, pageParam), signal), project, pageParam),
@@ -30,21 +32,22 @@ export function Playbooks() {
   let rows: Run[] = []; let invalid: unknown = null;
   try { rows = runs.data ? mergeRunPages(runs.data.pages) : []; } catch (e) { invalid = e; }
   const shown = filter === "all" ? rows : rows.filter(r => r.status === filter);
-  function selectTab(next: string) { setParams(old => { const p = new URLSearchParams(old); if (next === "runs") p.delete("view"); else p.set("view", next); return p; }); }
+  function selectTab(next: string) { const p = new URLSearchParams(params); p.delete("definition"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
   return <div className={styles.page}>
     <p className={styles.intro}>Inspect policy and follow each execution.</p>
     <Toolbar aria-label="Playbook views">
       <div className={styles.tabs}>
         <ActionButton aria-pressed={tab === "runs"} onClick={() => selectTab("runs")}>Runs</ActionButton>
+        <ActionButton aria-pressed={tab === "definitions"} onClick={() => selectTab("definitions")}>Definitions</ActionButton>
+        <span className={styles.disabled} title="Current activation bindings are not available in this view">Activations</span>
         <ActionButton aria-pressed={tab === "admissions"} onClick={() => selectTab("admissions")}>Admissions</ActionButton>
-        <span className={styles.disabled} title="Definition discovery is not available in this inspection profile">Definitions</span><span className={styles.disabled} title="Activation discovery is not available in this inspection profile">Activations</span>
       </div>
       {tab === "runs" && <label className={styles.filter}>Loaded run states <select value={filter} onChange={e => setFilter(e.target.value)} aria-label="Loaded run states">
         <option value="all">All states</option>{["admitted", "running", "waiting", "finishing", "cancelling", "blocked", "completed", "failed", "cancelled"].map(v => <option value={v} key={v}>{statusLabel(v)}</option>)}
       </select></label>}
-      <ActionButton onClick={() => { if (tab === "runs") void runs.refetch(); else void admissions.refetch(); }} disabled={runs.isFetching || admissions.isFetching}>Refresh</ActionButton>
+      {tab !== "definitions" && <ActionButton onClick={() => { if (tab === "runs") void runs.refetch(); else void admissions.refetch(); }} disabled={runs.isFetching || admissions.isFetching}>Refresh</ActionButton>}
     </Toolbar>
-    {tab === "runs" ? <div className={styles.workspace} data-focused={Boolean(runId)}>
+    {tab === "definitions" ? <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} /> : tab === "runs" ? <div className={styles.workspace} data-focused={Boolean(runId)}>
       {runId && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search }}>All runs</Link>}
       <Panel title="Recent runs" description={runs.data?.pages[0] ? `${runs.data.pages[0].namespace.name} · bounded run discovery` : undefined} className={styles.roster}>
         {!runs.data || runs.isError || invalid ? <QueryStatus status={runs.isError || invalid ? "error" : "pending"} error={invalid ?? runs.error} label="playbook runs" onRetry={() => void runs.refetch()} /> : <>
@@ -59,7 +62,7 @@ export function Playbooks() {
           {runs.data.pages[0] && <p className={styles.meta}>Observed {timestamp(runs.data.pages[0].observedAt)} · key order</p>}
         </>}
       </Panel>
-      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Definition and activation discovery is not part of this inspection profile.</p></Panel>}
+      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
     </div> : <Panel title="Admissions" description="Retained requests and their engine admission status.">
       {!admissions.data || admissions.isError ? <QueryStatus status={admissions.isError ? "error" : "pending"} error={admissions.error} label="playbook admissions" onRetry={() => void admissions.refetch()} /> : <>
         {admissions.data.items.length === 0 ? <p>No admissions recorded.</p> : <ul className={styles.admissions} aria-label="Playbook admissions">{admissions.data.items.map(a => <li key={a.requestId}><strong>{a.status.replaceAll("_", " ")}</strong> · {a.requestId}<p className={styles.meta}>{timestamp(a.createdAt)}</p>{a.runId ? <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(a.runId)}`, search }}>Inspect admitted run</Link> : <span>Engine run not confirmed</span>}</li>)}</ul>}
