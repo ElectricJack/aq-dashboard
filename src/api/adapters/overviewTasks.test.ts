@@ -1,3 +1,4 @@
+import publishedExample from "../../test/overview-tasks.contract.json";
 import { adaptOverviewTasks } from "./overviewTasks";
 import { overviewId,overviewTasks } from "../../test/overviewTasks";
 test("exact contribution contract, scope and project revision are required",()=>{
@@ -15,3 +16,5 @@ test("lower-bound observations stay partial; unsupported timestamps and duplicat
  const invalid=overviewTasks();invalid.projects[0]!.tasks[0]!.updated_at="yesterday";expect(()=>adaptOverviewTasks(invalid)).toThrow();
  const duplicate=overviewTasks();duplicate.projects.push(duplicate.projects[0]!);expect(()=>adaptOverviewTasks(duplicate)).toThrow();
 });
+
+test("published API-13 example is accepted without a sibling source dependency",()=>{expect(adaptOverviewTasks(publishedExample).contract).toBe("human-overview-tasks-1");});
