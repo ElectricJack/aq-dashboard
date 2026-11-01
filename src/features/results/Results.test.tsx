@@ -15,7 +15,7 @@ test("disabled results capability makes no data request",async()=>{
 test("real contract feed links exact revision and renders worker text safely",async()=>{
  enabled();server.use(http.get("/api/human/results",()=>HttpResponse.json(resultPage([{...resultRecord(),conclusion:"<script>worker text</script>"}]))));renderApp("/results");
  const list=await screen.findByRole("list",{name:"Recorded results"});expect(within(list).getByText("<script>worker text</script>")).toBeInTheDocument();expect(list.querySelector("script")).toBeNull();
- expect(within(list).getByRole("link",{name:"Recorded result"})).toHaveAttribute("href",`/results/${resultId(1)}/revisions/${"a".repeat(64)}`);
+ expect(within(list).getByRole("link",{name:"<script>worker text</script>"})).toHaveAttribute("href",`/results/${resultId(1)}/revisions/${"a".repeat(64)}`);
  expect(list).toHaveTextContent("Worker-reported outcome: success");expect(screen.queryByRole("link",{name:resultId(101)})).toBeNull();
 });
 test("detail uses exact identity and project scope and preserves source base semantics",async()=>{
