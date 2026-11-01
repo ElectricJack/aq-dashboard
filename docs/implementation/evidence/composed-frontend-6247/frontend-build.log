@@ -1,0 +1,42 @@
+
+> aq-dashboard@0.0.0 build /tmp/aq-dashboard-actions-ui-v2
+> tsc -b && vite build && node scripts/check-bundle.mjs dist && node scripts/bundle-manifest.mjs dist
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2164 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                0.69 kB │ gzip:  0.34 kB
+dist/assets/Workspace-CoSOvQy3.css             1.43 kB │ gzip:  0.55 kB
+dist/assets/decisions-CNL0RKDG.css             1.81 kB │ gzip:  0.64 kB
+dist/assets/settings-uUF_IEiO.css              2.81 kB │ gzip:  0.82 kB
+dist/assets/supervisor-BGBgnvcn.css            3.70 kB │ gzip:  1.05 kB
+dist/assets/index-DzYSeLTJ.css                 5.57 kB │ gzip:  1.76 kB
+dist/assets/playbooks-DBZLP_Cy.css             5.86 kB │ gzip:  1.41 kB
+dist/assets/results-8iaHiIoa.css               5.96 kB │ gzip:  1.39 kB
+dist/assets/overview-DOxG17nU.css              6.62 kB │ gzip:  1.50 kB
+dist/assets/agents-pzVHS5Wc.css                7.27 kB │ gzip:  1.68 kB
+dist/assets/work-Fv34qTq9.css                  8.02 kB │ gzip:  1.73 kB
+dist/assets/queryKeys-DmK54LTz.css            10.36 kB │ gzip:  2.32 kB
+dist/assets/HumanNodeWorkspace-DA3lpyOR.css   13.00 kB │ gzip:  2.71 kB
+dist/assets/knowledge-B4ILFxrC.js              0.44 kB │ gzip:  0.31 kB
+dist/assets/usePagedRead-DhI7Ug_E.js           0.66 kB │ gzip:  0.41 kB
+dist/assets/Workspace-DUlFJm8L.js              0.99 kB │ gzip:  0.47 kB
+dist/assets/TaskGraph-BtDkdOs-.js              3.24 kB │ gzip:  1.43 kB
+dist/assets/decisions-CCyjCGc9.js             13.14 kB │ gzip:  4.57 kB
+dist/assets/overview-CGQJ3wb4.js              16.91 kB │ gzip:  4.84 kB
+dist/assets/supervisor-FJa1N84E.js            17.16 kB │ gzip:  6.21 kB
+dist/assets/work-p-tQv8OW.js                  18.33 kB │ gzip:  6.61 kB
+dist/assets/settings-UbtDY3M2.js              18.79 kB │ gzip:  5.54 kB
+dist/assets/lib-Bi4Ksj18.js                   21.90 kB │ gzip:  8.03 kB
+dist/assets/HumanNodeWorkspace-CNeOA1UP.js    23.89 kB │ gzip:  7.59 kB
+dist/assets/playbooks-DncFuKCZ.js             36.39 kB │ gzip: 10.12 kB
+dist/assets/results-Cll4GYID.js               40.84 kB │ gzip: 12.90 kB
+dist/assets/agents-zeCd5Nhf.js                48.91 kB │ gzip: 13.30 kB
+dist/assets/queryKeys-ClQgLxzD.js            112.81 kB │ gzip: 37.10 kB
+dist/assets/index-C6Mn32mt.js                274.51 kB │ gzip: 86.42 kB
+
+✓ built in 1.23s
+dist: no mock code or fixtures
+Dashboard manifest: 29 files

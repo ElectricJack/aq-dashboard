@@ -1,0 +1,17 @@
+
+> aq-dashboard@0.0.0 test /tmp/aq-dashboard-actions-ui-v2
+> vitest run
+
+
+ RUN  v5.0.5 /tmp/aq-dashboard-actions-ui-v2
+
+
+ Test Files  65 passed (65)
+      Tests  633 passed (633)
+   Start at  14:41:55
+   Duration  26.48s (tests 47%, environment 37%, setup 8%, import 7%, transform 2%)
+
+Environment  jsdom was created 65 times · 35.80s total, 37% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
