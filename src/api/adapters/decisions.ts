@@ -34,7 +34,10 @@ export function adaptDecision(raw: unknown, expected: string, actor: string): De
   });
   let finality: string | null = null;
   if (raw.receipt !== null) {
-    ensure(isRecord(raw.receipt) && raw.receipt.decision_id === expected && isRecord(raw.receipt.finality));
+    ensure(isRecord(raw.receipt) && raw.receipt.schema_version === 1 && raw.receipt.decision_id === expected && raw.receipt.decision_revision === 2 && positive(raw.receipt.recorded_at_ms) && isRecord(raw.receipt.finality));
+    const sameRef = (a: unknown, b: unknown) => isRecord(a) && isRecord(b) && a.id === b.id && a.version === b.version && a.digest === b.digest;
+    ensure(sameRef(raw.receipt.subject, r.subject) && sameRef(raw.receipt.review_policy, r.review_policy));
+    ensure(raw.receipt.eligibility_project_revision === r.eligibility_project_revision && typeof raw.receipt.request_digest === "string" && /^[0-9a-f]{64}$/.test(raw.receipt.request_digest));
     const f = raw.receipt.finality; ensure(["human_answer", "expired", "cancelled"].includes(String(f.kind)));
     if (f.kind === "human_answer") ensure(["approve", "reject"].includes(String(f.choice)));
     finality = f.kind === "human_answer" ? String(f.choice) : String(f.kind);
