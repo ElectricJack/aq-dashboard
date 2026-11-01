@@ -128,3 +128,10 @@ fence both freeze and reselection before publishing bytes/reference. Both held
 paths were tested with same-account capability loss and re-enable, with no file
 or replay resurrection. The final19 interaction tests passed in3.94s, followed
 by complete TypeScript and diff checks. Actual uploader acceptance remains open.
+
+Final review copy vector: a Reserved/Received record can remain immutable after
+its upload deadline, with typed `recovery.reason=expired` and no recovery flags.
+The dialog now describes that last checked expiry before asking for any further
+input/finalization; it does not invent a different stored state. Both state
+vectors and the initial no-reference preparation/unmount guard are covered.
+Final22 interaction tests passed in4.28s, with complete TypeScript and diff checks.
