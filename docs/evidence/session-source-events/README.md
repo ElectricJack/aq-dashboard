@@ -25,5 +25,47 @@ for the separately required nonempty actual-ingest gate. Canonical 4188 was unch
 
 [Artifact pins](empty-artifacts.json) retain the exact manifest/binary/probe and
 screenshot hashes/source paths; [process log](empty-process.log) retains the actual
-probe result. Nonempty qualification is pending an actual protected observation
-ingest fixture, without browser response interception or fabricated database rows.
+probe result. The separate nonempty qualification follows below; the earlier empty-case evidence
+remains unchanged.
+
+## Nonempty registered-source/ingest proof
+
+The [positive report](nonempty-result.json) passed in 1885ms against the same exact
+compiled 5c bundle and a disposable protected owner listener. The actual source
+was registered and three synthetic usage observations were admitted through the
+domain ingest path before inspection; browser responses and observation rows
+were not fabricated. The existing owner test
+`inspection_uses_exact_acl_and_stable_bounded_snapshot_pages` ran the optional
+browser hook before its later ACL-revocation checks and passed in 3.05s (one test,
+ten filtered). Parent compile time was 42.24s. These parent timings came from
+root's captured tool output; no raw parent log was persisted, so none is claimed
+or reconstructed as a log artifact.
+
+The browser independently anchored the actual session/attempt, checked three
+exact event IDs/body digests/source IDs in the UI and exercised a fresh snapshot.
+It made two event GETs (Load and Refresh), no per-row/content reads, mutations,
+foreign requests or page errors. Desktop 1440 and phone 390/320 captured the loaded
+reports; both phone widths also captured the first provenance disclosure. All six
+actual images were inspected: focused output remains the default closed-details
+composition; report rows are readable, source metadata/digests wrap locally, and
+existing phone exits remain reachable without horizontal overflow. The selected
+fixture has no terminal; its unavailable terminal and central Grant issued state
+remain explicit rather than becoming a running-process claim.
+
+The three displayed contribution markers are historical audit records. Their
+fixed 1970 timestamps and native-transcript provenance belong to synthetic fixture
+observations, not a real CLI/parser/model run, current activity, provider invoice
+or complete transcript. This positive fixture contains only usage reports and
+fits one page; explicit gap/truncation and four-page bounds retain their focused
+unit/component proof rather than being claimed as new actual-browser cases.
+Repeated historical-disposition copy can be refined later without changing this
+source/accounting boundary; full Agent operational acceptance remains open.
+
+[Positive artifact pins](nonempty-artifacts.json) identify the exact parent test
+binary, owner fixture source, unchanged probe, manifest and screenshot hashes.
+The source images remain under `/tmp/aq-session-events-nonempty-browser/`:
+`agents-desktop-closed.png`, `source-events-desktop.png`,
+`source-events-{390,320}.png`, and `source-provenance-{390,320}.png`.
+The fixture listener shuts down afterward. Canonical promotion and its regression
+record remain root-owned; this isolated positive record does not claim they
+occurred through the fixture.

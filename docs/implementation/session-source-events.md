@@ -28,14 +28,23 @@ Source validation: 56 adapter/client/component + existing Agents/usage tests pas
 in 3.17s, and exact `tsc -b` passes. Contracts and sanitized Rust examples are pinned
 under [session-events](../../contracts/live/session-events/README.md). No production
 build, actual browser or canonical mutation was performed by this source increment.
-Root's actual empty/nonempty owner/browser gate and reviewed 1440/390/320 screenshots
-remain required. Event inclusion does not close full renderer/control, transcript
+The actual empty/nonempty owner/browser gates and reviewed 1440/390/320 captures
+are recorded separately below. Event inclusion does not close full renderer/control, transcript
 retrieval, current producer coverage or the remaining Agent operational workflows.
 
 The [actual explicit-empty browser gate](../evidence/session-source-events/README.md)
 now passes in 1454ms against exact compiled 5c0f assets and actual cloned state35 at 4204.
 Desktop and 390/320 screenshots were inspected: output remains intact and the
 on-demand empty retained snapshot remains readable with an existing phone exit.
-This is staged empty-case proof only; nonempty actual-ingest qualification and
-canonical promotion remain separate. [Ranked next inspection seams](../plans/0004-existing-inspection-seams.md)
+This is staged empty-case proof only; the separately recorded nonempty actual-ingest proof and canonical promotion
+are distinct gates. [Ranked next inspection seams](../plans/0004-existing-inspection-seams.md)
 record the remaining profile/worker/activity opportunities.
+
+The [nonempty actual registered-source/ingest proof](../evidence/session-source-events/README.md#nonempty-registered-sourceingest-proof)
+now passes against the same exact compiled 5c assets: three admitted synthetic
+usage reports, 1885ms browser/3.05s parent owner test, two event GETs and zero
+mutations/foreign requests/page errors. Desktop 1440 and phone 390/320 report and
+provenance captures were inspected. This qualifies bounded source-event reading;
+no transcript content, real parser/model execution, current accounting head,
+provider invoice or control authority is inferred. The positive actual fixture
+has one page and no gaps; richer gap/pagination cases remain focused-test proof.
