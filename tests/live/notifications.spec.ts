@@ -14,6 +14,7 @@ test("notification inbox and selected delivery match actual current-recipient re
   if (!capability?.enabled) {
     await expect(panel.getByText(capability?.reason ?? "Not offered by this AQ server", { exact: true })).toBeVisible();
     test.info().annotations.push({ type: "notifications-capability", description: "Disabled; no live notification record claim" });
+    expect(mutations).toEqual([]); expect(errors).toEqual([]);
     return;
   }
   const reply = await request.get("/api/notifications?after=0&limit=16");
@@ -22,6 +23,7 @@ test("notification inbox and selected delivery match actual current-recipient re
   if (actual.items.length === 0) {
     await expect(panel.getByText("No notifications in this inbox.")).toBeVisible();
     test.info().annotations.push({ type: "notifications-records", description: "Actual inbox empty; positive record/detail coverage not established" });
+    expect(mutations).toEqual([]); expect(errors).toEqual([]);
     return;
   }
   const row = actual.items[0];
@@ -36,7 +38,7 @@ test("notification inbox and selected delivery match actual current-recipient re
   expect(inspected.message).toEqual(row.message);
   await expect(detail.getByText(inspected.message.summary, { exact: true })).toBeVisible();
   expect(await detail.locator("[data-status]").count()).toBe(inspected.deliveries.length);
-  for (const d of inspected.deliveries) await expect(detail.locator(`[data-status="${d.status.kind}"]`)).toBeVisible();
+  for (const d of inspected.deliveries) await expect(detail.locator(`[data-delivery-id="${d.delivery_id}"]`)).toHaveAttribute("data-status", d.status.kind);
   if (inspected.external_state === "no_external_route") await expect(detail.getByText("No external route was recorded for this message.")).toBeVisible();
   await panel.scrollIntoViewIfNeeded();
   await page.screenshot({ path: test.info().outputPath("notifications-desktop.png"), fullPage: false });
