@@ -60,7 +60,7 @@ test("a partial read warns that the list may be incomplete", async () => {
 test("a failed read never looks like an empty queue", async () => {
   server.use(...handlersFor("reads-failed"));
   renderApp("/overview");
-  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't load/i);
+  expect((await screen.findAllByRole("alert"))[0]).toHaveTextContent(/couldn't load/i);
   expect(screen.queryByText("Nothing needs your attention")).not.toBeInTheDocument();
   expect(screen.queryByRole("list", { name: "Work counts" })).not.toBeInTheDocument();
 });

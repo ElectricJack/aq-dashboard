@@ -181,3 +181,25 @@
     justify-self: start;
   }
 }
+
+/* Core Overview: work/attention on the left, actual infrastructure on the right. */
+.layout { max-inline-size: none; }
+.columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.primary, .secondary { display: grid; gap: var(--space-5); min-inline-size: 0; }
+.panelHeading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.panel h2, .projectCard h3 { margin: 0; }
+.projectList, .taskList, .snapshotList, .taskCounts { list-style: none; margin: 0; padding: 0; }
+.projectList { display: grid; gap: var(--space-4); }
+.projectCard { padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border); min-inline-size: 0; }
+.projectCard h3 { font-size: 16px; }
+.taskCounts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding-block: var(--space-3); font-size: var(--font-size-meta); }
+.taskCounts li { color: var(--color-text-secondary); }
+.taskCounts strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
+.taskList li { display: flex; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-block-start: 1px solid var(--color-border); }
+.taskList li>span:first-child { min-inline-size: 0; overflow-wrap: anywhere; }
+.snapshotList li { display: grid; gap: var(--space-1); border-block-start: 1px solid var(--color-border); padding-block: var(--space-3); overflow-wrap: anywhere; }
+.workerTotal { margin: 0; font-size: 18px; }
+.workerTotal strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+.meta { overflow-wrap: anywhere; }
+@media(min-width:1200px) { .columns { grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); } }
+@media(max-width:767px) { .counts { gap: var(--space-3); justify-content: space-between; padding: var(--space-4); } .taskList li { flex-wrap: wrap; } }

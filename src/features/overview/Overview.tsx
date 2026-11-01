@@ -10,6 +10,8 @@ import { scopeSearch, useScope } from "../../app/scope";
 import { FACT_LABEL, subjectPath } from "../../app/subjects";
 import { useRead } from "../../app/useRead";
 import styles from "./Overview.module.css";
+import { RecordedTasks } from "./RecordedTasks";
+import { Infrastructure } from "./Infrastructure";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
 const OVERVIEW_POLL_MS = 10_000;
@@ -88,12 +90,13 @@ export function Overview() {
 
   if (!query.data) {
     return (
-      <QueryStatus
-        status={query.isError ? "error" : "pending"}
-        error={query.error}
-        label="the overview"
-        onRetry={() => void query.refetch()}
-      />
+      <div className={styles.columns}>
+        <div className={styles.primary}>
+          <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="the overview" onRetry={() => void query.refetch()} />
+          {query.isError && <RecordedTasks />}
+        </div>
+        {query.isError && <Infrastructure />}
+      </div>
     );
   }
 
@@ -125,7 +128,9 @@ export function Overview() {
         ))}
       </ul>
       {coverage.reason && <p className={styles.warning}>{coverage.reason}</p>}
+      <div className={styles.columns}><div className={styles.primary}>
       <Attention view={view} serverTime={serverTime} complete={complete} search={search} />
+      <RecordedTasks />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
         {/* Scrolls on its own at narrow widths; focusable so keyboard users can scroll it. */}
@@ -146,7 +151,7 @@ export function Overview() {
                   <td>
                     <CountLabel total={m.running} /> running
                   </td>
-                  <td>{m.nextConstraint ? m.nextConstraint.explanation : "None"}</td>
+                  <td>{m.nextConstraint ? m.nextConstraint.explanation : complete ? "None" : "Not observed"}</td>
                   <td>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
                 </tr>
               ))}
@@ -175,6 +180,7 @@ export function Overview() {
           </ul>
         )}
       </section>
+      </div><Infrastructure /></div>
     </div>
   );
 }
