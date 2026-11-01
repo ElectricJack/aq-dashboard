@@ -35,8 +35,26 @@ Twenty adapter/component tests and TypeScript checks pass. Dedicated actual-API
 browser coverage is in `tests/live/notifications.spec.ts`: disabled/empty cases
 are labelled as such, while a positive record verifies current recipient, exact
 message/detail, recorded delivery identities/status, desktop/phone layout,
-Back focus and zero mutations. Actual positive visual qualification is recorded
-when the configured daemon and isolated no-external-route owner fixture are ready.
+Back focus and zero mutations. The [positive actual owner/browser gate](../evidence/notification-inspection/result.json)
+passed: browser 799ms, complete PostgreSQL/owner/browser case 1.96 seconds. The
+served bootstrap digest exactly matched compiled manifest
+`38312b6e8abd850839a1db4d2589de89228c28d16254cc39ceff59ac5d123f96`.
+The actual fixture persisted owner and Viewer messages through the notification
+owner and verified current-recipient reads; no external route, destination or
+delivery existed. The positive-only standalone probe inspected the exact Owner
+message in desktop and phone UI, Back focus, and zero mutations/external requests.
+The initial candidate exposed mobile overflow from the shared ScopePicker;
+the final composition passed the unchanged check after its width correction.
+
+Reviewed screenshots are retained under
+`/tmp/aq-notification-positive-browser-final/notifications-{desktop,mobile}.png`.
+Desktop uses a selected row and distinct delivery pane; phone shows one readable
+detail with an explicit Back action. Identifiers remain disclosed on demand.
+Settings has no dedicated PNG, so this claims the shared notification-panel
+subset only; other Settings sections and future escalation workflows are not
+included. [Artifact pins and limits](../evidence/notification-inspection/artifacts.json)
+and the [process log](../evidence/notification-inspection/process.log) retain the
+exact gate.
 This does not complete full UI-04 escalation/digest or human decision workflows.
 
 The paired actual mounted-router/SQL fixture at agent-q `1cab587` passed in
