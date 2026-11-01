@@ -45,3 +45,37 @@ This qualifies the loaded-startup subset, not a current installed catalog,
 Activations or canonical runtime configuration. Root owns canonical preview
 promotion, and enabling a real local optional owner still requires its trusted
 PostgreSQL Unix socket transport.
+
+## Next source increment: current namespace catalog
+
+The separate `playbooks.catalog.read@1` capability selects the new current
+namespace Definitions and Activations views. Their strict
+[contract/examples](../../contracts/live/current-playbook-catalog/README.md)
+consume AQ's component-owned bounded `CatalogQuery` adapter over the exact
+qualified component 0.1.3 source. Namespace, generation, project, kind, owner
+incarnation, metadata revision, exact address and cursor joins refuse mixed
+observations. Revisions remain strings. Four bounded roster pages contain at
+most 100 entries; deep links request exact metadata with the roster's stamp.
+
+Definitions show current retained artifacts, fingerprints, source/compiler,
+literal purpose and declared dependency references/selection. Activations show
+actual binding revision, artifact and stored controls/denial flag; these do not
+establish current grant validity or readiness. The existing mock's roster/detail
+composition and phone All definitions/activations exits remain. Exact detail
+outside the loaded roster returns focus to its namespace summary. Run pins and
+history remain their own source.
+
+When current support is absent, Definitions retains the clearly labelled
+historical startup view. A current read error never falls back to that history
+or becomes an empty success. Explicit refresh clears protected detail; catalog
+change conflicts restart from a fresh first page. There are no create/install/
+activate/edit commands and no provider effects.
+
+Source checks: 40 focused adapter/feature/unchanged-fallback tests passed in
+2.55 s and the full `pnpm exec tsc -b` passed. One initial assertion expected a
+local error for a malformed 200 response; the existing global contract fence
+correctly removed the page. The assertion now checks that fence, with a separate
+valid 409 case checking local explicit refresh. No production bundle or browser
+acceptance has run for this current-catalog increment. Backend qualification,
+schema generation and independent desktop/390/320px actual review remain gates;
+previous startup-metadata proof does not qualify current catalog/Activations.

@@ -8,6 +8,8 @@ import { useSession } from "../../app/session";
 import { scopeSearch, useScope } from "../../app/scope";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layout/Workspace";
+import { CATALOG_CAPABILITY } from "../../api/adapters/playbookCatalog";
+import { CurrentCatalog } from "./CurrentCatalog";
 import { LoadedDefinitions } from "./LoadedDefinitions";
 import styles from "./Playbooks.module.css";
 
@@ -21,9 +23,9 @@ export function Playbooks() {
   const { runId } = useParams<{ runId: string }>();
   const [scope] = useScope(); const search = scopeSearch(scope);
   const project = scope.kind === "project" ? scope.project_id : null;
-  const { queryContext } = useSession();
+  const { bootstrap, queryContext } = useSession();
   const [params, setParams] = useSearchParams(); const navigate = useNavigate();
-  const tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : "runs";
+  const tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : params.get("view") === "activations" ? "activations" : "runs";
   const [filter, setFilter] = useState("all");
   const runs = useInfiniteQuery({ queryKey: scopedKey(queryContext, scope, "playbook-runs", {}), initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => adaptRuns(await apiGet<unknown>(url("/runs", project, pageParam), signal), project, pageParam),
@@ -32,22 +34,22 @@ export function Playbooks() {
   let rows: Run[] = []; let invalid: unknown = null;
   try { rows = runs.data ? mergeRunPages(runs.data.pages) : []; } catch (e) { invalid = e; }
   const shown = filter === "all" ? rows : rows.filter(r => r.status === filter);
-  function selectTab(next: string) { const p = new URLSearchParams(params); p.delete("definition"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
+  function selectTab(next: string) { const p = new URLSearchParams(params); p.delete("definition"); p.delete("activation"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions" || next === "activations") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
   return <div className={styles.page}>
     <p className={styles.intro}>Inspect policy and follow each execution.</p>
     <Toolbar aria-label="Playbook views">
       <div className={styles.tabs}>
         <ActionButton aria-pressed={tab === "runs"} onClick={() => selectTab("runs")}>Runs</ActionButton>
         <ActionButton aria-pressed={tab === "definitions"} onClick={() => selectTab("definitions")}>Definitions</ActionButton>
-        <span className={styles.disabled} title="Current activation bindings are not available in this view">Activations</span>
+        <ActionButton aria-pressed={tab === "activations"} onClick={() => selectTab("activations")}>Activations</ActionButton>
         <ActionButton aria-pressed={tab === "admissions"} onClick={() => selectTab("admissions")}>Admissions</ActionButton>
       </div>
       {tab === "runs" && <label className={styles.filter}>Loaded run states <select value={filter} onChange={e => setFilter(e.target.value)} aria-label="Loaded run states">
         <option value="all">All states</option>{["admitted", "running", "waiting", "finishing", "cancelling", "blocked", "completed", "failed", "cancelled"].map(v => <option value={v} key={v}>{statusLabel(v)}</option>)}
       </select></label>}
-      {tab !== "definitions" && <ActionButton onClick={() => { if (tab === "runs") void runs.refetch(); else void admissions.refetch(); }} disabled={runs.isFetching || admissions.isFetching}>Refresh</ActionButton>}
+      {(tab === "runs" || tab === "admissions") && <ActionButton onClick={() => { if (tab === "runs") void runs.refetch(); else void admissions.refetch(); }} disabled={runs.isFetching || admissions.isFetching}>Refresh</ActionButton>}
     </Toolbar>
-    {tab === "definitions" ? <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} /> : tab === "runs" ? <div className={styles.workspace} data-focused={Boolean(runId)}>
+    {tab === "definitions" ? bootstrap.capability(CATALOG_CAPABILITY).enabled ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:definitions`} kind="definitions" /> : <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} /> : tab === "activations" ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:activations`} kind="activations" /> : tab === "runs" ? <div className={styles.workspace} data-focused={Boolean(runId)}>
       {runId && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search }}>All runs</Link>}
       <Panel title="Recent runs" description={runs.data?.pages[0] ? `${runs.data.pages[0].namespace.name} · bounded run discovery` : undefined} className={styles.roster}>
         {!runs.data || runs.isError || invalid ? <QueryStatus status={runs.isError || invalid ? "error" : "pending"} error={invalid ?? runs.error} label="playbook runs" onRetry={() => void runs.refetch()} /> : <>
