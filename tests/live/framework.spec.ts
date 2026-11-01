@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 // Read-only smoke against an explicitly configured actual AQ human listener.
 // No MSW, route interception, provider calls or domain mutations.
@@ -48,18 +48,94 @@ test("live settings remains usable on a narrow screen", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
 
-test("visible sessions connect roster, exact detail and deep-link refresh", async ({ page, request }) => {
-  const response = await request.get("/api/v1/sessions?limit=25");
+type SessionRead = {
+  id: string;
+  label: string;
+  execution_authority?: string;
+  observation: { state: string };
+  lifecycle?: { started_at: string | null; stopped_at: string | null } | null;
+};
+
+// Published presentation meaning, checked against the actual HTTP response rather
+// than a fixture or an import of the UI's adapter/label implementation.
+function centralState(value: string | undefined): string {
+  return ({ offered: "Offered", preparing: "Preparing", granted: "Grant issued", cancelling: "Cancelling", never_granted: "Never granted", declined: "Declined", finished: "Finished", unknown: "Unknown" } as Record<string, string>)[value ?? "unknown"] ?? "Unsupported authority state";
+}
+async function expectLifecycle(container: Locator, session: SessionRead) {
+  const history = session.lifecycle;
+  if (!history) {
+    await expect(container.getByText("Lifecycle history unavailable", { exact: true })).toBeVisible();
+    await expect(container.locator("time")).toHaveCount(0);
+    return;
+  }
+  const times = [history.started_at, history.stopped_at].filter((v): v is string => v !== null);
+  await expect(container.locator("time")).toHaveCount(times.length);
+  if (!times.length) {
+    await expect(container.getByText("No worker lifecycle reports", { exact: true })).toBeVisible();
+    await expect(container).not.toContainText("Start recorded");
+    await expect(container).not.toContainText("Stop recorded");
+  }
+  for (const [label, at] of [["Start recorded", history.started_at], ["Stop recorded", history.stopped_at]] as const) {
+    if (at) {
+      await expect(container).toContainText(label);
+      await expect(container.locator(`time[datetime="${at}"]`).first()).toBeVisible();
+      await expect(container.locator(`time[datetime="${at}"]`).first()).toHaveAttribute("title", at);
+    }
+  }
+}
+
+
+test("visible sessions connect roster, exact detail and deep-link refresh", async ({ page }) => {
+  const rosterRead = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/v1/sessions" && r.request().method() === "GET");
+  await page.goto("/agents");
+  const response = await rosterRead;
   expect(response.status()).toBe(200);
   const envelope = await response.json();
-  test.skip(envelope.data.items.length === 0, "No visible sessions in this installation");
-  const session = envelope.data.items[0];
-  await page.goto("/agents");
-  await page.getByRole("list", { name: "Sessions" }).getByRole("link", { name: session.label, exact: true }).click();
+  expect(envelope.api_version).toBe("dashboard-read-1");
+  const sessions: SessionRead[] = envelope.data.items;
+  test.skip(sessions.length === 0, "No visible sessions in this installation");
+  const roster = page.getByRole("list", { name: "Sessions" });
+  await expect(roster).toBeVisible();
+  for (const s of sessions) {
+    const row = roster.locator(`li[data-session-id="${s.id}"]`);
+    await expect(row).toBeVisible();
+    await expect(row).toHaveAttribute("data-state", s.observation.state);
+    await expect(row).toContainText(`Central state: ${centralState(s.execution_authority)}`);
+    await expectLifecycle(row, s);
+  }
+  const noReports = sessions.filter((s) => s.lifecycle && !s.lifecycle.started_at && !s.lifecycle.stopped_at).length;
+  test.info().annotations.push({ type: "actual-api-lifecycle", description: `${sessions.length} rows checked; ${noReports} explicit no-reports rows` });
+  const rosterImage = test.info().outputPath("sessions-desktop.png");
+  await page.screenshot({ path: rosterImage, fullPage: true });
+  await test.info().attach("sessions-desktop", { path: rosterImage, contentType: "image/png" });
+
+  const session = sessions.find((s) => s.lifecycle && !s.lifecycle.started_at && !s.lifecycle.stopped_at) ?? sessions[0]!;
+  const detailPath = `/api/v1/sessions/${encodeURIComponent(session.id)}`;
+  const detailRead = page.waitForResponse((r) => new URL(r.url()).pathname === detailPath && r.request().method() === "GET");
+  await roster.getByRole("link", { name: session.label, exact: true }).click();
+  const detailResponse = await detailRead;
+  expect(detailResponse.status()).toBe(200);
+  const detailApi = (await detailResponse.json()).data as SessionRead;
+  expect(detailApi.id).toBe(session.id);
+  const detail = page.getByRole("region", { name: session.label, exact: true });
   await expect(page.getByRole("heading", { level: 2, name: session.label })).toBeVisible();
+  await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(detailApi.execution_authority));
+  await expectLifecycle(detail, detailApi);
+  if (detailApi.observation.state === "unknown") await expect(detail).toContainText("State unknown");
+  await expect(detail.getByText("Terminal is not available", { exact: true })).toBeVisible();
+  await expect(detail).toContainText("Recorded lifecycle reports are historical evidence");
+  const detailImage = test.info().outputPath("session-detail-desktop.png");
+  await page.screenshot({ path: detailImage, fullPage: true });
+  await test.info().attach("session-detail-desktop", { path: detailImage, contentType: "image/png" });
+
+  const reloadRead = page.waitForResponse((r) => new URL(r.url()).pathname === detailPath && r.request().method() === "GET");
   await page.reload();
+  const refreshed = await reloadRead;
+  expect(refreshed.status()).toBe(200);
+  const refreshedApi = (await refreshed.json()).data as SessionRead;
   await expect(page.getByRole("heading", { level: 2, name: session.label })).toBeVisible();
-  await expect(page.getByText("Terminal is not available", { exact: true })).toBeVisible();
+  await expectLifecycle(detail, refreshedApi);
+  await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(refreshedApi.execution_authority));
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
