@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import type { Bootstrap, Coverage, Envelope, ErrorEnvelope, Page, Scope } from "../api/wire/proposed";
 import { overview, search, SERVER_TIME, SESSIONS, TASKS, taskDetail, taskGraph } from "./inspectionData";
 import { scenario } from "./scenarios";
+import { decisionHandlers } from "./decisions";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
   return {
@@ -68,6 +69,7 @@ export function handlersFor(name: string | null | undefined) {
   };
 
   return [
+    ...decisionHandlers(),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
     http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>(s.bootstrap))),
     http.get("/api/v1/provider-usage", () =>
