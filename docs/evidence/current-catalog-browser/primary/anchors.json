@@ -1,0 +1,8 @@
+{
+  "exit_code": 0,
+  "wall_seconds": 3.82,
+  "bundle_manifest_sha256": "624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "bundle_source": "f2dbe5e",
+  "fixture_sha256": "f36f0257a5e12fd802afe9d54fa48dae7c3e2e82e6a214a074470ead6ae2c751",
+  "probe_sha256": "be00d6c67bdf80369c3a0f40a0723aa528eb5f9505064ee83337df16088da46c"
+}

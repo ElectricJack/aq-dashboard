@@ -1,0 +1,9 @@
+{
+  "exit_code": 0,
+  "wall_seconds": 4.662,
+  "purpose": "Capture-only supplement adds phone roster/reflow evidence; no feature or production bundle change",
+  "bundle_manifest_sha256": "624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "fixture_sha256": "f36f0257a5e12fd802afe9d54fa48dae7c3e2e82e6a214a074470ead6ae2c751",
+  "original_probe_sha256": "be00d6c67bdf80369c3a0f40a0723aa528eb5f9505064ee83337df16088da46c",
+  "capture_probe_sha256": "4a7160d869d617e6d99de177efb9f29b40ad8621f9836ecff56f104cc9071170"
+}

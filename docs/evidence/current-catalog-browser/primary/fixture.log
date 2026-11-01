@@ -1,0 +1,7 @@
+
+running 1 test
+test catalog::actual_current_catalog_tracks_later_install_and_activation_without_restamping_startup ... {"passed":true,"elapsed_ms":2294,"bundle_manifest_sha256":"624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663","original":"sha256:fcec7924c601e6851d493d357bbb9e8d17074e3dbae5803ee6e6ce4142339875","later":"sha256:4a4fdb2a4eb1ce6e3a9ac384d22b327146e89f5a779fff6d1547a30954fbf863","source":"current_namespace_state","current_catalog":true,"definitions":2,"activations":1,"activation_revision":"2","browser_catalog_reads":13,"catalog_view_unrelated_engine_reads":0,"historical_startup_reads":0,"intentional_runs_view_reads":1,"mutations":[],"foreign_requests":[],"errors":[],"viewports":[1440,390,320],"max_name_length":128,"max_entry_length":128,"max_dependency_alias_length":128,"browser_interception":false}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 3.81s
+
