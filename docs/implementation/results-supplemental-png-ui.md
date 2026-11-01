@@ -130,3 +130,9 @@ subset. Full reference10/13 composition remains open while comments, review
 workflow, richer media, comparison, capture requirements and acceptance are
 unimplemented. Negative authorization/expiry/late-result behavior is qualified
 by separate server/client tests, not this positive browser run.
+
+### Upload control source followup
+
+The exact-report human upload control is designed and implemented separately in
+[the upload-control delta](results-png-upload-control.md). Its source-only tests do
+not extend the above actual read/expand acceptance to a browser uploader.

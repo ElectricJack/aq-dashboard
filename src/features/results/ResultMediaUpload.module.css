@@ -1,0 +1,14 @@
+.control { margin-block: var(--space-3); }
+.openButton { min-block-size: 44px; padding: var(--space-2) var(--space-4); border: 1px solid var(--color-accent); border-radius: var(--radius-control); color: var(--color-text); background: var(--color-panel); font: inherit; cursor: pointer; }
+.dialog { box-sizing: border-box; inline-size: min(560px, calc(100% - 32px)); max-block-size: calc(100dvh - 32px); padding: var(--space-5); overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-panel); color: var(--color-text); background: var(--color-panel); }
+.dialog::backdrop { background: #000b; }
+.dialog header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); position: sticky; inset-block-start: calc(-1 * var(--space-5)); background: var(--color-panel); padding-block: var(--space-2); z-index: 1; }
+.dialog h2 { margin: 0; font-size: 20px; }
+.dialog p { overflow-wrap: anywhere; }
+.picker { display: grid; gap: var(--space-2); margin-block: var(--space-4); }
+.picker input { inline-size: 100%; min-inline-size: 0; min-block-size: 44px; font: inherit; }
+.picker span, .note, .reference { color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.acknowledge { display: flex; align-items: start; gap: var(--space-2); margin-block: var(--space-4); font-size: var(--font-size-meta); }
+.acknowledge input { flex: none; min-inline-size: 24px; min-block-size: 24px; }
+@media(max-width:600px) { .dialog { padding: var(--space-3); } .dialog header { inset-block-start: calc(-1 * var(--space-3)); } .actions { flex-direction: column; } }

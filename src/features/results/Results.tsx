@@ -11,6 +11,7 @@ import { ActionButton } from "../../components/layout/Workspace";
 import styles from "./Results.module.css";
 import { resultMediaBinding } from "../../api/adapters/resultMedia";
 import { ResultMedia, ResultMediaWindow, resultMediaKey } from "./ResultMedia";
+import { ResultMediaUpload } from "./ResultMediaUpload";
 
 function Record({ item, exact, coverage }: { item: ResultMetadata; exact: boolean; coverage: ResultPage["coverage"] }) {
   const [scope] = useScope();
@@ -22,6 +23,7 @@ function Record({ item, exact, coverage }: { item: ResultMetadata; exact: boolea
     <p className={styles.meta}>Task {bootstrap.capability("tasks.read").enabled ? <Link title={item.task_id} aria-label={item.task_id} to={{ pathname: `/work/${item.task_id}`, search }}>{item.task_id.slice(-8)}</Link> : <span title={item.task_id}>{item.task_id.slice(-8)}</span>} · Project <span title={item.project_id}>{item.project_id.slice(-8)}</span></p>
     <p>Worker-reported outcome: <strong>{item.process_outcome}</strong></p>
     <p className={styles.meta}>Recorded <time dateTime={date} title={date}>{new Date(item.recorded_at_ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</time> · Acceptance unavailable</p>
+    {exact && <ResultMediaUpload binding={resultMediaBinding(item, coverage)} />}
     <ResultMedia binding={resultMediaBinding(item, coverage)} />
     <details><summary>Report details and evidence references</summary>
     <div className={exact ? styles.detail : undefined}>
