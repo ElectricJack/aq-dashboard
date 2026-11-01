@@ -1,0 +1,50 @@
+{
+  "server_sha256": "84fbf672984584fc6f42e90bc7250581dd48c40129736fba2d4c908e400f4b82",
+  "dashboard_digest": "sha256:a384e31c82f84f9ee5565512bc4ecbfad483bed0aefeac4fc7829668a5952ac5",
+  "graph_sha256": "eb9c8f41002cb5d9675f87de0cadbe34e7d74cfc60d2449cd23ac4df76921fea",
+  "schema_version": 34,
+  "confirmed_operation_count": 2,
+  "execution_attempt_count": 0,
+  "screenshots": [
+    {
+      "path": "/tmp/aq-create-task-browser-qualified/create-task-desktop.png",
+      "sha256": "e26393c8ee52bbac9b3bb0436a815bf8edb3e63450f1c8bc25a8fe96909b6a5c"
+    },
+    {
+      "path": "/tmp/aq-create-task-browser-qualified/create-task-mobile.png",
+      "sha256": "adc421ce646eced2e97a583af6a28e4cdb808c0139f7cdd12db44fa2c52728c4"
+    },
+    {
+      "path": "/tmp/aq-create-task-browser-qualified/task-created-desktop.png",
+      "sha256": "51eeb72f11cf17b2f3c9f2d88f1e542aa42588e1fd4bc99c78e9bc50cd5e64f0"
+    },
+    {
+      "path": "/tmp/aq-create-task-browser-qualified/task-created-mobile.png",
+      "sha256": "0c9d11ec0b8aec5d11d8b916356c5776c09b6cd0aba0cd3eb5e8cfcc3d456073"
+    },
+    {
+      "path": "/tmp/aq-create-task-reflow-qualified/create-task-desktop.png",
+      "sha256": "79658a007216e74600a3a96cf741567025dd037cafade0a7c6e48c3817fe26ed"
+    },
+    {
+      "path": "/tmp/aq-create-task-reflow-qualified/create-task-mobile.png",
+      "sha256": "d05541b93f9449a097e0f5fdee476ce9e08d3805efb2100c5d5edcdd26665e31"
+    },
+    {
+      "path": "/tmp/aq-create-task-reflow-qualified/create-task-narrow.png",
+      "sha256": "452266a198afd45ceeb68d7aa000f5a0ed0162446056ae17357105b70208e94d"
+    },
+    {
+      "path": "/tmp/aq-create-task-reflow-qualified/task-created-desktop.png",
+      "sha256": "755c814e2ac673e8fbb25ec282b4b1e9e552f8ce8659e89cf624e11fa3291006"
+    },
+    {
+      "path": "/tmp/aq-create-task-reflow-qualified/task-created-mobile.png",
+      "sha256": "23766a7882806cca5d4e17d36bfed2fce727a88295966e706bed000bed51394e"
+    },
+    {
+      "path": "/tmp/aq-create-task-reflow-qualified/task-created-narrow.png",
+      "sha256": "a250c14ed3c5d7996d2196cec9cc7123da2ee095055aca02e446708aeb0118b6"
+    }
+  ]
+}

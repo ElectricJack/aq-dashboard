@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "origin": "http://127.0.0.1:58343",
+  "project_id": "edcc7c88-1a45-46be-8761-8610e2d99619",
+  "operation_id": "253a8e07-726d-4e1a-bf92-cb2a4c40150c",
+  "served_product": {
+    "version": "0.1.0",
+    "dashboard_digest": "sha256:a384e31c82f84f9ee5565512bc4ecbfad483bed0aefeac4fc7829668a5952ac5"
+  },
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 1100,
+      "horizontal_overflow": false,
+      "modal_focus_contained": true,
+      "escape_and_reopen": true
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "horizontal_overflow": false,
+      "modal_focus_contained": true,
+      "escape_and_reopen": true
+    },
+    {
+      "name": "narrow",
+      "width": 320,
+      "height": 740,
+      "horizontal_overflow": false,
+      "modal_focus_contained": true,
+      "escape_and_reopen": true
+    }
+  ],
+  "mutations": [],
+  "elapsed_ms": 1714,
+  "note": "Read-only existing-receipt lookup, scope-picker/form reflow and native modal interaction; all fresh drafts discarded without submission."
+}

@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "origin": "http://127.0.0.1:58343",
+  "project_id": "edcc7c88-1a45-46be-8761-8610e2d99619",
+  "operation_id": "5a919a9f-3a62-4321-96e3-18e33701c5eb",
+  "task_id": "5a919a9f-3a62-4321-96e3-18e33701c5eb",
+  "request_digest": "sha256:01b0b3d492bd6e3b3e91631962d41209463819a498e53ff59a973c521e1cec8b",
+  "receipt": {
+    "workspace_id": "aebef69f-b5fd-4436-bbf0-115e0e4fbc1d",
+    "change_set_id": "84d92f07-da66-4d7a-8bc5-0bdb2ab5c3c7",
+    "task_id": "5a919a9f-3a62-4321-96e3-18e33701c5eb",
+    "version": "1",
+    "content_revision": "1"
+  },
+  "served_product": {
+    "version": "0.1.0",
+    "dashboard_digest": "sha256:47cb250813812f3ee5c4afa0de426926a917e3918887c499f391efc6bbd1952f"
+  },
+  "elapsed_ms": 861,
+  "mutations": [
+    "POST /api/human/projects/edcc7c88-1a45-46be-8761-8610e2d99619/tasks"
+  ],
+  "note": "Actual disposable Graph create, immutable request digest, retained receipt, current record read, reload lookup and desktop/phone composer. No provider calls or agent execution."
+}
