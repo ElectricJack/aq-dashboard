@@ -33,7 +33,7 @@ export function ResultMedia({ binding }: { binding: MediaBinding }) {
     observer.observe(element.current); return () => { observer.disconnect(); window.visible(key, false); };
   }, [key, enabled, window.visible]);
   if (!enabled) return null;
-  return <div ref={element} className={styles.surface}>
+  return <div ref={element} className={styles.surface} data-result-media>
     {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} /> : <div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>}
   </div>;
 }
@@ -53,7 +53,7 @@ function MediaGallery({ binding }: { binding: MediaBinding }) {
   return <section aria-label="Human supplemental images" className={styles.gallery}>
     <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} /></div>
     <div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>
-    <div className={styles.caption}><strong>Human-supplemental PNG</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
+    <div className={styles.caption}><strong>Image preview</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
     <p className={styles.note}>Uploaded by a human. Capture details are unverified.</p>
     <MediaProvenance artifact={artifact} />
     <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh images</ActionButton>
