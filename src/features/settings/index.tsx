@@ -1,5 +1,6 @@
 import { DestinationPage } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
+import { ProjectBindings } from "./ProjectBindings";
 import { FrameworkStatus } from "./FrameworkStatus";
 
 export function Component() {
@@ -16,6 +17,7 @@ export function Component() {
         </dl>
       </section>
       <FrameworkStatus />
+      <ProjectBindings />
     </DestinationPage>
   );
 }
