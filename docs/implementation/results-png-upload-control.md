@@ -118,3 +118,13 @@ Source qualification:35 focused adapter/client/upload-control tests passed in
 in the earlier49-test focused group. No production build, source visual renderer
 or actual upload was run for the new control. Visual acceptance against10/13
 and actual browser recovery/retained-gallery behavior remain open.
+
+Review followups: retained copy says “Image added to this report” rather than
+inferring present file availability from immutable retained state. Admission now
+waits for the exact recovery URL to commit; a blocked-navigation regression
+proves no POST precedes it. Independent review identified capability loss during
+held file preparation; the preparation ticket and current-write permission now
+fence both freeze and reselection before publishing bytes/reference. Both held
+paths were tested with same-account capability loss and re-enable, with no file
+or replay resurrection. The final19 interaction tests passed in3.94s, followed
+by complete TypeScript and diff checks. Actual uploader acceptance remains open.
