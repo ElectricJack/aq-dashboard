@@ -1,0 +1,13 @@
+# Human Graph Work and Knowledge increment
+
+This frontend increment consumes the paired `human-graph-1` contract from AQ's human listener. It requires explicit `human.graph.read` version 1 capability plus the destination's task/knowledge capability. Proposed mock Work remains an explicitly separate `proposed-0` demo path. No production fallback calls machine Graph APIs.
+
+A selected authorized project is required; All projects offers the existing bounded project picker rather than fanning out across Graph workspaces. Work and Knowledge use dedicated response validators and principal/authorization/project/query-partitioned caches. Lists explicitly show loaded records, never a guessed project total, with at most four 25-record pages. Binding drift and duplicate IDs across pages refuse merging.
+
+Work exposes recorded task state, body, acceptance text and a bounded dependency neighborhood. It makes no execution-readiness, session or result claim from raw task state. The dependency view reuses the existing graph-layout algorithm, shows one-hop/truncated coverage, and keeps typed relationship labels. Mobile switches between graph and readable detail.
+
+Knowledge provides searchable list/detail composition, independent lifecycle and verification indicators, current versus exact pinned content revisions, source descriptors, author/version/validity/retirement details and successor navigation. Body and provenance are literal text; no Markdown or external source fetching is performed by this increment. Historical revision lookup exists; a revision-history discovery list and Knowledge relationship browsing remain deferred. Writes are not part of this read increment.
+
+The shared Search dialog uses the paired project-scoped task/knowledge reads only when those capabilities are enabled. It does not advertise global/all-project search coverage, account for unseen pages as totals, or create links into unsupported result/playbook views.
+
+Validation: dedicated adapter/component cases cover exact large revision strings, foreign project/record/refusal, pinned revision identity, response bounds, binding drift, literal hostile markup, source-owned lifecycle/verification, selected-project requests, unavailable Graph, search pairing and dependency truncation. Existing proposed Work/Search tests remain separate. Typecheck passes. Actual Graph→AQ→compiled-bundle browser acceptance must be performed with the paired backend before this is described as live-qualified. The feature's desktop/mobile visual subset follows the accepted Work and Knowledge references; full authoring/history/relationship behavior remains open.
