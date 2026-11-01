@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "elapsed_ms": 1237,
+  "origin": "http://127.0.0.1:45743/",
+  "run": "run-0000000000000001",
+  "child": "sha256:0ac26b1c0c35c891a3158eda463541ee533a757ddd5b9f7fac129fc737fafb61",
+  "artifact": "sha256:d21e02a20eeda4113f640c13d961bba8d18449b8ca737762f734a95ad0eb4a34",
+  "child_artifact": "sha256:fcec7924c601e6851d493d357bbb9e8d17074e3dbae5803ee6e6ce4142339875",
+  "receipt_count": 4,
+  "namespace": "d08af4ca-8219-4b23-9e8b-72684f02038e",
+  "read_only_browser": true,
+  "api_reads": 6,
+  "screenshots": [
+    "desktop.png",
+    "mobile.png"
+  ],
+  "note": "Actual protected engine and compiled bundle; labelled development parent/child admitted through typed owner APIs. No interception/provider; definitions and activation discovery remain deferred.",
+  "bundle_manifest_sha256": "85fa3dbfb790467dcaca3be6ce6ee7f448d9b2b39603f066df3b3811afbde2a8",
+  "process_test_seconds": 4.08,
+  "backend_base": "af79c41",
+  "combined_builder": "8d33242",
+  "fixture_commits": [
+    "573b673",
+    "179269e"
+  ],
+  "probe_commits": [
+    "2d55f03",
+    "54e516b"
+  ],
+  "fixture_clock": "Original NOW=1000000ms retained; displayed 1970 dates are labelled test data, not live observation freshness."
+}
