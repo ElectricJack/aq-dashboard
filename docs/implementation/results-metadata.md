@@ -1,0 +1,9 @@
+# Retained result metadata — UI-14
+
+This first Results increment replaces the placeholder with real Owner-authorized metadata reads from `/api/human/results` and exact `/api/human/results/{report}/revisions/{digest}`. API-06 owns the matching backend. The original accepted Results desktop/mobile compositions govern the feed/card/detail hierarchy; actual media and comments remain later UI-18/UI-19 increments.
+
+Implemented visual subset: a recorded-report feed, explicit refresh/load-more, prominent worker conclusion, current/superseded report badge, task/project association, exact report revision/source base and evidence-reference detail. No sample screenshots/videos, acceptance badge, comment or feedback control appears as production capability. Source/effect IDs are worker-supplied references, not verified media or source acceptance. UUID keyset order is labelled stable identity rather than chronological Latest.
+
+The adapter validates version/coverage, exact identities/revision, project scope, monotonic page positions, correction relationships and bounded reference/object values. Read query keys include current principal, authorization revision and project scope. At most four ten-row pages remain in this view, with explicit user paging and no content persistence. Task links appear only when the negotiated task-read capability is enabled.
+
+Focused adapter/component checks cover denied capability with no request, exact deep links and scope, safe worker text, empty versus failed read, retry/pagination, and malformed revision/identity/correction/page boundaries. Ten focused tests and typecheck pass. Actual daemon/bundle browser acceptance and reviewed desktop/phone screenshots are still required after root integrates the backend, capability and production assets. A successful mock test is not live qualification.
