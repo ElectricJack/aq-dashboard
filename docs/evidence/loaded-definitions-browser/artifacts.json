@@ -1,0 +1,87 @@
+{
+  "fixture": "definitions::loaded_definitions_refuse_foreign_scope_roles_unknown_query_and_absent_runtime",
+  "source_backend_commit": "a0fdbba",
+  "source_ui_commit": "b3465c1",
+  "schema_sha256": "8852409579266e5be4aa965ea4ca1af12c8820224d949db652c89c0503ac37ca",
+  "bundle_status": "root-composed immutable candidate; canonical preview promotion is separate",
+  "database": "disposable isolated PostgreSQL fixture, preview database untouched",
+  "artifacts": [
+    {
+      "path": "/tmp/aq-loaded-definitions-pin/playbook_activation",
+      "sha256": "6e4cb7c01479b017c6c107328fa93fbde0673f0743f30709ba97f7c014c1e4a4",
+      "bytes": 103819528
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/dist-loaded-definitions/dashboard-manifest.json",
+      "sha256": "8fe4fa06127cc0f3188bb3bbe45fdd6741cbb395f952d27ec7d7dd29b6b3628c",
+      "bytes": 4235
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-ui-v2/scripts/probe-loaded-playbook-definitions.mjs",
+      "sha256": "eb2e81da1f718577526d00b3b6cacd5f3b2e8c0e86fe0eb589a0fc3f07affefa",
+      "bytes": 6474
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-visual-review/probe-loaded-playbook-definitions.mjs",
+      "sha256": "71d7b15e243001eeceebbcecee2c1e73c94934a0ffd1def73f95243b95366544",
+      "bytes": 6796
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-acceptance/loaded-definitions-320.png",
+      "sha256": "1e0da18b8082368c7cdeed6a3741ffd029bf2161062106c4ec35e89fb0bcc662",
+      "bytes": 40734
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-acceptance/loaded-definitions-390.png",
+      "sha256": "522b86b875bf9eb4ea2ad702c11a430134e567e83dffc2ca736d78782881e3a3",
+      "bytes": 44881
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-acceptance/loaded-definitions-desktop.png",
+      "sha256": "7a75860d94656a20905d3f6301f6091848f0ee20c3d263a75fc069242a4eaec5",
+      "bytes": 201801
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-320-full.png",
+      "sha256": "a198cd649e87c7d4b5716cf244a4ded66acdee205546dc7a6959936006629f95",
+      "bytes": 123736
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-320.png",
+      "sha256": "4f6e69e8cfd9381b7c80cf9fe98cc107d8765192dc82ec3034ceed77d0bad304",
+      "bytes": 39934
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-390-full.png",
+      "sha256": "6483fac19c0ceaed8b4f6259267ae9e08de3cb69ad47dd610575713b1509d5f2",
+      "bytes": 126021
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-390.png",
+      "sha256": "522b86b875bf9eb4ea2ad702c11a430134e567e83dffc2ca736d78782881e3a3",
+      "bytes": 44881
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-desktop.png",
+      "sha256": "f58eaaaf5a06e6cc1fd32317b190537ab100711127b3a2b0202fd832dc985e0a",
+      "bytes": 202095
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-list-320.png",
+      "sha256": "ca8781f4940371087dbaf4203cae499a80fb3a1ecb09823357efe71c3a585e11",
+      "bytes": 84438
+    },
+    {
+      "path": "/tmp/aq-loaded-definitions-browser-review/loaded-definitions-list-390.png",
+      "sha256": "a1a8b8ba757e0185c759b74455ea48a761c6d91adb52951f52bd4b2b557d261b",
+      "bytes": 84012
+    }
+  ],
+  "capture_only_change": "capture-only.patch; assertions and UI bundle unchanged",
+  "limits": [
+    "Historical startup configuration, not a current installed catalog",
+    "No activation presence or mutation claim",
+    "No editing, compilation, install or external provider acceptance",
+    "Full Playbooks visual acceptance remains open"
+  ]
+}
