@@ -8,9 +8,10 @@ test("projects are explicit configuration and recorded checks, including unknown
 });
 test("refuses unsafe counters, foreign check identity, duplicate/unsorted rows and unbounded pages/profiles", () => {
   const bad = projectRecord(); bad.validation.repository_id = projectRecord(2).binding.project_id;
+  const badGeneration = projectRecord(); badGeneration.validation.repository_generation = 4;
   const badRevision = { ...projectRecord(), revision: Number.MAX_SAFE_INTEGER + 1 };
   const badProfiles = projectRecord(); badProfiles.binding.allowed_agent_profiles = Array.from({ length: 33 }, (_, i) => `profile${i}@1`);
-  for (const items of [[bad], [badRevision], [badProfiles], [projectRecord(), projectRecord()], Array.from({ length: 26 }, (_, i) => projectRecord(i + 1))]) expect(() => adaptProjectBindings({ items, next_cursor: null }, null)).toThrow();
+  for (const items of [[bad], [badGeneration], [badRevision], [badProfiles], [projectRecord(), projectRecord()], Array.from({ length: 26 }, (_, i) => projectRecord(i + 1))]) expect(() => adaptProjectBindings({ items, next_cursor: null }, null)).toThrow();
 });
 test("validates cursor advancement and exact last-row binding", () => {
   const items = Array.from({ length: 25 }, (_, i) => projectRecord(i + 1));

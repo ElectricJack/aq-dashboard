@@ -23,7 +23,7 @@ export function adaptProjectBindings(raw: unknown, after: string | null) {
     const b = row.binding, v = row.validation;
     ensure(b.schema_version === 1 && uuid(b.project_id) && (!previous || b.project_id > previous) && label(b.name) && typeof b.enabled === "boolean");
     ensure(uuid(b.repository_id) && uuid(b.graph_workspace_id) && positive(b.repository_binding_generation) && typeof b.catalog_digest === "string" && /^[0-9a-f]{64}$/.test(b.catalog_digest));
-    ensure(v.repository_id === b.repository_id && v.graph_workspace_id === b.graph_workspace_id && v.repository_adapter_reference === b.repository_adapter_reference && v.graph_adapter_reference === b.graph_adapter_reference);
+    ensure(v.repository_generation === b.repository_binding_generation && v.repository_id === b.repository_id && v.graph_workspace_id === b.graph_workspace_id && v.repository_adapter_reference === b.repository_adapter_reference && v.graph_adapter_reference === b.graph_adapter_reference);
     ensure(label(v.repository) && label(v.graph));
     const observedAt = timestamp(v.observed_at_ms), expiresAt = timestamp(v.expires_at_ms);
     ensure((v.expires_at_ms as number) > (v.observed_at_ms as number));
