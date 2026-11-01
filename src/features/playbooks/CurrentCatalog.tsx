@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { playbookCatalogJson } from "../../api/playbookCatalogClient";
@@ -18,6 +18,7 @@ class ExactCatalogConflict extends ApiError {
 }
 
 export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
+  const queryClient = useQueryClient();
   const { bootstrap, queryContext } = useSession(); const [scope] = useScope(); const [params, setParams] = useSearchParams();
   const capability = bootstrap.capability(CATALOG_CAPABILITY), project = scope.kind === "project" ? scope.project_id : null;
   const parameter = kind === "definitions" ? "definition" : "activation", selected = params.get(parameter), validSelection = selected === null || artifactDigest(selected);
@@ -33,6 +34,15 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
       try { return adaptCatalog(await playbookCatalogJson(kind, project, detailRequest, signal), kind, project, detailRequest); }
       catch (error) { if (error instanceof ApiError && error.status === 409 && stamp) { const failure = new ExactCatalogConflict(stamp); if (!signal.aborted) refused.current = failure; throw failure; } throw error; }
     } });
+  useLayoutEffect(() => {
+    if (!capability.enabled) {
+      // A disabled observer retains data. Clear this feature's source context
+      // while hidden, before a later capability gain can paint it as current.
+      refused.current = null;
+      const predicate = (query: { queryKey: readonly unknown[] }) => query.queryKey.includes("playbook-current-catalog") || query.queryKey.includes("playbook-current-catalog-detail");
+      void queryClient.cancelQueries({ predicate }); queryClient.removeQueries({ predicate }); setEpoch(value => value + 1);
+    }
+  }, [capability.enabled, queryClient]);
   const knownConflict = stamp && refused.current && sameCatalog(stamp, refused.current.stamp) ? refused.current : null;
   function refresh() { refused.current = null; setEpoch(value => value + 1); }
   const row = detail.data?.items[0], heading = useRef<HTMLHeadingElement>(null), previous = useRef<string | null>(null), buttons = useRef(new Map<string, HTMLButtonElement>()), rosterSummary = useRef<HTMLParagraphElement>(null);
