@@ -53,6 +53,13 @@ Existing Watch creation, limits, clearing and expiry behavior is preserved.
 Twenty focused Agents/tail component tests and TypeScript checks pass. The first
 full-suite invocation found a stale focus expectation after clicking the newly
 added disclosure; the test now checks navigation focus before that explicit click.
-Production-bundle and actual preview visual verification are performed at the
-integration gate. The full terminal/control and whole-dashboard visual tasks
-remain open.
+The production candidate builds successfully (22 assets, no mock code). A
+read-only browser check against that compiled bundle proxied to the actual AQ
+human listener passes in 805 ms (1.4 seconds including browser setup), with zero
+mutations or page errors. Reviewed 1440px desktop and 390px phone screenshots
+show the declared focused-output subset, details disclosure and mobile navigation
+behavior. The first attempt received a proxy 502 because the daemon was stopped;
+it passed after the integration owner restored the actual listener. This check
+does not create a Watch or claim new live-output publication. Same-origin served
+preview integration remains with the root owner. The full terminal/control and
+whole-dashboard visual tasks remain open.
