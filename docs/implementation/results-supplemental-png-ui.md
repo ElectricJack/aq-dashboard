@@ -93,3 +93,40 @@ cases). Actual HTTP/browser execution and screenshot review remain open until
 reported with a concrete owned fixture and bundle. Authorization, expiry and late
 result negative cases remain covered by separate server/client tests; this
 positive probe does not claim those scenarios or worker/source capture proof.
+
+#### Actual positive acceptance — 2026-11-01
+
+One authorized run against the isolated schema36 stage `http://localhost:4206`
+passed in3.809s. Bundle digest was
+`sha256:af51fe1636a87934ff0ef85ad03336c8e3a0b3bffc97817e6b8087bb3d58c127`;
+actual server source55b1dc67 and binary SHA256
+`49006758bfcf378f54a24343b6444563c55adf32cc214c0904c29ec3f58b30e8`.
+Probe source was ea96ee7. No interception, canonical configuration changes,
+providers or workers were involved.
+
+The real Playwright input was960×600,83,919bytes, with closed CRC-checked
+IHDR/consecutive IDAT/IEND chunks. One admission, one byte PUT and one finalize
+retained artifact/operation `18db7bb4-c508-4fb4-b192-c7492c031620`.
+The finalized preview was384×240/37,957bytes and render960×600/195,989bytes.
+Both actual HTTP representations and the compiled client's accepted Blob bytes
+matched their pinned MIME, dimensions, lengths and SHA256. Receipt and literal
+admission digests matched; refresh/reload retained the same sole artifact.
+There were zero browser writes, external requests or page errors.
+
+Reviewed desktop1440×1000 and phones390×844/320×740 against references10/13:
+the bounded image frame contains its image, filenames wrap, human provenance
+remains readable, modal Close is visible, close returns focus to Expand, and phone
+navigation exits/Back work. These captures intentionally scroll the media area
+into view, so the page title may be above the viewport. The uploaded source PNG
+truthfully records the labelled actual fixture while its previously empty media
+list was still loading. Its original legacy report timestamp is fixture data;
+neither the image nor this qualification asserts worker capture, source coverage,
+acceptance or completion.
+
+Evidence: [actual-owner report](evidence/result-media-actual-owner/result.json)
+and seven PNGs beside it (six UI captures plus the single actual input capture).
+This accepts the supplemental PNG read/selector/expand/close/refresh/reload
+subset. Full reference10/13 composition remains open while comments, review
+workflow, richer media, comparison, capture requirements and acceptance are
+unimplemented. Negative authorization/expiry/late-result behavior is qualified
+by separate server/client tests, not this positive browser run.
