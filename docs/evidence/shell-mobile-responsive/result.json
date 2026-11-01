@@ -1,0 +1,99 @@
+{
+  "passed": true,
+  "origin": "http://localhost:4204",
+  "served_dashboard_digest": "sha256:2b3d3d6ee8be801288f2f7c95446ac18e73e80e8010c18d905885e9d4b077689",
+  "expected_dashboard_digest": "sha256:2b3d3d6ee8be801288f2f7c95446ac18e73e80e8010c18d905885e9d4b077689",
+  "source_commit": "3715f36",
+  "elapsed_ms": 6292,
+  "production_bundle_acceptance": true,
+  "provider_quota": {
+    "name": "provider.quota",
+    "version": "1",
+    "enabled": false,
+    "reason": "Provider account usage is unavailable"
+  },
+  "results": [
+    {
+      "width": 1440,
+      "header_height": 69,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "header_height": 114,
+      "overflow": false,
+      "overlay_does_not_resize_header": true,
+      "reason_panel": {
+        "x": 16,
+        "y": 117,
+        "width": 358,
+        "height": 103
+      },
+      "close_escape_search_scope_focus": true
+    },
+    {
+      "width": 320,
+      "header_height": 114,
+      "overflow": false,
+      "overlay_does_not_resize_header": true,
+      "reason_panel": {
+        "x": 16,
+        "y": 117,
+        "width": 288,
+        "height": 124
+      },
+      "close_escape_search_scope_focus": true
+    },
+    {
+      "width": 390,
+      "page": "focused_agents",
+      "header_height": 62,
+      "back_visible": true,
+      "bottom_nav_hidden": true
+    },
+    {
+      "width": 320,
+      "page": "focused_agents",
+      "header_height": 62,
+      "back_visible": true,
+      "bottom_nav_hidden": true
+    },
+    {
+      "width": 1440,
+      "page": "supervisor",
+      "send_bounds": {
+        "x": 1247.703125,
+        "y": 1007,
+        "width": 151.296875,
+        "height": 44
+      },
+      "read_only_inspection": true
+    },
+    {
+      "width": 390,
+      "page": "supervisor",
+      "send_bounds": {
+        "x": 286.703125,
+        "y": 711,
+        "width": 74.296875,
+        "height": 44
+      },
+      "read_only_inspection": true
+    },
+    {
+      "width": 320,
+      "page": "supervisor",
+      "send_bounds": {
+        "x": 216.703125,
+        "y": 711,
+        "width": 74.296875,
+        "height": 44
+      },
+      "read_only_inspection": true
+    }
+  ],
+  "errors": [],
+  "mutations": [],
+  "foreign_requests": [],
+  "note": "Actual cloned owner/Graph state, read-only browser; no Supervisor typing/enqueue, Watch, provider quota or live reply claim."
+}

@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "source_candidate": true,
+  "actual_api": "http://127.0.0.1:4188",
+  "focused_header_height": 62,
+  "scope_selection_preserved": true,
+  "errors": [],
+  "mutations": []
+}
