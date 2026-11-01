@@ -1,9 +1,16 @@
 # Combined frontend qualification and canonical asset promotion
 
-November 1, 2026. This record binds one immutable frontend to its full source
+November 1, 2026. **Historical asset-only state35 promotion record.** The later
+[canonical AQ37 cutover](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+now supplies actual Playbooks/Decisions owners with the same immutable frontend;
+see the [current matrix](../plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37).
+The original source/test/build and state35 observations below remain unchanged
+as-of their asset-only checkpoint. No new frontend build was required.
+
+This record binds one immutable frontend to its full source
 checks, separate configured feature fixtures, old-backend compatibility and
 actual canonical read-only acceptance. It does not close complete page designs,
-the central runtime, media/catalog deployment or the v2 parent milestones.
+the central runtime, media-owner deployment or the v2 parent milestones.
 
 ## Exact frontend and checks
 
@@ -38,8 +45,9 @@ Both feature owners verified this same immutable 6247 bundle. The media fixture'
 three mutation requests were separately authorized as one operation; the
 compatibility/canonical gates below perform **no** mutation. Catalog fixture
 setup installs real component metadata but its browser makes reads only. These
-different configurations must not be combined into a claim that the current
-canonical daemon exposes either feature.
+different configurations did not establish canonical availability at that
+asset-only checkpoint. Later AQ37 actual UDS deployment now enables the current
+catalog with empty data; canonical media remains unconfigured.
 
 ## Existing state35 compatibility before promotion
 
@@ -58,7 +66,7 @@ full-page acceptance or proof of live Supervisor replies/terminal output.
 [Old-backend results and hashes](composed-frontend-6247-qualification.json) retain
 each route fixture, result and original private output path.
 
-## Actual canonical promotion and one read-only regression pass
+## Historical state35 canonical asset promotion and read-only pass
 
 Root promoted 6247 assets at `http://localhost:4188` using the **same** retained
 binary SHA256
@@ -83,7 +91,8 @@ One subsequent read-only browser pass verified the served 6247 digest:
 All passed without interception or mutating API calls. Shell and Source events
 also explicitly tracked and refused foreign requests.
 [Canonical results](composed-frontend-6247-qualification.json) retain exact
-machine-readable evidence. Canonical media/catalog/Decisions remain unavailable;
+machine-readable evidence. At this historical state35 checkpoint, canonical
+media/catalog/Decisions remained unavailable;
 provider quota remains unavailable. A terminal Watch capability does not imply
 retained bytes, control or a running harness; this gate never invokes it.
 
@@ -106,15 +115,38 @@ Canonical captures: [desktop](evidence/composed-frontend-6247/canonical/header-1
 [focused320](evidence/composed-frontend-6247/canonical/focused-320.png), and
 [Supervisor320](evidence/composed-frontend-6247/canonical/supervisor-320.png).
 
-The [availability matrix](../plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35)
-keeps media and current catalog isolated qualification distinct from canonical
-availability. Full designs/actions, capture requirements, comments/review,
+The [current availability matrix](../plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37)
+now distinguishes the later real empty canonical catalog/Decisions owners from
+this historical state35 checkpoint and isolated media qualification. Full designs/actions, capture requirements, comments/review,
 central dispatch/replies, current session producers, terminal control and actual
 account quota remain separate gates. The old 5c Events35 record remains historical.
 
-Rollback for this promotion changes **only** the assets directory back to
+Rollback for this historical asset-only promotion changed **only** the assets directory back to
 `/tmp/aq-dashboard-actions-promotion/dist-events-media`, manifest
 `5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667`,
 on the same 8ad binary/configuration/state35 database. No restore or schema
 rollback is needed. Root owns any future restart/promotion/rollback; none was
 performed by these read-only browser gates.
+
+## Later canonical backend/database cutover: current status
+
+The [actual final cutover](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+now serves this exact624 bundle with AQ37/default backend source511ee99, binary
+SHA25617698c625675b7a994b0a56bbd37737becbf039380093ae9dd32fe1bdcd27b25.
+Actual protected Playbooks/Decisions owners use the same real private UDS DB as
+core SQLx. Definitions/Activations and review queue are genuinely empty, current
+catalog/read/resolve capabilities are enabled, and startup-loaded metadata is
+unavailable for explicit deployments=[]. No authored policy, run or review was seeded.
+
+Canonical GET-only 1440/390/320 catalog/all-page acceptance passed13664ms; dedicated
+Graph/Work/Knowledge3247ms, Overview497ms and Supervisor1609ms also passed. These
+are current AQ37 evidence; the633 tests and2.448s build above qualify the unchanged
+frontend source. No UI rebuild, browser rerun or service operation was performed
+by this documentation update. Populated actions/media remain their isolated proofs.
+
+The former private PostgreSQL proof instance is now a protected canonical dependency,
+not a disposable fixture. Preserve its promoted-use marker and do not run proof
+stop/cleanup. The old35 database is retained, but the historical assets-only rollback
+above is not the complete rollback recipe for this later DB cutover: after new
+target user writes, returning to an old snapshot requires reviewed reconciliation.
+The canonical acceptance record owns exact data/authority/rollback boundaries.

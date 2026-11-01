@@ -4,7 +4,7 @@ The Playbooks feature consumes the `playbooks-inspection-1` human API described 
 
 This first increment replaces the placeholder with bounded run discovery, exact artifact/dependency pins, current step/status, public receipts, pending operations and child workflows. Admissions are separate from confirmed runs. Filters describe loaded rows, pagination is explicit and decimal revisions/sequences never pass through Number. Project/namespace mismatches and malformed response shape refuse rendering. Query keys participate in the existing current-identity/authorization cache fence.
 
-The accepted Playbooks mockup supplies the two-column roster/detail and timeline composition. Current installed definition/activation discovery and editing remain deferred. The timeline shows retained receipt events, not an invented complete step graph or an inferred review decision. Phone focus opens one run detail with an All runs return link.
+The accepted Playbooks mockup supplies the two-column roster/detail and timeline composition. At the initial increment, current installed definition/activation discovery and editing remained deferred; current read-only discovery is now qualified below, while editing remains open. The timeline shows retained receipt events, not an invented complete step graph or an inferred review decision. Phone focus opens one run detail with an All runs return link.
 
 Component/adapter tests use isolated explicit fixtures. The dedicated actual-server browser check is `tests/live/playbooks.spec.ts`; configured runtime absence or no admitted run is an explicit skip, not proof of live behavior. Root owns the assembled capability/bootstrap and preview update.
 
@@ -75,9 +75,9 @@ Source checks: 61 focused finite-client/adapter/feature/unchanged-fallback tests
 passed in 2.94 s and the full `pnpm exec tsc -b` passed. One initial assertion expected a
 local error for a malformed 200 response; the existing global contract fence
 correctly removed the page. The assertion now checks that fence, with a separate
-valid 409 case checking local explicit refresh. No production bundle or browser
-acceptance has run for this current-catalog increment. Backend qualification,
-schema generation and independent desktop/390/320px actual review remain gates;
+valid 409 case checking local explicit refresh. At that source-only checkpoint, no production bundle or browser
+acceptance had run for this increment. Later actual acceptance is recorded below;
+backend qualification, schema generation and desktop/390/320px review were separate gates;
 previous startup-metadata proof does not qualify current catalog/Activations.
 
 
@@ -129,3 +129,17 @@ private UDS deployment or merged schema37/canonical promotion gate. No canonical
 runtime configuration, provider/workflow admission or project eligibility was
 fabricated. Editing/compilation/installation/activation mutations and full parent
 Playbooks design remain deferred.
+
+## Current canonical availability after actual UDS cutover
+
+The [actual canonical record](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+now qualifies source511ee99/AQ37 with the same624 bundle on4188. Component0.1.3
+current catalog and Playbooks inspection are mounted through the real UDS owner.
+Definitions/Activations and Runs/admissions are successfully empty in the new
+canonical namespace; no dummy definition, grant, activation or completed run was
+created. Historical loaded-definitions capability is false for deployments=[].
+Current-catalog and all-page1440/390/320 GET-only checks passed13664ms, with zero
+unrelated catalog-view engine/history reads, mutations, foreign requests or errors.
+Populated artifact/activation and parent/child timeline proofs remain disposable
+qualifications, not canonical activity. Definition authoring, configured pipelines,
+dashboard run/installation/activation mutations and full06 design stay open.

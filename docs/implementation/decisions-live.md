@@ -13,3 +13,13 @@ The component/adapter test set covers disabled capability, empty discovery, sour
 The actual [configured SQL/review-owner browser read proof](../../../agent-q/docs/implementation/API-04-browser/README.md) passed in 2.75s, with desktop/390px screenshots reviewed. Separate [disposable browser action qualification](../../../agent-q/docs/implementation/API-04-browser/actions.md) passed in 2.88s. Approve/reject double clicks each produced one POST; a loopback fault proxy truncated a committed owner's HTTP reply, the UI retained an unknown answer, and an explicit identical-byte retry recovered its original receipt. Four POSTs resolved three disposable reviews, preserving source/subject pins. No browser response interception or provider calls occurred.
 
 Both proofs used the unchanged bundle manifest SHA256 `85fa3dbfb790467dcaca3be6ce6ee7f448d9b2b39603f066df3b3811afbde2a8`. They establish the delivered discovery/evidence/answer subset, not full document/media/discussion design acceptance, task completion, merge/deployment or canonical-preview promotion. The review owner and both capability versions must be mounted in the promoted process before this behavior is available there.
+
+## Current canonical availability
+
+The [actual AQ37 UDS cutover](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+now mounts the real review owner on canonical4188/source511ee99 with the same624
+bundle. decisions.read and decisions.resolve are enabled; the current queue is
+successfully empty. Canonical acceptance was read-only and submitted no answer.
+The populated approve/reject/uncertain-retry proofs above remain separately labelled
+disposable owner/action qualification. No review or downstream completion is invented
+to fill the UI; full document/media/discussion design and pipeline automation remain open.

@@ -2,7 +2,7 @@
 
 The standalone dashboard for Agent Q v2. It consumes the central AQ API and owns browser presentation, interaction and accessibility. AQ owns authorization, scheduling, lifecycle policy and authoritative state.
 
-The application includes the shell, responsive Overview/Work/Agents inspection views, and a mock harness. The first live integration profile, `dashboard-read-1`, connects identity, project/session inspection and a partial overview to AQ; Settings reads daemon status and enrolled workers. Other screens remain capability-gated. The complete API-02 contract and release pipeline are still in progress.
+The application includes responsive task/knowledge inspection, recorded Overview contributions, Agents/source events, human Supervisor history, Results metadata and capability-gated policy/review views. The [current local availability matrix](docs/plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37) records actual canonical AQ37/source511ee99 with bundle6247: real Playbooks/Decisions owners, successful empty current Definitions/Activations and review queue. Its unchanged frontend has 633 passing tests. Full page designs, workflow automation, live Supervisor responses, provider quota and terminal control remain open; canonical PNG uploads remain disabled. The [cutover evidence](../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md) distinguishes live features from disposable populated/action fixtures.
 
 - [Full specification reader](docs/index.html) — product design, API proposal, implementation plan and contract audit in one browser document.
 - [Product and interaction design](docs/specs/0002-product-design.md) — all screens, responsive layouts, provider usage, full-page supervisor, focused terminals and Results/feedback.
@@ -20,7 +20,7 @@ The application includes the shell, responsive Overview/Work/Agents inspection v
 
 The intended release is a versioned static bundle packaged into the AQ server image. Development uses a mock API or local daemon; normal dashboard tests do not require worker nodes or domain databases. Sibling documentation links assume side-by-side checkouts and are not build dependencies.
 
-Contract readiness is **partial**: the live read profile is an incremental API-02 implementation. Terminals, durable mail and observations have separate foundational APIs. Provider account quota, global conversation integration, Results/media, anchored comments and feedback creation require the additions specified here. Proposed routes are not represented as live endpoints.
+Contract readiness is **partial**: live human Graph, mailbox, observations, review and policy inspection are coherent API-02 increments. Provider account quota, connected Supervisor dispatch/replies, complete Results/media deployment, anchored comments and feedback creation remain separate gates. The [availability matrix](docs/plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37) identifies each configured subset; proposed routes are not represented as live endpoints.
 
 The Markdown documents are canonical. Regenerate the local HTML reader with `python3 scripts/render-specs.py` (requires Python Markdown); this is documentation tooling, not a dashboard application build.
 
@@ -77,10 +77,11 @@ AQ_LIVE_URL=http://127.0.0.1:8080 pnpm test:live
 
 This checks live identity, capabilities, Overview/Agents/Settings navigation,
 worker reads, direct page refresh and API/asset error handling without API mocks.
-It does not launch agents or qualify terminal streaming. The first profile leaves
-Work, Decisions, Results, Search, Playbooks, Knowledge and supervisor chat disabled
-until their respective live read/action owners are connected. Provider account
-quota remains unavailable; absent measurements are never displayed as zero.
+It does not launch agents or qualify terminal streaming. The original first profile left
+Work, Decisions, Results, Search, Playbooks, Knowledge and Supervisor disabled;
+that historical D05 boundary is superseded by the current availability matrix.
+Provider account quota and live Supervisor responses remain unavailable; absent
+measurements are never displayed as zero.
 
 The initial live connection is qualified in
 [D05](docs/evidence/d05-live-framework.md), with exact source/bundle pins and
