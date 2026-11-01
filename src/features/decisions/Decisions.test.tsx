@@ -37,7 +37,7 @@ test("unknown response retries exact frozen answer bytes and preserves note", as
 });
 test("successful answer requires the exact actor operation and recorded receipt", async () => {
   setup(true, true); let resolved = false;
-  const makeReceipt = (q: Record<string, unknown>) => ({ schema_version: 1, decision_id: decisionId(1), decision_revision: 2, recorded_at_ms: 11000, request_digest: "a".repeat(64), subject: decisionDetail().request.subject, finality: { kind: "human_answer", owner_user_id: decisionId(9), operation_id: q.operation_id, choice: q.choice } });
+  const makeReceipt = (q: Record<string, unknown>) => ({ schema_version: 1, decision_id: decisionId(1), decision_revision: 2, recorded_at_ms: 11000, request_digest: "a".repeat(64), subject: decisionDetail().request.subject, review_policy: decisionDetail().request.review_policy, eligibility_project_revision: 1, finality: { kind: "human_answer", owner_user_id: decisionId(9), operation_id: q.operation_id, choice: q.choice } });
   server.use(http.post("/api/reviews/decisions/:id/resolve", async ({ request }) => { const q = await request.json() as Record<string, unknown>; resolved = true; return HttpResponse.json(makeReceipt(q)); }), http.get("/api/reviews/decisions/:id", () => HttpResponse.json(resolved ? { ...decisionDetail(), decision_revision: 2, state: "answered", receipt: makeReceipt({ operation_id: decisionId(10), choice: "approve" }) } : decisionDetail())));
   renderApp(`/decisions/${decisionId(1)}`); await screen.findByText("Recovery tests retained");
   await userEvent.click(screen.getByRole("button", { name: "Approve revision 1" })); await screen.findByText("Recorded decision: approve");
