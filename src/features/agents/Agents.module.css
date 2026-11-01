@@ -62,7 +62,7 @@
 .detail {
   display: grid;
   gap: var(--space-3);
-  max-inline-size: 1100px;
+  max-inline-size: none;
 }
 
 .back {
@@ -100,23 +100,6 @@
   color: var(--color-text);
 }
 
-.facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--space-2) var(--space-5);
-  margin: 0;
-  font-size: var(--font-size-meta);
-}
-
-.facts dt {
-  color: var(--color-text-secondary);
-}
-
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 .detail h3 {
   font-size: 16px;
 }
@@ -126,3 +109,20 @@
   padding-inline-start: var(--space-5);
   font-size: var(--font-size-meta);
 }
+
+/* The selected session gets the workspace; metadata is an explicit disclosure. */
+.workspaceHeading { justify-content: space-between; }
+.focusLabel { margin-inline-end: auto; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.switcher { display: flex; align-items: center; gap: var(--space-2); min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; padding-block: var(--space-1); }
+.sessionTab { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-2); max-inline-size: 28ch; min-block-size: var(--touch-target); overflow: hidden; white-space: nowrap; padding: var(--space-2) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control) var(--radius-control) 0 0; background: var(--color-panel); color: var(--color-text-secondary); text-decoration: none; }
+.sessionTab[aria-current="page"] { border-color: var(--color-accent); color: var(--color-text); background: var(--color-raised); box-shadow: inset 0 2px var(--color-accent); }
+.sessionDot { flex: 0 0 auto; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--color-text-secondary); }
+.outputWorkspace { display: grid; min-inline-size: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: #0b0e11; }
+.outputHeading { justify-content: space-between; padding: var(--space-3) var(--space-4); background: var(--color-panel); border-block-end: 1px solid var(--color-border); }
+.outputHeading strong { font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.readOnly { flex: 0 0 auto; color: var(--color-accent); font-size: var(--font-size-meta); }
+.outputWorkspace .terminal { min-block-size: clamp(320px, 52dvh, 700px); border: none; border-radius: 0; }
+.outputFooter { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding: var(--space-2) var(--space-4); border-block-start: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.detailsPanel { padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
+.detailsPanel h3 { margin-block: var(--space-5) var(--space-3); }
+@media (max-width: 767px) { .focusLabel { display: none; } .workspaceHeading { gap: var(--space-2); } .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); } .detailsPanel { padding: var(--space-4); } }

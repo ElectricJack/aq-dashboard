@@ -349,3 +349,8 @@
     border-block-end: 1px solid var(--color-border);
   }
 }
+
+/* Focused reading keeps one useful output pane; Back remains inside the page. */
+.shell[data-focused-session] .main { gap: var(--space-3); }
+.shell[data-focused-session] .main > h1 { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+@media (max-width: 767px) { .shell[data-focused-session] .phoneNav { display: none; } .shell[data-focused-session] .main { padding-block-end: max(var(--space-4), env(safe-area-inset-bottom)); } }

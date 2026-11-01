@@ -47,10 +47,11 @@ test("opening a session shows its metadata and an honest terminal placeholder", 
   const detail = await screen.findByRole("region", { name: "Worker 07" });
   expect(within(detail).getByText(/terminal is not available/i)).toBeInTheDocument();
   expect(within(detail).getByText(/Not offered by this AQ server/)).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Worker 07" })).toHaveFocus());
+  await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
   expect(within(detail).getByRole("list", { name: "Profile revisions" })).toHaveTextContent("agent profile · revision 4");
   expect(within(detail).getByRole("list", { name: "Permissions" })).toHaveTextContent("run tests");
   expect(within(detail).getByRole("link", { name: "Replay reconciliation" })).toHaveAttribute("href", "/work/aq-104");
-  await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Worker 07" })).toHaveFocus());
 });
 
 test("an unknown session is a neutral unavailable message", async () => {
@@ -123,4 +124,18 @@ test("an implemented lifecycle read with no reports stays explicitly empty", asy
   expect(row).toHaveTextContent("No worker lifecycle reports");
   expect(row).toHaveTextContent("State unknown");
   expect(row).not.toHaveTextContent("Stop recorded");
+});
+
+
+test("focused workspace switches real sessions and keeps metadata behind explicit disclosure", async () => {
+  const { router } = renderApp("/agents/sess-07");
+  const detail = await screen.findByRole("region", { name: "Worker 07" });
+  expect(within(detail).getByRole("button", { name: "Session details" })).toHaveAttribute("aria-expanded", "false");
+  expect(within(detail).queryByRole("list", { name: "Permissions" })).not.toBeInTheDocument();
+  const switcher = await screen.findByRole("navigation", { name: "Session switcher" });
+  await waitFor(() => expect(within(switcher).getByRole("link", { name: "Worker 07" })).toHaveAttribute("aria-current", "page"));
+  await userEvent.click(within(switcher).getByRole("link", { name: "Worker 12" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/agents/sess-12"));
+  expect(await screen.findByRole("heading", { level: 2, name: "Worker 12" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Take control|Send message/ })).not.toBeInTheDocument();
 });

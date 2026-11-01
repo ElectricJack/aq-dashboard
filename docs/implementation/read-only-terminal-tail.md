@@ -34,3 +34,25 @@ Unit/component fixtures exercise output without asserting an actual live daemon
 publication. A positive live browser result requires an actual registered worker
 to publish output to the same running daemon. Existing lifecycle history alone is
 not output evidence.
+
+## Focused workspace increment (UI-17)
+
+The selected session now uses a compact, scoped session switcher and a large
+read-only output area. Its footer distinguishes last reported process observation
+from central execution state. Profile revisions, permissions and historical
+lifecycle evidence remain available through the explicit Session details button.
+The switcher reuses the bounded session read and presents at most 100 loaded
+sessions, with explicit paging and no fabricated total. Unsupported task views
+are rendered as task text rather than links into a disabled Work page.
+
+On phones the output uses a minimum 14px monospace size, and focused-session mode
+hides the bottom navigation while retaining All sessions navigation. Controls do
+not claim input, split-pane rendering, snapshots or controller eligibility.
+Existing Watch creation, limits, clearing and expiry behavior is preserved.
+
+Twenty focused Agents/tail component tests and TypeScript checks pass. The first
+full-suite invocation found a stale focus expectation after clicking the newly
+added disclosure; the test now checks navigation focus before that explicit click.
+Production-bundle and actual preview visual verification are performed at the
+integration gate. The full terminal/control and whole-dashboard visual tasks
+remain open.

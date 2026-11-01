@@ -5,6 +5,7 @@ import { terminalJson } from "../../api/terminalClient";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import styles from "./TerminalTail.module.css";
+import { ActionButton } from "../../components/layout/Workspace";
 
 const MAX_RETAINED = 65536;
 /** Volatile literal bytes only: no screen renderer, capture, input, or persistence. */
@@ -97,7 +98,7 @@ function Tail({ terminalId }: { terminalId: string }) {
     {gaps > 0 && <p>Output gaps or sequence discontinuities ({gaps}); preceding text was cleared.</p>}
     {trimmed && <p>Older browser output discarded at the 64 KiB limit.</p>}
     <pre className={styles.output} aria-label="Literal worker output">{text || "No output bytes available"}</pre>
-    {!active && <button type="button" onClick={() => void watch()}>Watch output for up to 15 seconds</button>}
-    {active && <button type="button" onClick={() => { job.current?.abort(); setText(""); setActive(false); setStatus("Watch stopped — output cleared"); }}>Stop watching</button>}
+    {!active && <ActionButton onClick={() => void watch()}>Watch output for up to 15 seconds</ActionButton>}
+    {active && <ActionButton onClick={() => { job.current?.abort(); setText(""); setActive(false); setStatus("Watch stopped — output cleared"); }}>Stop watching</ActionButton>}
   </section>;
 }
