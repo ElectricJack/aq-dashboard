@@ -22,7 +22,7 @@ export type Destination = {
 /** Order from docs/specs/0002-product-design.md section 3. */
 export const DESTINATIONS: readonly Destination[] = [
   { id: "overview", label: "Overview", capability: "dashboard.overview", workPackage: "D04", phone: "primary" },
-  { id: "supervisor", label: "Supervisor", capability: "supervisor.conversation", workPackage: "D06", phone: "primary" },
+  { id: "supervisor", label: "Supervisor", capability: "supervisor.history.read", workPackage: "D06", phone: "primary" },
   { id: "work", label: "Work", capability: "tasks.read", workPackage: "D04", phone: "more" },
   { id: "results", label: "Results", capability: "results.read", workPackage: "D10", phone: "primary" },
   { id: "decisions", label: "Decisions", capability: "decisions.read", workPackage: "D05", phone: "more" },
