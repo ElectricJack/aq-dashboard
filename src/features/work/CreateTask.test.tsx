@@ -88,3 +88,8 @@ test("identity change removes private draft and ignores a delayed prior-owner re
  await act(async()=>{await queryClient.invalidateQueries({queryKey:["bootstrap"]});});release();
  await waitFor(()=>expect(screen.queryByDisplayValue("Private original-owner draft")).not.toBeInTheDocument());const restored=await screen.findByRole("dialog",{name:"Task operation"});await within(restored).findByText(/outcome is not confirmed/);expect(within(restored).queryByRole("textbox",{name:"Title"})).not.toBeInTheDocument();expect(within(restored).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
 });
+test("opening the confirmed task closes the modal and leaves a fresh composer",async()=>{
+ enable();server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>HttpResponse.json(confirmedTaskOperation())),http.get(`/api/human/projects/${graphProject}/tasks/${taskOperationId}`,()=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:taskOperationId,title:"Actual created record"}))));
+ const {router}=renderApp(`/work${scope}&operation=${taskOperationId}`);const modal=await screen.findByRole("dialog",{name:"Task operation"});await within(modal).findByText("Task created and its record verified.");await userEvent.click(within(modal).getByRole("link",{name:"Open created task"}));
+ await screen.findByRole("heading",{name:"Actual created record"});expect(router.state.location.pathname).toBe(`/work/${taskOperationId}`);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();const fresh=await open();expect(within(fresh).getByRole("textbox",{name:"Title"})).toHaveValue("");expect(within(fresh).queryByRole("region",{name:"Task creation status"})).not.toBeInTheDocument();
+});
