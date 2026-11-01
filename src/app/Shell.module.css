@@ -181,6 +181,16 @@
   display: none;
 }
 
+.scope {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.scope select {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
 .scope select,
 .search,
 .button {

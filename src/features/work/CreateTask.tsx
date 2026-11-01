@@ -70,7 +70,7 @@ function Composer({project}:{project:string}){
   <div className={styles.action}><ActionButton className={styles.primary} onClick={()=>{setOpen(true);if(!operation)void context.refetch();}}><Plus size={18} aria-hidden/>{operation?"Task operation":"Create task"}</ActionButton></div>
   <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}>
    <header className={styles.header}><h2 id={titleId}>{operation?"Task operation":"Create task"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close task composer">Close</ActionButton></header>
-   <p className={styles.meta}>{context.data?.name??"Selected project"} · Task state does not grant execution authority.</p>
+   <p className={styles.meta}>{context.data?.name??"Selected project"} · Creating a task does not start an agent.</p>
    {error&&<p role="alert" className={styles.warning}>{error}</p>}
    {(!operation||frozen)&&<form onSubmit={e=>void submit(e)}>
     <fieldset disabled={busy||!!operation} className={styles.fields}>
