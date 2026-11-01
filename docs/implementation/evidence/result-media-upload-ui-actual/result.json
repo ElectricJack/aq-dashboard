@@ -1,0 +1,286 @@
+{
+  "passed": true,
+  "source_only": false,
+  "qualification": "One actual human supplemental PNG upload through the compiled Results DOM file input/button, current Owner, SQL/private files and six existing routes",
+  "origin": "http://localhost:4206",
+  "served_bundle_digest": "sha256:624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "binding": {
+    "attempt_id": "e1c6ad8e-2827-4ec3-8107-dcf0f8a68f54",
+    "coverage": "recorded_legacy_native_only",
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "report_id": "790281ef-e8c1-4aee-b83a-570bf4dbdc3c",
+    "report_revision": "bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119",
+    "source": {
+      "base": {
+        "format": "sha1",
+        "hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "repository_id": "8ec1e4b2-1801-4ee6-acf5-42fafaa19744"
+    },
+    "task_id": "00000000-0000-0000-0000-000000000003"
+  },
+  "actor_id": "13cd459e-3b0e-4bff-bae8-535c905453d3",
+  "fixture_label": "AQ disposable media fixture",
+  "baseline": {
+    "artifact_id": "18db7bb4-c508-4fb4-b192-c7492c031620",
+    "receipt_digest": "sha256:f6952072a61bc81a5f3332f54b97fdced2c72228259eb758163dda37490d2437",
+    "count": 1
+  },
+  "final_count": 2,
+  "original_input_path": "/tmp/aq-result-media-actual-browser/aq-disposable-fixture.png",
+  "input_chunks": [
+    "IHDR",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IDAT",
+    "IEND"
+  ],
+  "input_dimensions": {
+    "width": 960,
+    "height": 600
+  },
+  "admitted": {
+    "operation_id": "70b1cca0-1b0f-454d-9709-1cbc14413cad",
+    "request_digest": "sha256:df75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c",
+    "receipt_digest": "sha256:5a98324db3814d21de60c0c9e58e1a0b09daaa277be7315bcd1026b783825a67",
+    "input": {
+      "bytes": 83919,
+      "digest": "sha256:c11807d14abe9b8b23524134656997826b0dd765d6393b274ff035af8f16d97d",
+      "filename": "aq-ui-supplemental.png"
+    },
+    "state": "retained"
+  },
+  "direct_proof": {
+    "preview": {
+      "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+      "bytes": 37957
+    },
+    "render": {
+      "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+      "bytes": 195989
+    }
+  },
+  "picker_measurements": [
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "close": {
+        "x": 220.828125,
+        "y": 249.5,
+        "width": 137.171875,
+        "height": 44
+      },
+      "upload": {
+        "x": 32,
+        "y": 558.5,
+        "width": 144.984375,
+        "height": 44
+      }
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "close": {
+        "x": 32,
+        "y": 203.5,
+        "width": 137.171875,
+        "height": 44
+      },
+      "upload": {
+        "x": 32,
+        "y": 536.5,
+        "width": 144.984375,
+        "height": 44
+      }
+    }
+  ],
+  "views": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "preview": {
+        "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+        "bytes": 37957,
+        "mime": "image/png",
+        "width": 384,
+        "height": 240
+      },
+      "render": {
+        "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+        "bytes": 195989,
+        "mime": "image/png",
+        "width": 960,
+        "height": 600
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "preview": {
+        "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+        "bytes": 37957,
+        "mime": "image/png",
+        "width": 384,
+        "height": 240
+      },
+      "render": {
+        "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+        "bytes": 195989,
+        "mime": "image/png",
+        "width": 960,
+        "height": 600
+      }
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "preview": {
+        "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+        "bytes": 37957,
+        "mime": "image/png",
+        "width": 384,
+        "height": 240
+      },
+      "render": {
+        "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+        "bytes": 195989,
+        "mime": "image/png",
+        "width": 960,
+        "height": 600
+      }
+    }
+  ],
+  "captures": [
+    "/tmp/aq-result-media-ui-actual-browser/390-actual-picker.png",
+    "/tmp/aq-result-media-ui-actual-browser/320-actual-picker.png",
+    "/tmp/aq-result-media-ui-actual-browser/1440-actual-picker.png",
+    "/tmp/aq-result-media-ui-actual-browser/1440-actual-retained-upload.png",
+    "/tmp/aq-result-media-ui-actual-browser/1440-actual-new-preview.png",
+    "/tmp/aq-result-media-ui-actual-browser/1440-actual-new-expanded.png",
+    "/tmp/aq-result-media-ui-actual-browser/390-actual-retained-upload.png",
+    "/tmp/aq-result-media-ui-actual-browser/390-actual-new-preview.png",
+    "/tmp/aq-result-media-ui-actual-browser/390-actual-new-expanded.png",
+    "/tmp/aq-result-media-ui-actual-browser/320-actual-retained-upload.png",
+    "/tmp/aq-result-media-ui-actual-browser/320-actual-new-preview.png",
+    "/tmp/aq-result-media-ui-actual-browser/320-actual-new-expanded.png"
+  ],
+  "browser_mutations": [
+    {
+      "method": "POST",
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media-uploads",
+      "bytes": 215,
+      "digest": "sha256:df75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c",
+      "request_url": "http://localhost:4206/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119?media_upload=70b1cca0-1b0f-454d-9709-1cbc14413cad&media_actor=13cd459e-3b0e-4bff-bae8-535c905453d3&media_request=sha256%3Adf75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c&media_recipe=1",
+      "csrf": "1",
+      "mime": "application/json"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad/content",
+      "bytes": 83919,
+      "digest": "sha256:c11807d14abe9b8b23524134656997826b0dd765d6393b274ff035af8f16d97d",
+      "request_url": "http://localhost:4206/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119?media_upload=70b1cca0-1b0f-454d-9709-1cbc14413cad&media_actor=13cd459e-3b0e-4bff-bae8-535c905453d3&media_request=sha256%3Adf75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c&media_recipe=1",
+      "csrf": "1",
+      "mime": "image/png"
+    },
+    {
+      "method": "POST",
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad/finalize",
+      "bytes": 2,
+      "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "request_url": "http://localhost:4206/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119?media_upload=70b1cca0-1b0f-454d-9709-1cbc14413cad&media_actor=13cd459e-3b0e-4bff-bae8-535c905453d3&media_request=sha256%3Adf75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c&media_recipe=1",
+      "csrf": "1",
+      "mime": "application/json"
+    }
+  ],
+  "observed_responses": [
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media-uploads",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad/content",
+      "status": 200,
+      "method": "PUT"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad/finalize",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/result-media-uploads/70b1cca0-1b0f-454d-9709-1cbc14413cad",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "external_requests": [],
+  "page_errors": [],
+  "elapsed_ms": 5360,
+  "limits": "Positive picker/one-submit/retained-gallery/preview/expand/close/reload only. OS picker dialog, response-loss/capability-loss negatives remain separate unit/server qualification. No worker capture, provider or source-coverage/acceptance claim. No API-side writes, retries, replacement UUID, interception or canonical configuration change.",
+  "probe_source": "b11e250",
+  "server_source": "4800aab9425f04f5aeac2c6056b44436b7514f4d",
+  "server_binary_sha256": "88e6a28251afd30bc8629ff05195656331643da072393ca21c5ca0f2ce9870b0",
+  "visual_review": {
+    "reviewed": true,
+    "viewport_widths": [
+      1440,
+      390,
+      320
+    ],
+    "subset": "Exact-report supplemental PNG picker/one-submit/retained status/reload plus gallery selection/preview/expansion/close",
+    "findings": "All12 captures reviewed. No horizontal page overflow or cropped image; modal Close/Upload are visible at phone widths and44px. Recovery operation wraps; selector text wraps within its button; phone navigation exits work. Preview captures scroll the media frame into view, so original card heading may be above viewport.",
+    "nit": "Native file input is cleared to permit same-file reselection, so its browser text says No file chosen while the separate Selected filename accurately identifies the in-memory file. Cosmetic clarity followup, not a protocol or byte-verification failure.",
+    "remaining": "Full10/13 composition, comments/review/clips/comparison/capture requirements and acceptance remain deferred. Response-loss/capability-loss negatives remain separate unit/server proof; physical OS picker not qualified."
+  }
+}

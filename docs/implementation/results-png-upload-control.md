@@ -135,3 +135,61 @@ The dialog now describes that last checked expiry before asking for any further
 input/finalization; it does not invent a different stored state. Both state
 vectors and the initial no-reference preparation/unmount guard are covered.
 Final22 interaction tests passed in4.28s, with complete TypeScript and diff checks.
+
+## Actual uploader positive qualification — 2026-11-01
+
+One separately authorized run through the real compiled DOM file input and
+Upload image button passed in5.360s on the isolated4206 fixture. The exact
+composed bundle was
+`sha256:624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663`.
+Root-pinned server source was4800aab9425f04f5aeac2c6056b44436b7514f4d,
+binary SHA256
+`88e6a28251afd30bc8629ff05195656331643da072393ca21c5ca0f2ce9870b0`.
+Probe b11e250 is `scripts/probe-result-media-upload-ui.mjs`.
+
+The fixture started with the prior single retained artifact. One desktop file
+selection/button click admitted operation
+`70b1cca0-1b0f-454d-9709-1cbc14413cad`, then PUT and finalized it(201/200/200).
+The PNG was the same previously captured actual960×600/83,919-byte fixture page,
+under the new filename `aq-ui-supplemental.png`. Final listing contained exactly
+two artifacts; the original receipt stayed unchanged. No API-side write helper,
+retry, replacement UUID, interception or canonical configuration change was used.
+
+The first POST's observed page URL already held operation/actor/rawSHA/recipe1.
+Actual literal request digest, input digest, independently API06-bound status,
+canonical receipt SHA, binary headers/length/SHA and compiled client Blob SHA all
+matched. Reload and refresh at1440/390/320 issued reads only. No external request
+or page error occurred, and the filename was absent from local/session storage.
+
+Before that one desktop write, phones390×844/320×740 selected the actual file and
+closed without submitting. Their Close/Upload controls were44px high and fully
+visible. Fresh phone pages after the write restored the retained status by pure
+lookup. All12 saved picker/status/preview/expansion captures were directly
+reviewed: dialogs fit, Close stays visible, operation IDs and filenames wrap,
+images remain contained, focus returns and phone exits/Back work. Gallery images
+are intentionally scrolled into view; these captures do not assert the whole
+card fits its first viewport.
+
+One cosmetic clarity followup is recorded: resetting the native input to support
+same-file reselection makes its browser text say “No file chosen” while the
+separate “Selected” row correctly names the in-memory file. It did not affect
+bytes or protocol correctness. Full10/13 comments/review/richer media/comparison
+and capture-requirement/acceptance workflows remain outside this subset.
+
+[Durable actual uploader evidence](evidence/result-media-upload-ui-actual/result.json)
+includes twelve PNGs and the saved non-secret fixture intent. The actual positive
+gate covers picker/one-submit/retained-gallery/preview/expand/close/refresh/reload.
+Physical OS picker interaction and response-loss/capability-loss negatives remain
+separate unit/server qualification; they were not exercised by this one-upload
+browser run. The live stage was released to root afterward, with no later reads
+or writes from this lane.
+
+The probe requires explicit `AQ_LIVE_ALLOW_MEDIA_UI_UPLOAD=1`, loopback
+`AQ_LIVE_URL`, local `AQ_LIVE_CANDIDATE_MANIFEST`, exact
+`AQ_LIVE_MEDIA_BINDING`/`AQ_LIVE_ACTOR_ID`/`AQ_LIVE_MEDIA_FIXTURE_LABEL`, prior
+`AQ_LIVE_MEDIA_BASELINE_ARTIFACT_ID`/`AQ_LIVE_MEDIA_BASELINE_RECEIPT_DIGEST`, the
+saved `AQ_LIVE_MEDIA_INPUT_PNG`/`AQ_LIVE_MEDIA_INPUT_DIGEST`, and a unique
+`AQ_LIVE_MEDIA_FILENAME`. Do not rerun against this now-two-artifact fixture; a
+new write requires a new explicit integration-owner authorization. Three
+fail-before-network guard tests and Node syntax validation passed before the
+actual run. No production build was performed in this feature lane.
