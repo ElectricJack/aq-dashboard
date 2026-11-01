@@ -27,8 +27,10 @@ IHDR/sRGB/consecutive IDAT/IEND structure before freezing its bytes/SHA. The
 server still performs authoritative full decoding, quotas and PNG processing.
 
 Freeze one operation UUID, original filename, byte length/SHA and literal ordered
-admission JSON with `capture:null`. Save `?media_upload=<operationUUID>` on the
-exact report URL before the first POST. No automatic mutation retry, regenerated
+admission JSON with `capture:null`. Save `media_upload=<operationUUID>`, `media_actor=<originalOwnerUUID>`,
+`media_request=<rawAdmissionSHA256>` and `media_recipe=1` on the exact report
+URL before the first POST. These are opaque recovery anchors, not PNG or body
+persistence. No automatic mutation retry, regenerated
 UUID, changed body or replacement file is allowed for that intent. Double clicks
 are synchronously guarded, including file preparation and digest computation.
 Each mutation uses normal Owner/CSRF authorization and finite bounded responses.
@@ -44,22 +46,28 @@ finalize always sends the same empty object. No background reconciliation loop.
 Successful retained receipt is independently checked against the pinned intent
 and triggers the existing gallery's query refresh. Retained/rejected/expired are
 terminal; a new intent is offered only after explicitly finishing that terminal
-reference. Closing the dialog keeps the pending reference/action and bytes while
+reference or acknowledging that an unresolved previous upload may still complete
+and deliberately removing its recovery reference. Closing the dialog keeps the pending reference/action and bytes while
 this exact feature instance remains mounted. There is no cancel/delete API.
 
 ## Reload, scope and private data
 
 Reload/reopen with an operation reference performs GET only. A known authorized
 status supplies its immutable original file length/SHA/name and request digest.
-Resume requiring bytes asks the user to reselect the original file; validate
+Received or recoverable Finalizing may explicitly finalize without selecting a
+file, because the server already holds the input. Reserved input recovery
+asks the user to reselect the original file; validate
 length/SHA before retaining it. Reconstruction of this UI's fixed admission JSON
 must match the retained raw-request digest before exact POST replay is offered.
 A status from another compatible client can remain inspectable while replay is
-unavailable. Reload404 cannot reconstruct a lost admission body, so only lookup
-is offered; it must never silently create a replacement intent.
+unavailable. Reload404 permits explicit replay only after the reselected file
+reproduces the original filename, byte SHA/length and literal raw-request SHA
+under the pinned version1 recipe. Any mismatch keeps the reference unresolved
+and never sends a guessed body or replacement operation. An actor mismatch
+cannot inspect or mutate the reference.
 
 No PNG, filename/body, status or second message store is persisted in localStorage
-or IndexedDB. The URL contains only the operation UUID; browser history retains
+or IndexedDB. The URL contains only the operation UUID, actor UUID, raw SHA and recipe; browser history retains
 the exact report reference. Route/report/revision/project scope, principal or
 authorization revision changes immediately hide stale upload state, clear file
 memory and abort/fence late responses. Closing does not abandon a pending intent;
@@ -84,5 +92,29 @@ change is required.
    fixture and root-released browser/build slot. Do not reuse the previous one-
    upload acceptance as proof of this new control.
 
-No uploader UI, new upload or canonical configuration has been delivered by this
-design-only revision. Existing read/selector/expand acceptance remains valid.
+## Source implementation status
+
+The pre-code design was committed as d7475be, then refined with the integration
+owner's actor/raw-SHA/recipe recovery anchors and file-free finalization rule.
+The feature source now supplies the strict UploadStatus adapter, bounded mutation
+client, in-memory freeze/reselect helpers and exact-detail native dialog. The
+existing read/selector/expand acceptance remains valid; this new upload control
+has not yet had a production build or an actual upload/browser visual gate.
+
+Focused tests cover original raw bytes/CSRF, duplicate submission, response loss,
+reload404 exact replay, same-file reselection, direct file-free finalization,
+finalizing-busy lookup, actor changes, held preparation/external reference races,
+capability loss during an in-flight mutation and same-role401/403 with bootstrap
+503. Source fixtures are synthetic; none writes to the actual AQ owner. Server
+full decoding/quotas still authoritatively decide whether input is accepted.
+
+No new actual upload, production build or canonical configuration change has
+been performed for this source increment. The root integration owner controls
+review, composition and a separately authorized disposable browser fixture.
+
+Source qualification:35 focused adapter/client/upload-control tests passed in
+3.63s, followed by complete `pnpm exec tsc -b` (including tests) and
+`git diff --check`. Existing Results/read-gallery regression tests also passed
+in the earlier49-test focused group. No production build, source visual renderer
+or actual upload was run for the new control. Visual acceptance against10/13
+and actual browser recovery/retained-gallery behavior remain open.
