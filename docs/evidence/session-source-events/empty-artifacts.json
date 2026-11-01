@@ -1,0 +1,48 @@
+{
+  "ui_source": "1545409",
+  "probe_source": "9000862",
+  "backend_source": "0a3542f",
+  "artifacts": [
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/dist-events-media/dashboard-manifest.json",
+      "sha256": "5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667",
+      "bytes": 4391
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/aq-server-events",
+      "sha256": "8ad0aad8a1cb156660decdebc0fbbef8e4ea04a0e7c80a84c8921bb0681153ad",
+      "bytes": 110912784
+    },
+    {
+      "path": "/tmp/aq-session-events-ui-v2/scripts/probe-session-events.mjs",
+      "sha256": "e5c274e9b2cf9696079e82e3b6b1ba50389bf97542e1936cee133929b2920cbb",
+      "bytes": 9634
+    },
+    {
+      "path": "/tmp/aq-session-events-empty-browser/agents-desktop-closed.png",
+      "sha256": "12f57813eece58525e9be003f03b9fcfd6d9319d1b596302e023248488cd95ba",
+      "bytes": 103918
+    },
+    {
+      "path": "/tmp/aq-session-events-empty-browser/source-events-320.png",
+      "sha256": "32892fc4f3c508c04e86b21602e9a7f466a638e4a2246fa420ba2cb3e4ffb7c0",
+      "bytes": 68208
+    },
+    {
+      "path": "/tmp/aq-session-events-empty-browser/source-events-390.png",
+      "sha256": "62d401725f31ed104c52214a557d0cd123cdacc39735834aafbbb35f53f35914",
+      "bytes": 77867
+    },
+    {
+      "path": "/tmp/aq-session-events-empty-browser/source-events-desktop.png",
+      "sha256": "30933b8ec2b1ff0d87cd1a34ac5d333494c9fbd727d7066606982463d0a73601",
+      "bytes": 185635
+    }
+  ],
+  "scope": "Actual cloned state35 at4204, exact empty retained source-events snapshot; not canonical promotion or nonempty producer proof",
+  "limits": [
+    "Positive retained-event ingest/browser still pending",
+    "No Watch, control, transcript-content, provider or current execution claim",
+    "No domain mutations or external requests"
+  ]
+}

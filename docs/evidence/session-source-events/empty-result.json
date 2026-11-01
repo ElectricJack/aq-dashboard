@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "origin": "http://localhost:4204",
+  "session_id": "9767942b-b7f8-5ae4-be04-136f81509cce",
+  "attempt_id": "38a3fe3a-5e17-589c-87fa-893754037804",
+  "mode": "empty",
+  "served_bundle_digest": "sha256:5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667",
+  "loaded_reports": 0,
+  "pages": 1,
+  "through_sequence": 0,
+  "explicit_gaps": 0,
+  "require_gap": false,
+  "reports": [],
+  "browser_reads": [
+    {
+      "path": "/api/observations/sessions/38a3fe3a-5e17-589c-87fa-893754037804/events",
+      "after": "0",
+      "through": null,
+      "limit": "16"
+    },
+    {
+      "path": "/api/observations/sessions/38a3fe3a-5e17-589c-87fa-893754037804/events",
+      "after": "0",
+      "through": null,
+      "limit": "16"
+    }
+  ],
+  "mutations": [],
+  "foreign_requests": [],
+  "page_errors": [],
+  "viewports": [
+    1440,
+    390,
+    320
+  ],
+  "captures": [
+    "/tmp/aq-session-events-empty-browser/agents-desktop-closed.png",
+    "/tmp/aq-session-events-empty-browser/source-events-desktop.png",
+    "/tmp/aq-session-events-empty-browser/source-events-390.png",
+    "/tmp/aq-session-events-empty-browser/source-events-320.png"
+  ],
+  "elapsed_ms": 1454,
+  "note": "Actual exact-session owner and verified compiled bundle, explicit empty/nonempty mode. No interception, row/content fetch, Watch, control, provider/health/current-accounting or complete-transcript claim."
+}
