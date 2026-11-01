@@ -5,3 +5,10 @@
 .output { margin: 0; min-block-size: clamp(300px, 45dvh, 620px); max-block-size: 65dvh; max-inline-size: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--space-3); font: 16px/1.6 var(--font-mono); color: var(--color-text); background: #0b0e11; border: 0; unicode-bidi: plaintext; }
 .panel button { justify-self: start; }
 @media (max-width: 767px) { .panel { padding: var(--space-3); } .output { min-block-size: 40dvh; padding: 0; font-size: 14px; } }
+.compactCoverage { display: none; }
+@media (max-width: 767px) {
+  .fullCoverage { display: none; }
+  .compactCoverage { display: inline; }
+  .panel h3 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .output { min-block-size: 50dvh; }
+}

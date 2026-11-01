@@ -354,3 +354,18 @@
 .shell[data-focused-session] .main { gap: var(--space-3); }
 .shell[data-focused-session] .main > h1 { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
 @media (max-width: 767px) { .shell[data-focused-session] .phoneNav { display: none; } .shell[data-focused-session] .main { padding-block-end: max(var(--space-4), env(safe-area-inset-bottom)); } }
+
+.compactUsage { display: none; }
+@media (max-width: 767px) {
+  .standardUsage { flex-basis: 100%; }
+  .shell[data-focused-session] .phoneBrand,
+  .shell[data-focused-session] .scope,
+  .shell[data-focused-session] .search { display: none; }
+  .shell[data-focused-session] .top { justify-content: space-between; padding-block: var(--space-2); }
+  .shell[data-focused-session] .main > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .shell[data-compact-usage] .standardUsage { display: none; }
+  .shell[data-compact-usage] .compactUsage { display: block; font-size: var(--font-size-meta); }
+  .compactUsage summary { padding-block: var(--space-2); cursor: pointer; }
+  .compactUsage[open] { flex-basis: 100%; }
+  .compactUsage[open] > section { padding-block: var(--space-3); }
+}

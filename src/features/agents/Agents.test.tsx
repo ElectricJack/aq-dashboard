@@ -51,7 +51,7 @@ test("opening a session shows its metadata and an honest terminal placeholder", 
   await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
   expect(within(detail).getByRole("list", { name: "Profile revisions" })).toHaveTextContent("agent profile · revision 4");
   expect(within(detail).getByRole("list", { name: "Permissions" })).toHaveTextContent("run tests");
-  expect(within(detail).getByRole("link", { name: "Replay reconciliation" })).toHaveAttribute("href", "/work/aq-104");
+  expect(within(detail).getByRole("link", { name: "Replay reconciliation" })).toHaveAttribute("href", "/work/aq-104?scope=project%3Aagent-queue");
 });
 
 test("an unknown session is a neutral unavailable message", async () => {

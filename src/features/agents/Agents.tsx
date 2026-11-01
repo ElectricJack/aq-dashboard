@@ -23,6 +23,12 @@ import { ActionButton, DetailList, Toolbar } from "../../components/layout/Works
 const ROSTER_POLL_MS = 10_000;
 const DETAIL_POLL_MS = 5_000;
 
+/** Preserve user labels; shorten only the server's UUID fallback for compact chrome. */
+function compactSessionLabel(s: SessionView): string {
+  const fallback = ["Remote session", "Central session", "Session"].some(prefix => s.label === `${prefix} ${s.id}`);
+  return fallback ? s.label.slice(0, -s.id.length) + s.id.slice(0, 8) : s.label;
+}
+
 function LifecycleHistory({ session, serverTime }: { session: SessionView; serverTime: string }) {
   const history = session.lifecycle;
   if (!history) return <span>Lifecycle history unavailable</span>;
@@ -108,10 +114,10 @@ function SessionSwitcher({ selected, search }: { selected: SessionView; search: 
     params: { limit: 25 }, adapt: adaptSession, pollMs: ROSTER_POLL_MS });
   const sessions = query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [];
   return <nav className={styles.switcher} aria-label="Session switcher">
-    {sessions.length === 0 && <span className={styles.sessionTab} aria-current="page">{selected.label}</span>}
-    {sessions.map(s => <Link key={s.id} title={s.label} className={styles.sessionTab} aria-current={s.id === selected.id ? "page" : undefined}
-      to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }}><span className={styles.sessionDot} aria-hidden="true" />{s.label}</Link>)}
-    {sessions.length > 0 && !sessions.some(s => s.id === selected.id) && <span className={styles.sessionTab} aria-current="page">{selected.label}</span>}
+    {sessions.length === 0 && <span className={styles.sessionTab} aria-label={selected.label} aria-current="page">{compactSessionLabel(selected)}</span>}
+    {sessions.map(s => <Link key={s.id} title={s.label} aria-label={s.label} className={styles.sessionTab} aria-current={s.id === selected.id ? "page" : undefined}
+      to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }}><span className={styles.sessionDot} aria-hidden="true" />{compactSessionLabel(s)}</Link>)}
+    {sessions.length > 0 && !sessions.some(s => s.id === selected.id) && <span className={styles.sessionTab} aria-label={selected.label} aria-current="page">{compactSessionLabel(selected)}</span>}
     {query.hasNextPage && sessions.length < 100 && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>More sessions</ActionButton>}
     {query.isError && <span className={styles.muted}>Session switcher unavailable</span>}
   </nav>;
@@ -161,17 +167,16 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
         <span className={styles.focusLabel}>Focused workspace · Read only</span>
         <ActionButton aria-expanded={detailsOpen} aria-controls={`session-${s.id}-details`} onClick={() => setDetailsOpen(v => !v)}>Session details</ActionButton>
       </Toolbar>
-      <h2 id={headingId} ref={heading} tabIndex={-1} className={styles.title}>
-        {s.label}
+      <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
+        <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
       </h2>
       <p className={styles.meta}>
         {s.task && taskView.enabled ? (
-          <Link to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search }}>{s.task.title}</Link>
+          <Link aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
         ) : (
           s.task?.title ?? "No task"
         )}{" "}
-        · {s.project.label} · {OBSERVATION_LABEL[s.observation.state]} ·{" "}
-        <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} />
+        · {s.project.label}<span className={styles.observationSummary}> · {OBSERVATION_LABEL[s.observation.state]} · <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} /></span>
       </p>
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
 
@@ -188,6 +193,11 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
       <div id={`session-${s.id}-details`} className={styles.detailsPanel} hidden={!detailsOpen}>
       <DetailList>
+        <dt>Session ID</dt><dd>{s.id}</dd>
+        <dt>Recorded session label</dt><dd>{s.label}</dd>
+        <dt>Project</dt><dd>{s.project.label}</dd>
+        {s.task && <><dt>Task ID</dt><dd>{s.task.id}</dd></>}
+        <dt>Last process observation</dt><dd>{OBSERVATION_LABEL[s.observation.state]} · <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} /></dd>
         <dt>Authority location</dt>
         <dd>{AUTHORITY_LABEL[s.authority]}</dd>
         <dt>Central execution state</dt>
