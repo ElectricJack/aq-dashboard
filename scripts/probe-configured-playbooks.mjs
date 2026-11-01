@@ -32,7 +32,7 @@ try {
   await expect(roster.getByRole("link", { name: `Inspect ${run}`, exact: true })).toBeVisible();
   await roster.getByRole("link", { name: `Inspect ${run}`, exact: true }).click();
   const inspector = page.getByRole("region", { name: `Run ${run}`, exact: true });
-  await expect(inspector).toBeVisible(); await expect(inspector.getByText(artifact, { exact: true })).toBeVisible();
+  await expect(inspector).toBeVisible(); await expect(inspector.getByRole("region", { name: "Pinned execution", exact: true }).locator("dl").first().locator("dd").first()).toHaveText(artifact);
   await expect(inspector.getByRole("list", { name: "Execution timeline" })).toContainText("child admitted");
   await expect(inspector.getByRole("link", { name: child, exact: true })).toBeVisible();
   await expect(page.getByText(/Mock data/)).toHaveCount(0);
@@ -40,7 +40,7 @@ try {
   await page.screenshot({ path: join(output, "playbooks-desktop.png"), fullPage: true });
   await inspector.getByRole("link", { name: child, exact: true }).click();
   const childView = page.getByRole("region", { name: `Run ${child}`, exact: true });
-  await expect(childView.getByText(childArtifact, { exact: true })).toBeVisible();
+  await expect(childView.getByRole("region", { name: "Pinned execution", exact: true }).locator("dl").first().locator("dd").first()).toHaveText(childArtifact);
   await expect(childView.getByRole("link", { name: "Parent workflow", exact: true })).toBeVisible();
   await childView.getByRole("link", { name: "Parent workflow", exact: true }).click();
   await expect(inspector).toBeVisible(); await page.reload(); await expect(inspector).toBeVisible();
