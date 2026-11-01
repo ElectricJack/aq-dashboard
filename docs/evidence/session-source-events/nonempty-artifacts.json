@@ -1,0 +1,74 @@
+{
+  "ui_source": "1545409",
+  "probe_source": "9000862",
+  "backend_browser_hook_source": "9eb513e",
+  "owner_test": "inspection_uses_exact_acl_and_stable_bounded_snapshot_pages",
+  "parent_result": {
+    "passed": 1,
+    "filtered_out": 10,
+    "fixture_seconds": 3.05,
+    "compile_seconds": 42.24,
+    "source": "root-captured tool output; raw parent log was not persisted and is not invented here"
+  },
+  "browser_result_source": "/tmp/aq-session-events-nonempty-browser/result.json",
+  "artifacts": [
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/dist-events-media/dashboard-manifest.json",
+      "sha256": "5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667",
+      "bytes": 4391
+    },
+    {
+      "path": "/tmp/aq-native-union-target/debug/deps/observations-671c73fe7f130caf",
+      "sha256": "50151c0f4a711179540d11f38fb15e4d24048e79da7a9b04d59ce005b910e180",
+      "bytes": 93415504
+    },
+    {
+      "path": "/tmp/aq-human-actions-union-v2/crates/aq-server/tests/observations.rs",
+      "sha256": "5149aa6af1bdad5bd3de8e295938fcbe2ef34d45bcd9d8678ea4b9eac35309f7",
+      "bytes": 34949
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-ui-v2/scripts/probe-session-events.mjs",
+      "sha256": "e5c274e9b2cf9696079e82e3b6b1ba50389bf97542e1936cee133929b2920cbb",
+      "bytes": 9634
+    },
+    {
+      "path": "/tmp/aq-session-events-nonempty-browser/agents-desktop-closed.png",
+      "sha256": "e922714650c1e08705d15b0f1d0ea8c3c3bdb893ee97a8af4215a369629a2f7f",
+      "bytes": 91507
+    },
+    {
+      "path": "/tmp/aq-session-events-nonempty-browser/source-events-320.png",
+      "sha256": "995ade871ec6fc06eef55f7ce283e7d006f948bbb5abaaef8059103edc3370f3",
+      "bytes": 61641
+    },
+    {
+      "path": "/tmp/aq-session-events-nonempty-browser/source-events-390.png",
+      "sha256": "623a72e95c6ff82f7e440d5257bc956f59e3974c19d8d108d1e58ffe9ca84717",
+      "bytes": 71293
+    },
+    {
+      "path": "/tmp/aq-session-events-nonempty-browser/source-events-desktop.png",
+      "sha256": "6314661cd0c142789bce7c73b19651ec988e778ea99ec2350181037b59713356",
+      "bytes": 168004
+    },
+    {
+      "path": "/tmp/aq-session-events-nonempty-browser/source-provenance-320.png",
+      "sha256": "007d9b5494627a6c72512e0d313b86060f8b262428e24c2726799cdf565dc4d7",
+      "bytes": 55316
+    },
+    {
+      "path": "/tmp/aq-session-events-nonempty-browser/source-provenance-390.png",
+      "sha256": "a9846e24d974d095cb47fbf3c08205b8342f6d7eccac7d4f9803709f51ef75ca",
+      "bytes": 63514
+    }
+  ],
+  "scope": "Disposable actual protected observation owner and real source registration/ingest; three synthetic usage reports; exact compiled5c bundle",
+  "limits": [
+    "No actual model/provider/harness run or source producer qualification",
+    "No raw transcript or tool-result content-byte retrieval",
+    "Three reports fit one page; actual multi-page and explicit-gap cases not claimed by this positive fixture (covered in focused tests)",
+    "Historical accounting markers do not identify current canonical contributions or invoice totals",
+    "Canonical promotion is root-owned and separate"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "passed": true,
+  "origin": "http://127.0.0.1:46567",
+  "session_id": "3c756c18-edf5-4ce5-81ee-c6cf2bb29ac0",
+  "attempt_id": "14007518-f0e1-4c21-8636-02908efc9baa",
+  "mode": "nonempty",
+  "served_bundle_digest": "sha256:5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667",
+  "loaded_reports": 3,
+  "pages": 1,
+  "through_sequence": 3,
+  "explicit_gaps": 0,
+  "require_gap": false,
+  "reports": [
+    {
+      "event_id": "b4d5683d-68a1-4e1c-9853-289973b69bd3",
+      "sequence": 1,
+      "kind": "usage"
+    },
+    {
+      "event_id": "5fb67e93-b406-4990-a85f-6d29784e6681",
+      "sequence": 2,
+      "kind": "usage"
+    },
+    {
+      "event_id": "2d1c768c-b675-4c2c-a60b-41e065b5f83c",
+      "sequence": 3,
+      "kind": "usage"
+    }
+  ],
+  "browser_reads": [
+    {
+      "path": "/api/observations/sessions/14007518-f0e1-4c21-8636-02908efc9baa/events",
+      "after": "0",
+      "through": null,
+      "limit": "16"
+    },
+    {
+      "path": "/api/observations/sessions/14007518-f0e1-4c21-8636-02908efc9baa/events",
+      "after": "0",
+      "through": null,
+      "limit": "16"
+    }
+  ],
+  "mutations": [],
+  "foreign_requests": [],
+  "page_errors": [],
+  "viewports": [
+    1440,
+    390,
+    320
+  ],
+  "captures": [
+    "/tmp/aq-session-events-nonempty-browser/agents-desktop-closed.png",
+    "/tmp/aq-session-events-nonempty-browser/source-events-desktop.png",
+    "/tmp/aq-session-events-nonempty-browser/source-events-390.png",
+    "/tmp/aq-session-events-nonempty-browser/source-provenance-390.png",
+    "/tmp/aq-session-events-nonempty-browser/source-events-320.png",
+    "/tmp/aq-session-events-nonempty-browser/source-provenance-320.png"
+  ],
+  "elapsed_ms": 1885,
+  "note": "Actual exact-session owner and verified compiled bundle, explicit empty/nonempty mode. No interception, row/content fetch, Watch, control, provider/health/current-accounting or complete-transcript claim."
+}
