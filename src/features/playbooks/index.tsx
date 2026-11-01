@@ -1,5 +1,3 @@
 import { DestinationPage } from "../../app/DestinationPage";
-
-export function Component() {
-  return <DestinationPage id="playbooks" />;
-}
+import { Playbooks } from "./Playbooks";
+export function Component() { return <DestinationPage id="playbooks"><Playbooks /></DestinationPage>; }
