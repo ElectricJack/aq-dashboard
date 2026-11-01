@@ -2,6 +2,8 @@
 
 Status: proposed API-02 expansion, 2026-10-31. **This document defines required behavior and proposed new routes; it does not publish an implemented wire schema.** Existing contracts are identified explicitly below. API-02 must publish versioned OpenAPI/JSON Schema, generated bindings, semantic validators and fixtures before dependent live integrations are accepted.
 
+Implementation status, November 1, 2026: the [delivered matrix](../plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35) and [canonical state35 record](../../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md) distinguish mounted partial features from isolated/source proof. Global human history/text enqueue is implemented; live central Supervisor dispatch/replies remain unavailable. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG validation/processing is pure core only, with no Store/HTTP/media UI. The complete requirements and proposed routes below remain the target, not blanket implementation claims.
+
 Related: [product design](0002-product-design.md), [current contract audit](../research/2026-10-31-contract-audit.md), [delivery plan](../plans/0001-dashboard-implementation.md). Browser traffic terminates at AQ's human listener. There is no new dashboard backend and no direct graph/worker/provider access.
 
 ## 1. Reuse before extension
