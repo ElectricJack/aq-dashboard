@@ -1,5 +1,7 @@
 # Dashboard contract readiness audit
 
+> Historical snapshot. This October 31 audit is retained as historical evidence. For current mounted routes, remaining placeholders and execution order, use the [November 1 live dashboard delivery plan](../plans/0003-live-dashboard-delivery.md). Later implementation has added live sessions, lifecycle/output and project-binding views; historical absence claims below are not the current capability inventory.
+
 Date: 2026-10-31. Scope: current local source in sibling component checkouts, read during this design-specification pass. This audit inspected schemas, mounted routes, owner documentation, milestone status and test definitions. It did not run backend tests, authenticate to a live daemon, verify deployments or certify the assembled product. [Evidence hashes](2026-10-31-contract-evidence.json) identify selected files as captured; repositories may continue changing.
 
 ## Answer

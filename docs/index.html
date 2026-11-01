@@ -11,7 +11,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:12px;bord
 li{margin:8px 0}figure{margin:28px 0}img{max-width:100%;height:auto;border:1px solid var(--border);border-radius:10px}figcaption{color:var(--muted);margin-top:8px}
 @media(max-width:700px){main{padding:24px 16px}h1{font-size:28px}h2{font-size:23px}nav{padding:16px}th,td{min-width:140px}}
 @media print{:root{color-scheme:light}body{background:white;color:#111}nav{display:none}a{color:#334}.intro,th,pre,code{background:#f2f3f6}section{break-before:page}main{max-width:none;padding:0}}
-</style></head><body><nav aria-label="Specification sections"><a href="#design">Product design</a><a href="#contracts">API contracts</a><a href="#plan">Implementation</a><a href="#audit">Contract audit</a><a href="design/index.html">Mockup gallery</a></nav><main><h1>Agent Q dashboard specification</h1><div class="intro"><p><strong>Contract readiness: partial.</strong> Existing human APIs provide a strong foundation. The complete dashboard API, provider quota, global conversation integration and Results/comment/feedback contracts still need publication and implementation.</p><p class="muted">October 31, 2026 · Proposed implementation specification based on the accepted visual direction. Markdown source documents are canonical. This reader is documentation, not the dashboard application.</p></div><section id="design"><p class="source"><a href="specs/0002-product-design.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard product and interaction design</h1>
+</style></head><body><nav aria-label="Specification sections"><a href="#design">Product design</a><a href="#contracts">API contracts</a><a href="#plan">Implementation</a><a href="#live-delivery">Live delivery</a><a href="#audit">Contract audit</a><a href="design/index.html">Mockup gallery</a></nav><main><h1>Agent Q dashboard specification</h1><div class="intro"><p><strong>Contract readiness: partial.</strong> Existing human APIs provide a strong foundation. The complete dashboard API, provider quota, global conversation integration and Results/comment/feedback contracts still need publication and implementation.</p><p class="muted">October 31, 2026 · Proposed implementation specification based on the accepted visual direction. Markdown source documents are canonical. This reader is documentation, not the dashboard application.</p></div><section id="design"><p class="source"><a href="specs/0002-product-design.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard product and interaction design</h1>
 <p>Status: implementation specification proposed from the accepted visual direction. Date: 2026-10-31. The user approved the mockup direction; this document supplies implementation decisions, not a claim that the APIs or application are implemented.</p>
 <p>Read with the <a href="specs/0001-dashboard.md">architecture baseline</a>, <a href="#contracts">API contract proposal</a>, <a href="#plan">implementation plan</a>, and <a href="#audit">contract audit</a>. Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.</p>
 <h2>1. Product outcome and boundaries</h2>
@@ -623,6 +623,7 @@ type ProviderUsage = {
 </ol>
 <p>The dashboard can build components against clearly labelled proposed fixtures now. A live integration is not complete until its published contract, mounted route, authorization, domain effect and recovery behavior are qualified together. Results storage, quota collection and central supervisor authority are explicit backend work, not frontend assumptions.</p></section><section id="plan"><p class="source"><a href="plans/0001-dashboard-implementation.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard implementation plan</h1>
 <p>Status: proposed executable work breakdown, 2026-10-31. This plan completes the <a href="#design">product design</a> through the <a href="#contracts">contract boundary</a>. It expands the existing API-02/UI-01–UI-04 milestones without changing their status or silently modifying the ecosystem task graph. No tasks have been submitted to a daemon by writing this plan.</p>
+<p><strong>November 1 execution update:</strong> <a href="#live-delivery">Live dashboard delivery and visual completion</a> reconciles every tab with the actual APIs and accepted mockups. API-03–API-12 and UI-05–UI-12 are now explicit leaf tasks in the canonical ecosystem graph. Use that update for current coverage, parallel assignment and per-increment acceptance; D00–D13 below remain the package map. This is planning work, not dispatch or implementation completion.</p>
 <h2>1. Architecture and stack decision</h2>
 <p>Use React with strict TypeScript and Vite to produce a static client bundle. Use React Router for addressable routes, TanStack Query for disposable server-state caching, CSS custom properties/modules for the design system, xterm.js for the terminal renderer, and native image/video elements for evidence. Use Vitest and Testing Library for components, Mock Service Worker for contract-derived HTTP scenarios, and Playwright with axe integration for browser tests. Use one package manager and committed lockfile; pin exact tool/runtime/package versions in UI-01 after a compatibility build. This specifies tools, not an unverified claim about their latest versions.</p>
 <p>The static deployment and bounded client responsibilities are the reasons to choose this stack. No SSR, runtime Node service, persistent global domain store or browser graph replica is required. The existing v1 implementation may supply interaction lessons, but import no legacy client policy or internal API assumptions. TanStack Query's <a href="https://tanstack.com/query/latest/docs/framework/react/overview">official overview</a> describes its server-state role; keep local drafts and terminal transport outside that cache.</p>
@@ -747,7 +748,7 @@ contracts/              pinned schemas, semantic vectors, provenance lock
 </tr>
 </tbody>
 </table></div>
-<p>Work on visual components and proposed mocks may precede completed backend adapters, but a package's live acceptance still requires its hard dependencies. Existing milestones remain authoritative until owners incorporate this expansion. D02 and D08–D10 must be explicitly added to the product task graph; they were not implicit in the earlier one-action dashboard milestone.</p>
+<p>Work on visual components and proposed mocks may precede completed backend adapters, but a package's live acceptance still requires its hard dependencies. Existing milestones remain authoritative. The November 1 delivery update explicitly adds D02 and D08–D10's provider quota, evidence, comments and feedback scope to the product graph; these were not implicit in the earlier one-action dashboard milestone.</p>
 <h2>4. Release slices</h2>
 <p><strong>Inspection slice:</strong> D00–D04, excluding unsupported future capabilities. Deliver authenticated task/attempt inspection, agent roster, responsive shell and truthful quota states. A provider with no qualified source says unavailable. This slice is useful but not the complete approved dashboard.</p>
 <p><strong>Operator slice:</strong> D05–D07 and available D11/D12 projections. Deliver actual decisions, full/docked supervisor and a large controlled terminal only when their owner adapters qualify. Mock buttons are never enabled in a live build. Central supervisor and remote terminal readiness are independent.</p>
@@ -926,7 +927,258 @@ contracts/              pinned schemas, semantic vectors, provenance lock
 <p>Build produces hashed static assets, an entry document and a manifest containing dashboard version, source revision, asset digests, schema digests, required/optional capabilities, toolchain provenance and test-report references. AQ verifies and embeds the bundle; its product manifest pins it. Entry/compatibility metadata revalidates on upgrade, hashed assets may be immutable. Deep links return the application entry only for known UI paths; API errors must never return HTML. Initial release has no service-worker cache.</p>
 <p>Release qualification uses the selected immutable server, worker/relay and dashboard artifacts. Exercise a viewer and owner, scope restriction, unavailable services, a decision, terminal control, supervisor reply, media capture, feedback creation and stale-tab upgrade. Record limitations alongside the release, including terminal receipt/capacity limits and unsupported central authority. Feature rollout cannot claim unqualified providers or mobile platforms.</p>
 <p>Rollback selects a compatible whole product manifest and respects backend migration constraints; replacing only the UI with an incompatible older bundle is not a recovery plan. Stop mutation features when contract compatibility cannot be established, while offering safe draft recovery.</p>
-<p>Done means product behavior, published contracts, mounted authorized adapters, failure recovery, responsive/accessibility checks, measured budgets and embedded-bundle qualification all pass for the declared feature set. No new implementation, schema publication, integration test pass or deployment is asserted by this specification.</p></section><section id="audit"><p class="source"><a href="research/2026-10-31-contract-audit.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard contract readiness audit</h1>
+<p>Done means product behavior, published contracts, mounted authorized adapters, failure recovery, responsive/accessibility checks, measured budgets and embedded-bundle qualification all pass for the declared feature set. No new implementation, schema publication, integration test pass or deployment is asserted by this specification.</p></section><section id="live-delivery"><p class="source"><a href="plans/0003-live-dashboard-delivery.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Live dashboard delivery and visual completion</h1>
+<p>Planning update: November 1, 2026. Audited AQ <code>468617f</code>, dashboard <code>e89da32</code>, and the accepted design gallery. This executes and subdivides <a href="#plan">D00–D13</a>; it does not replace the product design or claim that planned endpoints exist. Canonical task identities, ownership and dependencies live in <a href="../../agent-q/docs/plans/0001-v2-milestones.json">AQ's milestone graph</a>. Writing this plan does not dispatch implementation or enable capabilities.</p>
+<h2>Outcome and diagnosis</h2>
+<p>Every navigation destination should become a useful view of real AQ infrastructure, with the composition and interactions in the accepted mockups. Today five destinations are only <code>DestinationPage</code> stubs. Work is implemented against proposed mocks, and Overview's real response is deliberately partial. Agents and Settings have working integrations, but Agents does not yet implement the focused workspace design.</p>
+<p>The twelve selected <a href="design/index.html">mockups</a> and their <a href="design/manifest.json">manifest</a> remain the visual reference. <a href="#design">Product specification 0002</a> governs behavior and resolves differences between mockup generations. Colors alone are insufficient: the missing columns, inspectors, timelines, feed, conversation and focused workspace are the main visual gap. Sample numbers and media in PNGs are never production data.</p>
+<p>This work can run alongside the native worker runner. Task/knowledge reads, review and playbook inspection, historical results, notifications, worker status and visual layout do not require a live model. Real supervisor replies and interactive terminal control do require their respective runtime owners.</p>
+<h2>Current coverage and target per destination</h2>
+<p>Paths below are relative to the owning repository. Existing routes and proposed additions are deliberately distinguished.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Destination</th>
+<th>Current evidence</th>
+<th>Next useful live delivery</th>
+<th>Required visual composition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overview</td>
+<td><code>src/features/overview/Overview.tsx</code>; real <code>/api/v1/overview</code>, but four unknown counts, empty attention/outcomes, bounded session-derived projects</td>
+<td>Aggregate authorized task, review, result and worker facts with per-source coverage; link each attention item to a working detail page</td>
+<td><code>01-overview-v3.png</code>: attention/work/outcomes main column, capacity/health/pinned sessions side column, compact status band</td>
+</tr>
+<tr>
+<td>Work</td>
+<td><code>src/features/work/</code>; list/detail/graph exist, proposed <code>/api/v1/tasks</code> routes are absent from AQ</td>
+<td>Human project-authorized task list, exact detail and bounded dependency neighborhood from Graph; then create/edit and other explicitly supported commands</td>
+<td><code>02-work-explorer-v3.png</code>: list/graph switch, filters, graph controls and contextual inspector; phone list → detail</td>
+</tr>
+<tr>
+<td>Knowledge</td>
+<td><code>src/features/knowledge/index.tsx</code> is a stub; no human Graph gateway or <code>knowledge.read</code> capability</td>
+<td>Share Work's human Graph gateway for search, document/revision, sources, relationships and verification; authoring follows typed commands</td>
+<td><code>07-knowledge-v2.png</code>: searchable library plus full document/metadata panes, independent lifecycle/verification filters</td>
+</tr>
+<tr>
+<td>Decisions</td>
+<td>Stub; AQ <code>reviews.rs</code> has conditional known-ID inspect/resolve/cancel, but no eligible-user inbox</td>
+<td>Bounded decision discovery; exact evidence and revision-bound approve/reject using the existing owner</td>
+<td><code>03-decision-workspace-v3.png</code>: inbox, evidence/proposal workspace, context and clear action area</td>
+</tr>
+<tr>
+<td>Playbooks</td>
+<td>Stub; conditional AQ <code>/api/playbooks/status</code>, binding and run-by-ID reads exist; lists are missing</td>
+<td>Configured runtime status, run/admission discovery and pinned timeline; installed definition/binding/activation inspection where represented by the actual owner</td>
+<td><code>06-playbooks.png</code>: Runs / Definitions / Activations, list/detail and step timeline with waits, children and receipts</td>
+</tr>
+<tr>
+<td>Results</td>
+<td>Stub; AQ retains validated historical result claims, but has no human result feed</td>
+<td>First metadata/evidence links and exact revision detail; then retained media, comments/annotations and explicit feedback tasks</td>
+<td><code>10-results-desktop-v2.png</code>, <code>13-results-mobile-v2.png</code>: centered feed, large evidence cards, selected comments panel; bounded mobile feed</td>
+</tr>
+<tr>
+<td>Agents</td>
+<td>Real sessions/detail, lifecycle receipts and optional literal output tail; focused layout/control absent</td>
+<td>Focused read-only output workspace, session switcher and details drawer using existing APIs; add observation/usage panels where available</td>
+<td><code>08-agents-focus-desktop.png</code>, <code>11-agent-mobile-v2.png</code>: one large readable output area, compact tabs, status footer and optional details. Literal tail stays labelled; it is not a screen snapshot</td>
+</tr>
+<tr>
+<td>Supervisor</td>
+<td>Stub; AQ mailboxes exist, but no global conversation/runtime integration</td>
+<td>Durable global conversation identity/history and explicit dispatch association; full/docked/mobile composer. Real replies require AQ-17</td>
+<td><code>04-supervisor-chat.png</code>, <code>09-supervisor-full-desktop.png</code>, <code>12-supervisor-mobile.png</code>: shared history/draft/context across dock/full modes, keyboard-aware phone composer</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td>Real identity, daemon, workers and project bindings</td>
+<td>Organize existing profile/catalog, worker, notification and project reads; expose only supported Owner actions</td>
+<td>Use the shared layout, controls and disclosures; Settings has no separate accepted PNG. Heartbeat does not establish capacity or eligibility</td>
+</tr>
+</tbody>
+</table></div>
+<p>Search is implemented against mocks and needs the human Graph/read adapters. Provider quota is independently missing: session token/cost accounting and provider availability cannot supply account-wide quota percentages or reset windows.</p>
+<h2>Parallel execution with the available four agent slots</h2>
+<p>Keep one implementation agent on the native worker runner. Assign one agent to the current dashboard backend slice and one to its UI/visual work. The root owns contract coordination, review and deployment of the local preview. These are three implementation lanes plus integration, not a promise to run all feature teams simultaneously.</p>
+<p>Start with <code>API-03</code> (human Graph reads) and <code>UI-05</code> (shared visual composition). The UI lane can immediately improve Agents and Settings using existing data under <code>UI-12</code>, then connect Work/Knowledge under <code>UI-06</code> as the Graph contract becomes available. Backend work next advances review discovery and playbook discovery. Rotate the same lanes through the following slices; avoid competing edits to bootstrap, routes and shared layout files.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Delivery order</th>
+<th>Backend work</th>
+<th>UI work</th>
+<th>Visible acceptance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Working inspection</td>
+<td>API-03; existing sessions/workers/observations/notifications APIs</td>
+<td>UI-05, UI-06, UI-12; focused read-only portion of UI-03</td>
+<td>Real Work and Knowledge navigation; early partial Overview with actual task/project information; useful session/worker panels; mockup-aligned shell, inspectors and focused output</td>
+</tr>
+<tr>
+<td>2. Operator workflows</td>
+<td>API-04 and API-05; API-10 for supported task/knowledge writes</td>
+<td>UI-07 and UI-08; UI-02 action recovery</td>
+<td>Real review inbox/evidence/decision; configured playbook runs/timelines; task creation and typed edits with pending/conflict recovery</td>
+</tr>
+<tr>
+<td>3. Results and Overview</td>
+<td>API-06 then API-08</td>
+<td>First increment of UI-09, then UI-11</td>
+<td>Real result metadata/evidence and populated attention/outcomes; scope/freshness remain explicit</td>
+</tr>
+<tr>
+<td>4. Conversation and richer evidence</td>
+<td>API-07, API-11, API-12; AQ-17 for actual replies</td>
+<td>UI-10, remaining UI-09</td>
+<td>Global supervisor conversation and reply; actual retained media, comments and one explicit feedback task</td>
+</tr>
+<tr>
+<td>Independent sources and terminal completion</td>
+<td>API-09; existing AQ-21/WRK-14/observation/lifecycle owners</td>
+<td>UI-03/UI-04, provider strip in UI-11</td>
+<td>Qualified account quota and terminal control appear only when their sources work; earlier read views remain useful</td>
+</tr>
+</tbody>
+</table></div>
+<p>Results metadata can move ahead of slice 2 if its backend lane is free; API-06 depends on the completed retained-claims owner AQ-28, not full task settlement. Provider quota can be implemented independently, but lack of provider configuration must not stall Work or Knowledge. Likewise, a missing playbook or review installation must not disable unrelated tabs.</p>
+<p>Do not leave Overview unchanged until slice 3. API-03/UI-06 should supply its first bounded task/project contribution, with unavailable review/result sections still explicitly partial. Full aggregation and the secondary panels remain API-08/UI-11. Counts require an actual owner-provided fact and coverage; the browser must not count one loaded page as the total or infer current readiness from a task label.</p>
+<h2>Task contracts and existing package mapping</h2>
+<p>The following are new leaf tasks in the canonical AQ graph. Parent API-02/UI-01–UI-04 remain open. Dependencies are completion gates; UI components may be developed against published fixtures while a paired adapter is being implemented. No leaf task should inherit an unrelated whole-product gate merely because its parent is broad.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Task / owner</th>
+<th>Existing package</th>
+<th>Concrete scope and principal paths</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API-03 / agent-q</td>
+<td>D01, D11</td>
+<td>Human-authorized Graph read adapter for tasks, dependency neighborhoods, knowledge and search inputs. Reuse <code>agent_access/scheduling.rs</code> and Graph clients through a new human actor path; publish schemas/fixtures and bounded mounted routes</td>
+</tr>
+<tr>
+<td>API-04 / agent-q</td>
+<td>D01, D05</td>
+<td>Eligible-user review discovery over <code>reviews.rs</code>, safe subject/evidence DTOs and action descriptors; retain exact owner authorization and existing resolve/cancel semantics</td>
+</tr>
+<tr>
+<td>API-05 / agent-q</td>
+<td>D11</td>
+<td>Bounded playbook run/admission and installed definition/binding discovery beside <code>playbooks/api.rs</code>; retain namespace ownership, immutable run pins and optional-runtime status</td>
+</tr>
+<tr>
+<td>API-06 / agent-q</td>
+<td>D08 first increment</td>
+<td>Human result metadata/list/detail over <code>profiled_execution/results.rs</code>; retain source/report/revision associations and separate recorded, accepted and settled states</td>
+</tr>
+<tr>
+<td>API-07 / agent-q</td>
+<td>D06</td>
+<td>Global conversation identity, ordered message references/history, durable submit/reconciliation and dispatch/reply association using AQ-11; central runtime availability is explicit</td>
+</tr>
+<tr>
+<td>API-08 / agent-q</td>
+<td>D01, D04</td>
+<td>Overview attention/outcomes/project summaries and scoped search over the new human read owners; bounded/batched aggregation, coverage and source timestamps</td>
+</tr>
+<tr>
+<td>API-09 / agent-q</td>
+<td>D02</td>
+<td>Provider/account quota collection and human read projection with source, window/reset/freshness and unavailable states; one supported source first, no fabricated quota from usage</td>
+</tr>
+<tr>
+<td>API-10 / agent-q</td>
+<td>D01, D05, D11</td>
+<td>Human typed task creation/edit and knowledge author/correct/verify/retire commands using the existing durable Graph operation owner. Version guards and stable operation lookup; no raw Graph proxy</td>
+</tr>
+<tr>
+<td>API-11 / agent-q</td>
+<td>D08 remainder</td>
+<td>Media/evidence upload, finalize, authorized retrieval and capture-policy evaluation, with exact result revision, retention and explicit waiver semantics. Start with managed local storage and existing database metadata; no mandatory new external service</td>
+</tr>
+<tr>
+<td>API-12 / agent-q</td>
+<td>D09</td>
+<td>Revision-pinned comments/region/time anchors, explicit feedback-task creation/linking and resolution; one task across lost responses. Posting a comment alone schedules nothing</td>
+</tr>
+<tr>
+<td>UI-05 / aq-dashboard</td>
+<td>D03</td>
+<td>Shared visual composition, responsive shell/panels/controls, empty/partial/unavailable states, and visual baselines. Own <code>app/</code>, shared components/tokens and design comparison checklist</td>
+</tr>
+<tr>
+<td>UI-06 / aq-dashboard</td>
+<td>D04, D11</td>
+<td>Connect <code>features/work/</code>, <code>features/knowledge/</code> and search to API-03; reuse existing list/graph components, build document/revision inspector</td>
+</tr>
+<tr>
+<td>UI-07 / aq-dashboard</td>
+<td>D05</td>
+<td>Build <code>features/decisions/</code>: inbox, evidence, exact-revision decision and recoverable pending/conflict draft</td>
+</tr>
+<tr>
+<td>UI-08 / aq-dashboard</td>
+<td>D11</td>
+<td>Build <code>features/playbooks/</code>: discovery, pinned run timeline, definitions/bindings/activations and only supported actions</td>
+</tr>
+<tr>
+<td>UI-09 / aq-dashboard</td>
+<td>D10</td>
+<td>Incremental <code>features/results/</code>: metadata first, media next, comments/feedback last. Each is a useful separately demonstrated increment; full task closes only with its backend owners</td>
+</tr>
+<tr>
+<td>UI-10 / aq-dashboard</td>
+<td>D06</td>
+<td>Build <code>features/supervisor/</code>: one shared dock/full/mobile conversation and draft; end-to-end real reply depends on AQ-17</td>
+</tr>
+<tr>
+<td>UI-11 / aq-dashboard</td>
+<td>D04, D02</td>
+<td>Complete Overview's two-column composition, real aggregates/search links and provider strip using API-08/API-09. Each section reports its own coverage</td>
+</tr>
+<tr>
+<td>UI-12 / aq-dashboard</td>
+<td>D04, D12 first increment</td>
+<td>Connect worker status, profile/catalog, existing session observation/usage and human notification inspection in Agents/Settings. Future waits/stall control stay in UI-04; no new runtime authority inferred from these reads</td>
+</tr>
+</tbody>
+</table></div>
+<p>Full renderer/control remains UI-03/INT-02. Full hibernation/stall/notification workflows remain UI-04/INT-03. These owners are reused, not replaced with dashboard-side lifecycle logic.</p>
+<h2>API and component boundaries</h2>
+<p>Keep <code>aq-dashboard</code> a separately built/tested static bundle. Browser traffic goes to AQ's human listener; it never receives worker/agent credentials, connects to a worker or Graph directly, or reads component databases. Owner-only project access remains Owner-only until an explicit project-level Viewer policy is implemented and tested. Existing session inspection ACLs do not automatically authorize every task or document in that project.</p>
+<p>For each slice publish or pin its actual DTO/validator and capability, then mount and test the route before enabling the UI capability. Existing <code>/api/...</code> human APIs may be adapted directly when their semantics fit; do not add redundant endpoints solely for URL consistency. Any <code>/api/v1/tasks</code>, knowledge/search/list or conversation path in the old proposal is still proposed until implemented. Optional playbook/review owners require configured-runtime evidence, not a bootstrap flag set to true.</p>
+<p>Graph remains authoritative for task/knowledge records; result/review/playbook/message owners retain their own domain facts. Read aggregation may cache or index disposable projections with source revisions, but must not create a second editable task database. Mailbox receipts remain authoritative for message delivery; a conversation projection references them rather than inventing delivery state. Partial cross-owner reads are not presented as an atomic snapshot.</p>
+<p>Use bounded polling and existing observation cursors first. A general push stream is not required to make these tabs work. Ordinary reads must not contend with worker cleanup, renewal or control pools. Reuse pagination and current-authorization fencing; keep SQL/Graph work bounded as history grows, avoid a query per displayed row, and return explicit partial/unknown status when a source is absent.</p>
+<h2>Functional and visual definition of done</h2>
+<p>Every delivered increment has two independent gates:</p>
+<ol>
+<li><strong>Working infrastructure:</strong> public contract and actual mounted human API, supported authorization/scope, bounded pagination, loading/empty/partial/error behavior, real persisted state read through the owner, deep-link refresh, and a live browser flow. A read test uses actual Graph/runtime/result data created through domain APIs or isolated integration fixtures, not browser interception. Test fixtures are labelled and isolated; production routes never substitute mock data when a source is absent.</li>
+<li><strong>Design completion:</strong> compare the actual page against its named PNG and governing product spec. Check hierarchy, column/panel proportions, typography, density, controls, selection/navigation, and mobile composition. Capture at 1440px desktop and 390px phone, with 320px reflow and tablet checks where relevant. Dynamic IDs/counts/text may differ; required panels and workflows may not disappear merely to pass a screenshot comparison. Review the screenshot, not just whether a file was produced. For an incremental delivery, name its visual subset and deferred panels in advance: read-only Agents can qualify focused output/layout without a terminal controller, and Results metadata can qualify its card/detail structure before media/comments. Keep the full tab's design-complete flag open until all required compositions and workflows are delivered.</li>
+</ol>
+<p>For writes, test repeated clicks, exact operation retry after response loss, stale source revision, revoked access and draft preservation. For terminal output, keep the existing real-process/browser check and explicit incomplete/gap/expiry states. An unsupported control is disabled with a useful reason; a page of disabled controls does not satisfy a tab's delivery gate.</p>
+<p>Navigation is part of the live gate: a new task/document/result link must reach a working authorized detail view, or clearly indicate that the destination is not available. Do not replace one placeholder tab with an attractive list of links into other placeholder tabs.</p>
+<p>Retain fast component tests in aq-dashboard and focused owner/route tests in agent-q. Run the actual daemon + compiled bundle test per delivered slice; include configured Graph/playbooks/notification adapters only when needed. Large-data cases use bounded pages representing the existing 10,000-task/1,000-session/10,000-result test targets. Carry forward the <a href="plans/0001-dashboard-implementation.md#5-performance-and-browser-targets">existing performance budgets</a>: lazy heavy routes, four ordinary requests in flight, pause hidden polling, and no full graph/history download. Measure server work separately from browser rendering; no fleet-performance claim follows from an empty page.</p>
+<p>The integration owner rebuilds the bundle, restarts the local daemon that loads assets at startup, verifies the bundle identity and actual served route, and gives the user the exact URL and visible change. Source commits or passing mock tests alone do not demonstrate that the running preview changed. Keep a short per-tab record of <strong>API connected / interactions working / design matched / live preview verified</strong>, rather than one misleading dashboard-complete flag.</p>
+<h2>First implementation assignment</h2>
+<ol>
+<li>Keep the native runner owner on WRK-08.</li>
+<li>Start API-03 with task list/detail and bounded dependencies; share its authorization/query layer with knowledge reads.</li>
+<li>Start UI-05 with the shell, panels and focused read-only Agents composition, then UI-12's existing operational reads. Connect UI-06 as API-03 freezes its first slice.</li>
+<li>Integrate and show a real Work task/detail/graph plus Knowledge document and the improved Agents page before expanding to more backend owners. Review/Playbooks are the next paired deliveries.</li>
+</ol>
+<p>This gives visible progress while the native runner advances, without waiting for terminal control, real supervisor replies, media capture or account quota to be finished.</p></section><section id="audit"><p class="source"><a href="research/2026-10-31-contract-audit.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard contract readiness audit</h1>
+<blockquote>
+<p>Historical snapshot. This October 31 audit is retained as historical evidence. For current mounted routes, remaining placeholders and execution order, use the <a href="#live-delivery">November 1 live dashboard delivery plan</a>. Later implementation has added live sessions, lifecycle/output and project-binding views; historical absence claims below are not the current capability inventory.</p>
+</blockquote>
 <p>Date: 2026-10-31. Scope: current local source in sibling component checkouts, read during this design-specification pass. This audit inspected schemas, mounted routes, owner documentation, milestone status and test definitions. It did not run backend tests, authenticate to a live daemon, verify deployments or certify the assembled product. <a href="research/2026-10-31-contract-evidence.json">Evidence hashes</a> identify selected files as captured; repositories may continue changing.</p>
 <h2>Answer</h2>
 <p><strong>Partly. We have substantial foundational contracts and several implemented human APIs, but not a complete dashboard implementation contract.</strong> API-02 is still planned. UI-01–UI-04 are planned, and aq-dashboard contains documentation rather than an application. Central supervisor hosting and the playbook/domain adapters required by several screens are also planned. Provider account quota, media Results, anchored comments and comment-to-feedback operations require additional contracts and backend work.</p>

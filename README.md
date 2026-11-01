@@ -8,6 +8,7 @@ The application includes the shell, responsive Overview/Work/Agents inspection v
 - [Product and interaction design](docs/specs/0002-product-design.md) — all screens, responsive layouts, provider usage, full-page supervisor, focused terminals and Results/feedback.
 - [API and integration contract proposal](docs/specs/0003-dashboard-api.md) — existing interfaces, missing read models, media/comment/feedback contracts and recovery behavior.
 - [Implementation plan](docs/plans/0001-dashboard-implementation.md) — stack, dependencies, work packages, performance budgets and acceptance scenarios.
+- [Live delivery and visual completion](docs/plans/0003-live-dashboard-delivery.md) — November 1 per-tab audit, parallel assignments, actual API gaps and mockup acceptance; linked to the canonical AQ task graph.
 - [D03 scaffold plan](docs/plans/0002-d03-shell-scaffold.md) and [evidence](docs/evidence/d03.md) — what the current application does and how it was checked.
 - [Contract readiness audit](docs/research/2026-10-31-contract-audit.md) — what is implemented, specified or missing, with source evidence.
 - [Visual gallery](docs/design/index.html) — twelve selected desktop/mobile mockups preserved with hashes.

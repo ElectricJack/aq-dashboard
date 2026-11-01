@@ -11,6 +11,7 @@ PAGES = [
     ("design", "Product design", "specs/0002-product-design.md"),
     ("contracts", "API contracts", "specs/0003-dashboard-api.md"),
     ("plan", "Implementation", "plans/0001-dashboard-implementation.md"),
+    ("live-delivery", "Live delivery", "plans/0003-live-dashboard-delivery.md"),
     ("audit", "Contract audit", "research/2026-10-31-contract-audit.md"),
 ]
 STYLE = """

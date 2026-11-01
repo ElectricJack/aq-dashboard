@@ -2,6 +2,8 @@
 
 Status: proposed executable work breakdown, 2026-10-31. This plan completes the [product design](../specs/0002-product-design.md) through the [contract boundary](../specs/0003-dashboard-api.md). It expands the existing API-02/UI-01–UI-04 milestones without changing their status or silently modifying the ecosystem task graph. No tasks have been submitted to a daemon by writing this plan.
 
+**November 1 execution update:** [Live dashboard delivery and visual completion](0003-live-dashboard-delivery.md) reconciles every tab with the actual APIs and accepted mockups. API-03–API-12 and UI-05–UI-12 are now explicit leaf tasks in the canonical ecosystem graph. Use that update for current coverage, parallel assignment and per-increment acceptance; D00–D13 below remain the package map. This is planning work, not dispatch or implementation completion.
+
 ## 1. Architecture and stack decision
 
 Use React with strict TypeScript and Vite to produce a static client bundle. Use React Router for addressable routes, TanStack Query for disposable server-state caching, CSS custom properties/modules for the design system, xterm.js for the terminal renderer, and native image/video elements for evidence. Use Vitest and Testing Library for components, Mock Service Worker for contract-derived HTTP scenarios, and Playwright with axe integration for browser tests. Use one package manager and committed lockfile; pin exact tool/runtime/package versions in UI-01 after a compatibility build. This specifies tools, not an unverified claim about their latest versions.
@@ -62,7 +64,7 @@ IDs below are planning IDs, not existing AQ task IDs. Each package delivers sour
 | D12 / UI + AQ | Usage/waits/notifications views and recovery | D04, published observation/lifecycle/delivery adapters | Truthful incomplete accounting/wait/delivery states; UI-04 / INT-03 |
 | D13 / UI + release owners | Package/compatibility manifest, embedded static assets, integration and mobile acceptance | D02, D05–D07, D10–D12 | Exact server+bundle test; stale-tab upgrade; REL-03 / INT-02 / INT-03 |
 
-Work on visual components and proposed mocks may precede completed backend adapters, but a package's live acceptance still requires its hard dependencies. Existing milestones remain authoritative until owners incorporate this expansion. D02 and D08–D10 must be explicitly added to the product task graph; they were not implicit in the earlier one-action dashboard milestone.
+Work on visual components and proposed mocks may precede completed backend adapters, but a package's live acceptance still requires its hard dependencies. Existing milestones remain authoritative. The November 1 delivery update explicitly adds D02 and D08–D10's provider quota, evidence, comments and feedback scope to the product graph; these were not implicit in the earlier one-action dashboard milestone.
 
 ## 4. Release slices
 
