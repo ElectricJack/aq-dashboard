@@ -63,3 +63,30 @@ it passed after the integration owner restored the actual listener. This check
 does not create a Watch or claim new live-output publication. Same-origin served
 preview integration remains with the root owner. The full terminal/control and
 whole-dashboard visual tasks remain open.
+
+## Phone composition correction against the accepted references
+
+The followup compares `11-agent-mobile-v2.png` and
+`08-agents-focus-desktop.png` with actual desktop/phone screenshots. Focused
+phone chrome now keeps compact account-usage availability and connection state;
+the unavailable usage reason remains expandable. Scope/search/branding chrome and
+duplicate headings do not consume the focused reading area. Only server-generated
+UUID fallback labels are shortened; full session/task identifiers and observation
+metadata remain in Session details. Custom session labels are preserved.
+
+Task navigation explicitly carries the selected session's project scope, including
+when the global scope is All projects. This pairs with the project chooser's
+separate route-preservation work in the Work owner.
+
+On the actual retained session at a 390×844 viewport, the candidate header measures
+54px, output begins at y=340, and 422px of output fits in the initial viewport.
+The permanent live layout check requires output to begin by y=420 and at least
+300px to remain visible for a registered terminal. It also verifies the task-link
+scope and zero mutations. Desktop remains the established read-only composition.
+
+Twenty focused component tests, TypeScript, the production build (28 assets,
+no mock code) and the exact candidate's actual-daemon-backed browser check pass.
+The final layout case took 661ms (1.2s including browser setup). The candidate was
+served at port 4194 with read-only API proxying to the actual port 4188 daemon;
+no Watch was acquired. Input/control, full terminal rendering, split view and
+new live-output publication remain outside this correction.
