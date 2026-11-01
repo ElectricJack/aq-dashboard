@@ -2,6 +2,7 @@ import { DestinationPage } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
 import { ProjectBindings } from "./ProjectBindings";
 import { FrameworkStatus } from "./FrameworkStatus";
+import { Notifications } from "../notifications/Notifications";
 
 export function Component() {
   const { bootstrap } = useSession();
@@ -17,6 +18,7 @@ export function Component() {
         </dl>
       </section>
       <FrameworkStatus />
+      <Notifications />
       <ProjectBindings />
     </DestinationPage>
   );
