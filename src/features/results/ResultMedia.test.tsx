@@ -118,3 +118,22 @@ test("an exact report/revision change fences a held response from the previous r
   expect(screen.getAllByRole("img")).toHaveLength(1); expect(created).toHaveLength(1);
   expect(screen.queryByText("Retained worker claim 1")).toBeNull();
 });
+test.each(["removed", "revised"])("same-feed refresh %s report immediately closes and revokes an expanded image", async state => {
+  const app = setup(); const gallery = await openImages(); await within(gallery).findByRole("img");
+  await userEvent.click(within(gallery).getByRole("button", { name: "Expand image" }));
+  const modal = screen.getByRole("dialog", { name: "Expanded supplemental image" }); const render = await within(modal).findByRole("img"); const renderUrl = render.getAttribute("src")!;
+  server.use(http.get("/api/human/results", () => HttpResponse.json(resultPage(state === "removed" ? [] : [{ ...resultRecord(), revision: "c".repeat(64) }]))));
+  await act(() => app.queryClient.invalidateQueries({ predicate: query => query.queryKey[4] === "result-metadata" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Expanded supplemental image" })).toBeNull());
+  expect(revoked).toContain(renderUrl); expect(screen.queryByRole("img")).toBeNull();
+});
+test.each(["missing", "withheld"] as const)("an observed %s artifact closes the expanded stale selection", async state => {
+  const app = setup(); const gallery = await openImages(); await within(gallery).findByRole("img");
+  await userEvent.click(within(gallery).getByRole("button", { name: "Expand image" }));
+  const modal = screen.getByRole("dialog", { name: "Expanded supplemental image" }); const render = await within(modal).findByRole("img"); const renderUrl = render.getAttribute("src")!;
+  const item = fixtureArtifact(); item.availability = { state, observed_at_ms: 1793518234000, reason: state === "missing" ? "files_missing" : "owner_withheld" };
+  server.use(http.get(base, () => HttpResponse.json(fixtureMedia([item]))));
+  await act(() => app.queryClient.invalidateQueries({ predicate: query => query.queryKey[4] === "result-media-list" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Expanded supplemental image" })).toBeNull());
+  expect(revoked).toContain(renderUrl); expect(screen.queryByRole("img")).toBeNull();
+});

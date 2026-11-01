@@ -18,9 +18,10 @@ export function ResultMediaWindow({ keys, children }: { keys: string[]; children
   const visibility = useCallback((key: string, value: boolean) => { setVisible(old => { if (old.has(key) === value) return old; const next = new Set(old); if (value) next.add(key); else next.delete(key); return next; }); }, []);
   const ordered = [...(preferred && visible.has(preferred) ? [preferred] : []), ...keys.filter(key => visible.has(key) && key !== preferred)].slice(0, 2);
   const close = () => { const button = expanded?.returnFocus; setExpanded(null); requestAnimationFrame(() => { if (button?.isConnected) button.focus(); }); };
-  useLayoutEffect(() => { if (!enabled) setExpanded(null); }, [enabled]);
+  const validExpanded = enabled && expanded && keys.includes(resultMediaKey(expanded.binding));
+  useLayoutEffect(() => { if (!validExpanded) setExpanded(null); }, [validExpanded]);
   return <MediaWindow.Provider value={{ active: key => enabled && ordered.includes(key), visible: visibility, prefer: key => { visibility(key, true); setPreferred(key); }, expand: setExpanded }}>
-    {children}{enabled && expanded && <ExpandedImage key={`${resultMediaKey(expanded.binding)}:${expanded.artifact.receipt_digest}`} selection={expanded} close={close} />}
+    {children}{validExpanded && <ExpandedImage key={`${resultMediaKey(expanded.binding)}:${expanded.artifact.receipt_digest}`} selection={expanded} close={close} />}
   </MediaWindow.Provider>;
 }
 export function ResultMedia({ binding }: { binding: MediaBinding }) {
@@ -36,10 +37,14 @@ export function ResultMedia({ binding }: { binding: MediaBinding }) {
     {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} /> : <div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>}
   </div>;
 }
-function MediaGallery({ binding }: { binding: MediaBinding }) {
-  const { queryContext } = useSession(); const window = useContext(MediaWindow)!; const [selected, setSelected] = useState<string | null>(null);
-  const query = useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+function useMediaListing(binding: MediaBinding) {
+  const { queryContext } = useSession();
+  return useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), retry: false, gcTime: 0, staleTime: 0, refetchOnMount: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => { const started = performance.now(); const page = await adaptResultMedia(await resultMediaJson(binding, signal), binding); signal.throwIfAborted(); return { page, started }; } });
+}
+function MediaGallery({ binding }: { binding: MediaBinding }) {
+  const window = useContext(MediaWindow)!; const [selected, setSelected] = useState<string | null>(null);
+  const query = useMediaListing(binding);
   if (query.isPending) return <p role="status">Loading supplemental images…</p>;
   if (query.isError) return <div><p role="status">Supplemental images unavailable.</p><ActionButton onClick={() => void query.refetch()}>Retry images</ActionButton></div>;
   const { page, started } = query.data;
@@ -80,10 +85,15 @@ function VerifiedImage({ binding, artifact, variant, page, started }: { binding:
 }
 function ExpandedImage({ selection, close }: { selection: Selection; close(): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useLayoutEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
+  const listing = useMediaListing(selection.binding);
+  const artifact = !listing.isError && listing.data?.page.items.find(item => item.receipt.artifact_id === selection.artifact.receipt.artifact_id && item.receipt_digest === selection.artifact.receipt_digest && item.availability.state === "available");
+  const valid = !!artifact;
+  useLayoutEffect(() => { if (!valid) close(); }, [valid, close]);
+  useLayoutEffect(() => { const element = dialog.current; if (valid) element?.showModal(); return () => element?.close(); }, [valid]);
+  if (!artifact || !listing.data) return null;
   return <dialog ref={dialog} className={styles.dialog} aria-label="Expanded supplemental image" onCancel={event => { event.preventDefault(); close(); }}>
-    <header className={styles.caption}><h2>{selection.artifact.receipt.input.filename}</h2><ActionButton onClick={close}>Close image</ActionButton></header>
+    <header className={styles.caption}><h2>{artifact.receipt.input.filename}</h2><ActionButton onClick={close}>Close image</ActionButton></header>
     <p className={styles.note}>Human-supplemental image · exact retained report · not worker capture proof</p>
-    <div className={styles.expanded}><VerifiedImage {...selection} variant="render" /></div>
+    <div className={styles.expanded}><VerifiedImage binding={selection.binding} artifact={artifact} page={listing.data.page} started={listing.data.started} variant="render" /></div>
   </dialog>;
 }
