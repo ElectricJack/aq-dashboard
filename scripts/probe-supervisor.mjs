@@ -92,9 +92,13 @@ try {
     await capture(phone, `${viewport.name}-conversation-history.png`);
     const phoneInput = phone.getByRole("textbox", { name: "Message the global supervisor", exact: true });
     await phoneInput.fill("Unsent phone draft"); await phoneInput.focus();
-    await phoneInput.press("Shift+Enter");
+    await phoneInput.press("Shift+Enter"); await expect(phoneInput).toHaveValue(/Unsent phone draft\n/);
     await phoneInput.dispatchEvent("compositionstart"); await phoneInput.press("Enter"); await phoneInput.dispatchEvent("compositionend");
     expect(writes.length).toBe(allowEnqueue ? 1 : 0);
+    // The key guard intentionally creates trailing lines in this synthetic event case.
+    // Replace the unsent draft through the real editor so captures show readable text,
+    // rather than a native textarea scrolled down to its trailing blank caret line.
+    await phoneInput.fill("Unsent phone draft"); await expect(phoneInput).toHaveValue("Unsent phone draft");
     const send = phone.getByRole("button", { name: "Send message", exact: true });
     await phoneInput.press("Tab"); await expect(send).toBeFocused();
     await send.scrollIntoViewIfNeeded();
