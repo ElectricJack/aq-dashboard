@@ -3,7 +3,7 @@ import { SearchDialog } from "../features/search/SearchDialog";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { Ellipsis, Search } from "lucide-react";
 import { DESTINATION_ICON, Icon } from "../components/icons";
-import { ProviderUsageStrip } from "../components/ProviderUsageStrip/ProviderUsageStrip";
+import { ProviderUsageStrip, formatPercent, type ProviderUsageState } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
 import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
@@ -80,6 +80,21 @@ const CONNECTION_TEXT = {
   unreachable: "Disconnected",
   signed_out: "Sign-in expired",
 } as const;
+
+/** Compact presentation only; the full account/window facts remain in the disclosure. */
+function UsageSummary({ state }: { state: ProviderUsageState }) {
+  if (state.status !== "ready") return <>{state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</>;
+  if (state.data.providers.length === 0) return <>No provider accounts reported</>;
+  return <span className={styles.usageAccounts}>{state.data.providers.map(provider => {
+    const primary = provider.windows.find(window => window.id === provider.preferredWindowId) ?? provider.windows[0];
+    const amount = primary?.state === "known" && primary.usedPercent !== null ? `${formatPercent(primary.usedPercent)} used` : primary?.state === "unsupported" ? "Unsupported usage state" : "Usage unavailable";
+    const qualifiers = [primary?.quality === "estimated" && "estimated", primary?.coverage === "partial" && "partial", primary?.freshness === "stale" && "stale"].filter(Boolean);
+    const text = [amount, ...qualifiers].join(" · ");
+    return <span key={`${provider.providerId}:${provider.accountRef}`} className={styles.usageAccount} title={`${provider.accountLabel}: ${text}`}>
+      <span>{provider.accountLabel}</span><span data-stale={primary?.freshness === "stale" || undefined}>{text}</span>
+    </span>;
+  })}</span>;
+}
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
@@ -174,16 +189,15 @@ export function Shell() {
             Ctrl K
           </kbd>
         </button>
-        <div className={styles.standardUsage}><ProviderUsageStrip state={usage.state} /></div>
-        {compactUsage && <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
+        <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
           if (event.key === "Escape") { event.preventDefault(); closeUsage(); }
         }}>
-          <summary ref={usageSummary}>{usage.state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</summary>
+          <summary ref={usageSummary} aria-label="Provider usage (account-wide)"><UsageSummary state={usage.state} /></summary>
           <div className={styles.usageReason}>
-            <p>{usage.state.status === "disabled" ? usage.state.reason : usage.state.status === "error" ? "AQ did not return provider usage" : "Provider usage is loading."}</p>
+            <ProviderUsageStrip state={usage.state} />
             <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>
           </div>
-        </details>}
+        </details>
         <span className={styles.connection} data-state={status} role="status">
           {CONNECTION_TEXT[status]}
         </span>

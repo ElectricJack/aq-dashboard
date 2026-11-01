@@ -132,6 +132,7 @@
 .connection {
   font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
+  flex: none;
   white-space: nowrap;
 }
 
@@ -169,13 +170,16 @@
   inset-block-start: 0;
   z-index: 5;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+  min-block-size: 69px;
   gap: var(--space-3) var(--space-5);
   padding: var(--space-3) var(--gutter-desktop);
   background: var(--color-canvas);
   border-block-end: 1px solid var(--color-border);
 }
+
+.top:has(.mockBanner) { flex-wrap: wrap; }
 
 .phoneBrand {
   display: none;
@@ -186,11 +190,14 @@
 }
 
 .scope {
+  flex: 0 1 15rem;
+  inline-size: clamp(7.5rem, 18vw, 15rem);
   min-inline-size: 0;
   max-inline-size: 100%;
 }
 
 .scope select {
+  inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
 }
@@ -209,7 +216,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-inline-size: 200px;
+  flex: 0 1 200px;
+  min-inline-size: 140px;
   text-align: start;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -278,6 +286,11 @@
   .shell {
     --rail-width: 184px;
   }
+
+  .brand { padding-inline: var(--space-2); gap: var(--space-2); font-size: 18px; white-space: nowrap; }
+  .top { column-gap: var(--space-3); }
+  .search { flex: none; min-inline-size: 0; inline-size: var(--touch-target); padding: 0; justify-content: center; }
+  .search > span, .search .kbd { position: absolute; inline-size: 1px; block-size: 1px; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* Phone: no rail; compact header and bottom destinations. */
@@ -295,6 +308,7 @@
 
   .top {
     display: grid;
+    min-block-size: 114px;
     grid-template-columns: var(--touch-target) minmax(0, 1fr) max-content;
     gap: var(--space-2) var(--space-1);
     padding: var(--space-2) var(--gutter-mobile);
@@ -351,10 +365,6 @@
     display: none;
   }
 
-  .top > section {
-    flex-basis: 100%;
-  }
-
   .main {
     padding: var(--space-4) var(--gutter-mobile)
       calc(var(--touch-target) + var(--space-6) + env(safe-area-inset-bottom));
@@ -373,7 +383,6 @@
   .top:has(.mockBanner) .search,
   .top:has(.mockBanner) .connection,
   .top:has(.mockBanner) .compactUsage { grid-row: 3; }
-  .top:has(.mockBanner) .standardUsage { grid-row: 4; }
 
   .phoneNav {
     display: flex;
@@ -420,18 +429,30 @@
 .shell[data-focused-session] .main > h1 { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
 @media (max-width: 767px) { .shell[data-focused-session] .phoneNav { display: none; } .shell[data-focused-session] .main { padding-block-end: max(var(--space-4), env(safe-area-inset-bottom)); } }
 
-.compactUsage { display: none; }
+.compactUsage { display: block; flex: 1 1 18rem; min-inline-size: 0; font-size: var(--font-size-meta); }
+.compactUsage summary { display: flex; align-items: center; gap: var(--space-1); min-block-size: var(--touch-target); padding: 0; cursor: pointer; white-space: nowrap; }
+.compactUsage summary::before { content: "▸"; flex: none; }
+.compactUsage[open] summary::before { content: "▾"; }
+.compactUsage summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+.usageAccounts { display: flex; gap: var(--space-3); min-inline-size: 0; inline-size: 100%; }
+.usageAccount { display: grid; flex: 1 1 0; gap: 2px; min-inline-size: 0; }
+.usageAccount > span { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usageAccount > span:first-child { font-weight: 600; }
+.usageAccount > span:last-child { color: var(--color-accent); }
+.usageAccount > span[data-stale] { color: var(--color-attention); }
+.usageReason { position: absolute; inset-block-start: calc(100% + var(--space-1)); inset-inline-end: var(--gutter-desktop); z-index: 10; display: grid; gap: var(--space-3); inline-size: min(36rem, calc(100% - 2 * var(--gutter-desktop))); max-block-size: min(70dvh, 32rem); overflow: auto; min-inline-size: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-raised); box-shadow: var(--shadow-overlay); overflow-wrap: anywhere; white-space: normal; }
+.usageReason .button { justify-self: start; color: var(--color-text); font: inherit; cursor: pointer; }
+.usageReason button { min-block-size: var(--touch-target); }
+/* Window details stay in this bounded panel rather than opening a clipped second overlay. */
+.usageReason ul { position: static; min-inline-size: 0; max-inline-size: 100%; }
 @media (max-width: 767px) {
-  .standardUsage { grid-column: 1 / -1; grid-row: 3; min-inline-size: 0; }
+  .compactUsage { grid-column: 2; grid-row: 2; }
+  .scope { inline-size: 100%; }
+  .usageAccounts { gap: var(--space-1); }
+  .usageAccount { font-size: 12px; }
+  .usageReason { inset-inline: var(--gutter-mobile); inline-size: auto; }
   .shell[data-focused-session] .scopeRow,
   .shell[data-focused-session] .search { display: none; }
-  .shell[data-focused-session] .top { display: flex; justify-content: space-between; padding-block: var(--space-2); }
+  .shell[data-focused-session] .top { display: flex; min-block-size: 62px; justify-content: space-between; padding-block: var(--space-2); }
   .shell[data-focused-session] .main > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .shell[data-compact-usage] .standardUsage { display: none; }
-  .shell[data-compact-usage] .compactUsage { display: block; grid-column: 2; grid-row: 2; min-inline-size: 0; font-size: var(--font-size-meta); }
-  .compactUsage summary { min-block-size: var(--touch-target); padding-block: var(--space-3); cursor: pointer; overflow-wrap: anywhere; }
-  .compactUsage summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
-  .usageReason { position: absolute; inset-block-start: calc(100% + var(--space-1)); inset-inline: var(--gutter-mobile); z-index: 10; display: grid; gap: var(--space-3); min-inline-size: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-raised); box-shadow: var(--shadow-overlay); overflow-wrap: anywhere; }
-  .usageReason p { margin: 0; }
-  .usageReason .button { justify-self: start; color: var(--color-text); font: inherit; cursor: pointer; }
 }

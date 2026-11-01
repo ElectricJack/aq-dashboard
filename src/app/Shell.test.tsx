@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { handlersFor } from "../mocks/handlers";
 import { renderApp } from "../test/renderApp";
+import usageFixture from "../../contracts/proposed/provider-usage.json";
 
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
@@ -169,7 +170,7 @@ test("shows connection status in the top area", async () => {
 test("reports Disconnected when AQ stops responding after load", async () => {
   const { queryClient } = renderApp("/overview");
   const banner = await screen.findByRole("banner");
-  await within(banner).findByText("42% used");
+  await waitFor(() => expect(banner.querySelector("summary")).toHaveTextContent("42% used"));
   server.use(
     http.get("/api/v1/bootstrap", () => HttpResponse.error()),
     http.get("/api/v1/provider-usage", () => HttpResponse.error()),
@@ -261,4 +262,57 @@ test("every destination link has a decorative icon and keeps its text name", asy
   const more = within(navs[1]!).getByRole("button", { name: "More" });
   expect(more.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   expect(screen.getByRole("button", { name: "Search" }).querySelector("svg")).not.toBeNull();
+});
+
+
+test("keeps account quota amounts visible while window and freshness details disclose on demand", async () => {
+  renderApp("/overview");
+  const banner = await screen.findByRole("banner");
+  const summary = banner.querySelector("summary")!;
+  await waitFor(() => expect(summary).toHaveTextContent("42% used"));
+  expect(summary).toHaveTextContent("Claude"); expect(summary).toHaveTextContent("Codex"); expect(summary).toHaveTextContent("85% used");
+  expect(summary).toHaveAttribute("aria-label", "Provider usage (account-wide)");
+  const details = summary.closest("details")!; expect(details).not.toHaveAttribute("open");
+  await userEvent.click(summary);
+  const region = within(banner).getByRole("region", { name: "Provider usage (account-wide)" });
+  expect(region).toHaveTextContent("Week"); expect(region).toHaveTextContent(/resets/); expect(region).toHaveTextContent(/updated/);
+  await userEvent.click(within(region).getByRole("button", { name: "Claude: 2 windows" }));
+  expect(within(region).getByRole("list", { name: "Claude usage windows" })).toHaveTextContent("5-hour");
+  await userEvent.click(within(banner).getByRole("button", { name: "Close usage details" }));
+  expect(details).not.toHaveAttribute("open"); expect(summary).toHaveFocus();
+});
+
+test("usage reason and Escape stay in the same bounded disclosure for unavailable quota", async () => {
+  useScenario("unavailable"); renderApp("/overview");
+  const banner = await screen.findByRole("banner"); const summary = banner.querySelector("summary")!;
+  await waitFor(() => expect(summary).toHaveTextContent("Usage unavailable"));
+  expect(summary).not.toHaveTextContent("No qualified");
+  await userEvent.click(summary); expect(summary.closest("details")).toHaveAttribute("open");
+  within(banner).getByRole("button", { name: "Close usage details" }).focus();
+  await userEvent.keyboard("{Escape}"); expect(summary.closest("details")).not.toHaveAttribute("open"); expect(summary).toHaveFocus();
+});
+
+test("unknown quota summaries never invent a zero percentage", async () => {
+  useScenario("unknown"); renderApp("/overview");
+  const banner = await screen.findByRole("banner"); const summary = banner.querySelector("summary")!;
+  await waitFor(() => expect(summary).toHaveTextContent("Claude"));
+  expect(summary).toHaveTextContent("Usage unavailable"); expect(summary).not.toHaveTextContent("0%");
+});
+
+test("stale quota stays qualified in the compact account summary", async () => {
+  useScenario("stale"); renderApp("/overview");
+  const banner = await screen.findByRole("banner"); const summary = banner.querySelector("summary")!;
+  await waitFor(() => expect(summary).toHaveTextContent("42% used · stale"));
+});
+
+
+test("compact quota follows the reported preferred window and preserves estimated partial qualifiers", async () => {
+  const fixture = structuredClone(usageFixture);
+  fixture.data[0]!.preferred_window_id = "session";
+  fixture.data[0]!.windows[1]!.observation.quality = "estimated";
+  fixture.data[0]!.windows[1]!.observation.coverage = "partial";
+  server.use(http.get("/api/v1/provider-usage", () => HttpResponse.json(fixture)));
+  renderApp("/overview"); const banner = await screen.findByRole("banner"); const summary = banner.querySelector("summary")!;
+  await waitFor(() => expect(summary).toHaveTextContent("18% used · estimated · partial"));
+  expect(summary).not.toHaveTextContent("42% used");
 });
