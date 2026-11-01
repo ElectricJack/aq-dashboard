@@ -60,11 +60,10 @@ try {
   let servedBundleDigest=bootstrap.data.product.dashboard_digest;
   if(process.env.AQ_LIVE_CANDIDATE_MANIFEST) {
     const bytes=await readFile(process.env.AQ_LIVE_CANDIDATE_MANIFEST);
-    const manifestResponse=await page.request.get(new URL("/dashboard-manifest.json",origin).href);
-    expect(manifestResponse.status()).toBe(200);
-    const served=await manifestResponse.body();
-    expect(createHash("sha256").update(served).digest("hex")).toBe(createHash("sha256").update(bytes).digest("hex"));
-    servedBundleDigest=`sha256:${createHash("sha256").update(served).digest("hex")}`;
+    // The server verifies the manifest at startup and publishes its digest in
+    // bootstrap; the manifest itself is not a public bundle asset.
+    const expected=`sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    expect(servedBundleDigest).toBe(expected);
   }
   for(const name of ["human.graph.read","tasks.read","knowledge.read","search.read"]) expect(bootstrap.data.capabilities.some(c=>c.name===name&&c.version==="1"&&c.enabled===true),name).toBe(true);
   const tasks=await read(`${human}/tasks?limit=25`), task=(await read(`${human}/tasks/${taskId}`)).data;
