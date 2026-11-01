@@ -1,0 +1,3 @@
+import {adaptOverviewWorkers} from "./overviewWorkers";
+test("heartbeats preserve unknown states and never create capacity fields",()=>{const value=adaptOverviewWorkers([{id:"node1",name:"Worker",status:"future",last_seen_at:null}]);expect(value[0]!.status).toBe("future");expect(value[0]).not.toHaveProperty("capacity");});
+test("duplicate workers and invalid observation timestamps refuse",()=>{const value={id:"node1",name:"Worker",status:"online",last_seen_at:null};expect(()=>adaptOverviewWorkers([value,value])).toThrow();expect(()=>adaptOverviewWorkers([{...value,last_seen_at:"not-a-date"}])).toThrow();});
