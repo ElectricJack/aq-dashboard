@@ -24,6 +24,8 @@ test("validates Unicode character and UTF8 byte bounds",()=>{
  expect(validateTaskDraft({...draft,title:draft.title+"x"})).toMatch(/title/);
  expect(validateTaskDraft({...draft,body:"é".repeat(16385)})).toMatch(/Description/);
  expect(validateTaskDraft({...draft,acceptance_criteria:"✓".repeat(2731)})).toMatch(/Acceptance/);
+ expect(validateTaskDraft({...draft,body:"cannot\0store"})).toMatch(/NUL/);
+ expect(validateTaskDraft({...draft,acceptance_criteria:"\ud800"})).toMatch(/Unicode/);
 });
 test("binds every receipt to the exact owner, project, operation, digest and task",()=>{
  expect(adaptTaskOperation(confirmedTaskOperation(),expected).state).toBe("confirmed");
