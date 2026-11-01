@@ -32,7 +32,7 @@ try {
   await expect(page.getByRole("heading", { name: "Decisions", exact: true })).toBeVisible();
   await expect(page.getByText(criterion, { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Decision context", exact: true })).toBeVisible();
-  await expect(page.getByText(record.subject.source.resulting_object.hex, { exact: true })).toBeVisible();
+  await expect(page.locator("dt").filter({ hasText: /^Resulting object$/ }).locator("+ dd")).toHaveText(record.subject.source.resulting_object.hex);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(directory, "decisions-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
