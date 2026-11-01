@@ -1,0 +1,27 @@
+# Supplemental PNG Results reader
+
+Source-only UI18 subset against frozen MediaCore `918559f`. No media HTTP routes, configured store, actual retention or live visual acceptance is established by these UI tests. Root keeps `results.media.read@1` disabled until the actual owner and paired routes are qualified.
+
+References inspected directly: `10-results-desktop-v2.png`, `13-results-mobile-v2.png`, product design 0002 Results section and visual acceptance rules. The delivered source subset preserves the metadata feed and adds a substantial PNG preview frame, filename selector, explicit image expansion and human-upload provenance. Report identities/evidence references sit in a disclosure below the image instead of dominating it. Filename selectors are not a complete thumbnail/media strip. Clips, comparison, discussion, comments, uploader UI, capture-policy success and complete Results-page acceptance remain deferred.
+
+## Authority bridge
+
+API06 metadata independently pins report ID, bare SHA256 report revision, project/task/attempt, repository/base object and `recorded_legacy_native_only` coverage. It does not pin later media artifacts. The reader builds its expected `ReportBinding` only from that adapted metadata and coverage. Every authorized media listing and immutable receipt must match those fields. The listing introduces supplemental artifact/receipt/variant descriptors; it does not append images to the original worker report digest.
+
+Closed MediaCore fields, limits, deterministic preview dimensions, availability states and canonical receipt SHA are checked. The receipt digest is an integrity fingerprint, not a signature, authorization grant or proof of capture. The authenticated exact-report owner endpoint supplies authority. The frozen public schema/example are copied under `contracts/live/result-media/`; the example is explicitly synthetic contract data, not retained PNG bytes.
+
+The binary request path is constructed from the independently pinned report/revision and selected validated artifact/variant. No URL/path from a body is used. The client checks exact MIME, Content-Length, AQ variant digest, receipt digest, actual byte length and SHA256, then exact PNG signature/IHDR dimensions and static RGBA8 shape before returning any bytes to a Blob URL. The selected descriptor is the anchor; response headers/body cannot anchor themselves. Reads are same-origin, no-store, abortable, finite and bounded. Error streams are cancelled; cancellation is not awaited indefinitely. Generic404 remains a neutral feature error; typed missing/expired/withheld/failed responses retain their distinct meaning. 401/403 enter the existing protected-query authorization fence.
+
+## Rendering and resource boundary
+
+An explicit capability gates all media reads. At most two visible cards hold one selected preview each; one global modal can request a render only on explicit expansion. An IntersectionObserver releases inactive previews. Without that browser API, explicit View images uses the same bounded window. No other artifact previews are fetched just to decorate selectors. Media metadata has a maximum of eight items/report, preview bytes at most 768 KiB and render bytes at most 8 MiB, further bounded by current returned limits.
+
+Object URLs are minted only after verification. Identity/report/revision/selector changes, offscreen window changes, close, decode error, access denial and expiry stop rendering and revoke the old URL. Query identity includes current principal/authorization/contract and full report/artifact/receipt/variant anchors. Retention uses the server snapshot plus a conservative monotonic elapsed-time ceiling; it does not use a browser clock to extend authority. No private image is kept in local storage or a persistent browser cache. These are bounded client operations, not a production throughput or browser peak-memory claim.
+
+Images are labelled human-supplemental, uploaded after the worker report. Uploader-supplied capture assertions remain explicitly unverified, even if a claimed source matches the report. Missing/tombstoned media retains that provenance. Image presence never implies worker/model capture, source coverage, acceptance or completion.
+
+## Validation and remaining gates
+
+40 focused tests passed in 2.97 seconds across the bridge adapter, frozen public example, finite byte client, image lifecycle and existing Results metadata cases. Exact `pnpm exec tsc -b` including tests and diff checks passed. Tests cover self-consistent foreign report/source bindings, receipt digest mutation, closed fields/limits, wrong MIME/length/digest/header/dimensions, truncated/extra/corrupt finite streams, two-preview budget, explicit render, close/decode URL release, held old artifact/report/revision responses and scope changes. Both 401 and 403 tests retain the denial gate with bootstrap503 and verify all previously created URLs and report rendering are removed. A finite response stream tests EOF mismatch separately from a transport that could wait until the request deadline for its promised length.
+
+Synthetic test PNGs/receipts are labelled fixture data and do not claim canonical server processing or authorized file retention. Actual SQL/filesystem/router tests belong to the backend owner. Production build, actual controlled screenshot upload/finalization, byte serving, expiry/revocation and desktop/390/320 screenshot review are separate pending gates once API36 is mounted. No production build, Cargo command or provider call was run in this source lane.
