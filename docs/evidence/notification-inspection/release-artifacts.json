@@ -1,0 +1,42 @@
+{
+  "artifacts": [
+    {
+      "path": "/tmp/aq-notification-owner-pin/dashboard_notifications-fae7aea92f95e9ed",
+      "sha256": "06e9e3c80fb0322bd043c1aa417204e5ab74d8a576adac604e812ae23c8898bd",
+      "bytes": 67739168
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/dist-release/dashboard-manifest.json",
+      "sha256": "3e12f222077d22b2dba05b035c0cda3c49c0fed827c37f9e7fa041d7dc38f953",
+      "bytes": 4235
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-ui-v2/scripts/probe-notification-inspection.mjs",
+      "sha256": "ed56d9dc2dc9f035eebaaba152f49fb890343e2db503f2f79779b2ecc8f7f50c",
+      "bytes": 6836
+    },
+    {
+      "path": "/tmp/aq-notification-positive-browser-release/notifications-desktop.png",
+      "sha256": "36ca6eb6412964461b112a05dd0dfa20efc1447a9fecf114021ee916dd48cc1f",
+      "bytes": 124233
+    },
+    {
+      "path": "/tmp/aq-notification-positive-browser-release/notifications-mobile.png",
+      "sha256": "66c0e1f8f94b71c96d9cc9e1a4743ccc3c74e8591481aa935eb1cd64ee352d66",
+      "bytes": 55516
+    }
+  ],
+  "fixture": "mounted_notifications_read_current_principal_self_without_external_delivery",
+  "database": "isolated disposable fixture; actual preview database unchanged",
+  "source_probe_commit": "1f34dce",
+  "source_log": "/tmp/aq-notification-positive-process-release.log",
+  "source_result": "/tmp/aq-notification-positive-browser-release/result.json",
+  "limits": [
+    "No external routes, destinations or deliveries",
+    "No send/retry UI",
+    "No transport-acceptance or human-acknowledgment proof",
+    "Notification visual subset only; not full Settings acceptance"
+  ],
+  "prior_accepted_result": "result.json",
+  "prior_accepted_bundle_sha256": "38312b6e8abd850839a1db4d2589de89228c28d16254cc39ceff59ac5d123f96"
+}
