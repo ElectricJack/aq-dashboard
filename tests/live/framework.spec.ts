@@ -29,9 +29,16 @@ test("production dashboard connects to AQ and supports direct navigation", async
 });
 
 test("unsupported features are explicit and unknown API routes stay JSON errors", async ({ page, request }) => {
+  const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
+  const enabled = (name: string) => bootstrap.data.capabilities.some((c: { name: string; version: string; enabled: boolean }) => c.name === name && c.version === "1" && c.enabled === true);
   await page.goto("/work");
-  await expect(page.getByRole("heading", { name: "Work is not available" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Search/ })).toBeDisabled();
+  if (enabled("tasks.read")) {
+    await expect(page.getByRole("heading", { level: 1, name: "Work", exact: true })).toBeVisible();
+    if (enabled("human.graph.read")) await expect(page.getByRole("heading", { name: "Choose a project" })).toBeVisible();
+  } else await expect(page.getByRole("heading", { name: "Work is not available" })).toBeVisible();
+  const search = page.getByRole("banner").getByRole("button", { name: "Search", exact: true });
+  if (enabled("search.read")) await expect(search).toBeEnabled();
+  else await expect(search).toBeDisabled();
   const response = await request.get("/api/v1/not-a-route");
   expect(response.status()).toBe(404);
   expect(response.headers()["content-type"]).toContain("application/json");
@@ -122,6 +129,7 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   expect(detailApi.id).toBe(session.id);
   const detail = page.getByRole("region", { name: session.label, exact: true });
   await expect(page.getByRole("heading", { level: 2, name: session.label })).toBeVisible();
+  await detail.getByRole("button", { name: "Session details", exact: true }).click();
   await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(detailApi.execution_authority));
   await expectLifecycle(detail, detailApi);
   if (detailApi.observation.state === "unknown") await expect(detail).toContainText("State unknown");
@@ -143,6 +151,7 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   expect(refreshed.status()).toBe(200);
   const refreshedApi = (await refreshed.json()).data as SessionRead;
   await expect(page.getByRole("heading", { level: 2, name: session.label })).toBeVisible();
+  await detail.getByRole("button", { name: "Session details", exact: true }).click();
   await expectLifecycle(detail, refreshedApi);
   await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(refreshedApi.execution_authority));
   await page.setViewportSize({ width: 390, height: 844 });
