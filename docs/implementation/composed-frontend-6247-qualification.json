@@ -1,0 +1,157 @@
+{
+  "status": "canonical_assets_promoted_state35_unchanged_optional_features_separately_qualified",
+  "date": "2026-11-01",
+  "production_source": "f2dbe5e7fc9d2647971aab0c1350df52c54bd0a3",
+  "bundle": {
+    "path": "/tmp/aq-dashboard-actions-promotion/dist-composed-f2dbe5e",
+    "manifest_sha256": "624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+    "manifest_files": 29,
+    "asset_files": 28,
+    "mocks": false
+  },
+  "checks": {
+    "test_files": 65,
+    "tests": 633,
+    "runner_seconds": 26.48,
+    "test_wall_seconds": 27.084,
+    "exact_typecheck_and_build_wall_seconds": 2.448,
+    "vite_seconds": 1.23,
+    "later_imports": "probes/evidence/docs only; no production rebuild"
+  },
+  "canonical": {
+    "origin": "http://localhost:4188",
+    "state_format": 35,
+    "binary_sha256": "8ad0aad8a1cb156660decdebc0fbbef8e4ea04a0e7c80a84c8921bb0681153ad",
+    "config_sha256": "de60d617b02dbf7b2eac4c25c425239a5f85479a8d1d113f93996b559864d45e",
+    "database_changed": false,
+    "comparison": "evidence/composed-frontend-6247/canonical/bootstrap-comparison.json"
+  },
+  "old_backend_stage": {
+    "origin": "http://localhost:4204",
+    "old_pid": 781324,
+    "replacement_pid": 870238,
+    "state_format": 35,
+    "environment_change_only": "AQ_DASHBOARD_DIR",
+    "config_sha256": "b5e59d04f223eefc69ac2b9567811704c4701fe7b90a8d68cc403667e3e68421"
+  },
+  "actual_readonly_gates": {
+    "old_backend": {
+      "overview": {
+        "elapsed_ms": 728,
+        "result": "evidence/composed-frontend-6247/old-backend-overview.json",
+        "sha256": "f4a508278a70958e4f6e8af263695a6c98a64385d7eaae5b3a8f1dd0b2e662dd"
+      },
+      "graph": {
+        "elapsed_ms": 3236,
+        "result": "evidence/composed-frontend-6247/old-backend-graph.json",
+        "sha256": "ad100a988cfed8f17c35de021549f04985f8ca05ceaaccd2727bbb918e307297"
+      },
+      "events": {
+        "elapsed_ms": 1271,
+        "result": "evidence/composed-frontend-6247/old-backend-events.json",
+        "sha256": "cd761673244f3718180839307dc4d3d1e33ba61ae3f46532350f9205683046d5"
+      },
+      "supervisor": {
+        "elapsed_ms": 1623,
+        "result": "evidence/composed-frontend-6247/old-backend-supervisor.json",
+        "sha256": "6ebb091b186a49a71a90c1d571c076da574bd9909c69565081696d2807e88881"
+      },
+      "shell": {
+        "elapsed_ms": 1443,
+        "result": "evidence/composed-frontend-6247/old-backend-shell.json",
+        "sha256": "8a120deb98f2698678f70cb60a14220a1ac03538fd57cbf0d4ab031cf329980f"
+      }
+    },
+    "canonical": {
+      "overview": {
+        "elapsed_ms": 660,
+        "result": "evidence/composed-frontend-6247/canonical/overview.json",
+        "sha256": "81102b2743c060ce84d415b8800833aa1312238ec13ebb42837b2047e097ad73"
+      },
+      "graph": {
+        "elapsed_ms": 3384,
+        "result": "evidence/composed-frontend-6247/canonical/graph.json",
+        "sha256": "0d0722dc0d1e79a7ccdbd893114b2dde9f3cea65b997b48533536ca0254eac2a"
+      },
+      "events": {
+        "elapsed_ms": 1296,
+        "result": "evidence/composed-frontend-6247/canonical/events.json",
+        "sha256": "4778801b44dae162bcce72a413a636a717367d09af2ff32fb5c223bea9295c2d"
+      },
+      "supervisor": {
+        "elapsed_ms": 1713,
+        "result": "evidence/composed-frontend-6247/canonical/supervisor.json",
+        "sha256": "a18804f64170527a5d322054a74578da58203fb1e57589720fd48a309b74bd99"
+      },
+      "shell": {
+        "elapsed_ms": 1473,
+        "result": "evidence/composed-frontend-6247/canonical/shell.json",
+        "sha256": "4d8869d5925a6eb3ce694ffd6e757603b8630db3ac116c58e4cfe0a541d0111d"
+      }
+    }
+  },
+  "isolated_optional_features": {
+    "results_media_upload": {
+      "evidence": "evidence/result-media-upload-ui-actual/result.json",
+      "browser_ms": 5360,
+      "authorized_operations": 1,
+      "mutation_requests": 3,
+      "binary_sha256": "88e6a28251afd30bc8629ff05195656331643da072393ca21c5ca0f2ce9870b0",
+      "canonical_enabled": false,
+      "remaining_nit": "Cleared native file-input label versus accurate separate Selected filename"
+    },
+    "current_catalog": {
+      "evidence": "../evidence/current-catalog-browser/README.md",
+      "browser_ms": 2294,
+      "complete_seconds": 3.81,
+      "supplement_browser_ms": 3111,
+      "supplement_complete_seconds": 4.65,
+      "fixture_binary_sha256": "f36f0257a5e12fd802afe9d54fa48dae7c3e2e82e6a214a074470ead6ae2c751",
+      "component": "0.1.3",
+      "fixture_schema": 36,
+      "transport": "Synthetic local UDS forwarding into disposable PostgreSQL; not actual private UDS deployment",
+      "canonical_enabled": false
+    }
+  },
+  "rollback": {
+    "assets": "/tmp/aq-dashboard-actions-promotion/dist-events-media",
+    "manifest_sha256": "5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667",
+    "same_binary_config_database": true,
+    "database_restore": false,
+    "owner": "root"
+  },
+  "full_page_acceptance": false,
+  "evidence_files": {
+    "stage-readyz.json": "b26cb2e0c4c3b9369f4ee4e6c6756018b4e0954ddd6208cc3030b1271ea1a95b",
+    "stage-restart.json": "373f1bf867a546e5a9038afcd0f08ba1030bb86256d46779a6f1710892685842",
+    "build-qualification.json": "bbc15ec0eab1bbf8aba1865dec7da024eb53822d665c28a7e0ed0d5e985f806f",
+    "dashboard-manifest.json": "624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+    "probe-shared-shell-real.mjs": "4b421cc81ff31a07537305d8d226973bb041423440ff58443d4185d57fac3fe7",
+    "old-backend-overview.json": "f4a508278a70958e4f6e8af263695a6c98a64385d7eaae5b3a8f1dd0b2e662dd",
+    "frontend-build.log": "87ff222586efcf9072478067e662243eefce2a94955e661ed339de409a3639c7",
+    "old-backend-supervisor.json": "6ebb091b186a49a71a90c1d571c076da574bd9909c69565081696d2807e88881",
+    "old-backend-graph.json": "ad100a988cfed8f17c35de021549f04985f8ca05ceaaccd2727bbb918e307297",
+    "old-backend-shell.json": "8a120deb98f2698678f70cb60a14220a1ac03538fd57cbf0d4ab031cf329980f",
+    "frontend-tests.log": "7d1a89b999d3e90238ea17d24c8e1cb0c43660d9ff1b019730e05fad8b92509b",
+    "old-backend-events.json": "cd761673244f3718180839307dc4d3d1e33ba61ae3f46532350f9205683046d5",
+    "shell/focused-390.png": "c2142f4da97eb2301a4654202d79cc68fd7cc4b60892007dcb2cb54d8725066b",
+    "shell/header-1440.png": "053a9b3c7c6b5ee14ff3caf6cb06b2c759904086cc8f5f1c214900293fc9bcc1",
+    "shell/header-390.png": "4dc387cb393ef01e7bd1cee15b186b5564ae236f31f275b4a49031872a8d0412",
+    "shell/focused-320.png": "1657e42a343fb8b8711b8e046f74a3cab3bfe31a656b4165630d2545f5472d00",
+    "shell/header-overlay-320.png": "2b2743212133af79359e5adf9b27e83b31f137d0635c0fb906900aa6538324ff",
+    "shell/header-1024.png": "88cb5e750542515e8cb1860f4bd98a38b01372e52bb5ad62198f7c5cf6cedcc6",
+    "shell/header-320.png": "c6c3cd715974726ffdf570a6169201e2dae20f05bc49f9592f4253df9e416839",
+    "canonical/header-1440.png": "053a9b3c7c6b5ee14ff3caf6cb06b2c759904086cc8f5f1c214900293fc9bcc1",
+    "canonical/supervisor-320.png": "e937cf9b018bf496239460264772002969a51a3b4424c5bbca4f73d4ef001e88",
+    "canonical/header-390.png": "4dc387cb393ef01e7bd1cee15b186b5564ae236f31f275b4a49031872a8d0412",
+    "canonical/focused-320.png": "966cf31dd8e6e7f0a445286f6cd7d32f774a82e88c850c5e50794106fdfc9e8e",
+    "canonical/shell.json": "4d8869d5925a6eb3ce694ffd6e757603b8630db3ac116c58e4cfe0a541d0111d",
+    "canonical/restart.json": "ace36b5417d2c561432d2495f5e1684a0f753c07ecb105973b470c0159dfa204",
+    "canonical/supervisor.json": "a18804f64170527a5d322054a74578da58203fb1e57589720fd48a309b74bd99",
+    "canonical/overview.json": "81102b2743c060ce84d415b8800833aa1312238ec13ebb42837b2047e097ad73",
+    "canonical/events.json": "4778801b44dae162bcce72a413a636a717367d09af2ff32fb5c223bea9295c2d",
+    "canonical/header-320.png": "c6c3cd715974726ffdf570a6169201e2dae20f05bc49f9592f4253df9e416839",
+    "canonical/graph.json": "0d0722dc0d1e79a7ccdbd893114b2dde9f3cea65b997b48533536ca0254eac2a",
+    "canonical/bootstrap-comparison.json": "e49fdb059d86439ac66d6d540262de20312c666941fa988fa500c80d46445fc6"
+  }
+}

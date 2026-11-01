@@ -3,7 +3,7 @@
 The immutable combined UI bundle from integration `f2dbe5e` has manifest SHA-256
 `624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663`.
 Its full frontend suite passed 633 tests in 26.48 s, followed by the exact
-TypeScript/production build/bundle checks (Vite 2.448 s, 29 manifest files,
+TypeScript/production build/bundle checks (2.448 s full pipeline; Vite 1.23 s; 29 manifest files,
 no mocks). The pinned actual owner fixture binary is
 `f36f0257a5e12fd802afe9d54fa48dae7c3e2e82e6a214a074470ead6ae2c751`;
 the original frozen browser probe is

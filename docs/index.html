@@ -13,7 +13,7 @@ li{margin:8px 0}figure{margin:28px 0}img{max-width:100%;height:auto;border:1px s
 @media print{:root{color-scheme:light}body{background:white;color:#111}nav{display:none}a{color:#334}.intro,th,pre,code{background:#f2f3f6}section{break-before:page}main{max-width:none;padding:0}}
 </style></head><body><nav aria-label="Specification sections"><a href="#design">Product design</a><a href="#contracts">API contracts</a><a href="#plan">Implementation</a><a href="#live-delivery">Live delivery</a><a href="#audit">Contract audit</a><a href="design/index.html">Mockup gallery</a></nav><main><h1>Agent Q dashboard specification</h1><div class="intro"><p><strong>Contract readiness: partial.</strong> Existing human APIs provide a strong foundation. The complete dashboard API, provider quota, global conversation integration and Results/comment/feedback contracts still need publication and implementation.</p><p class="muted">October 31, 2026 · Proposed implementation specification based on the accepted visual direction. Markdown source documents are canonical. This reader is documentation, not the dashboard application.</p></div><section id="design"><p class="source"><a href="specs/0002-product-design.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard product and interaction design</h1>
 <p>Status: implementation specification proposed from the accepted visual direction. Date: 2026-10-31. The user approved the mockup direction; this document supplies implementation decisions, not a claim that the APIs or application are implemented.</p>
-<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">canonical Events35 record</a> distinguish mounted partial features from isolated/source proof. Global human history/text enqueue and explicit exact-session source-event reading are implemented on unchanged canonical 35. Live central Supervisor dispatch/replies remain unavailable; AQ17 pure-core/mapper source does not supply that runtime. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG core and isolated internal SQL/managed-file media owner are qualified in source 36; bundled media UI is source-only/capability-off with no actual image HTTP/browser proof or canonical 36 upgrade. The complete requirements and proposed routes below remain the target, not blanket implementation claims.</p>
+<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="implementation/composed-frontend-6247-qualification.md">combined frontend qualification/promotion</a> distinguish current canonical features from isolated proof. Canonical 4188 serves bundle 6247 on unchanged 8ad/state35 after 633 passing frontend tests, with human history/text enqueue, exact-session Source events and compact responsive header. Supervisor dispatch/replies and provider quota remain unavailable. PNG gallery/one supplemental upload and current Playbooks Definitions/Activations have actual compiled-browser proof in separate disposable configurations; both optional owners remain off in canonical 35. Startup metadata is historical (<code>current_catalog=false</code>), distinct from the current component 0.1.3 catalog. No media/catalog database upgrade or optional-owner deployment was part of the asset promotion. Complete requirements/routes below remain the target, not blanket implementation claims.</p>
 <p>Read with the <a href="specs/0001-dashboard.md">architecture baseline</a>, <a href="#contracts">API contract proposal</a>, <a href="#plan">implementation plan</a>, and <a href="#audit">contract audit</a>. Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.</p>
 <h2>1. Product outcome and boundaries</h2>
 <p>An operator should immediately understand what needs attention, what is running, what it produced, and how to intervene. Reading a result and requesting a correction should be possible on a phone. Desktop provides space for investigation and terminal work; mobile provides a deliberate single-pane composition.</p>
@@ -259,7 +259,7 @@ li{margin:8px 0}figure{margin:28px 0}img{max-width:100%;height:auto;border:1px s
 <p>Permitted-action descriptors explain why an action is unavailable, but the server rechecks authorization on every request. Pending operations display their identity and reconciliation link. A lost response is unknown, not failure or success. Conflicts preserve the draft; changing the payload after conflict requires explicit resubmission with a new operation identity. Logout/identity change clears protected caches and drafts; display/layout preferences may persist without content.</p>
 <p>Acceptance is defined by the scenario matrix in the implementation plan. The original U1–U14 remain required; this specification adds quota, responsive composition, expanded chat and the Results/feedback lifecycle.</p></section><section id="contracts"><p class="source"><a href="specs/0003-dashboard-api.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard API and integration contract</h1>
 <p>Status: proposed API-02 expansion, 2026-10-31. <strong>This document defines required behavior and proposed new routes; it does not publish an implemented wire schema.</strong> Existing contracts are identified explicitly below. API-02 must publish versioned OpenAPI/JSON Schema, generated bindings, semantic validators and fixtures before dependent live integrations are accepted.</p>
-<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">canonical Events35 record</a> distinguish mounted partial features from isolated/source proof. Global human history/text enqueue and explicit exact-session source-event reading are implemented on unchanged canonical 35. Live central Supervisor dispatch/replies remain unavailable; AQ17 pure-core/mapper source does not supply that runtime. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG core and isolated internal SQL/managed-file media owner are qualified in source 36; bundled media UI is source-only/capability-off with no actual image HTTP/browser proof or canonical 36 upgrade. The complete requirements and proposed routes below remain the target, not blanket implementation claims.</p>
+<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="implementation/composed-frontend-6247-qualification.md">combined frontend qualification/promotion</a> distinguish current canonical features from isolated proof. Canonical 4188 serves bundle 6247 on unchanged 8ad/state35 after 633 passing frontend tests, with human history/text enqueue, exact-session Source events and compact responsive header. Supervisor dispatch/replies and provider quota remain unavailable. PNG gallery/one supplemental upload and current Playbooks Definitions/Activations have actual compiled-browser proof in separate disposable configurations; both optional owners remain off in canonical 35. Startup metadata is historical (<code>current_catalog=false</code>), distinct from the current component 0.1.3 catalog. No media/catalog database upgrade or optional-owner deployment was part of the asset promotion. Complete requirements/routes below remain the target, not blanket implementation claims.</p>
 <p>Related: <a href="#design">product design</a>, <a href="#audit">current contract audit</a>, <a href="#plan">delivery plan</a>. Browser traffic terminates at AQ's human listener. There is no new dashboard backend and no direct graph/worker/provider access.</p>
 <h2>1. Reuse before extension</h2>
 <div class="table-wrap"><table>
@@ -936,15 +936,17 @@ contracts/              pinned schemas, semantic vectors, provenance lock
 <p>The twelve selected <a href="design/index.html">mockups</a> and their <a href="design/manifest.json">manifest</a> remain the visual reference. <a href="#design">Product specification 0002</a> governs behavior and resolves differences between mockup generations. Colors alone are insufficient: the missing columns, inspectors, timelines, feed, conversation and focused workspace are the main visual gap. Sample numbers and media in PNGs are never production data.</p>
 <p>This work can run alongside the native worker runner. Task/knowledge reads, review and playbook inspection, historical results, notifications, worker status and visual layout do not require a live model. Real supervisor replies and interactive terminal control do require their respective runtime owners.</p>
 <h2>Delivered increments and remaining gates at canonical state35</h2>
-<p>The <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">canonical Events35 promotion</a>
+<p>The <a href="implementation/composed-frontend-6247-qualification.md">combined frontend qualification and asset promotion</a>
 now binds actual <code>http://localhost:4188</code> to compiled bundle
-<code>sha256:5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667</code> and the retained 8ad state35 binary.
-The database remains 35 even though latest source now includes internal media
-migration 36. Composed 539 tests passed in 23.68s; typecheck and 1.65s/29-asset build
-passed with no mocks. Canonical Source events passed in 1668ms (zero reports,
-two explicit reads, zero writes), Supervisor in 2206ms (empty history/zero enqueue),
-Graph in 4018ms (16 reads/zero mutations), and Overview in 889ms. The earlier 35/2b
-and 34 records remain historical. Full parent feature/design tasks remain open.</p>
+<code>sha256:624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663</code>
+and the retained 8ad state35 binary. Root changed only the assets directory: vault,
+database, principal, capabilities, contracts, limits, default scope and Supervisor
+identity are unchanged. The full 633-test frontend suite passed in 26.48s; exact
+TypeScript/build/bundle checks passed in 2.448s (Vite 1.23s), 29 manifest files, no
+mocks. Current canonical readonly probes passed Overview 660ms, Graph 3384ms
+(16 reads), Source events 1296ms (zero reports/two reads), Supervisor 1713ms
+(empty history/zero enqueue), and Shell 1473ms. Earlier <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">5c Events35</a>,
+35/2b and 34 checkpoints stay historical. Full parent feature/design tasks remain open.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -958,49 +960,49 @@ and 34 records remain historical. Full parent feature/design tasks remain open.<
 <tr>
 <td>Overview</td>
 <td>Recorded task/project contribution, partial attention/outcomes and accepted two-column grouping; account usage stays unavailable.</td>
-<td><a href="implementation/core-overview.md">Core Overview</a>, actual canonical 889ms probe.</td>
+<td><a href="implementation/core-overview.md">Core Overview</a>, current canonical 660ms read probe.</td>
 <td>Complete review/result aggregation, actual capacity/provider sources, pinned-session persistence and full 01 composition.</td>
 </tr>
 <tr>
 <td>Work</td>
 <td>Authorized task list/detail/dependency graph, scope/navigation and task-create composer.</td>
-<td><a href="implementation/create-task-live.md">One actual task creation</a> uses disposable Graph/AQ state; canonical probes are read-only.</td>
+<td><a href="implementation/create-task-live.md">One actual task creation</a> uses disposable Graph/AQ state; current canonical probes are read-only.</td>
 <td>Editing, complete lifecycle/explanation/activity and remaining 02 controls.</td>
 </tr>
 <tr>
 <td>Knowledge</td>
 <td>Scoped library/search, readable current/pinned document, sources/verification metadata.</td>
-<td><a href="implementation/work-knowledge-visual-fidelity.md">Actual Work/Knowledge visual subset</a>; canonical Graph 16-read proof.</td>
+<td><a href="implementation/work-knowledge-visual-fidelity.md">Actual Work/Knowledge visual subset</a>; current canonical Graph 3384ms/16-read proof.</td>
 <td>Author/correct/verify/retire commands, richer history/relationships and full 07 design.</td>
 </tr>
 <tr>
 <td>Decisions</td>
 <td>Optional review owner is not configured; unavailable is not a successful empty inbox.</td>
-<td><a href="implementation/decisions-live.md">Actual discovery/revision-bound answers</a>, including disposable response-loss recovery.</td>
-<td>Mount actual optional owner; richer document/media evidence, discussion/comparisons and full 03 design.</td>
+<td><a href="implementation/decisions-live.md">Actual discovery/revision-bound answers</a>, including disposable response-loss recovery; fresh actual UDS inert Owner empty-read proof is separate.</td>
+<td>Canonical optional-owner deployment; richer document/media evidence, discussion/comparisons and full 03 design.</td>
 </tr>
 <tr>
 <td>Playbooks</td>
-<td>Optional runtime/real UDS owner remains unavailable.</td>
-<td><a href="implementation/playbooks-inspection.md">Configured parent/child runs</a> plus <a href="evidence/loaded-definitions-browser/README.md">startup definitions 8fe proof</a>: max 4, historical configuration, <code>current_catalog=false</code>, exact immutable pins.</td>
-<td>Actual optional runtime/UDS qualification, current installed catalog/activation discovery, actions/editor and full 06 design.</td>
+<td>Optional runtime remains unavailable. New current-catalog UI is bundled but its capability is absent.</td>
+<td><a href="evidence/current-catalog-browser/README.md">Actual current Definitions/Activations</a>, two retained artifacts/one binding, exact 6247 UI on disposable 0.1.3 owner. Historical startup metadata and actual private UDS/current 0.1.2 inert startup/restart remain separate proofs.</td>
+<td>Canonical optional runtime/schema deployment; actions/editor, richer execution views and full 06 design. A synthetic fixture forwarder is not a deployment.</td>
 </tr>
 <tr>
 <td>Results</td>
-<td>Retained legacy metadata/revision inspection. Bundled media UI remains capability-off; no image bytes are served.</td>
-<td><a href="implementation/results-metadata.md">Metadata subset</a>; 44 media UI source checks; <a href="../../agent-q/docs/implementation/API-11-storage-owner.md">internal SQL/managed-file owner</a> passed 14 owner + 3 migration/drift cases, separate from pure PNG core.</td>
-<td>Actual HTTP/config/capability binding, upload/image browsing and UI qualification, capture policy, comments/feedback and full 10/13 design. Source migration 36 is not canonical 35.</td>
+<td>Retained legacy metadata/revision inspection. PNG gallery/upload controls are bundled but capabilities remain off; canonical serves no image bytes.</td>
+<td><a href="implementation/results-png-upload-control.md">Actual supplemental PNG uploader/gallery</a> qualified one authorized DOM upload on isolated schema 36 with exact 6247 assets; typed receipts/bytes/reload and 1440/390/320 reviewed.</td>
+<td>Canonical media storage/config/schema/capabilities, capture policy, comments/feedback and full 10/13 design. The native file-input label clarity nit remains open.</td>
 </tr>
 <tr>
 <td>Agents</td>
 <td>Focused read-only output, switcher/details, on-demand accounting and explicit Source events. Current canonical reports/accounting are absent.</td>
-<td><a href="implementation/session-usage-inspection.md">Usage inspection</a>, <a href="implementation/session-source-events.md">actual source-event proof</a>: empty canonical 1668ms plus three real-ingest synthetic usage records 1885ms; <a href="evidence/shell-mobile-responsive/README.md">shared header</a> retains 62px focused row/phone exit.</td>
+<td><a href="implementation/session-usage-inspection.md">Usage inspection</a>, <a href="implementation/session-source-events.md">source-event proof</a>: current empty canonical 1296ms plus historical three-ingest synthetic usage 1885ms. Actual 6247 header retains 62px focused row/phone exit.</td>
 <td>Transcript bytes/current producers, renderer/control, live interaction and full 08/11 design; historical reports do not grant authority or establish current accounting/quota.</td>
 </tr>
 <tr>
 <td>Supervisor</td>
 <td>One stable global human conversation; canonical history empty, runtime unavailable, text composer and pending-safe receipt/recovery.</td>
-<td><a href="implementation/supervisor-conversation-foundation.md">Exact 2b3d full-page visual and owner proof</a> enqueued one human message only in disposable state. Current 5c canonical scope/draft probe passed 2206ms and enqueued none; historical 2b owner proof remains retained. Pure AQ17/mapper source is not a live central runtime.</td>
+<td><a href="implementation/supervisor-conversation-foundation.md">Owner/full-page visual proof</a> enqueued one human message only in disposable state. Current 6247 canonical scope/draft probe 1713ms enqueued none; prior owner proofs remain historical.</td>
 <td>Dock/full shared draft/reading state, context/attachments/evidence cards, central dispatch/replies and full 04/09/12 design. Queued history is not an assistant reply.</td>
 </tr>
 <tr>
@@ -1011,9 +1013,9 @@ and 34 records remain historical. Full parent feature/design tasks remain open.<
 </tr>
 <tr>
 <td>Shared shell</td>
-<td>Compact 114px phone brand/project + Search/usage/connection header at 390/320; 69px desktop; bounded reason overlay preserves composer allocation.</td>
-<td><a href="evidence/shell-mobile-responsive/README.md">Actual compiled-bundle screenshots</a>, 44px controls, Close/Escape/search/scope focus. Earlier dev results are explicitly source-only.</td>
-<td>Populated account-quota producer qualification and the remaining full shared-shell/feature acceptance.</td>
+<td>69px desktop/tablet, 114px phone and 62px focused Agents on actual 6247; bounded usage disclosure preserves scope/search/status and focus.</td>
+<td><a href="implementation/composed-frontend-6247-qualification.md">Actual compiled subset</a>; <a href="evidence/shared-shell-intrinsics-v2/README.md">labelled source long-name/ready-quota coverage</a> is distinct from actual unavailable quota.</td>
+<td>Actual populated account-quota producer and remaining full shared-shell/feature acceptance; complete quota window/reset/freshness facts remain accessible on demand.</td>
 </tr>
 </tbody>
 </table></div>

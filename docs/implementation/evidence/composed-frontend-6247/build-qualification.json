@@ -1,0 +1,44 @@
+{
+  "source_commit": "f2dbe5e7fc9d2647971aab0c1350df52c54bd0a3",
+  "source_tree": "/tmp/aq-dashboard-actions-ui-v2",
+  "immutable_dist": "/tmp/aq-dashboard-actions-promotion/dist-composed-f2dbe5e",
+  "manifest_sha256": "624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "manifest_files": 29,
+  "asset_files": 28,
+  "checks": [
+    {
+      "name": "tests",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "seconds": 27.084,
+      "log": "/tmp/aq-composed-f2dbe5e-tests.log"
+    },
+    {
+      "name": "typecheck_and_production_build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "seconds": 2.448,
+      "log": "/tmp/aq-composed-f2dbe5e-typecheck_and_production_build.log"
+    }
+  ],
+  "test_files": 65,
+  "tests": 633,
+  "test_runner_seconds": 26.48,
+  "canonical_services_changed": false,
+  "api_mutations": false,
+  "imports": [
+    "cabcf76",
+    "b7d2435",
+    "555b76e",
+    "fd6e7ab",
+    "681691f",
+    "9adb81a"
+  ],
+  "read_only_mode": true
+}

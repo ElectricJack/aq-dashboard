@@ -1,0 +1,19 @@
+{
+  "old_pid": 781324,
+  "old_start_ticks": "21757005",
+  "new_pid": 870238,
+  "new_start_ticks": "22818289",
+  "argv": [
+    "/tmp/aq-dashboard-actions-promotion/aq-server-events",
+    "serve",
+    "--vault",
+    "/tmp/aq-dashboard-actions-promotion/vault-stage"
+  ],
+  "config_sha256": "b5e59d04f223eefc69ac2b9567811704c4701fe7b90a8d68cc403667e3e68421",
+  "binary_sha256": "8ad0aad8a1cb156660decdebc0fbbef8e4ea04a0e7c80a84c8921bb0681153ad",
+  "state_format_before": 35,
+  "old_assets": "/tmp/aq-dashboard-actions-promotion/dist-events-media",
+  "new_assets": "/tmp/aq-dashboard-actions-promotion/dist-composed-f2dbe5e",
+  "environment_preserved_except": "AQ_DASHBOARD_DIR",
+  "canonical_4188_changed": false
+}

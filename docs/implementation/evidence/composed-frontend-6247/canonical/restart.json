@@ -1,0 +1,10 @@
+{
+  "old_pid": 784762,
+  "binary_sha256": "8ad0aad8a1cb156660decdebc0fbbef8e4ea04a0e7c80a84c8921bb0681153ad",
+  "old_assets": "/tmp/aq-dashboard-actions-promotion/dist-events-media",
+  "new_assets": "/tmp/aq-dashboard-actions-promotion/dist-composed-f2dbe5e",
+  "new_manifest_sha256": "624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "config_sha256": "de60d617b02dbf7b2eac4c25c425239a5f85479a8d1d113f93996b559864d45e",
+  "database_changed": false,
+  "binary_changed": false
+}

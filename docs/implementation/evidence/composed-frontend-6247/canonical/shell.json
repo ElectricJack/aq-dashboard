@@ -1,0 +1,64 @@
+{
+  "passed": true,
+  "origin": "http://localhost:4188",
+  "bundle_digest": "sha256:624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "elapsed_ms": 1473,
+  "measurements": [
+    {
+      "width": 1440,
+      "height": 69,
+      "overlay": {
+        "x": 840,
+        "y": 72,
+        "width": 576,
+        "height": 103
+      }
+    },
+    {
+      "width": 1024,
+      "height": 69,
+      "overlay": {
+        "x": 424,
+        "y": 72,
+        "width": 576,
+        "height": 103
+      }
+    },
+    {
+      "width": 390,
+      "height": 114,
+      "overlay": {
+        "x": 16,
+        "y": 117,
+        "width": 358,
+        "height": 124
+      }
+    },
+    {
+      "width": 320,
+      "height": 114,
+      "overlay": {
+        "x": 16,
+        "y": 117,
+        "width": 288,
+        "height": 124
+      }
+    },
+    {
+      "width": 390,
+      "height": 62,
+      "focused": true
+    },
+    {
+      "width": 320,
+      "height": 62,
+      "focused": true
+    }
+  ],
+  "errors": [],
+  "writes": [],
+  "foreign": [],
+  "browser_interception": false,
+  "quota": "actual disabled/unavailable only; ready quota remains labelled source-fixture coverage",
+  "scope": "Actual compiled frontend on unchanged state35 events backend; header and focused-reading subset only"
+}

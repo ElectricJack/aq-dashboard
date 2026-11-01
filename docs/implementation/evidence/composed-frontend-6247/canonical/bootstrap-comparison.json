@@ -1,0 +1,29 @@
+{
+  "all_preserved_fields_equal": true,
+  "fields": {
+    "principal": true,
+    "capabilities": true,
+    "contracts": true,
+    "limits": true,
+    "default_scope": true,
+    "global_supervisor": true
+  },
+  "old_bundle_digest": "sha256:5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667",
+  "new_bundle_digest": "sha256:624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663",
+  "before_file_sha256": "0cb7a1e3535b66b3dd61277b9a7ea91059f982cb6b3c1045417c10094b61e838",
+  "after_file_sha256": "748da0509d0d67f0a54260ff715f56954271f74b56be231ee6b76af77ddfc47b",
+  "optional_capabilities": {
+    "decisions.read": false,
+    "provider.quota": false,
+    "supervisor.conversation": false,
+    "terminal.watch": true,
+    "terminal.control": false,
+    "playbooks.inspect": false,
+    "playbooks.loaded-definitions.read": false
+  },
+  "raw_before_after_paths": [
+    "/tmp/aq-dashboard-actions-promotion/canonical-composed-6247/before-bootstrap.json",
+    "/tmp/aq-dashboard-actions-promotion/canonical-composed-6247/after-bootstrap.json"
+  ],
+  "canonical_message_bodies_retained": false
+}
