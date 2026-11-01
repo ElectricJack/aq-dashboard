@@ -1,5 +1,5 @@
 import {createHash,webcrypto} from "node:crypto";
-import {screen,within,waitFor} from "@testing-library/react";
+import {act,screen,within,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {http,HttpResponse} from "msw";
 import {setupServer} from "msw/node";
@@ -7,7 +7,7 @@ import {vi} from "vitest";
 import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import {handlersFor} from "../../mocks/handlers";
 import {renderApp} from "../../test/renderApp";
-import {graphEnvelope,graphNode,graphProject} from "../../test/humanGraph";
+import {graphEnvelope,graphId,graphNode,graphProject} from "../../test/humanGraph";
 import {confirmedTaskOperation,taskActor,taskOperation,taskOperationId} from "../../test/taskCreate";
 import type {TaskOperation} from "../../api/adapters/taskCreate";
 const server=setupServer(...handlersFor("default"));
@@ -79,4 +79,12 @@ test("operation/request mismatch never unlocks a changed request under the same 
  enable();server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const value=forBytes(await request.text(),"conflict");return HttpResponse.json({...value,request_digest:`sha256:${"b".repeat(64)}`},{status:409});}));
  renderApp(`/work${scope}`);const modal=await open();await fill(modal);await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await within(modal).findByText(/outcome is not confirmed/);
  expect(within(modal).getByRole("textbox",{name:"Title"})).toBeDisabled();expect(within(modal).queryByRole("button",{name:"Revise draft"})).not.toBeInTheDocument();expect(within(modal).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
+});
+test("identity change removes private draft and ignores a delayed prior-owner result",async()=>{
+ enable();let release=()=>{};let posted=false;const held=new Promise<void>(resolve=>{release=resolve;});
+ server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const bytes=await request.text();posted=true;await held;return HttpResponse.json(forBytes(bytes));}),http.get("/api/human/operations/:operation",()=>HttpResponse.json({error:"not_found"},{status:404})));
+ const {queryClient}=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Private original-owner draft");await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await waitFor(()=>expect(posted).toBe(true));
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:graphId(93),authorization_revision:"2"},capabilities:[...bootstrap.data.capabilities,{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:true}]}})));
+ await act(async()=>{await queryClient.invalidateQueries({queryKey:["bootstrap"]});});release();
+ await waitFor(()=>expect(screen.queryByDisplayValue("Private original-owner draft")).not.toBeInTheDocument());const restored=await screen.findByRole("dialog",{name:"Task operation"});await within(restored).findByText(/outcome is not confirmed/);expect(within(restored).queryByRole("textbox",{name:"Title"})).not.toBeInTheDocument();expect(within(restored).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
 });
