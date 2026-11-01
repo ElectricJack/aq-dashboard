@@ -1,0 +1,12 @@
+{
+  "operation_id": "70b1cca0-1b0f-454d-9709-1cbc14413cad",
+  "request_digest": "sha256:df75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c",
+  "create": {
+    "operation_id": "70b1cca0-1b0f-454d-9709-1cbc14413cad",
+    "input_digest": "sha256:c11807d14abe9b8b23524134656997826b0dd765d6393b274ff035af8f16d97d",
+    "input_bytes": 83919,
+    "filename": "aq-ui-supplemental.png",
+    "capture": null
+  },
+  "committed_url": "http://localhost:4206/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119?media_upload=70b1cca0-1b0f-454d-9709-1cbc14413cad&media_actor=13cd459e-3b0e-4bff-bae8-535c905453d3&media_request=sha256%3Adf75a3e6a7698576c0173a7b50b1ae77f42c41e44e7daea72e89fbe839ee263c&media_recipe=1"
+}
