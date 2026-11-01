@@ -216,3 +216,9 @@
 .infrastructureSection h3 { margin: 0; font-size: 16px; }
 .capacityValue { margin: 0; font-size: 26px; font-weight: 600; }
 .counts { justify-content: space-around; }
+.coverageDisclosure { font-size: var(--font-size-meta); color: var(--color-attention); }
+.coverageDisclosure summary, .scopeDisclosure summary { cursor: pointer; min-block-size: 28px; }
+.recordedHeader { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+.recordedHeader h3 { margin: 0; font-size: var(--font-size-meta); color: var(--color-text-secondary); font-weight: 400; }
+.scopeDisclosure { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+.scopeDisclosure[open] { flex-basis: 100%; }

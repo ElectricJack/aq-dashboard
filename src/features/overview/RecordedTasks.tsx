@@ -30,8 +30,7 @@ export function RecordedTasks({embedded=false}:{embedded?:boolean}) {
  }});
  if(!capability.enabled)return null;
  return <section className={embedded?styles.recordedTasks:styles.panel} aria-labelledby="recorded-tasks-heading">
-  {embedded?<h3 id="recorded-tasks-heading">Recorded tasks</h3>:<h2 id="recorded-tasks-heading">Recorded tasks</h2>}
-  <p className={styles.meta}>Observed task lifecycle, excluding retired or disputed records. Active records do not establish running agents or execution readiness.</p>
+  <div className={styles.recordedHeader}>{embedded?<h3 id="recorded-tasks-heading">Recorded tasks</h3>:<h2 id="recorded-tasks-heading">Recorded tasks</h2>}<details className={styles.scopeDisclosure}><summary>About these records</summary><p>Observed task lifecycle, excluding retired or disputed records. Active records do not establish running agents or execution readiness.</p></details></div>
   {!query.data || query.isError ? <QueryStatus status={query.isError?"error":"pending"} error={query.error} label="project task records" onRetry={()=>void query.refetch()} /> : <>
    {query.data.projects.length===0 ? <p>No configured projects in this scope.</p> : <ul className={styles.projectList} aria-label="Project task observations">{query.data.projects.map(row=><Project row={row} key={row.project.id}/>)}</ul>}
    {query.data.coverage==="partial" && <p className={styles.meta}>Partial coverage · More records or unavailable sources may exist.</p>}
