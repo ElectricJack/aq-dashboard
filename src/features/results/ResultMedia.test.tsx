@@ -43,7 +43,7 @@ test("media capability absence preserves useful metadata and makes no media requ
 test("only selected preview reads initially; expansion is explicit and close revokes its URL", async () => {
   const app = setup(); await screen.findByText("Retained worker claim 1"); expect(app.listings()).toBe(0);
   const gallery = await openImages(); await within(gallery).findByRole("img", { name: "Human supplemental Supplemental image 1.png" }); expect(app.reads).toEqual(["preview"]);
-  expect(gallery).toHaveTextContent("Added by a human after the worker report");
+  expect(gallery).toHaveTextContent("Uploaded by a human. Capture details are unverified.");
   const expand = within(gallery).getByRole("button", { name: "Expand image" }); await userEvent.click(expand);
   const modal = screen.getByRole("dialog", { name: "Expanded supplemental image" }); await within(modal).findByRole("img"); expect(app.reads).toEqual(["preview", "render"]);
   const renderUrl = within(modal).getByRole("img").getAttribute("src")!;

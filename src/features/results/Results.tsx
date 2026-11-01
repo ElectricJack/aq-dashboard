@@ -19,9 +19,9 @@ function Record({ item, exact, coverage }: { item: ResultMetadata; exact: boolea
   const date = new Date(item.recorded_at_ms).toISOString();
   return <article className={styles.card} aria-label={`Recorded result ${item.report_id}`}>
     <div className={styles.header}><h2 className={styles.title}>{exact ? item.conclusion : <Link to={{ pathname: `/results/${item.report_id}/revisions/${item.revision}`, search }}>{item.conclusion}</Link>}</h2><span className={styles.badge}>{item.current_report_head ? "Current report" : "Superseded report"}</span></div>
-    <p className={styles.meta}>Task {bootstrap.capability("tasks.read").enabled ? <Link to={{ pathname: `/work/${item.task_id}`, search }}>{item.task_id}</Link> : item.task_id} · Project {item.project_id}</p>
+    <p className={styles.meta}>Task {bootstrap.capability("tasks.read").enabled ? <Link title={item.task_id} aria-label={item.task_id} to={{ pathname: `/work/${item.task_id}`, search }}>{item.task_id.slice(-8)}</Link> : <span title={item.task_id}>{item.task_id.slice(-8)}</span>} · Project <span title={item.project_id}>{item.project_id.slice(-8)}</span></p>
     <p>Worker-reported outcome: <strong>{item.process_outcome}</strong></p>
-    <p className={styles.meta}>Recorded <time dateTime={date}>{date}</time> · Acceptance and task settlement are not evaluated by this view.</p>
+    <p className={styles.meta}>Recorded <time dateTime={date}>{date}</time> · Acceptance unavailable</p>
     <ResultMedia binding={resultMediaBinding(item, coverage)} />
     <details><summary>Report details and evidence references</summary>
     <div className={exact ? styles.detail : undefined}>
@@ -65,7 +65,7 @@ export function Results() {
   return <ResultMediaWindow key={mediaWindowKey} keys={items.map(item => resultMediaKey(resultMediaBinding(item, pages[0]!.coverage)))}><div className={styles.layout}>
     <p className={styles.intro}>Recorded worker reports and their exact evidence references.</p>
     <div className={styles.toolbar}>{exact ? <Link to={{ pathname: "/results", search: scopeSearch(scope) }}>Back to results</Link> : <span className={styles.tab}>Recorded reports</span>}<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh results</ActionButton></div>
-    <p className={styles.meta}>Coverage: retained legacy native reports, ordered by stable identity. {bootstrap.capability("results.media.read").enabled ? "Supplemental images are human-provided additions. Discussion and capture-policy evaluation are not available." : "Media and discussion are not available in this increment."}</p>
+    <p className={styles.meta}>Retained legacy reports. {bootstrap.capability("results.media.read").enabled ? "Images are uploaded separately by a human." : "Images and discussion are unavailable."}</p>
     {items.length === 0 ? <p>No recorded result reports in this scope.</p> : <ul className={styles.feed} aria-label="Recorded results">{items.map(item => <li key={item.report_id}><Record item={item} exact={!!exact} coverage={pages[0]!.coverage} /></li>)}</ul>}
     {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more recorded results</ActionButton>}
     {pages.length === 4 && pages[3]?.next_after && <p>Showing the first 40 reports. Additional reports are not displayed.</p>}

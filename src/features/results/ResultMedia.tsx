@@ -54,12 +54,17 @@ function MediaGallery({ binding }: { binding: MediaBinding }) {
     <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} /></div>
     <div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>
     <div className={styles.caption}><strong>Human-supplemental PNG</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
-    <p className={styles.note}>Added by a human after the worker report. This image does not establish worker capture, acceptance or capture-policy completion.</p>
-    <details className={styles.provenance}><summary>Image provenance</summary><p>Uploaded by {artifact.receipt.uploader_id}</p><p>Artifact {artifact.receipt.artifact_id}</p><p>Receipt {artifact.receipt_digest}</p>
-      {artifact.receipt.capture ? <><p>Uploader assertions · not independently verified</p><p>{artifact.receipt.capture.scenario} · {artifact.receipt.capture.environment}</p>{artifact.receipt.capture.claimed_source && <p>Claimed source: {artifact.receipt.capture.claimed_source.hex}</p>}</> : <p>No capture assertions supplied.</p>}
-    </details>
+    <p className={styles.note}>Uploaded by a human. Capture details are unverified.</p>
+    <MediaProvenance artifact={artifact} />
     <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh images</ActionButton>
   </section>;
+}
+function MediaProvenance({ artifact }: { artifact: MediaArtifact }) {
+  const capture = artifact.receipt.capture;
+  return <details className={styles.provenance}><summary>Image provenance</summary><p>Uploaded by {artifact.receipt.uploader_id}</p><p>Artifact {artifact.receipt.artifact_id}</p><p>Receipt {artifact.receipt_digest}</p>
+    <p>Supplemental evidence added after the worker report. This does not establish worker capture, source coverage, acceptance or completion.</p>
+    {capture ? <><p>Uploader assertions · not independently verified</p><p>{capture.scenario} · {capture.environment}</p><p>Claimed viewport: {capture.viewport.width_css} × {capture.viewport.height_css} CSS pixels · DPR {capture.viewport.dpr_milli / 1000}</p>{capture.claimed_source && <p>Claimed source: {capture.claimed_source.hex}</p>}</> : <p>No capture assertions supplied.</p>}
+  </details>;
 }
 const unavailable = { expired: "Image expired.", missing: "Image files are missing.", withheld: "Image withheld by its owner.", failed: "Image verification or storage failed." };
 /** No URL is minted until exact length/MIME/receipt/variant/SHA checks finish. */
@@ -93,7 +98,8 @@ function ExpandedImage({ selection, close }: { selection: Selection; close(): vo
   if (!artifact || !listing.data) return null;
   return <dialog ref={dialog} className={styles.dialog} aria-label="Expanded supplemental image" onCancel={event => { event.preventDefault(); close(); }}>
     <header className={styles.caption}><h2>{artifact.receipt.input.filename}</h2><ActionButton onClick={close}>Close image</ActionButton></header>
-    <p className={styles.note}>Human-supplemental image · exact retained report · not worker capture proof</p>
+    <p className={styles.note}>Uploaded by a human. Capture details are unverified.</p>
     <div className={styles.expanded}><VerifiedImage binding={selection.binding} artifact={artifact} page={listing.data.page} started={listing.data.started} variant="render" /></div>
+    <MediaProvenance artifact={artifact} />
   </dialog>;
 }
