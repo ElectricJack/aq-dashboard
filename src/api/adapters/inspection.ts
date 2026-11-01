@@ -16,6 +16,7 @@ import type {
   Total,
 } from "../wire/proposed";
 import { ContractError, isRecord, isStale } from "./contract";
+import { adaptSessionUsageAnchor } from "./sessionUsage";
 
 type Unsupported = "unsupported";
 
@@ -378,6 +379,7 @@ export function adaptSession(s: SessionSummary, serverTime: string): SessionView
 }
 
 export type SessionDetailView = SessionView & {
+  observationBinding: ReturnType<typeof adaptSessionUsageAnchor>;
   profileRevisions: SessionDetail["profile_revisions"];
   permissions: string[];
   lastActivityAt: string | null;
@@ -386,6 +388,7 @@ export type SessionDetailView = SessionView & {
 export function adaptSessionDetail(s: SessionDetail, serverTime: string): SessionDetailView {
   return {
     ...adaptSession(s, serverTime),
+    observationBinding: adaptSessionUsageAnchor(s),
     profileRevisions: s.profile_revisions,
     permissions: s.permissions,
     lastActivityAt: s.last_activity_at,

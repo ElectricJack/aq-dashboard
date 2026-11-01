@@ -251,6 +251,10 @@ export type SessionSummary = {
 };
 
 export type SessionDetail = SessionSummary & {
+  /** Optional exact live observation anchor; absent/null on legacy sessions. */
+  observation_binding?: import("./sessionUsage").UsageBinding | null;
+  /** Dashboard summary identity generations are decimal strings; validated before use. */
+  session_identity?: unknown;
   profile_revisions: { name: string; revision: Revision }[];
   permissions: string[];
   last_activity_at: Timestamp | null;

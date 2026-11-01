@@ -17,6 +17,8 @@ import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
 import { TerminalTail } from "./TerminalTail";
+import { SessionUsage } from "./SessionUsage";
+import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
 
 /** Initial budgets from docs/plans/0001 §2. */
@@ -134,7 +136,10 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
     path: `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
     scope,
     params: {},
-    adapt: adaptSessionDetail,
+    adapt: (wire, time) => {
+      if (wire.id !== sessionId) throw new ContractError("Session detail identity changed");
+      return adaptSessionDetail(wire, time);
+    },
     pollMs: DETAIL_POLL_MS,
   });
   const heading = useRef<HTMLHeadingElement>(null);
@@ -192,6 +197,9 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       </div>
 
       <div id={`session-${s.id}-details`} className={styles.detailsPanel} hidden={!detailsOpen}>
+      {detailsOpen && (!query.isError && bootstrap.capability("session.usage.read").enabled && s.observationBinding
+        ? <SessionUsage binding={s.observationBinding} />
+        : <p className={styles.muted}>Session usage unavailable for this session.</p>)}
       <DetailList>
         <dt>Session ID</dt><dd>{s.id}</dd>
         <dt>Recorded session label</dt><dd>{s.label}</dd>
