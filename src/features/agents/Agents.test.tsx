@@ -58,6 +58,7 @@ test("an unknown session is a neutral unavailable message", async () => {
   renderApp("/agents/nope-session");
   expect(await screen.findByText(/does not exist or is not available/i)).toBeInTheDocument();
   expect(screen.queryByText(/nope-session/)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "All sessions" })).toHaveAttribute("href", "/agents");
 });
 
 test("a failed roster read is an error, not an empty roster", async () => {

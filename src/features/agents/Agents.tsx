@@ -140,12 +140,15 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
   if (!query.data) {
     return (
-      <QueryStatus
-        status={query.isError ? "error" : "pending"}
-        error={query.error}
-        label="this session"
-        onRetry={() => void query.refetch()}
-      />
+      <div className={styles.detail}>
+        <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
+        <QueryStatus
+          status={query.isError ? "error" : "pending"}
+          error={query.error}
+          label="this session"
+          onRetry={() => void query.refetch()}
+        />
+      </div>
     );
   }
   const { view: s, serverTime } = query.data;
