@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import {
   adaptSession,
@@ -17,6 +17,7 @@ import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
 import { TerminalTail } from "./TerminalTail";
+import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
@@ -101,10 +102,27 @@ function Roster({ search }: { search: string }) {
   );
 }
 
+function SessionSwitcher({ selected, search }: { selected: SessionView; search: string }) {
+  const [scope] = useScope();
+  const query = usePagedRead<SessionSummary, SessionView>({ resource: "sessions", path: "/api/v1/sessions", scope,
+    params: { limit: 25 }, adapt: adaptSession, pollMs: ROSTER_POLL_MS });
+  const sessions = query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [];
+  return <nav className={styles.switcher} aria-label="Session switcher">
+    {sessions.length === 0 && <span className={styles.sessionTab} aria-current="page">{selected.label}</span>}
+    {sessions.map(s => <Link key={s.id} title={s.label} className={styles.sessionTab} aria-current={s.id === selected.id ? "page" : undefined}
+      to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }}><span className={styles.sessionDot} aria-hidden="true" />{s.label}</Link>)}
+    {sessions.length > 0 && !sessions.some(s => s.id === selected.id) && <span className={styles.sessionTab} aria-current="page">{selected.label}</span>}
+    {query.hasNextPage && sessions.length < 100 && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>More sessions</ActionButton>}
+    {query.isError && <span className={styles.muted}>Session switcher unavailable</span>}
+  </nav>;
+}
+
 function SessionPage({ sessionId, search }: { sessionId: string; search: string }) {
   const [scope] = useScope();
   const { bootstrap } = useSession();
   const terminal = bootstrap.capability("terminal.watch");
+  const taskView = bootstrap.capability("tasks.read");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const query = useRead<SessionDetailWire, SessionDetailView>({
     resource: "session",
     path: `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
@@ -135,29 +153,38 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
   return (
     <section className={styles.detail} aria-labelledby={headingId}>
-      <Link to={{ pathname: "/agents", search }} className={styles.back}>
-        All sessions
-      </Link>
+      <Toolbar className={styles.workspaceHeading}>
+        <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
+        <span className={styles.focusLabel}>Focused workspace · Read only</span>
+        <ActionButton aria-expanded={detailsOpen} aria-controls={`session-${s.id}-details`} onClick={() => setDetailsOpen(v => !v)}>Session details</ActionButton>
+      </Toolbar>
       <h2 id={headingId} ref={heading} tabIndex={-1} className={styles.title}>
         {s.label}
       </h2>
       <p className={styles.meta}>
-        {s.task ? (
+        {s.task && taskView.enabled ? (
           <Link to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search }}>{s.task.title}</Link>
         ) : (
-          "No task"
+          s.task?.title ?? "No task"
         )}{" "}
         · {s.project.label} · {OBSERVATION_LABEL[s.observation.state]} ·{" "}
         <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} />
       </p>
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
 
+      <SessionSwitcher selected={s} search={search} />
+      <div className={styles.outputWorkspace}>
+        <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong><span className={styles.readOnly}>Read only</span></Toolbar>
       {s.terminal && terminal.enabled ? <TerminalTail key={s.terminal.id} terminalId={s.terminal.id} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>}
 
-      <dl className={styles.facts}>
+      <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
+      </div>
+
+      <div id={`session-${s.id}-details`} className={styles.detailsPanel} hidden={!detailsOpen}>
+      <DetailList>
         <dt>Authority location</dt>
         <dd>{AUTHORITY_LABEL[s.authority]}</dd>
         <dt>Central execution state</dt>
@@ -172,7 +199,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
         <dd>{s.lastActivityAt ? formatAge(serverTime, s.lastActivityAt) : "Unknown"}</dd>
         <dt>Attempt</dt>
         <dd>{s.attemptId ?? "None"}</dd>
-      </dl>
+      </DetailList>
 
       <h3>Worker lifecycle history</h3>
       <p><LifecycleHistory session={s} serverTime={serverTime} /></p>
@@ -192,6 +219,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
           <li key={p}>{p}</li>
         ))}
       </ul>
+      </div>
     </section>
   );
 }
