@@ -46,7 +46,7 @@ test("upload capability absence preserves metadata; the new control exists only 
 test("one explicit submit freezes raw intent, guards duplicate clicks and refreshes an already opened gallery", async () => {
   const app = setup(); const galleryButton = await screen.findByRole("button", { name: "View supplemental images" }); await userEvent.click(galleryButton); await screen.findByText("No supplemental images are retained for this exact report.");
   await open(); choose(); const button = screen.getByRole("button", { name: "Upload image" }); fireEvent.click(button); fireEvent.click(button);
-  await screen.findByText("Image retained. It is now available in this report’s images."); expect(app.writes.map(w => w.method)).toEqual(["POST", "PUT", "FINALIZE"]);
+  await screen.findByText("Image added to this report."); expect(app.writes.map(w => w.method)).toEqual(["POST", "PUT", "FINALIZE"]);
   expect(app.writes[2]!.body).toBe("{}"); const raw = app.writes[0]!.body as string, params = new URLSearchParams(app.router.state.location.search);
   expect(params.get("media_upload")).toBe(JSON.parse(raw).operation_id); expect(params.get("media_request")).toBe(fixtureHash(raw)); expect(params.get("media_actor")).toBe(uploadActor); expect(params.get("media_recipe")).toBe("1"); expect(params.toString()).not.toContain("Human");
   await waitFor(() => expect(app.listings()).toBe(2)); await userEvent.click(screen.getByRole("button", { name: "Close upload" })); await waitFor(() => expect(screen.getByRole("button", { name: "Upload details" })).toHaveFocus()); expect(app.writes).toHaveLength(3);
@@ -62,13 +62,13 @@ test("reload404 only offers exact admission replay after same recipe/file reprod
   await screen.findByText(/No status is available yet/); expect(app.writes).toHaveLength(0); expect(screen.queryByRole("button", { name: "Replay original admission" })).toBeNull();
   fireEvent.change(screen.getByLabelText(/^Reselect original PNG/), { target: { files: [uploadFile(fixturePng(99))] } }); await screen.findByText(/does not reproduce the original upload/); expect(app.writes).toHaveLength(0);
   fireEvent.change(screen.getByLabelText(/^Reselect original PNG/), { target: { files: [uploadFile()] } }); const replay = await screen.findByRole("button", { name: "Replay original admission" }); await waitFor(() => expect(replay).toBeEnabled());
-  await userEvent.click(replay); await screen.findByText("Image retained. It is now available in this report’s images."); expect(JSON.parse(app.writes[0]!.body as string).operation_id).toBe(original.operation_id); expect(fixtureHash(app.writes[0]!.body as string)).toBe(original.request_digest);
+  await userEvent.click(replay); await screen.findByText("Image added to this report."); expect(JSON.parse(app.writes[0]!.body as string).operation_id).toBe(original.operation_id); expect(fixtureHash(app.writes[0]!.body as string)).toBe(original.request_digest);
 });
 test.each(["received", "finalizing"] as const)("reload %s can finalize from validated recovery flags without reselecting bytes", async state => {
   const original = uploadFixture(state); original.recovery.finalize_allowed = true; original.recovery.reason = null;
   const app = setup({ path: `${exact}?${uploadReference(original)}`, status: original });
   await screen.findByRole("button", { name: "Finalize upload" }); expect(app.writes).toHaveLength(0);
-  await userEvent.click(screen.getByRole("button", { name: "Finalize upload" })); await screen.findByText("Image retained. It is now available in this report’s images."); expect(app.writes.map(w => w.method)).toEqual(["FINALIZE"]);
+  await userEvent.click(screen.getByRole("button", { name: "Finalize upload" })); await screen.findByText("Image added to this report."); expect(app.writes.map(w => w.method)).toEqual(["FINALIZE"]);
 });
 test("finalizing busy permits lookup only; actor drift cannot inspect or mutate the referenced intent", async () => {
   const original = uploadFixture("finalizing"), app = setup({ path: `${exact}?${uploadReference(original)}`, status: original }); await screen.findByText(/Image processing is busy/);
@@ -95,7 +95,7 @@ test("reload reserved rejects changed bytes then resumes the original PNG using 
   fireEvent.change(screen.getByLabelText(/^Reselect original PNG/), { target: { files: [uploadFile(fixturePng(99))] } }); await screen.findByText(/does not reproduce the original upload/); expect(app.writes).toHaveLength(0);
   fireEvent.change(screen.getByLabelText(/^Reselect original PNG/), { target: { files: [uploadFile(fixturePng(), "Renamed locally.png")] } });
   const resume = await screen.findByRole("button", { name: "Resume original upload" }); await waitFor(() => expect(resume).toBeEnabled());
-  await userEvent.click(resume); await screen.findByText("Image retained. It is now available in this report’s images."); expect(app.writes.map(w => w.method)).toEqual(["PUT", "FINALIZE"]);
+  await userEvent.click(resume); await screen.findByText("Image added to this report."); expect(app.writes.map(w => w.method)).toEqual(["PUT", "FINALIZE"]);
 });
 test("held preparation rejection cannot clear the busy state of a newer external operation lookup", async () => {
   const app = setup(); await open(); let reject!: (error: Error) => void, release!: () => void;
