@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "origin": "http://127.0.0.1:33149",
+  "dashboard_digest": "sha256:38312b6e8abd850839a1db4d2589de89228c28d16254cc39ceff59ac5d123f96",
+  "notification_id": "81014d80-e1c5-4d16-9e32-755dfd25c3a1",
+  "recipient_id": "08e96a99-53b7-4be9-9524-2111ce17ae2f",
+  "external_state": "no_external_route",
+  "delivery_count": 0,
+  "mutations": 0,
+  "external_requests": 0,
+  "elapsed_ms": 799,
+  "screenshots": [
+    "/tmp/aq-notification-positive-browser-final/notifications-desktop.png",
+    "/tmp/aq-notification-positive-browser-final/notifications-mobile.png"
+  ],
+  "note": "Actual current-recipient persisted no-external-route notification; read-only UI inspection. No sends, retries, transport acceptance or human-acknowledgment claim."
+}

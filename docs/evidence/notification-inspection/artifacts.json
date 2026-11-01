@@ -1,0 +1,33 @@
+{
+  "artifacts": [
+    {
+      "path": "/tmp/aq-notification-owner-pin/dashboard_notifications-fae7aea92f95e9ed",
+      "sha256": "06e9e3c80fb0322bd043c1aa417204e5ab74d8a576adac604e812ae23c8898bd",
+      "bytes": 67739168
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/dist-final/dashboard-manifest.json",
+      "sha256": "38312b6e8abd850839a1db4d2589de89228c28d16254cc39ceff59ac5d123f96",
+      "bytes": 4235
+    },
+    {
+      "path": "/tmp/aq-dashboard-actions-ui-v2/scripts/probe-notification-inspection.mjs",
+      "sha256": "ed56d9dc2dc9f035eebaaba152f49fb890343e2db503f2f79779b2ecc8f7f50c",
+      "bytes": 6836
+    }
+  ],
+  "fixture": "mounted_notifications_read_current_principal_self_without_external_delivery",
+  "database": "isolated disposable fixture; actual preview database unchanged",
+  "limits": [
+    "No external routes, destinations or deliveries",
+    "No send/retry UI",
+    "No transport-acceptance or human-acknowledgment proof",
+    "Notification visual subset only; not full Settings acceptance"
+  ],
+  "negative_attempt": {
+    "bundle_sha256": "47cb250813812f3ee5c4afa0de426926a917e3918887c499f391efc6bbd1952f",
+    "log": "/tmp/aq-notification-positive-process.log",
+    "result": "/tmp/aq-notification-positive-browser/result.json",
+    "failure": "Mobile document overflow from intrinsic shared ScopePicker width; unchanged assertion passed after shared width fix"
+  }
+}
