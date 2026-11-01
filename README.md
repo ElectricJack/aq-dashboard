@@ -12,6 +12,7 @@ The application includes the shell, responsive Overview/Work/Agents inspection v
 - [D03 scaffold plan](docs/plans/0002-d03-shell-scaffold.md) and [evidence](docs/evidence/d03.md) — what the current application does and how it was checked.
 - [Contract readiness audit](docs/research/2026-10-31-contract-audit.md) — what is implemented, specified or missing, with source evidence.
 - [Visual gallery](docs/design/index.html) — twelve selected desktop/mobile mockups preserved with hashes.
+- [Visual acceptance](docs/design/visual-acceptance.md) — per-page reference, composition and screenshot review requirements while connecting real infrastructure.
 - [Dashboard architecture baseline](docs/specs/0001-dashboard.md)
 - [AQ ecosystem and releases](../agent-q/docs/architecture/0001-ecosystem-and-releases.md)
 - [Execution and recovery](../agent-q/docs/architecture/0002-execution-and-recovery.md)

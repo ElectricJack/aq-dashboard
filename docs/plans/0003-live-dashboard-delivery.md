@@ -135,6 +135,8 @@ Use bounded polling and existing observation cursors first. A general push strea
 
 ## Functional and visual definition of done
 
+The user's requirement that pages continue to match the mocks is tracked in the [visual acceptance checklist](../design/visual-acceptance.md). Feature owners must use its named references and composition checks during implementation and before preview promotion.
+
 Every delivered increment has two independent gates:
 
 1. **Working infrastructure:** public contract and actual mounted human API, supported authorization/scope, bounded pagination, loading/empty/partial/error behavior, real persisted state read through the owner, deep-link refresh, and a live browser flow. A read test uses actual Graph/runtime/result data created through domain APIs or isolated integration fixtures, not browser interception. Test fixtures are labelled and isolated; production routes never substitute mock data when a source is absent.
