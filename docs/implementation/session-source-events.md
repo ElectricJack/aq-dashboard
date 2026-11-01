@@ -31,3 +31,11 @@ build, actual browser or canonical mutation was performed by this source increme
 Root's actual empty/nonempty owner/browser gate and reviewed 1440/390/320 screenshots
 remain required. Event inclusion does not close full renderer/control, transcript
 retrieval, current producer coverage or the remaining Agent operational workflows.
+
+The [actual explicit-empty browser gate](../evidence/session-source-events/README.md)
+now passes in 1454ms against exact compiled 5c0f assets and actual cloned state35 at 4204.
+Desktop and 390/320 screenshots were inspected: output remains intact and the
+on-demand empty retained snapshot remains readable with an existing phone exit.
+This is staged empty-case proof only; nonempty actual-ingest qualification and
+canonical promotion remain separate. [Ranked next inspection seams](../plans/0004-existing-inspection-seams.md)
+record the remaining profile/worker/activity opportunities.
