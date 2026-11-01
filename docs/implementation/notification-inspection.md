@@ -4,8 +4,9 @@ The Settings panel uses the existing authenticated human notification owner:
 `GET /api/notifications?after=0&limit=16` and selected
 `GET /api/notifications/{message_id}`. Bootstrap `notifications.read` version 1
 controls the UI. No recipient selector or recipient query is supplied; every
-returned message must bind to the current principal. Existing backend recipient
-and Owner authorization remains authoritative.
+returned message must bind to the current principal. Current recipient
+authorization remains authoritative: Owner and Viewer can inspect their own
+messages, while a privileged recipient override remains Owner-only.
 
 The inbox has four explicit pages at most (64 loaded messages), oldest first.
 The cursor must match the last safe sequence and pages cannot overlap or reorder.
@@ -37,3 +38,12 @@ message/detail, recorded delivery identities/status, desktop/phone layout,
 Back focus and zero mutations. Actual positive visual qualification is recorded
 when the configured daemon and isolated no-external-route owner fixture are ready.
 This does not complete full UI-04 escalation/digest or human decision workflows.
+
+The paired actual mounted-router/SQL fixture at agent-q `1cab587` passed in
+0.80s. It installed the real service, enqueued labelled Owner and Viewer messages
+through the owner, proved self-only inbox/detail reads and foreign-recipient
+refusal, and distinguished mounted from standalone capability availability.
+It retained zero external routes, destinations and deliveries. Strict affected
+library/test all-feature lint passed in 29.76s. This is positive owner/API
+qualification; the compiled-browser desktop/phone gate remains separate and
+does not follow from the empty external delivery set.
