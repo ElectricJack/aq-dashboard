@@ -1,0 +1,68 @@
+import {screen,within,waitFor} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {http,HttpResponse} from "msw";
+import {setupServer} from "msw/node";
+import bootstrap from "../../../contracts/proposed/bootstrap.json";
+import {handlersFor} from "../../mocks/handlers";
+import {renderApp} from "../../test/renderApp";
+import {graphEnvelope,graphNode,graphProject} from "../../test/humanGraph";
+const server=setupServer(...handlersFor("default"));
+beforeAll(()=>server.listen({onUnhandledFrame:"error"}));afterEach(()=>server.resetHandlers());afterAll(()=>server.close());
+function enable() {
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","knowledge.read"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true}]}})));
+}
+const scope=`?scope=project:${graphProject}`;
+function handlers(kind:"task"|"knowledge"="knowledge") {
+ const n=graphNode(kind);
+ server.use(http.get(`/api/human/projects/${graphProject}/${kind==="task"?"tasks":"knowledge"}`,()=>HttpResponse.json(graphEnvelope({items:[n],next_cursor:null}))),http.get(`/api/human/projects/${graphProject}/${kind==="task"?"tasks":"knowledge"}/${n.id}`,()=>HttpResponse.json(graphEnvelope(n))));
+ return n;
+}
+test("knowledge opens real-contract content, source descriptors and exact record version",async()=>{
+ enable();const n=handlers();renderApp(`/knowledge/${n.id}${scope}`);
+ expect(await screen.findByText(/Each attempt has one current execution authority/)).toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"Sources (1)"}));expect(screen.getByRole("list",{name:"Recorded sources"})).toHaveTextContent("https://example.org/architecture");
+ await userEvent.click(screen.getByRole("button",{name:"Record & revisions"}));expect(screen.getByText("9007199254740993")).toBeInTheDocument();
+});
+test("all-project scope prompts a bounded choice and does not query Graph",async()=>{
+ enable();let calls=0;server.use(http.get("/api/human/projects/:project/knowledge",()=>{calls++;return HttpResponse.json({});}));renderApp("/knowledge");
+ expect(await screen.findByRole("heading",{name:"Choose a project"})).toBeInTheDocument();expect(calls).toBe(0);
+});
+test("filters only loaded records and retains task state without claiming readiness",async()=>{
+ enable();const n=handlers("task");renderApp(`/work${scope}`);
+ const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByRole("link",{name:/Implement recovery/})).toBeInTheDocument();
+ await userEvent.click(within(list).getByRole("link",{name:/Implement recovery/}));expect(await screen.findByText("Recovery is verified by tests.")).toBeInTheDocument();expect(screen.queryByText("Ready")).not.toBeInTheDocument();expect(n.task_state).toBe("active");
+});
+test("exact historical revision uses the original string and labels the pinned response",async()=>{
+ enable();const n=handlers();let sent:string|null=null;
+ server.use(http.get(`/api/human/projects/${graphProject}/knowledge/${n.id}`,({request})=>{sent=new URL(request.url).searchParams.get("revision");return HttpResponse.json(graphEnvelope({...n,content_revision:sent??"4"}));}));
+ renderApp(`/knowledge/${n.id}${scope}`);await screen.findByText(/Each attempt has/);await userEvent.click(screen.getByRole("button",{name:"Record & revisions"}));await userEvent.type(screen.getByLabelText("Exact content revision"),"9007199254740993");await userEvent.click(screen.getByRole("button",{name:"View revision"}));
+ expect(await screen.findByText("Pinned revision 9007199254740993")).toBeInTheDocument();expect(sent).toBe("9007199254740993");
+});
+test("failed Graph read is an error and never an empty successful library",async()=>{
+ enable();server.use(http.get(`/api/human/projects/${graphProject}/knowledge`,()=>HttpResponse.json({error:"unavailable"},{status:503})));renderApp(`/knowledge${scope}`);
+ expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load knowledge records");expect(screen.queryByText("No records returned for this search.")).not.toBeInTheDocument();
+});
+test("unknown route identities do not issue arbitrary Graph paths",async()=>{
+ enable();renderApp(`/knowledge/not-a-valid-id${scope}`);expect(await screen.findByText("This item does not exist or is not available to you.")).toBeInTheDocument();
+});
+test("literal malicious body stays text and lifecycle differs from verification",async()=>{
+ enable();const n=handlers();server.use(http.get(`/api/human/projects/${graphProject}/knowledge/${n.id}`,()=>HttpResponse.json(graphEnvelope({...n,body:'<img src=x onerror="alert(1)">',retired:true,verification:"disputed"}))));
+ renderApp(`/knowledge/${n.id}${scope}`);const literal=await screen.findByText('<img src=x onerror="alert(1)">');expect(literal.querySelector("img")).toBeNull();expect(screen.getByText("Retired",{selector:".badges span"})).toBeInTheDocument();expect(screen.getAllByText("Disputed").length).toBeGreaterThan(0);
+});
+test("load more preserves unique records and refuses binding changes",async()=>{
+ enable();let requests=0;server.use(http.get(`/api/human/projects/${graphProject}/knowledge`,({request})=>{requests++;return HttpResponse.json(graphEnvelope({items:[graphNode("knowledge",requests===1?10:11)],next_cursor:new URL(request.url).searchParams.has("cursor")?null:"next"},requests===1?"1":"2"));}));
+ renderApp(`/knowledge${scope}`);await screen.findByRole("list",{name:"Knowledge records"});await userEvent.click(screen.getByRole("button",{name:"Load more records"}));await waitFor(()=>expect(screen.getByRole("alert")).toBeInTheDocument());expect(screen.queryByRole("list",{name:"Knowledge records"})).not.toBeInTheDocument();
+});
+
+test("task graph renders actual typed relationships with truncation and links",async()=>{
+ enable();const n=handlers("task"),other={...graphNode("task",11),title:"Verify recovery"};
+ server.use(http.get(`/api/human/projects/${graphProject}/tasks/${n.id}/graph`,()=>HttpResponse.json(graphEnvelope({root_id:n.id,nodes:[n,other],edges:[{id:"00000000-0000-4000-8000-000000000050",source:n.id,target:other.id,edge_type:"blocks",description:"must precede",version:"1",source_revision:"4",target_revision:"4"}],truncated:true}))));
+ renderApp(`/work/${n.id}${scope}&view=graph`);
+ const graph=await screen.findByRole("region",{name:"Dependency graph"});expect(await within(graph).findByText(/Some relationships omitted/)).toBeInTheDocument();expect(within(graph).getByRole("link",{name:/Verify recovery/})).toHaveAttribute("href",`/work/${other.id}?scope=project%3A${graphProject}`);expect(graph).toHaveTextContent("blocks");
+});
+test("search uses project-scoped task and knowledge contracts without proposed search fallback",async()=>{
+ enable();const task=handlers("task"),knowledge=handlers();let q:string|null=null;
+ server.use(http.get(`/api/human/projects/${graphProject}/knowledge`,({request})=>{q=new URL(request.url).searchParams.get("q");return HttpResponse.json(graphEnvelope({items:[knowledge],next_cursor:null}));}));
+ renderApp(`/knowledge${scope}`);await screen.findByRole("list",{name:"Knowledge records"});await userEvent.click(screen.getAllByRole("button",{name:"Search"})[0]!);const dialog=screen.getByRole("dialog",{name:"Search"});await userEvent.type(within(dialog).getByRole("searchbox"),"recovery");
+ expect(await within(dialog).findByRole("link",{name:new RegExp(task.title)})).toHaveAttribute("href",`/work/${task.id}?scope=project%3A${graphProject}`);expect(await within(dialog).findByRole("link",{name:new RegExp(knowledge.title)})).toHaveAttribute("href",`/knowledge/${knowledge.id}?scope=project%3A${graphProject}`);expect(q).toBe("recovery");
+});
