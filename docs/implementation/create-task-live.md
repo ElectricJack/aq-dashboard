@@ -36,8 +36,10 @@ agent-q `protocol/human-task-create/v1/example.json`;
 SHA256 `54a51b45614ea54eb544a80b93b5fd4a68e479647c5e9b451d41ad826856f1b6`.
 `src/test/taskCreate.ts` contains explicitly synthetic UI test cases.
 
-Focused adapter/client/composer plus existing Work/Graph regressions: 43 tests
-passed in 3.45 seconds; TypeScript typecheck passed. Actual visual acceptance
+Focused adapter/client/composer plus existing Work/Graph regressions: 44 tests
+passed in 4.61 seconds; TypeScript typecheck passed. The held-response identity
+switch case confirms a new principal cannot inherit a prior draft or receipt.
+Actual visual acceptance
 remains pending the assembled API10 preview. The production browser probe is
 `scripts/probe-create-task.mjs`: it requires an explicit disposable loopback
 write flag, creates one real task, checks exact request digest/receipt/current
