@@ -71,11 +71,31 @@ or becomes an empty success. Explicit refresh clears protected detail; catalog
 change conflicts restart from a fresh first page. There are no create/install/
 activate/edit commands and no provider effects.
 
-Source checks: 40 focused adapter/feature/unchanged-fallback tests passed in
-2.55 s and the full `pnpm exec tsc -b` passed. One initial assertion expected a
+Source checks: 60 focused finite-client/adapter/feature/unchanged-fallback tests
+passed in 3.12 s and the full `pnpm exec tsc -b` passed. One initial assertion expected a
 local error for a malformed 200 response; the existing global contract fence
 correctly removed the page. The assertion now checks that fence, with a separate
 valid 409 case checking local explicit refresh. No production bundle or browser
 acceptance has run for this current-catalog increment. Backend qualification,
 schema generation and independent desktop/390/320px actual review remain gates;
 previous startup-metadata proof does not qualify current catalog/Activations.
+
+
+The current-catalog JSON helper is feature-local: same-origin, redirect:error,
+no-store, a five-second request/body deadline, caller cancellation and a 256 KiB
+stream cap before strict JSON/DTO parsing. Duplicate keys, lossy numeric tokens
+and malformed UTF-8 refuse. Authorization status is handled at headers before
+any error body is read; cancellation is not awaited. Actual ReadableStream
+401/403 cases with a never-completing cancellation and bootstrap503 qualify the
+existing global denial latch, clearing prior catalog without historical
+fallback. MSW buffers streamed bodies before exposing headers, so those two
+app-level cases return the genuine streamed Response directly while keeping
+bootstrap routed through MSW; they do not claim actual browser/network proof.
+
+
+Exact-read 409 conflicts carry their failed namespace/kind/incarnation/metadata
+stamp. If it matches the painted roster, the workspace stays fenced until an
+explicit fresh epoch, including when selection is cleared through the tab. A
+late conflict for a replaced stamp cannot hide a newer validated roster. Both
+cases passed in the final focused suite. This fence retains only the refused
+context, not a successful current-data cache or fallback authority.
