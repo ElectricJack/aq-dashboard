@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { adaptSupervisorDiscovery, adaptSupervisorHistory, adaptSupervisorReceipt, freezeSupervisorMessage, mergeSupervisorMessages, supervisorId, validateSupervisorText,
@@ -91,7 +91,7 @@ export function SupervisorConversation() {
       setSendError(error instanceof ApiError && error.status === 404 ? "No receipt is available yet. The original request may still finish; its status remains unknown." : "Message status is unknown. Keep this operation and check its status or retry the exact original request.");
     } finally { jobs.current.delete(owner); if (sendJob.current === owner) sendJob.current = null; if (active.current && current === ticket.current) { busy.current = false; setSending(false); } }
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!conversation) return;
     const reference = `${operationParam ?? ""}:${messageParam ?? ""}`;
     if (ownReference.current === reference) return;
@@ -109,7 +109,7 @@ export function SupervisorConversation() {
       if (!active.current || preparation !== ticket.current) return;
       pending.current = intent; ownReference.current = `${intent.operation}:${intent.message}`; setFrozen(intent); operationUrl(intent.operation, intent.message);
       await execute("post", intent.operation, intent.message, intent);
-    } catch { if (active.current) { busy.current = false; setSending(false); setSendError("Could not prepare the message. Your draft is preserved."); } }
+    } catch { if (active.current && preparation === ticket.current) { busy.current = false; setSending(false); setSendError("Could not prepare the message. Your draft is preserved."); } }
   }
   function retry(kind: "lookup" | "post") {
     if (busy.current || !operation || (kind === "post" && (!canSend || !pending.current))) return;

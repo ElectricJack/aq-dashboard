@@ -9,6 +9,7 @@ import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
 import { supervisorActor, supervisorDiscovery as discovery, supervisorHistory, supervisorId, supervisorMessage, supervisorReceipt } from "../../test/supervisor";
 import type { SupervisorMessage } from "../../api/adapters/supervisor";
+import * as supervisorAdapters from "../../api/adapters/supervisor";
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("matchMedia", () => ({ matches: true })); });
@@ -140,4 +141,37 @@ test("new history does not scroll a reader who moved up and offers an explicit l
   await screen.findByText("Retained human message 2");
   expect(screen.getByRole("button", { name: "New messages available · Show latest" })).toBeInTheDocument();
   expect(region.scrollTop).toBe(0);
+});
+test("a stale rejected preparation cannot clear the newer operation lookup's busy state", async () => {
+  let rejectPreparation!: (reason: Error) => void, releaseLookup!: () => void;
+  const preparation = new Promise<supervisorAdapters.FrozenSupervisorMessage>((_, reject) => { rejectPreparation = reject; });
+  const lookup = new Promise<void>(resolve => { releaseLookup = resolve; }); let lookups = 0;
+  vi.spyOn(supervisorAdapters, "freezeSupervisorMessage").mockImplementationOnce(() => preparation);
+  const app = setup(); await ready();
+  server.use(http.get(`${base}/operations/:operation`, async () => { lookups++; await lookup; return new HttpResponse(null, { status: 404 }); }));
+  await send("Old preparation must not own newer state");
+  await act(() => app.router.navigate(`/supervisor?operation=${supervisorId(90)}&message=${supervisorId(91)}`));
+  await waitFor(() => expect(lookups).toBe(1));
+  await act(async () => { rejectPreparation(new Error("old preparation rejected")); });
+  expect(screen.getByRole("button", { name: "Check message status" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled();
+  expect(screen.queryByText(/Could not prepare the message/)).toBeNull();
+  expect(await composer()).toHaveValue("");
+  await act(async () => { releaseLookup(); await lookup; });
+  await screen.findByText(/No receipt is available yet/);
+  expect(screen.getByRole("button", { name: "Check message status" })).toBeEnabled();
+});
+test.each([401, 403])("%s clears private state even when the subsequent bootstrap is offline", async status => {
+  const app = setup(); await ready(); let bootstrapReads = 0;
+  server.use(http.post(`${base}/messages`, () => new HttpResponse(null, { status })),
+    http.get("/api/v1/bootstrap", () => { bootstrapReads++; return new HttpResponse(null, { status: 503 }); }));
+  await send("Private draft before offline bootstrap");
+  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
+  await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] }));
+  await waitFor(() => expect(bootstrapReads).toBeGreaterThan(0));
+  expect(screen.getByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" })).toBeInTheDocument();
+  expect(screen.queryByText("Retained human message 1")).toBeNull();
+  expect(screen.queryByDisplayValue("Private draft before offline bootstrap")).toBeNull();
+  expect(screen.queryByRole("textbox", { name: "Message the global supervisor" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Check message status" })).toBeNull();
 });
