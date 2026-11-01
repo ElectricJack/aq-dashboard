@@ -1,0 +1,33 @@
+.workspace { display: flex; flex-direction: column; gap: var(--space-3); min-inline-size: 0; block-size: max(480px, calc(100dvh - 150px)); }
+.header { display: flex; justify-content: space-between; align-items: start; gap: var(--space-3); }
+.header h1 { margin: 0; font-size: 28px; }
+.header p { color: var(--color-text-secondary); margin-block: var(--space-2) 0; font-size: var(--font-size-meta); }
+.runtime { margin: 0; color: var(--color-attention); font-size: var(--font-size-meta); }
+.history { flex: 1; min-block-size: 180px; overflow-y: auto; overflow-wrap: anywhere; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); scrollbar-gutter: stable; }
+.empty { color: var(--color-text-secondary); text-align: center; margin-block: var(--space-5); }
+.messages { display: flex; flex-direction: column; gap: var(--space-5); list-style: none; padding: 0; margin: var(--space-3) auto; max-inline-size: 1000px; }
+.message { align-self: start; max-inline-size: min(88%, 76ch); min-inline-size: 0; }
+.message[data-own=true] { align-self: end; }
+.body { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); padding: var(--space-3) var(--space-4); margin: 0; line-height: 1.55; }
+.message[data-own=true] .body { background: var(--color-accent); color: #111426; border-color: var(--color-accent); }
+.metadata { margin-block: var(--space-2) 0; font-size: 12px; color: var(--color-text-secondary); }
+.message[data-own=true] .metadata { text-align: end; }
+.composer { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); min-inline-size: 0; }
+.composer label { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+.composer textarea { box-sizing: border-box; inline-size: 100%; resize: vertical; min-block-size: 72px; max-block-size: 200px; background: transparent; border: 0; color: var(--color-text); font: inherit; line-height: 1.5; }
+.composer textarea:read-only { color: var(--color-text-secondary); }
+.composer p { margin: 0; }
+.composerActions, .recovery { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.composerActions span { margin-inline-end: auto; font-size: 12px; color: var(--color-text-secondary); }
+.composerActions button { background: var(--color-accent); color: #111426; }
+.recovery small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--color-text-secondary); }
+@media (max-width: 767px) {
+ .workspace { block-size: max(440px, calc(100dvh - 180px)); }
+ .header { flex-wrap: wrap; }
+ .header h1 { font-size: 22px; }
+ .header p { margin-block-start: var(--space-1); }
+ .history { padding: var(--space-2); }
+ .message { max-inline-size: 95%; }
+ .composer { padding: var(--space-3); }
+ .runtime { line-height: 1.4; }
+}
