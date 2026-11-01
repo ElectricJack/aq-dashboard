@@ -59,7 +59,7 @@ function NotificationDetail({ item, onBack }: { item: NotificationItem; onBack()
       <p className={styles.summary}>{query.data.message.summary}</p>
       {query.data.deliveries.length === 0 ? <p>No external route was recorded for this message.</p> : <>
         <p className={styles.meta}>Transport acceptance, human acknowledgment and a human decision are separate.</p>
-        <ul className={styles.deliveries} aria-label="Recorded deliveries">{query.data.deliveries.map(d => <li key={d.id} data-status={d.kind}><h4>{d.label}</h4>
+        <ul className={styles.deliveries} aria-label="Recorded deliveries">{query.data.deliveries.map(d => <li key={d.id} data-delivery-id={d.id} data-status={d.kind}><h4>{d.label}</h4>
           {d.reason && <p>{d.reason}</p>}{d.at && <p className={styles.meta}>Recorded time <time dateTime={d.at}>{d.at}</time></p>}
           <p>{d.human} · {d.decision}</p>
           <p className={styles.meta}>Attempts: {d.attempts} · Duplicate-risk retries: {d.duplicateRiskRetries}</p>
