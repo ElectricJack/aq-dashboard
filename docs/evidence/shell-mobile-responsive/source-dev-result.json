@@ -1,0 +1,112 @@
+{
+  "passed": true,
+  "development_candidate": "http://127.0.0.1:4221",
+  "actual_api": "http://127.0.0.1:4188",
+  "production_acceptance": false,
+  "results": [
+    {
+      "candidate": false,
+      "width": 1440,
+      "height": 69,
+      "overflow": false
+    },
+    {
+      "candidate": false,
+      "width": 390,
+      "height": 192,
+      "overflow": false
+    },
+    {
+      "candidate": false,
+      "width": 320,
+      "height": 236,
+      "overflow": false
+    },
+    {
+      "candidate": true,
+      "width": 1440,
+      "height": 69,
+      "overflow": false
+    },
+    {
+      "candidate": true,
+      "width": 390,
+      "height": 114,
+      "overflow": false,
+      "reasonPanel": {
+        "x": 16,
+        "y": 117,
+        "width": 358,
+        "height": 103
+      },
+      "controls": [
+        {
+          "x": 16,
+          "y": 60.5,
+          "width": 44,
+          "height": 44
+        },
+        {
+          "x": 150.015625,
+          "y": 8,
+          "width": 223.984375,
+          "height": 44
+        },
+        {
+          "x": 64,
+          "y": 60,
+          "width": 214.609375,
+          "height": 45
+        },
+        {
+          "x": 282.609375,
+          "y": 72,
+          "width": 91.390625,
+          "height": 21
+        }
+      ],
+      "disclosureDoesNotResizeHeader": true
+    },
+    {
+      "candidate": true,
+      "width": 320,
+      "height": 114,
+      "overflow": false,
+      "reasonPanel": {
+        "x": 16,
+        "y": 117,
+        "width": 288,
+        "height": 124
+      },
+      "controls": [
+        {
+          "x": 16,
+          "y": 60.5,
+          "width": 44,
+          "height": 44
+        },
+        {
+          "x": 150.015625,
+          "y": 8,
+          "width": 153.984375,
+          "height": 44
+        },
+        {
+          "x": 64,
+          "y": 60,
+          "width": 144.609375,
+          "height": 45
+        },
+        {
+          "x": 212.609375,
+          "y": 72,
+          "width": 91.390625,
+          "height": 21
+        }
+      ],
+      "disclosureDoesNotResizeHeader": true
+    }
+  ],
+  "errors": [],
+  "mutations": []
+}

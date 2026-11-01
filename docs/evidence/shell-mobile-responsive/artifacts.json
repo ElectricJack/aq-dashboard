@@ -1,0 +1,86 @@
+{
+  "source_commit": "3715f36",
+  "source_base": "0b44ced88cfdc0c307f7057627025cabe400bbb1",
+  "source_ui_worktree": "/tmp/aq-shell-mobile-compact-v2",
+  "production_origin": "http://localhost:4204",
+  "server_state": "root-controlled actual cloned AQ/Graph state35; browser used GET/HEAD only",
+  "artifacts": [
+    {
+      "path": "/tmp/aq-dashboard-actions-promotion/dist-supervisor-responsive/dashboard-manifest.json",
+      "sha256": "2b3d3d6ee8be801288f2f7c95446ac18e73e80e8010c18d905885e9d4b077689",
+      "bytes": 4390
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/probe.mjs",
+      "sha256": "28bef98736801baf75d2f0732f2582ba85989de5f8b8767f7ca0dc91def8a31a",
+      "bytes": 6533
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/agents-320.png",
+      "sha256": "ae13e5ea3d7a80ec37c29402a1c570b8bd28bff6ff237acb0784b64db748fbda",
+      "bytes": 34810
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/agents-390.png",
+      "sha256": "3d329cbf170aa941521a144774fec15d22c2ff6a6e507fd9e466e96c0b1ef049",
+      "bytes": 36322
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/scope-320.png",
+      "sha256": "9f6f6b5b0872603f1ac3e8225d9efb9cac83c99228f874b9739eb1a052c1ccd7",
+      "bytes": 53796
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/scope-390.png",
+      "sha256": "ce4e11f8647977ec52ab2dfde5e7a9296607400f53b8ec89f9595e7919d41c62",
+      "bytes": 25915
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/shell-1440.png",
+      "sha256": "dd5f24ac01946dced2f55e8029fb4a93f60d66a61870127841a83d1480943850",
+      "bytes": 142447
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/shell-320.png",
+      "sha256": "6bf30eb65f069aba0a33ab29d077b0ed5399d91d71adf19877a8a3100ef94c1d",
+      "bytes": 51272
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/shell-390.png",
+      "sha256": "2400ddac7a7012357c6be5c0b283c34a7b874eb6f506d0ab32ce12602d245612",
+      "bytes": 60776
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/supervisor-1440.png",
+      "sha256": "2f4083d6e6964d12cdf07dd5bd43a623fc7fce2097ba963cc98fe8227298e007",
+      "bytes": 80311
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/supervisor-320.png",
+      "sha256": "9e4685d53f80ec891c46932df21bcaa98a0ba2b1fddc4a1b447659e9f7efcfec",
+      "bytes": 48637
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/supervisor-390.png",
+      "sha256": "0e3d62d91a3fbf889553381527c5d40cf3ee6f6268125be9cdefa256d6851baa",
+      "bytes": 49233
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/usage-reason-320.png",
+      "sha256": "2bd39f24a864bc3f2abb934a291dc389e87c0089349b7f9bcec2addfff97a959",
+      "bytes": 55525
+    },
+    {
+      "path": "/tmp/aq-shell-responsive-production/usage-reason-390.png",
+      "sha256": "a0af947d83c64478cd4386d644fedae78ddc21f111238e9b3db40ab458f7e955",
+      "bytes": 65271
+    }
+  ],
+  "limits": [
+    "Candidate staged origin, not canonical preview promotion",
+    "provider.quota disabled; no populated-quota producer or visual proof",
+    "Supervisor history empty here; no enqueue, live reply, attachments or delivery proof",
+    "Focused Agents literal output incomplete and not watched",
+    "Source-dev preview results are earlier geometry evidence only"
+  ]
+}
