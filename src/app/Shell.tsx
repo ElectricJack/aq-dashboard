@@ -83,6 +83,7 @@ const CONNECTION_TEXT = {
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
+  const focusedSession = /^\/agents\/[^/]+\/?$/.test(useLocation().pathname);
   const [scope, setScope] = useScope();
   const usage = useProviderUsage();
   const projects = useProjects();
@@ -109,7 +110,7 @@ export function Shell() {
   const isMock = import.meta.env.MODE === "mock";
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-focused-session={focusedSession || undefined}>
       <a href="#content" className={styles.skip}>
         Skip to content
       </a>

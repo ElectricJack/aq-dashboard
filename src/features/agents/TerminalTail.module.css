@@ -1,3 +1,7 @@
-.panel { display: grid; gap: var(--space-3); min-inline-size: 0; }
-.output { margin: 0; min-block-size: 160px; max-block-size: 400px; max-inline-size: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--space-4); font-family: var(--font-mono); color: var(--color-text); background: #0b0e11; border: 1px solid var(--color-border); border-radius: var(--radius-panel); unicode-bidi: plaintext; }
+.panel { display: grid; gap: var(--space-3); min-inline-size: 0; padding: var(--space-4); }
+.panel h3 { font-size: 16px; }
+.panel > p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.panel > p[role="status"] { color: var(--color-accent); }
+.output { margin: 0; min-block-size: clamp(300px, 45dvh, 620px); max-block-size: 65dvh; max-inline-size: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--space-3); font: 16px/1.6 var(--font-mono); color: var(--color-text); background: #0b0e11; border: 0; unicode-bidi: plaintext; }
 .panel button { justify-self: start; }
+@media (max-width: 767px) { .panel { padding: var(--space-3); } .output { min-block-size: 40dvh; padding: 0; font-size: 14px; } }
