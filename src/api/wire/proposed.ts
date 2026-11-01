@@ -245,6 +245,9 @@ export type SessionSummary = {
   wait: { id: Id; explanation: string } | null;
   controller: { state: "none" | "held" | "unknown"; label: string | null };
   terminal: EntityRef | null;
+  /** Optional additive live-read projection; absent on older servers. */
+  execution_authority?: string;
+  lifecycle?: { started_at: Timestamp | null; stopped_at: Timestamp | null } | null;
 };
 
 export type SessionDetail = SessionSummary & {

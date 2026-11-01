@@ -259,3 +259,25 @@ test("search results are validated and malformed groups are a contract error", (
   expect(() => adaptSearch({} as never)).toThrow(/contract/i);
   expect(() => adaptSearch({ groups: [{ type: "task", hits: "nope", has_more: false }] } as never)).toThrow(/contract/i);
 });
+
+test("historical lifecycle does not turn unknown process observation into running or stopped", () => {
+  const value = adaptSession(session({
+    observation: { state: "unknown", observed_at: T, fresh_until: T },
+    execution_authority: "finished",
+    lifecycle: { started_at: "2026-10-31T11:58:00.000Z", stopped_at: "2026-10-31T11:59:00.000Z" },
+  }), T);
+  expect(value.observation.state).toBe("unknown");
+  expect(value.executionAuthority).toBe("finished");
+  expect(value.lifecycle).toEqual({ startedAt: "2026-10-31T11:58:00.000Z", stoppedAt: "2026-10-31T11:59:00.000Z" });
+  expect(adaptSession(session(), T).lifecycle).toBeNull();
+  expect(adaptSession(session({ lifecycle: { started_at: null, stopped_at: null } }), T).lifecycle).toEqual({ startedAt: null, stoppedAt: null });
+});
+
+test("malformed lifecycle timestamps and an orphan stop are contract errors", () => {
+  for (const lifecycle of [
+    { started_at: "not-a-date", stopped_at: null },
+    { started_at: "2026-02-31T11:58:00.000Z", stopped_at: null },
+    { started_at: null, stopped_at: "2026-10-31T11:59:00.000Z" },
+    { started_at: null },
+  ]) expect(() => adaptSession(session({ lifecycle } as never), T)).toThrow(/contract/i);
+});

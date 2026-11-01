@@ -30,3 +30,17 @@ export function controllerText(c: SessionView["controller"]): string {
 export function profileText(p: SessionView["profile"]): string {
   return [p.model ?? "model unknown", p.harness ?? "harness unknown"].join(" · ");
 }
+
+export function executionAuthorityText(state: SessionView["executionAuthority"]): string {
+  switch (state) {
+    case "offered": return "Offered";
+    case "preparing": return "Preparing";
+    case "granted": return "Grant issued";
+    case "cancelling": return "Cancelling";
+    case "never_granted": return "Never granted";
+    case "declined": return "Declined";
+    case "finished": return "Finished";
+    case "unsupported": return "Unsupported authority state";
+    default: return "Unknown";
+  }
+}
