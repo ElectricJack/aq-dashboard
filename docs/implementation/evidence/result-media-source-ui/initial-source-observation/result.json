@@ -1,0 +1,7 @@
+{
+  "passed": false,
+  "source_only": true,
+  "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('region', { name: 'Human supplemental images' }).getByRole('img')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('region', { name: 'Human supplemental images' }).getByRole('img') with timeout 5000ms\n  - waiting for getByRole('region', { name: 'Human supplemental images' }).getByRole('img')\n",
+  "errors": [],
+  "unexpected": []
+}
