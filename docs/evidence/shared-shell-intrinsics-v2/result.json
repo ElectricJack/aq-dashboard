@@ -1,0 +1,421 @@
+{
+  "passed": true,
+  "scope": "Synthetic source Vite layout with intercepted project/quota fixtures, not canonical qualification",
+  "origin": "http://127.0.0.1:4213",
+  "measurements": [
+    {
+      "width": 1440,
+      "ready": false,
+      "height": 69,
+      "expected": 69,
+      "project_box": {
+        "x": 248,
+        "y": 12,
+        "width": 240,
+        "height": 44
+      },
+      "search_box": {
+        "x": 512,
+        "y": 12,
+        "width": 200,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 736,
+        "y": 12,
+        "width": 564.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 840,
+        "y": 72,
+        "width": 576,
+        "height": 229
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 1024,
+      "ready": false,
+      "height": 69,
+      "expected": 69,
+      "project_box": {
+        "x": 208,
+        "y": 12,
+        "width": 240,
+        "height": 44
+      },
+      "search_box": {
+        "x": 460,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 516,
+        "y": 12,
+        "width": 380.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 424,
+        "y": 72,
+        "width": 576,
+        "height": 229
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 768,
+      "ready": false,
+      "height": 69,
+      "expected": 69,
+      "project_box": {
+        "x": 208,
+        "y": 12,
+        "width": 165.734375,
+        "height": 44
+      },
+      "search_box": {
+        "x": 385.734375,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 441.734375,
+        "y": 12,
+        "width": 198.875,
+        "height": 44
+      },
+      "overlay": {
+        "x": 208,
+        "y": 72,
+        "width": 536,
+        "height": 250
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 390,
+      "ready": false,
+      "height": 114,
+      "expected": 114,
+      "project_box": {
+        "x": 150.015625,
+        "y": 8.25,
+        "width": 223.984375,
+        "height": 44
+      },
+      "search_box": {
+        "x": 16,
+        "y": 60.75,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 64,
+        "y": 60.75,
+        "width": 214.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 16,
+        "y": 117,
+        "width": 358,
+        "height": 334
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 320,
+      "ready": false,
+      "height": 114,
+      "expected": 114,
+      "project_box": {
+        "x": 150.015625,
+        "y": 8.25,
+        "width": 153.984375,
+        "height": 44
+      },
+      "search_box": {
+        "x": 16,
+        "y": 60.75,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 64,
+        "y": 60.75,
+        "width": 144.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 16,
+        "y": 117,
+        "width": 288,
+        "height": 397
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 390,
+      "ready": false,
+      "focused": true,
+      "height": 62
+    },
+    {
+      "width": 320,
+      "ready": false,
+      "focused": true,
+      "height": 62
+    },
+    {
+      "width": 1440,
+      "ready": false,
+      "short_label": true,
+      "height": 69
+    },
+    {
+      "width": 1024,
+      "ready": false,
+      "short_label": true,
+      "height": 69
+    },
+    {
+      "width": 390,
+      "ready": false,
+      "short_label": true,
+      "height": 114
+    },
+    {
+      "width": 320,
+      "ready": false,
+      "short_label": true,
+      "height": 114
+    },
+    {
+      "width": 1440,
+      "ready": true,
+      "height": 69,
+      "expected": 69,
+      "project_box": {
+        "x": 248,
+        "y": 12,
+        "width": 240,
+        "height": 44
+      },
+      "search_box": {
+        "x": 512,
+        "y": 12,
+        "width": 200,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 736,
+        "y": 12,
+        "width": 564.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 840,
+        "y": 72,
+        "width": 576,
+        "height": 247
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 1024,
+      "ready": true,
+      "height": 69,
+      "expected": 69,
+      "project_box": {
+        "x": 208,
+        "y": 12,
+        "width": 240,
+        "height": 44
+      },
+      "search_box": {
+        "x": 460,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 516,
+        "y": 12,
+        "width": 380.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 424,
+        "y": 72,
+        "width": 576,
+        "height": 247
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 768,
+      "ready": true,
+      "height": 69,
+      "expected": 69,
+      "project_box": {
+        "x": 208,
+        "y": 12,
+        "width": 165.734375,
+        "height": 44
+      },
+      "search_box": {
+        "x": 385.734375,
+        "y": 12,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 441.734375,
+        "y": 12,
+        "width": 198.875,
+        "height": 44
+      },
+      "overlay": {
+        "x": 208,
+        "y": 72,
+        "width": 536,
+        "height": 247
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 390,
+      "ready": true,
+      "height": 114,
+      "expected": 114,
+      "project_box": {
+        "x": 150.015625,
+        "y": 8.25,
+        "width": 223.984375,
+        "height": 44
+      },
+      "search_box": {
+        "x": 16,
+        "y": 60.75,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 64,
+        "y": 60.75,
+        "width": 214.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 16,
+        "y": 117,
+        "width": 358,
+        "height": 247
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 320,
+      "ready": true,
+      "height": 114,
+      "expected": 114,
+      "project_box": {
+        "x": 150.015625,
+        "y": 8.25,
+        "width": 153.984375,
+        "height": 44
+      },
+      "search_box": {
+        "x": 16,
+        "y": 60.75,
+        "width": 44,
+        "height": 44
+      },
+      "summary_box": {
+        "x": 64,
+        "y": 60.75,
+        "width": 144.609375,
+        "height": 44
+      },
+      "overlay": {
+        "x": 16,
+        "y": 117,
+        "width": 288,
+        "height": 268
+      },
+      "options": [
+        "All projects",
+        "Private UDS inert startup fixture - external status unavailable"
+      ]
+    },
+    {
+      "width": 390,
+      "ready": true,
+      "focused": true,
+      "height": 62
+    },
+    {
+      "width": 320,
+      "ready": true,
+      "focused": true,
+      "height": 62
+    },
+    {
+      "width": 1440,
+      "ready": true,
+      "short_label": true,
+      "height": 69
+    },
+    {
+      "width": 1024,
+      "ready": true,
+      "short_label": true,
+      "height": 69
+    },
+    {
+      "width": 390,
+      "ready": true,
+      "short_label": true,
+      "height": 114
+    },
+    {
+      "width": 320,
+      "ready": true,
+      "short_label": true,
+      "height": 114
+    }
+  ],
+  "errors": [],
+  "mutations": []
+}
