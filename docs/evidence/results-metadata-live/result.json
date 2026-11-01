@@ -1,0 +1,34 @@
+{
+  "passed": true,
+  "origin": "http://localhost:4198",
+  "report_id": "7ac13d76-9608-4304-8e6a-15935b1fa7aa",
+  "revision": "f6358323cc100d33ba1084fba21a3e921d4dcdc0e586e597f435e4f051fb9457",
+  "elapsed_ms": 873,
+  "screenshots": [
+    "results-desktop.png",
+    "result-detail-desktop.png",
+    "result-detail-mobile.png"
+  ],
+  "coverage": "recorded_legacy_native_only",
+  "note": "Actual retained owner metadata; this does not qualify a model, media, acceptance or settlement.",
+  "served_bootstrap": {
+    "product": {
+      "version": "0.1.0",
+      "dashboard_digest": "sha256:0184767a25317647e4b80637d3ea8fa8750c15e8cc4c12421f19b472ae8de6e2"
+    },
+    "contracts": [
+      {
+        "name": "dashboard-read",
+        "version": "dashboard-read-1",
+        "digest": "sha256:13d1f60855e6e84d604c6b7083345597f92a7973d73462383bc03e14a7c4b846"
+      }
+    ],
+    "results_capability": [
+      {
+        "name": "results.read",
+        "version": "1",
+        "enabled": true
+      }
+    ]
+  }
+}
