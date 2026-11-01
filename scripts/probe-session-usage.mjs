@@ -95,7 +95,9 @@ try {
     await expect(section.getByText(/total tokens|total cost|remaining quota/i)).toHaveCount(0);
     expect(usageReads.filter(read => read.width === viewport.width).length).toBe(1);
     await section.scrollIntoViewIfNeeded();
-    await capture(page, `${prefix}-usage-details.png`, viewport.width === 1440);
+    // A scrolled full-page stitch relocates sticky shell chrome inside the image.
+    // Capture the actual viewport at the selected usage section instead.
+    await capture(page, `${prefix}-usage-details.png`);
     if (viewport.width === 390 && usage.revision > 0) {
       await section.getByRole("heading", { name: "Session usage", exact: true }).scrollIntoViewIfNeeded();
       await capture(page, "phone-usage-categories.png");
