@@ -1,0 +1,27 @@
+# Next real-infrastructure dashboard inspection slices
+
+November 1, 2026 source audit after canonical state35. This ranks bounded useful
+work that can proceed independently of central Supervisor execution and media
+storage. Existing human owners remain authoritative. The current delivered matrix
+and approved mockups continue to govern each page; an endpoint is not full visual
+acceptance. No new external service or production mock-data source is proposed.
+
+| Rank / slice | Concrete backend seam | Concrete frontend seam | Test / actual demo acceptance |
+| --- | --- | --- | --- |
+| 1. Agent source reports (selected) | Existing closed `aq-observation-api` EventsPage and protected exact-session events route. Root adds granular `session.events.read@1` only for mounted observation owner and complete session visibility. No new domain owner. | Explicit load within Agent details; source reports/gaps, provenance disclosure, stable snapshot paging. Dedicated adapter/client; preserve 08/11 focused output and exit. | Frozen Rust digest example; foreign binding/source/snapshot refusal; 16/256KiB and 4-page bounds; old-session/old-snapshot race and 401/403 clearing. Actual empty plus persisted nonempty owner, exact served hash, 1440/390/320 screenshot review, no background/per-row reads or mutations. Source implemented; actual qualification remains pending. |
+| 2. Profile catalog/binding drilldown | Current Owner-only `/api/profiles/catalogs` returns numeric registry revision/active digest; exact artifact route returns up to 2MiB catalog. Add bounded versioned summary with lossless revision, agent/execution/intelligence/module identities and independently bound project catalog reference. Keep validate/explain caller-snapshot semantics and activation separate. | Settings catalog list/detail and links from existing project allowed-profile names to exact catalog revision; expand instruction modules only on demand. Use shared panels; no separate Settings PNG. | Actual configured catalog and no-active state; Owner/Viewer refusal, exact digest/profile revision, bounded pages and safe integer handling; module composition does not grant launch/provider eligibility. Desktop/phone detail/back plus empty/unavailable review. Current raw artifact API is not yet a small dashboard summary contract. |
+| 3. Worker inspection | Existing authenticated `/api/workers` already supplies server-computed status, worker/protocol versions, enrollment and last heartbeat; `workers.read` is mounted. Its list is currently unpaginated. Add bounded collection/observation metadata before a large fleet view; richer slot/residency/boot/eligibility facts require their actual owners. | Improve Settings' bare worker list with compact selected detail and identifiers/heartbeat disclosure. Overview remains secondary capacity/provider composition from 01; never turn heartbeat into available capacity. | Real enrolled/offline/revoked observations and no-enrolled case, unknown statuses, refresh failure and malformed-response bounds. Verify no browser-derived online threshold, eligible-project count or invented slot utilization. Responsive existing panel subset only. |
+| 4. Effective profile explanation for a session | Existing session detail exposes profile revisions and effective permissions. `/api/profiles/explain` only compiles caller-supplied snapshots and explicitly returns no admission authority. Publish an exact session/attempt-pinned explanation if more effective-selection detail is needed. | Agent Details groups actual agent/execution/intelligence revision pins and permission evidence; later link to exact Settings catalog item. Preserve main output, no second generic inspector page. | Foreign/stale attempt/catalog refusal, configured versus effective/selected distinction, literal instructions only with current authorization. No browser-run compilation or current-policy reconstruction from project names. |
+| 5. Activity across scopes | First reuse exact-session source reports and existing retained lifecycle receipts. A global/project Activity feed needs a separate bounded, authorized merged projection with per-source cursor/coverage; there is no proven current global feed to bind today. | Session-local reports first; later deliberate scoped activity view/filter after its owner contract. Do not synthesize global activity by scanning every session. | Stable independent source cursors, inaccessible-session exclusion, explicit omissions/gaps, bounded server work. No report-to-current-running/readiness inference; empty partial reads never mean nothing happened. |
+
+The selected Source events implementation uses labelled isolated unit fixtures and
+unchanged public Rust examples only for testing. Production rendering consumes
+actual AQ reads; no global mock-handler composition or canonical state changes
+were introduced. [Implementation boundary](../implementation/session-source-events.md)
+keeps browser and full operational acceptance open.
+
+Other pages have their own next gates: Decisions and Playbooks need actual
+optional owner mounting/UDS qualification rather than new sample data; Work and
+Knowledge editing require typed owner commands; Results media is already owned
+by its independent storage/UI lane. Account quota requires a real provider source,
+not session token/cost accounting, worker heartbeat or protocol availability.

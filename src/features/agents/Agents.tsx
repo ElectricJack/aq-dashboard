@@ -18,6 +18,7 @@ import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LA
 import styles from "./Agents.module.css";
 import { TerminalTail } from "./TerminalTail";
 import { SessionUsage } from "./SessionUsage";
+import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
 
@@ -200,6 +201,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       {detailsOpen && (!query.isError && bootstrap.capability("session.usage.read").enabled && s.observationBinding
         ? <SessionUsage binding={s.observationBinding} />
         : <p className={styles.muted}>Session usage unavailable for this session.</p>)}
+      {detailsOpen && !query.isError && bootstrap.capability("session.events.read").enabled && s.observationBinding && <SessionEvents key={s.id} binding={s.observationBinding} />}
       <DetailList>
         <dt>Session ID</dt><dd>{s.id}</dd>
         <dt>Recorded session label</dt><dd>{s.label}</dd>
