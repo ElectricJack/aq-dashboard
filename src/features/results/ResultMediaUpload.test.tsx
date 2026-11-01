@@ -137,3 +137,16 @@ test("admission waits until a blocked recovery URL navigation actually commits",
   await act(() => app.router.state.blockers.get("hold-upload-reference")?.proceed?.());
   await screen.findByText("Image added to this report."); expect(app.writes.map(w => w.method)).toEqual(["POST", "PUT", "FINALIZE"]);
 });
+test.each(["missing", "reserved"] as const)("capability loss fences held %s file preparation and cannot resurrect bytes when re-enabled", async initial => {
+  const original = uploadFixture(), app = setup({ path: `${exact}?${uploadReference(original)}`, status: initial === "reserved" ? original : undefined });
+  if (initial === "reserved") await screen.findByText("Upload reserved. The original PNG is still needed."); else await screen.findByText(/No status is available yet/);
+  let allowed = true, release!: () => void, reading = false; const held = new Promise<ArrayBuffer>(resolve => { release = () => resolve(Uint8Array.from(fixturePng()).buffer); });
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, principal: { ...bootstrap.data.principal, id: uploadActor }, capabilities: [{ name: "results.read", version: "1", enabled: true }, { name: "results.media.read", version: "1", enabled: true }, { name: "results.media.upload", version: "1", enabled: allowed }] } })));
+  const file = uploadFile(); Object.defineProperty(file, "arrayBuffer", { value: () => { reading = true; return held; } });
+  fireEvent.change(screen.getByLabelText(/^Reselect original PNG/), { target: { files: [file] } }); await waitFor(() => expect(reading).toBe(true));
+  allowed = false; await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await screen.findByText("New uploads are unavailable. You can still inspect this upload.");
+  expect(screen.getByRole("button", { name: "Check upload status" })).toBeEnabled();
+  await act(async () => { release(); await held; }); expect(screen.queryByText("Selected: Human example.png")).toBeNull(); expect(app.writes).toHaveLength(0);
+  allowed = true; await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await screen.findByLabelText(/^Reselect original PNG/);
+  expect(screen.queryByRole("button", { name: "Replay original admission" })).toBeNull(); expect(screen.queryByRole("button", { name: "Resume original upload" })).toBeNull(); expect(screen.queryByText("Selected: Human example.png")).toBeNull(); expect(app.writes).toHaveLength(0);
+});
