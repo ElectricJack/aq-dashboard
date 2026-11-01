@@ -16,9 +16,8 @@ function Record({ item, exact }: { item: ResultMetadata; exact: boolean }) {
   const search = scopeSearch(scope);
   const date = new Date(item.recorded_at_ms).toISOString();
   return <article className={styles.card} aria-label={`Recorded result ${item.report_id}`}>
-    <div className={styles.header}><h2 className={styles.title}>{exact ? "Recorded result" : <Link to={{ pathname: `/results/${item.report_id}/revisions/${item.revision}`, search }}>Recorded result</Link>}</h2><span className={styles.badge}>{item.current_report_head ? "Current report" : "Superseded report"}</span></div>
+    <div className={styles.header}><h2 className={styles.title}>{exact ? item.conclusion : <Link to={{ pathname: `/results/${item.report_id}/revisions/${item.revision}`, search }}>{item.conclusion}</Link>}</h2><span className={styles.badge}>{item.current_report_head ? "Current report" : "Superseded report"}</span></div>
     <p className={styles.meta}>Task {bootstrap.capability("tasks.read").enabled ? <Link to={{ pathname: `/work/${item.task_id}`, search }}>{item.task_id}</Link> : item.task_id} · Project {item.project_id}</p>
-    <p className={styles.summary}>{item.conclusion}</p>
     <p>Worker-reported outcome: <strong>{item.process_outcome}</strong></p>
     <p className={styles.meta}>Recorded <time dateTime={date}>{date}</time> · Acceptance and task settlement are not evaluated by this view.</p>
     <div className={exact ? styles.detail : undefined}>
