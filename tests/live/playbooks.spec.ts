@@ -14,7 +14,7 @@ test("configured playbook discovery opens actual pinned run and bounded receipts
   await page.goto("/playbooks");
   await page.getByRole("link", { name: `Inspect ${run.id}`, exact: true }).click();
   const inspector = page.getByRole("region", { name: `Run ${run.id}` });
-  await expect(inspector).toBeVisible(); await expect(inspector.getByText(run.artifact, { exact: true })).toBeVisible();
+  await expect(inspector).toBeVisible(); await expect(inspector.getByRole("region", { name: "Pinned execution", exact: true }).locator("dl").first().locator("dd").first()).toHaveText(run.artifact);
   await expect(inspector.getByText(run.step, { exact: true }).first()).toBeVisible();
   expect(detail.observation_is_atomic).toBe(false);
   await expect(page.getByText(/Mock data/)).toHaveCount(0);
