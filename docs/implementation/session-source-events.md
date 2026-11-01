@@ -48,3 +48,5 @@ provenance captures were inspected. This qualifies bounded source-event reading;
 no transcript content, real parser/model execution, current accounting head,
 provider invoice or control authority is inferred. The positive actual fixture
 has one page and no gaps; richer gap/pagination cases remain focused-test proof.
+
+The [canonical Events35 promotion](../../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md) now records actual 4188 serving exact 5c assets/8ad binary on unchanged 35: empty retained reports, two event GETs, 1668ms and zero writes/errors. The separate three-report ingest fixture remains synthetic actual-owner proof, not canonical activity or a model run.

@@ -13,7 +13,7 @@ li{margin:8px 0}figure{margin:28px 0}img{max-width:100%;height:auto;border:1px s
 @media print{:root{color-scheme:light}body{background:white;color:#111}nav{display:none}a{color:#334}.intro,th,pre,code{background:#f2f3f6}section{break-before:page}main{max-width:none;padding:0}}
 </style></head><body><nav aria-label="Specification sections"><a href="#design">Product design</a><a href="#contracts">API contracts</a><a href="#plan">Implementation</a><a href="#live-delivery">Live delivery</a><a href="#audit">Contract audit</a><a href="design/index.html">Mockup gallery</a></nav><main><h1>Agent Q dashboard specification</h1><div class="intro"><p><strong>Contract readiness: partial.</strong> Existing human APIs provide a strong foundation. The complete dashboard API, provider quota, global conversation integration and Results/comment/feedback contracts still need publication and implementation.</p><p class="muted">October 31, 2026 · Proposed implementation specification based on the accepted visual direction. Markdown source documents are canonical. This reader is documentation, not the dashboard application.</p></div><section id="design"><p class="source"><a href="specs/0002-product-design.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard product and interaction design</h1>
 <p>Status: implementation specification proposed from the accepted visual direction. Date: 2026-10-31. The user approved the mockup direction; this document supplies implementation decisions, not a claim that the APIs or application are implemented.</p>
-<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md">canonical state35 record</a> distinguish mounted partial features from isolated/source proof. Global human history/text enqueue is implemented; live central Supervisor dispatch/replies remain unavailable. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG validation/processing is pure core only, with no Store/HTTP/media UI. The complete requirements and proposed routes below remain the target, not blanket implementation claims.</p>
+<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">canonical Events35 record</a> distinguish mounted partial features from isolated/source proof. Global human history/text enqueue and explicit exact-session source-event reading are implemented on unchanged canonical 35. Live central Supervisor dispatch/replies remain unavailable; AQ17 pure-core/mapper source does not supply that runtime. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG core and isolated internal SQL/managed-file media owner are qualified in source 36; bundled media UI is source-only/capability-off with no actual image HTTP/browser proof or canonical 36 upgrade. The complete requirements and proposed routes below remain the target, not blanket implementation claims.</p>
 <p>Read with the <a href="specs/0001-dashboard.md">architecture baseline</a>, <a href="#contracts">API contract proposal</a>, <a href="#plan">implementation plan</a>, and <a href="#audit">contract audit</a>. Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.</p>
 <h2>1. Product outcome and boundaries</h2>
 <p>An operator should immediately understand what needs attention, what is running, what it produced, and how to intervene. Reading a result and requesting a correction should be possible on a phone. Desktop provides space for investigation and terminal work; mobile provides a deliberate single-pane composition.</p>
@@ -259,7 +259,7 @@ li{margin:8px 0}figure{margin:28px 0}img{max-width:100%;height:auto;border:1px s
 <p>Permitted-action descriptors explain why an action is unavailable, but the server rechecks authorization on every request. Pending operations display their identity and reconciliation link. A lost response is unknown, not failure or success. Conflicts preserve the draft; changing the payload after conflict requires explicit resubmission with a new operation identity. Logout/identity change clears protected caches and drafts; display/layout preferences may persist without content.</p>
 <p>Acceptance is defined by the scenario matrix in the implementation plan. The original U1–U14 remain required; this specification adds quota, responsive composition, expanded chat and the Results/feedback lifecycle.</p></section><section id="contracts"><p class="source"><a href="specs/0003-dashboard-api.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Dashboard API and integration contract</h1>
 <p>Status: proposed API-02 expansion, 2026-10-31. <strong>This document defines required behavior and proposed new routes; it does not publish an implemented wire schema.</strong> Existing contracts are identified explicitly below. API-02 must publish versioned OpenAPI/JSON Schema, generated bindings, semantic validators and fixtures before dependent live integrations are accepted.</p>
-<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md">canonical state35 record</a> distinguish mounted partial features from isolated/source proof. Global human history/text enqueue is implemented; live central Supervisor dispatch/replies remain unavailable. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG validation/processing is pure core only, with no Store/HTTP/media UI. The complete requirements and proposed routes below remain the target, not blanket implementation claims.</p>
+<p>Implementation status, November 1, 2026: the <a href="plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35">delivered matrix</a> and <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">canonical Events35 record</a> distinguish mounted partial features from isolated/source proof. Global human history/text enqueue and explicit exact-session source-event reading are implemented on unchanged canonical 35. Live central Supervisor dispatch/replies remain unavailable; AQ17 pure-core/mapper source does not supply that runtime. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG core and isolated internal SQL/managed-file media owner are qualified in source 36; bundled media UI is source-only/capability-off with no actual image HTTP/browser proof or canonical 36 upgrade. The complete requirements and proposed routes below remain the target, not blanket implementation claims.</p>
 <p>Related: <a href="#design">product design</a>, <a href="#audit">current contract audit</a>, <a href="#plan">delivery plan</a>. Browser traffic terminates at AQ's human listener. There is no new dashboard backend and no direct graph/worker/provider access.</p>
 <h2>1. Reuse before extension</h2>
 <div class="table-wrap"><table>
@@ -936,14 +936,15 @@ contracts/              pinned schemas, semantic vectors, provenance lock
 <p>The twelve selected <a href="design/index.html">mockups</a> and their <a href="design/manifest.json">manifest</a> remain the visual reference. <a href="#design">Product specification 0002</a> governs behavior and resolves differences between mockup generations. Colors alone are insufficient: the missing columns, inspectors, timelines, feed, conversation and focused workspace are the main visual gap. Sample numbers and media in PNGs are never production data.</p>
 <p>This work can run alongside the native worker runner. Task/knowledge reads, review and playbook inspection, historical results, notifications, worker status and visual layout do not require a live model. Real supervisor replies and interactive terminal control do require their respective runtime owners.</p>
 <h2>Delivered increments and remaining gates at canonical state35</h2>
-<p>The <a href="../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md">canonical state35 promotion</a>
+<p>The <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">canonical Events35 promotion</a>
 now binds actual <code>http://localhost:4188</code> to compiled bundle
-<code>sha256:2b3d3d6ee8be801288f2f7c95446ac18e73e80e8010c18d905885e9d4b077689</code> and the recorded state35 binary.
-The composed dashboard passed 464 tests in 21.33s; typecheck and 564ms/29-asset
-production build passed with no mocks. Root's canonical Supervisor read-only
-scope/draft check passed in 1833ms with zero enqueue requests; canonical Graph
-passed in 3462ms (16 reads, zero mutations), and core Overview in 736ms. Full parent
-feature/design tasks remain open. Historical state34 evidence remains retained.</p>
+<code>sha256:5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667</code> and the retained 8ad state35 binary.
+The database remains 35 even though latest source now includes internal media
+migration 36. Composed 539 tests passed in 23.68s; typecheck and 1.65s/29-asset build
+passed with no mocks. Canonical Source events passed in 1668ms (zero reports,
+two explicit reads, zero writes), Supervisor in 2206ms (empty history/zero enqueue),
+Graph in 4018ms (16 reads/zero mutations), and Overview in 889ms. The earlier 35/2b
+and 34 records remain historical. Full parent feature/design tasks remain open.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -957,7 +958,7 @@ feature/design tasks remain open. Historical state34 evidence remains retained.<
 <tr>
 <td>Overview</td>
 <td>Recorded task/project contribution, partial attention/outcomes and accepted two-column grouping; account usage stays unavailable.</td>
-<td><a href="implementation/core-overview.md">Core Overview</a>, actual canonical 736ms probe.</td>
+<td><a href="implementation/core-overview.md">Core Overview</a>, actual canonical 889ms probe.</td>
 <td>Complete review/result aggregation, actual capacity/provider sources, pinned-session persistence and full 01 composition.</td>
 </tr>
 <tr>
@@ -986,20 +987,20 @@ feature/design tasks remain open. Historical state34 evidence remains retained.<
 </tr>
 <tr>
 <td>Results</td>
-<td>Retained legacy metadata/revision inspection is implemented; no media bytes are served.</td>
-<td><a href="implementation/results-metadata.md">Metadata subset</a>; <a href="../../agent-q/docs/implementation/API-11-core-qualification.md">pure PNG core</a> has 24 focused cases (codec target 1.20s).</td>
-<td>Media Store/HTTP/upload/browsing, capture-policy owner, comments/feedback and full 10/13 design. Pure codec source is not media delivery.</td>
+<td>Retained legacy metadata/revision inspection. Bundled media UI remains capability-off; no image bytes are served.</td>
+<td><a href="implementation/results-metadata.md">Metadata subset</a>; 44 media UI source checks; <a href="../../agent-q/docs/implementation/API-11-storage-owner.md">internal SQL/managed-file owner</a> passed 14 owner + 3 migration/drift cases, separate from pure PNG core.</td>
+<td>Actual HTTP/config/capability binding, upload/image browsing and UI qualification, capture policy, comments/feedback and full 10/13 design. Source migration 36 is not canonical 35.</td>
 </tr>
 <tr>
 <td>Agents</td>
-<td>Large focused read-only literal-output workspace, session switcher/details and on-demand accounting; canonical accounting is absent.</td>
-<td><a href="implementation/session-usage-inspection.md">Usage inspection</a> includes a separately persisted synthetic nonempty projection. <a href="evidence/shell-mobile-responsive/README.md">Shared header</a> retains 62px focused header and phone exit.</td>
-<td>Actual transcript/producers, renderer/control, live terminal interaction and full 08/11 acceptance; no quota/billing inference.</td>
+<td>Focused read-only output, switcher/details, on-demand accounting and explicit Source events. Current canonical reports/accounting are absent.</td>
+<td><a href="implementation/session-usage-inspection.md">Usage inspection</a>, <a href="implementation/session-source-events.md">actual source-event proof</a>: empty canonical 1668ms plus three real-ingest synthetic usage records 1885ms; <a href="evidence/shell-mobile-responsive/README.md">shared header</a> retains 62px focused row/phone exit.</td>
+<td>Transcript bytes/current producers, renderer/control, live interaction and full 08/11 design; historical reports do not grant authority or establish current accounting/quota.</td>
 </tr>
 <tr>
 <td>Supervisor</td>
 <td>One stable global human conversation; canonical history empty, runtime unavailable, text composer and pending-safe receipt/recovery.</td>
-<td><a href="implementation/supervisor-conversation-foundation.md">Exact 2b3d full-page visual and owner proof</a> enqueued one human message only in disposable state. Canonical scope/draft probe enqueued none.</td>
+<td><a href="implementation/supervisor-conversation-foundation.md">Exact 2b3d full-page visual and owner proof</a> enqueued one human message only in disposable state. Current 5c canonical scope/draft probe passed 2206ms and enqueued none; historical 2b owner proof remains retained. Pure AQ17/mapper source is not a live central runtime.</td>
 <td>Dock/full shared draft/reading state, context/attachments/evidence cards, central dispatch/replies and full 04/09/12 design. Queued history is not an assistant reply.</td>
 </tr>
 <tr>
@@ -1020,10 +1021,10 @@ feature/design tasks remain open. Historical state34 evidence remains retained.<
 separate missing producer; session accounting and provider availability cannot
 supply account-wide percentages or reset windows. No illustrative mockup facts
 are substituted for absent data.</p>
-<p>Native named read-only/scoped-auth source and KERNEL/static physical-peer checks
-are accepted within their recorded scope. Production capsule provisioning,
-upstream-key visibility, final implicit context/tool accounting and actual
-provider/tool admission remain open. <a href="../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md">Native source/evidence limits</a>
+<p>Native named/scoped source, KERNEL/static and isolated actual-tool proof remain
+bounded; terminal output 409 and production capsule/key/context/provider gates
+remain open. AQ17 now has a pure 16-test authority model and shared mapper source,
+not durable dispatch/reply authority. <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">Native and central source/evidence limits</a>
 are separate from these useful human dashboard increments.</p>
 <h2>Parallel execution with eight subagents</h2>
 <p>The session has eight concurrent subagent slots plus the root coordinator. This is Codex development capacity, distinct from AQ worker/worktree capacity. Use two native lanes and six dashboard lanes initially. Each lane owns a concrete output and may cover backend and frontend for its isolated feature. Root reviews and integrates; eight agents do not require eight frontend writers or eight simultaneous builds.</p>
