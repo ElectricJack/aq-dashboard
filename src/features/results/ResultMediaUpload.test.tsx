@@ -129,3 +129,11 @@ test("a late admitted response after navigation cannot send PNG bytes or finaliz
   await act(() => app.router.navigate("/results")); await screen.findByText(resultRecord().conclusion); await act(async () => { release(); await held; });
   expect(app.writes).toHaveLength(0); expect(screen.queryByRole("dialog")).toBeNull(); expect(screen.queryByRole("button", { name: "Upload image" })).toBeNull();
 });
+test("admission waits until a blocked recovery URL navigation actually commits", async () => {
+  const app = setup(); await open(); choose(); app.router.getBlocker("hold-upload-reference", () => true);
+  await userEvent.click(screen.getByRole("button", { name: "Upload image" }));
+  await waitFor(() => expect(app.router.state.blockers.get("hold-upload-reference")?.state).toBe("blocked"));
+  expect(app.router.state.location.search).toBe(""); expect(app.writes).toHaveLength(0);
+  await act(() => app.router.state.blockers.get("hold-upload-reference")?.proceed?.());
+  await screen.findByText("Image added to this report."); expect(app.writes.map(w => w.method)).toEqual(["POST", "PUT", "FINALIZE"]);
+});
