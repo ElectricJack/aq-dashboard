@@ -34,3 +34,7 @@
 @media(max-width:600px) { .filters { align-items:stretch; } .filters>label,.filters select { inline-size:100%; } .record { padding:var(--space-3) 0; } }
 
 @media(max-width:1199px) { .workspace[data-detail=true][data-view=graph] .listPane { display:block; } .workspace[data-detail=true][data-view=graph] .filters { display:flex; } .workspace[data-detail=true][data-view=graph] .detail { display:none; } }
+
+.detail h2 { overflow-wrap: anywhere; }
+.detail > div:first-child > div { min-inline-size: 0; max-inline-size: 100%; }
+@media(min-width:1200px) { .workspace[data-view=graph] .panes { grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr); } }

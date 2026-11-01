@@ -167,6 +167,6 @@
   text-decoration: none;
   overflow: hidden;
 }
-.humanNode strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.humanNode strong { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; font-size: 14px; line-height: 1.2; }
 .humanNode span { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
 .humanNode:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }

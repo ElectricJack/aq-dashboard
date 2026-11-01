@@ -76,7 +76,7 @@ function NodeDetail({project,kind,id,search}:{project:string;kind:GraphNode["kin
   const n=query.data.data;
   return <Panel title={n.title} className={styles.detail}>
     <Link to={{pathname:pathFor(kind),search:withoutRevision(search)}} className={styles.back}>All {kind==="task"?"tasks":"records"}</Link>
-    <div className={styles.badges}><span>{kind==="task"?nodeLabel(n.task_state):n.content_type??"Uncategorized"}</span><span>{n.deleted?"Deleted":n.retired?"Retired":"Active"}</span><span>{nodeLabel(n.verification)}</span><span>{pinned?"Pinned":"Current"} revision {n.content_revision}</span></div>
+    <div className={styles.badges}><span>{kind==="task"?`Task state: ${nodeLabel(n.task_state)}`:n.content_type??"Uncategorized"}</span><span>{kind==="task"?"Lifecycle: ":""}{n.deleted?"Deleted":n.retired?"Retired":"Active"}</span><span>{nodeLabel(n.verification)}</span><span>{pinned?"Pinned":"Current"} revision {n.content_revision}</span></div>
     <p className={styles.meta}>Project: {query.data.project.name} · Updated <time dateTime={n.updated_at}>{n.updated_at}</time></p>
     <div className={styles.tabs} role="group" aria-label="Record sections">{["content","sources","record"].map(t=><ActionButton key={t} aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==="content"?"Content":t==="sources"?`Sources (${n.provenance.length})`:"Record & revisions"}</ActionButton>)}</div>
     {tab==="content" && <div className={styles.prose}><p>{n.body||"No body recorded."}</p>{n.acceptance_criteria && <><h3>Acceptance criteria</h3><p>{n.acceptance_criteria}</p></>}{n.labels.length>0 && <p className={styles.meta}>Labels: {n.labels.join(", ")}</p>}

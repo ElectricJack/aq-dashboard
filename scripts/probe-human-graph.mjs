@@ -33,7 +33,20 @@ async function read(path) {
 }
 const scope=new URLSearchParams({scope:`project:${project}`}).toString();
 const human=`/api/human/projects/${project}`;
-const screenshot=async name=>{await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(output,name),fullPage:true});};
+const screenshot=async (name,target=page)=>{
+  await target.evaluate(()=>window.scrollTo(0,0));
+  await target.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  const bounds=await target.locator("h2").evaluateAll(elements=>elements.map(element=>{
+    const container=element.closest("section");const text=element.firstChild;
+    if(!container||!text)return null;
+    const range=document.createRange();range.setStart(text,0);range.setEnd(text,Math.min(1,text.textContent.length));
+    const first=range.getBoundingClientRect(),outer=container.getBoundingClientRect();
+    return {title:element.textContent,first_left:first.left,first_right:first.right,container_left:outer.left,container_right:outer.right};
+  }).filter(Boolean));
+  for(const value of bounds){expect(value.first_left).toBeGreaterThanOrEqual(value.container_left);expect(value.first_right).toBeLessThanOrEqual(value.container_right);}
+  await writeFile(join(output,name+".bounds.json"),JSON.stringify(bounds,null,2)+"\n");
+  await target.screenshot({path:join(output,name),fullPage:!name.includes("mobile"),animations:"disabled"});
+};
 try {
   const bootstrap=await read("/api/v1/bootstrap");
   for(const name of ["human.graph.read","tasks.read","knowledge.read","search.read"]) expect(bootstrap.data.capabilities.some(c=>c.name===name&&c.version==="1"&&c.enabled===true),name).toBe(true);
@@ -62,13 +75,6 @@ try {
   await screenshot("work-graph-desktop.png");
   await page.goBack();await expect(taskDetail).toBeVisible();
   await page.reload();await expect(taskDetail.getByText(`Current revision ${task.content_revision}`,{exact:true})).toBeVisible();
-  await page.setViewportSize({width:390,height:844});
-  await expect(taskDetail.getByRole("link",{name:"All tasks",exact:true})).toBeVisible();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
-  await screenshot("work-detail-mobile.png");
-  await taskDetail.getByRole("link",{name:"All tasks",exact:true}).click();await expect(taskList).toBeVisible();
-
-  await page.setViewportSize({width:1440,height:1100});
   await page.goto(new URL(`/knowledge/${knowledgeId}?${scope}`,origin).href);
   const document=page.getByRole("region",{name:knowledge.title,exact:true});
   await expect(document.getByText(knowledge.body,{exact:true})).toBeVisible();
@@ -83,14 +89,6 @@ try {
   await expect(document.getByText(`Pinned revision ${pinned.content_revision}`,{exact:true})).toBeVisible();
   await screenshot("knowledge-pinned-desktop.png");
   await page.reload();await expect(document.getByText(`Pinned revision ${pinned.content_revision}`,{exact:true})).toBeVisible();
-  await page.setViewportSize({width:390,height:844});
-  await expect(document.getByRole("link",{name:"All records",exact:true})).toBeVisible();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
-  await screenshot("knowledge-pinned-mobile.png");
-  await document.getByRole("link",{name:"All records",exact:true}).click();
-  await expect(page.getByRole("list",{name:"Knowledge records",exact:true})).toBeVisible();
-
-  await page.setViewportSize({width:1440,height:1100});
   await page.getByRole("banner").getByRole("button",{name:"Search",exact:true}).click();
   const search=page.getByRole("dialog",{name:"Search",exact:true});
   const q=task.title.match(/[A-Za-z]{4,}/)?.[0]??task.title;
@@ -103,6 +101,26 @@ try {
   await search.getByRole("searchbox",{name:"Search",exact:true}).fill(knowledgeQuery);
   await expect(search.getByRole("link").filter({hasText:knowledge.title})).toBeVisible();
   await search.getByRole("link").filter({hasText:knowledge.title}).click();await expect(document).toBeVisible();
+  // Use a fresh phone viewport: resizing one browser page between widths can
+  // retain stale compositor text clips in full-page screenshots despite valid DOM bounds.
+  const phone=await browser.newPage({viewport:{width:390,height:844}});
+  phone.on("pageerror",e=>errors.push(e.message));
+  phone.on("request",r=>{if(!["GET","HEAD"].includes(r.method()))mutations.push({method:r.method(),path:new URL(r.url()).pathname});});
+  await phone.goto(new URL(`/work/${taskId}?${scope}`,origin).href);
+  const phoneTask=phone.getByRole("region",{name:task.title,exact:true});
+  await expect(phoneTask.getByRole("link",{name:"All tasks",exact:true})).toBeVisible();
+  expect(await phone.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
+  await screenshot("work-detail-mobile.png",phone);
+  await phoneTask.getByRole("link",{name:"All tasks",exact:true}).click();await expect(phone.getByRole("list",{name:"Tasks",exact:true})).toBeVisible();
+  await phone.goto(new URL(`/knowledge/${knowledgeId}?${scope}&revision=${encodeURIComponent(knowledge.content_revision)}`,origin).href);
+  const phoneDocument=phone.getByRole("region",{name:knowledge.title,exact:true});
+  await expect(phoneDocument.getByText(`Pinned revision ${pinned.content_revision}`,{exact:true})).toBeVisible();
+  expect(await phone.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
+  await screenshot("knowledge-pinned-mobile.png",phone);
+  await phoneDocument.getByRole("button",{name:"Record & revisions",exact:true}).click();
+  await expect(phoneDocument.getByText("Record version",{exact:true}).locator("xpath=following-sibling::dd[1]")).toHaveText(knowledge.version);
+  await phoneDocument.getByRole("link",{name:"All records",exact:true}).click();await expect(phone.getByRole("list",{name:"Knowledge records",exact:true})).toBeVisible();
+  await phone.close();
   await expect(page.getByText(/Mock data/)).toHaveCount(0);expect(mutations).toEqual([]);expect(errors).toEqual([]);
   const result={passed:true,origin:origin.origin,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
   await writeFile(join(output,"result.json"),JSON.stringify(result,null,2)+"\n");console.log(JSON.stringify(result));
