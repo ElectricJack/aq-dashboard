@@ -12,25 +12,26 @@ This work can run alongside the native worker runner. Task/knowledge reads, revi
 
 ## Delivered increments and remaining gates at canonical state35
 
-The [canonical state35 promotion](../../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md)
+The [canonical Events35 promotion](../../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md)
 now binds actual `http://localhost:4188` to compiled bundle
-`sha256:2b3d3d6ee8be801288f2f7c95446ac18e73e80e8010c18d905885e9d4b077689` and the recorded state35 binary.
-The composed dashboard passed 464 tests in 21.33s; typecheck and 564ms/29-asset
-production build passed with no mocks. Root's canonical Supervisor read-only
-scope/draft check passed in 1833ms with zero enqueue requests; canonical Graph
-passed in 3462ms (16 reads, zero mutations), and core Overview in 736ms. Full parent
-feature/design tasks remain open. Historical state34 evidence remains retained.
+`sha256:5c0fcfa4fe11cd95a9081edeb7323ef07f9d2c66bcf24b2add1ef546200ac667` and the retained 8ad state35 binary.
+The database remains 35 even though latest source now includes internal media
+migration 36. Composed 539 tests passed in 23.68s; typecheck and 1.65s/29-asset build
+passed with no mocks. Canonical Source events passed in 1668ms (zero reports,
+two explicit reads, zero writes), Supervisor in 2206ms (empty history/zero enqueue),
+Graph in 4018ms (16 reads/zero mutations), and Overview in 889ms. The earlier 35/2b
+and 34 records remain historical. Full parent feature/design tasks remain open.
 
 | Destination | Canonical state35 delivered subset | Separate qualification | Remaining functional / visual gate |
 | --- | --- | --- | --- |
-| Overview | Recorded task/project contribution, partial attention/outcomes and accepted two-column grouping; account usage stays unavailable. | [Core Overview](../implementation/core-overview.md), actual canonical 736ms probe. | Complete review/result aggregation, actual capacity/provider sources, pinned-session persistence and full 01 composition. |
+| Overview | Recorded task/project contribution, partial attention/outcomes and accepted two-column grouping; account usage stays unavailable. | [Core Overview](../implementation/core-overview.md), actual canonical 889ms probe. | Complete review/result aggregation, actual capacity/provider sources, pinned-session persistence and full 01 composition. |
 | Work | Authorized task list/detail/dependency graph, scope/navigation and task-create composer. | [One actual task creation](../implementation/create-task-live.md) uses disposable Graph/AQ state; canonical probes are read-only. | Editing, complete lifecycle/explanation/activity and remaining 02 controls. |
 | Knowledge | Scoped library/search, readable current/pinned document, sources/verification metadata. | [Actual Work/Knowledge visual subset](../implementation/work-knowledge-visual-fidelity.md); canonical Graph 16-read proof. | Author/correct/verify/retire commands, richer history/relationships and full 07 design. |
 | Decisions | Optional review owner is not configured; unavailable is not a successful empty inbox. | [Actual discovery/revision-bound answers](../implementation/decisions-live.md), including disposable response-loss recovery. | Mount actual optional owner; richer document/media evidence, discussion/comparisons and full 03 design. |
 | Playbooks | Optional runtime/real UDS owner remains unavailable. | [Configured parent/child runs](../implementation/playbooks-inspection.md) plus [startup definitions 8fe proof](../evidence/loaded-definitions-browser/README.md): max 4, historical configuration, `current_catalog=false`, exact immutable pins. | Actual optional runtime/UDS qualification, current installed catalog/activation discovery, actions/editor and full 06 design. |
-| Results | Retained legacy metadata/revision inspection is implemented; no media bytes are served. | [Metadata subset](../implementation/results-metadata.md); [pure PNG core](../../../agent-q/docs/implementation/API-11-core-qualification.md) has 24 focused cases (codec target 1.20s). | Media Store/HTTP/upload/browsing, capture-policy owner, comments/feedback and full 10/13 design. Pure codec source is not media delivery. |
-| Agents | Large focused read-only literal-output workspace, session switcher/details and on-demand accounting; canonical accounting is absent. | [Usage inspection](../implementation/session-usage-inspection.md) includes a separately persisted synthetic nonempty projection. [Shared header](../evidence/shell-mobile-responsive/README.md) retains 62px focused header and phone exit. | Actual transcript/producers, renderer/control, live terminal interaction and full 08/11 acceptance; no quota/billing inference. |
-| Supervisor | One stable global human conversation; canonical history empty, runtime unavailable, text composer and pending-safe receipt/recovery. | [Exact 2b3d full-page visual and owner proof](../implementation/supervisor-conversation-foundation.md) enqueued one human message only in disposable state. Canonical scope/draft probe enqueued none. | Dock/full shared draft/reading state, context/attachments/evidence cards, central dispatch/replies and full 04/09/12 design. Queued history is not an assistant reply. |
+| Results | Retained legacy metadata/revision inspection. Bundled media UI remains capability-off; no image bytes are served. | [Metadata subset](../implementation/results-metadata.md); 44 media UI source checks; [internal SQL/managed-file owner](../../../agent-q/docs/implementation/API-11-storage-owner.md) passed 14 owner + 3 migration/drift cases, separate from pure PNG core. | Actual HTTP/config/capability binding, upload/image browsing and UI qualification, capture policy, comments/feedback and full 10/13 design. Source migration 36 is not canonical 35. |
+| Agents | Focused read-only output, switcher/details, on-demand accounting and explicit Source events. Current canonical reports/accounting are absent. | [Usage inspection](../implementation/session-usage-inspection.md), [actual source-event proof](../implementation/session-source-events.md): empty canonical 1668ms plus three real-ingest synthetic usage records 1885ms; [shared header](../evidence/shell-mobile-responsive/README.md) retains 62px focused row/phone exit. | Transcript bytes/current producers, renderer/control, live interaction and full 08/11 design; historical reports do not grant authority or establish current accounting/quota. |
+| Supervisor | One stable global human conversation; canonical history empty, runtime unavailable, text composer and pending-safe receipt/recovery. | [Exact 2b3d full-page visual and owner proof](../implementation/supervisor-conversation-foundation.md) enqueued one human message only in disposable state. Current 5c canonical scope/draft probe passed 2206ms and enqueued none; historical 2b owner proof remains retained. Pure AQ17/mapper source is not a live central runtime. | Dock/full shared draft/reading state, context/attachments/evidence cards, central dispatch/replies and full 04/09/12 design. Queued history is not an assistant reply. |
 | Settings | Real identity/status/worker/project reads and current-account notification inspection. | [Notification owner/browser proof](../implementation/notification-inspection.md) has no external route/delivery. | Broader profile/observation/admin panels and supported actions; heartbeat does not establish capacity or eligibility. |
 | Shared shell | Compact 114px phone brand/project + Search/usage/connection header at 390/320; 69px desktop; bounded reason overlay preserves composer allocation. | [Actual compiled-bundle screenshots](../evidence/shell-mobile-responsive/README.md), 44px controls, Close/Escape/search/scope focus. Earlier dev results are explicitly source-only. | Populated account-quota producer qualification and the remaining full shared-shell/feature acceptance. |
 
@@ -39,10 +40,10 @@ separate missing producer; session accounting and provider availability cannot
 supply account-wide percentages or reset windows. No illustrative mockup facts
 are substituted for absent data.
 
-Native named read-only/scoped-auth source and KERNEL/static physical-peer checks
-are accepted within their recorded scope. Production capsule provisioning,
-upstream-key visibility, final implicit context/tool accounting and actual
-provider/tool admission remain open. [Native source/evidence limits](../../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md)
+Native named/scoped source, KERNEL/static and isolated actual-tool proof remain
+bounded; terminal output 409 and production capsule/key/context/provider gates
+remain open. AQ17 now has a pure 16-test authority model and shared mapper source,
+not durable dispatch/reply authority. [Native and central source/evidence limits](../../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md)
 are separate from these useful human dashboard increments.
 
 ## Parallel execution with eight subagents
