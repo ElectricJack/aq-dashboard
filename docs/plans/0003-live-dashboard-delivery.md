@@ -28,23 +28,56 @@ Paths below are relative to the owning repository. Existing routes and proposed 
 
 Search is implemented against mocks and needs the human Graph/read adapters. Provider quota is independently missing: session token/cost accounting and provider availability cannot supply account-wide quota percentages or reset windows.
 
-## Parallel execution with the available four agent slots
+## Parallel execution with eight subagents
 
-Keep one implementation agent on the native worker runner. Assign one agent to the current dashboard backend slice and one to its UI/visual work. The root owns contract coordination, review and deployment of the local preview. These are three implementation lanes plus integration, not a promise to run all feature teams simultaneously.
+The session has eight concurrent subagent slots plus the root coordinator. This is Codex development capacity, distinct from AQ worker/worktree capacity. Use two native lanes and six dashboard lanes initially. Each lane owns a concrete output and may cover backend and frontend for its isolated feature. Root reviews and integrates; eight agents do not require eight frontend writers or eight simultaneous builds.
 
-Start with `API-03` (human Graph reads) and `UI-05` (shared visual composition). The UI lane can immediately improve Agents and Settings using existing data under `UI-12`, then connect Work/Knowledge under `UI-06` as the Graph contract becomes available. Backend work next advances review discovery and playbook discovery. Rotate the same lanes through the following slices; avoid competing edits to bootstrap, routes and shared layout files.
+| Subagent | Initial assignment | Ownership and next handoff |
+| --- | --- | --- |
+| 1. Native adapter | WRK-17: concrete pinned harness adapter, private configuration/startup delivery, observed readiness and process ownership | `aq-worker` adapter/host integration and `native/launch/*`; hands a narrow executor/preflight interface to lane 2. Actual provider qualification remains WRK-08 |
+| 2. Native runner | WRK-18: production configuration/foreground command and native lifecycle orchestration | `main.rs`, configuration, new `native/runner/*`; tests orchestration with an explicit executor peer while lane 1 implements it. Joins the real adapter before enabling runtime admission |
+| 3. Human Graph API | API-03: tasks, dependencies, knowledge/revision and scoped search inputs | New human Graph authorization/query modules and contracts. Freeze common human authorization first, then task and knowledge DTOs independently; next API-10 typed commands |
+| 4. Shared visual and Agents | UI-13 shared interfaces, UI-05 visual composition, UI-17 focused read-only Agents | Shared tokens/components/shell, then `features/agents/`; next existing operational panels/UI-12. Publish component interfaces early so other UI owners can proceed |
+| 5. Work and Knowledge | UI-06: real Work/list/graph/detail, Knowledge and Search UI | Feature-local modules/adapters/fixtures. Build layout against the published DTOs while lane 3 implements routes; complete task and knowledge increments independently |
+| 6. Decisions vertical | API-04 + UI-07: actual discovery, evidence and revision-bound decisions | Review discovery module/tests and `features/decisions/`. Once delivered, take API-07/UI-16 conversation/history presentation; real supervisor replies still depend on AQ-17 |
+| 7. Playbooks vertical | API-05 + UI-08: configured discovery, pinned run timeline and supported actions | Playbook discovery modules/tests and `features/playbooks/`. Once delivered, take API-11/UI-18 media, followed by feedback when API-10 is ready |
+| 8. Results and Overview | API-06 + UI-14: real result metadata and exact evidence links | Result read modules/tests and metadata UI. After its first delivery take API-13/UI-15 partial Overview, then API-08/full UI-11 as source owners become ready |
+| Root, additional coordinator | Shared integration, reviews, contract publication and actual preview | Own router/bootstrap/capability wiring, contract-lock integration, migration number allocation, merged checks and preview publication. Do not reserve a subagent solely to wait for other work |
 
-| Delivery order | Backend work | UI work | Visible acceptance |
-| --- | --- | --- | --- |
-| 1. Working inspection | API-03; existing sessions/workers/observations/notifications APIs | UI-05, UI-06, UI-12; focused read-only portion of UI-03 | Real Work and Knowledge navigation; early partial Overview with actual task/project information; useful session/worker panels; mockup-aligned shell, inspectors and focused output |
-| 2. Operator workflows | API-04 and API-05; API-10 for supported task/knowledge writes | UI-07 and UI-08; UI-02 action recovery | Real review inbox/evidence/decision; configured playbook runs/timelines; task creation and typed edits with pending/conflict recovery |
-| 3. Results and Overview | API-06 then API-08 | First increment of UI-09, then UI-11 | Real result metadata/evidence and populated attention/outcomes; scope/freshness remain explicit |
-| 4. Conversation and richer evidence | API-07, API-11, API-12; AQ-17 for actual replies | UI-10, remaining UI-09 | Global supervisor conversation and reply; actual retained media, comments and one explicit feedback task |
-| Independent sources and terminal completion | API-09; existing AQ-21/WRK-14/observation/lifecycle owners | UI-03/UI-04, provider strip in UI-11 | Qualified account quota and terminal control appear only when their sources work; earlier read views remain useful |
+Start all eight once assignments and file ownership are established. First exchange the native executor interface and the human Graph/review/playbook/result DTO sketches; freeze these narrow interfaces before paired implementations depend on them. Use actual schemas/fixtures as the handoff, with exact errors, scope, revision and capability semantics. A UI may build against its proposed fixture before freeze, but it cannot claim live integration from that fixture.
 
-Results metadata can move ahead of slice 2 if its backend lane is free; API-06 depends on the completed retained-claims owner AQ-28, not full task settlement. Provider quota can be implemented independently, but lack of provider configuration must not stall Work or Knowledge. Likewise, a missing playbook or review installation must not disable unrelated tabs.
+WRK-17 and WRK-18 can progress independently after their executor/preflight interface is agreed. The runner must not advertise an eligible runtime while only a fake executor exists. Both owners review the final join. After that join, collapse native work to one owner if the remaining steps are sequential; move the freed slot to the earliest unblocked dashboard feature, quota source, or integration qualification. If a backend feature is not yet configured, develop its mounted owner tests in an isolated configured fixture rather than waiting for a model to run.
 
-Do not leave Overview unchanged until slice 3. API-03/UI-06 should supply its first bounded task/project contribution, with unavailable review/result sections still explicitly partial. Full aggregation and the secondary panels remain API-08/UI-11. Counts require an actual owner-provided fact and coverage; the browser must not count one loaded page as the total or infer current readiness from a task label.
+### Integration order and reassignment
+
+1. Freeze UI-13's panel/control/layout interfaces and initial read DTOs. This releases the feature UI work while UI-05's visual refinement continues.
+2. Integrate the first completed vertical immediately. Reviews, Playbooks and Results metadata do not wait for all Graph reads or the native runner. Publish each visible change in the live preview after its own route/adapter/browser check.
+3. Integrate Work/task/detail/dependencies and Knowledge as their respective Graph DTO/read slices stabilize. Keep API-03/UI-06 open until both scopes pass; do not withhold a working task view for unfinished document history.
+4. Deliver API-13/UI-15's partial Overview when task/project facts are available. Reviews/results add source contributions independently. Missing contributions remain partial; page-local counts never become global totals.
+5. Move completed owners to the next ready task: conversation/history, media, typed task/knowledge writes, notification/usage panels, then feedback and quota. A blocked real supervisor reply does not occupy a slot needed for ready read/UI work.
+6. Join the native adapter and runner, then qualify the real runtime under WRK-08. Full supervisor reply, terminal control, hibernation and final product acceptance remain with their existing owners.
+
+Provider quota is an independent source task. It does not gate core Overview delivery. Results metadata, media and feedback have separate child tasks. Supervisor presentation/history has a child task independent of the actual hosted reply. Each full parent remains open until all its declared behavior passes.
+
+### File ownership and contracts
+
+Each implementation agent uses isolated worktrees and one feature branch per repository it changes. A full-stack vertical may change both repositories, but declares a commit pair and integration order; it does not require a shared source checkout at runtime. No two agents write the same implementation file concurrently.
+
+- **Root wiring:** AQ `lib.rs`, shared dashboard router/bootstrap/capability aggregation and public contract locks; UI `routes.tsx`, `destinations.ts`, `session.tsx`, generic query/client plumbing, global mock-handler composition and the existing shared live-test file. Feature owners supply small registration patches for root to apply after review. Existing feature `index.tsx` files are feature-owned, so replacing a stub usually needs no route edit.
+- **Visual lane:** shell layout/CSS, shared tokens and generic controls. Freeze exports early; features use them without copying CSS or changing global styles. Root owns route registration; shell ownership does not include the whole `app/` directory.
+- **Feature lanes:** own their directories and dedicated API adapters, DTO/fixture/handler modules, route tests and `tests/live/<feature>.spec.ts`. Avoid simultaneous expansion of `inspection.ts`, `inspectionData.ts`, `handlers.ts` or `framework.spec.ts`.
+- **Native lanes:** lane 1 owns launch/host integration; lane 2 owns command/configuration/runner. Both review executor/preflight changes; promotion of the synthetic host is not an adapter implementation. Reuse the existing material owner and exact lifecycle journals.
+- **Shared state:** reserve any new migration numbers through root. Frozen component archives/contracts are not edited in place. Each contract change identifies the consuming owner before it is integrated.
+
+Enable a capability only after its mounted route and UI adapter are present in the same assembled candidate. This matters because current SessionProvider treats some protected 404/contract failures as a dashboard-wide compatibility failure. Independent features must not break otherwise working pages through premature capability publication. Navigation links reach a working detail or clearly indicate unavailability.
+
+### Source concurrency and test concurrency
+
+Eight source lanes share this host. Current observation: approximately 31 GiB RAM and 25 GiB free disk. These are resource facts, not a throughput qualification. Do not create a fresh multi-gigabyte Cargo cache for every worktree.
+
+Root assigns exclusive access to existing compatible target caches; never run Cargo concurrently against the same target directory from different worktrees. Start with at most two heavy Rust build/link processes globally, each using `CARGO_BUILD_JOBS=2`. Allow one frontend production build or full browser qualification at a time. Fast isolated component tests and source work may continue concurrently. Reduce concurrency if memory, disk or timing evidence requires it; do not widen deadlines to make overloaded tests pass.
+
+Use focused feature checks first and one composed check of the integrated candidate. Coordinate short quiet windows for the fixed-deadline Git/tmux/native process tests, then release the build slots immediately. Root updates/restarts the asset-loading preview and verifies the served bundle identity. Batch cross-feature reviews only when necessary; do not wait for all eight branches before showing the first useful delivery.
 
 ## Task contracts and existing package mapping
 
@@ -62,7 +95,7 @@ The following are new leaf tasks in the canonical AQ graph. Parent API-02/UI-01â
 | API-10 / agent-q | D01, D05, D11 | Human typed task creation/edit and knowledge author/correct/verify/retire commands using the existing durable Graph operation owner. Version guards and stable operation lookup; no raw Graph proxy |
 | API-11 / agent-q | D08 remainder | Media/evidence upload, finalize, authorized retrieval and capture-policy evaluation, with exact result revision, retention and explicit waiver semantics. Start with managed local storage and existing database metadata; no mandatory new external service |
 | API-12 / agent-q | D09 | Revision-pinned comments/region/time anchors, explicit feedback-task creation/linking and resolution; one task across lost responses. Posting a comment alone schedules nothing |
-| UI-05 / aq-dashboard | D03 | Shared visual composition, responsive shell/panels/controls, empty/partial/unavailable states, and visual baselines. Own `app/`, shared components/tokens and design comparison checklist |
+| UI-05 / aq-dashboard | D03 | Shared visual composition, responsive shell/panels/controls, empty/partial/unavailable states, and visual baselines. Own shell layout/CSS, shared components/tokens and design comparison checklist; root retains routes/session/query plumbing |
 | UI-06 / aq-dashboard | D04, D11 | Connect `features/work/`, `features/knowledge/` and search to API-03; reuse existing list/graph components, build document/revision inspector |
 | UI-07 / aq-dashboard | D05 | Build `features/decisions/`: inbox, evidence, exact-revision decision and recoverable pending/conflict draft |
 | UI-08 / aq-dashboard | D11 | Build `features/playbooks/`: discovery, pinned run timeline, definitions/bindings/activations and only supported actions |
@@ -70,6 +103,23 @@ The following are new leaf tasks in the canonical AQ graph. Parent API-02/UI-01â
 | UI-10 / aq-dashboard | D06 | Build `features/supervisor/`: one shared dock/full/mobile conversation and draft; end-to-end real reply depends on AQ-17 |
 | UI-11 / aq-dashboard | D04, D02 | Complete Overview's two-column composition, real aggregates/search links and provider strip using API-08/API-09. Each section reports its own coverage |
 | UI-12 / aq-dashboard | D04, D12 first increment | Connect worker status, profile/catalog, existing session observation/usage and human notification inspection in Agents/Settings. Future waits/stall control stay in UI-04; no new runtime authority inferred from these reads |
+
+### Bounded handoff and delivery tasks added for eight-way execution
+
+| Task | Completion boundary |
+| --- | --- |
+| WRK-17 / aq-worker | Concrete pinned adapter and final exec/readiness/ownership boundary; integrates through the agreed executor interface |
+| WRK-18 / aq-worker | Production runner/configuration/orchestration against that interface; final real execution remains WRK-08 |
+| UI-13 / aq-dashboard | Shared component/layout interface handoff; feature tasks depend on this rather than all UI-05 visual refinement |
+| API-13 / agent-q | Actual bounded task/project Overview contribution after API-03, before review/result aggregation |
+| UI-14 / aq-dashboard | Results metadata and revision detail after API-06; independent of media/comments |
+| UI-15 / aq-dashboard | Core Overview composition and actual partial summaries; independent of account quota |
+| UI-16 / aq-dashboard | Conversation/history/composer increment after API-07; real hosted replies remain UI-10/AQ-17 |
+| UI-17 / aq-dashboard | Focused read-only Agents workspace using existing APIs; full renderer/control remains UI-03 |
+| UI-18 / aq-dashboard | Actual retained media browsing after API-11; independent of feedback creation |
+| UI-19 / aq-dashboard | Comments/anchors and explicit feedback task UI after API-12 |
+
+Full UI-09 rolls up UI-14/UI-18/UI-19. Full UI-11 requires UI-15 and the remaining aggregate/quota owners. Full UI-10 requires UI-16 plus AQ-17. UI-01 retains UI-05's complete shared visual acceptance, even though feature development and completion can proceed after UI-13. This distinction is represented in the validated dependency graph rather than left only in prose.
 
 Full renderer/control remains UI-03/INT-02. Full hibernation/stall/notification workflows remain UI-04/INT-03. These owners are reused, not replaced with dashboard-side lifecycle logic.
 
@@ -100,9 +150,9 @@ The integration owner rebuilds the bundle, restarts the local daemon that loads 
 
 ## First implementation assignment
 
-1. Keep the native runner owner on WRK-08.
-2. Start API-03 with task list/detail and bounded dependencies; share its authorization/query layer with knowledge reads.
-3. Start UI-05 with the shell, panels and focused read-only Agents composition, then UI-12's existing operational reads. Connect UI-06 as API-03 freezes its first slice.
-4. Integrate and show a real Work task/detail/graph plus Knowledge document and the improved Agents page before expanding to more backend owners. Review/Playbooks are the next paired deliveries.
+1. Root establishes file ownership, the executor/preflight interface between WRK-17/WRK-18, and the first read/UI contract handoffs.
+2. Dispatch the eight rows above concurrently: two native, Graph, shared visual/Agents, Work/Knowledge, Decisions, Playbooks, and Results.
+3. Land UI-13 early. Feature lanes may then close their own live/design increments without waiting for UI-05's entire refinement.
+4. Publish the first completed real vertical, then continuously pull ready work into freed slots. Keep the full parent gates open until actual runtime, media, feedback and control behavior is qualified.
 
-This gives visible progress while the native runner advances, without waiting for terminal control, real supervisor replies, media capture or account quota to be finished.
+This replaces the earlier three-subagent allocation. It is a reviewed execution plan; updating it does not itself start implementation agents or change runtime capabilities.

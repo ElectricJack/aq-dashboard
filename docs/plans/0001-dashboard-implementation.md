@@ -2,7 +2,7 @@
 
 Status: proposed executable work breakdown, 2026-10-31. This plan completes the [product design](../specs/0002-product-design.md) through the [contract boundary](../specs/0003-dashboard-api.md). It expands the existing API-02/UI-01–UI-04 milestones without changing their status or silently modifying the ecosystem task graph. No tasks have been submitted to a daemon by writing this plan.
 
-**November 1 execution update:** [Live dashboard delivery and visual completion](0003-live-dashboard-delivery.md) reconciles every tab with the actual APIs and accepted mockups. API-03–API-12 and UI-05–UI-12 are now explicit leaf tasks in the canonical ecosystem graph. Use that update for current coverage, parallel assignment and per-increment acceptance; D00–D13 below remain the package map. This is planning work, not dispatch or implementation completion.
+**November 1 execution update:** [Live dashboard delivery and visual completion](0003-live-dashboard-delivery.md) reconciles every tab with the actual APIs and accepted mockups. API-03–API-13, UI-05–UI-19 and WRK-17/WRK-18 now provide explicit bounded tasks in the canonical ecosystem graph. The allocation now uses eight subagents plus root coordination. Use that update for current coverage, parallel assignment and per-increment acceptance; D00–D13 below remain the package map. This is planning work, not dispatch or implementation completion.
 
 ## 1. Architecture and stack decision
 
