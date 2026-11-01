@@ -96,6 +96,7 @@ try {
     await phoneInput.dispatchEvent("compositionstart"); await phoneInput.press("Enter"); await phoneInput.dispatchEvent("compositionend");
     expect(writes.length).toBe(allowEnqueue ? 1 : 0);
     const send = phone.getByRole("button", { name: "Send message", exact: true });
+    await phoneInput.press("Tab"); await expect(send).toBeFocused();
     await send.scrollIntoViewIfNeeded();
     const inputBounds = await phoneInput.boundingBox(), sendBounds = await send.boundingBox();
     const navigation = phone.getByRole("navigation", { name: "Primary (compact)", exact: true });

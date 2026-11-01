@@ -35,8 +35,8 @@
  .composer { padding: var(--space-3); }
  .composer textarea { block-size: 56px; min-block-size: 56px; }
  .runtime { line-height: 1.4; }
- .workspace:has(.composer textarea:focus) .header p,
- .workspace:has(.composer textarea:focus) .header button { display: none; }
- .workspace:has(.composer textarea:focus) .runtime { font-size: 12px; }
- .workspace:has(.composer textarea:focus) .history { min-block-size: 0; }
+ .workspace:has(.composer:focus-within) .header p,
+ .workspace:has(.composer:focus-within) .header button { display: none; }
+ .workspace:has(.composer:focus-within) .runtime { font-size: 12px; }
+ .workspace:has(.composer:focus-within) .history { min-block-size: 0; }
 }
