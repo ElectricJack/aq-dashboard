@@ -1,0 +1,48 @@
+{
+  "status": "source_only_synthetic_fixture_visual_qualified",
+  "source_commit": "cabcf76",
+  "base": "31270c4",
+  "production_build": false,
+  "canonical_runtime_changed": false,
+  "reference_images": [
+    "08-agents-focus-desktop.png",
+    "11-agent-mobile-v2.png",
+    "12-supervisor-mobile.png"
+  ],
+  "focused_tests": {
+    "count": 56,
+    "seconds": 4.97,
+    "files": [
+      "src/app/Shell.test.tsx",
+      "src/features/search/Search.test.tsx",
+      "src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx"
+    ]
+  },
+  "exact_tsc_b": "pass",
+  "fixture_name": "Private UDS inert startup fixture - external status unavailable",
+  "ready_provider_values": "Existing labelled contracts/proposed/provider-usage.json; not actual provider quota",
+  "interception": "Only project labels, bootstrap quota capability/reason and fixture provider usage; source Vite read proxy to4188",
+  "geometry": {
+    "desktop1440": 69,
+    "tablet1024": 69,
+    "tablet768": 69,
+    "phone390": 114,
+    "phone320": 114,
+    "focused_phone": 62
+  },
+  "files": {
+    "unavailable-1440.png": "224772583a03fb619b96557d20f0fd5c8b7a1d91179b3fcff87b55e423894ee7",
+    "earlier-nested-windows-clipped.png": "f5aad8c321cb4ac3b8d7844fe47161e1708c76566165a32503479499469911df",
+    "ready-1024.png": "d9808a3ce0e74655e5e51b10f963913b130a30281469cd7bb69eb76c13053f46",
+    "result.json": "51eca94376d59518644e62fbe9b45126bb4d45039492d94a90c9e43396998e97",
+    "probe-source-fixtures.mjs": "74d7fc40800f37c0432e17aeec3ac9c88f057d835a4874b917a46b845ccbdefb",
+    "short-ready-390.png": "c5b1a12e6dec36f28f907db73470eb31703f55f99836769d080b7baf81ed03e1",
+    "ready-overlay-320.png": "ee55a0d89b157a9ee7fd0f6333bd30916ebf62368c406d4f64eb2b1e1bfc25fa",
+    "ready-320.png": "763ab9aba1a8481e416c885d7725ee2d709721b6698392f9313dcec7ad366582",
+    "ready-768.png": "e6f9364180ebe18b45be7d0dba77cf69625028b3fd1256519577883bf341265f",
+    "unavailable-overlay-320.png": "e6e8db4c324000fb364ee7887288a0ddafb8f7e2b8612072591a105db2dd8e61",
+    "focused-ready-320.png": "4490874b1f02e2a202b599327e07f4d0021151f786ce7398ad2b055ca025a2d5",
+    "ready-1440.png": "c09ec83a1c727f81c8c0fe883ebc4f6414a5664298c0d60ff77ec39d2e4b170c",
+    "focused-unavailable-390.png": "ffc19a54dc2e0e62aca81522aeaeb79d7021d3ab25f940dcb593619fbe2fdaee"
+  }
+}
