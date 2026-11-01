@@ -43,7 +43,7 @@ try {
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } }); track(desktop);
   await desktop.goto(new URL("/supervisor", origin).href);
   await expect(desktop.getByRole("heading", { name: "Global supervisor", exact: true })).toBeVisible();
-  await expect(desktop.getByText(/Central runtime unavailable/)).toBeVisible();
+  await expect(desktop.getByText(/Supervisor is not connected/)).toBeVisible();
   const input = desktop.getByRole("textbox", { name: "Message the global supervisor", exact: true });
   for (const item of initial.items) await expect(desktop.getByRole("list", { name: "Supervisor messages" }).getByText(item.body, { exact: true })).toBeVisible();
   await capture(desktop, "desktop-conversation-history.png");
@@ -79,17 +79,41 @@ try {
     await scope.selectOption("all"); await expect(input).toHaveValue("Preserve this unsent global draft across project scope."); scopeSwitch = true;
   }
   expect(desktop.url()).not.toContain("Preserve");
-  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } }); track(phone);
-  await phone.goto(new URL("/supervisor", origin).href);
-  await expect(phone.getByRole("heading", { name: "Global supervisor", exact: true })).toBeVisible();
-  await expect(phone.getByText(/Central runtime unavailable/)).toBeVisible();
-  if (admitted) await expect(phone.getByRole("list", { name: "Supervisor messages" }).getByText("UI16 disposable fixture: verify durable queued text only.", { exact: true })).toBeVisible();
-  await capture(phone, "phone-conversation-history.png");
-  const phoneInput = phone.getByRole("textbox", { name: "Message the global supervisor", exact: true });
-  await phoneInput.fill("Unsent phone draft"); await phoneInput.scrollIntoViewIfNeeded(); await capture(phone, "phone-text-composer.png");
+  const phoneMeasurements = [];
+  for (const viewport of [{ width: 390, height: 844, name: "phone" }, { width: 320, height: 740, name: "compact" }, { width: 390, height: 530, name: "reduced" }]) {
+    const phone = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } }); track(phone);
+    await phone.goto(new URL("/supervisor", origin).href);
+    await expect(phone.getByRole("heading", { name: "Global supervisor", exact: true })).toBeVisible();
+    await expect(phone.getByText(/Supervisor is not connected/)).toBeVisible();
+    if (admitted) await expect(phone.getByRole("list", { name: "Supervisor messages" }).getByText("UI16 disposable fixture: verify durable queued text only.", { exact: true })).toBeVisible();
+    const initialSend = await phone.getByRole("button", { name: "Send message", exact: true }).boundingBox();
+    const initialNavigation = await phone.getByRole("navigation", { name: "Primary (compact)", exact: true }).boundingBox();
+    if (viewport.name !== "reduced") expect(initialSend.y + initialSend.height, "Send visible before focusing at normal phone height").toBeLessThanOrEqual(initialNavigation.y);
+    await capture(phone, `${viewport.name}-conversation-history.png`);
+    const phoneInput = phone.getByRole("textbox", { name: "Message the global supervisor", exact: true });
+    await phoneInput.fill("Unsent phone draft"); await phoneInput.focus();
+    await phoneInput.press("Shift+Enter");
+    await phoneInput.dispatchEvent("compositionstart"); await phoneInput.press("Enter"); await phoneInput.dispatchEvent("compositionend");
+    expect(writes.length).toBe(allowEnqueue ? 1 : 0);
+    const send = phone.getByRole("button", { name: "Send message", exact: true });
+    await send.scrollIntoViewIfNeeded();
+    const inputBounds = await phoneInput.boundingBox(), sendBounds = await send.boundingBox();
+    const navigation = phone.getByRole("navigation", { name: "Primary (compact)", exact: true });
+    const navBounds = await navigation.boundingBox();
+    expect(inputBounds.y).toBeGreaterThanOrEqual(0);
+    expect(inputBounds.y + inputBounds.height, "focused message field above phone navigation").toBeLessThanOrEqual(navBounds.y);
+    expect(sendBounds.y + sendBounds.height, "Send above phone navigation").toBeLessThanOrEqual(navBounds.y);
+    await capture(phone, `${viewport.name}-text-composer.png`);
+    phoneMeasurements.push({ viewport, initial_send: initialSend, input: inputBounds, send: sendBounds, navigation_top: navBounds.y });
+    await navigation.getByRole("link", { name: "Overview", exact: true }).click();
+    await expect(phone.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+    await phone.goBack();
+    await expect(phone.getByRole("heading", { name: "Global supervisor", exact: true })).toBeVisible();
+    expect(writes.length).toBe(allowEnqueue ? 1 : 0);
+  }
   expect(writes.length).toBe(allowEnqueue ? 1 : 0); expect(errors).toEqual([]);
   expect(reads.every(read => !new URLSearchParams(read.query).has("scope"))).toBe(true);
-  const result = { passed: true, origin: origin.origin, conversation_id: discovery.conversation.id, actor_id: bootstrap.data.principal.id, initial_human_rows: initial.items.length,
+  const result = { passed: true, origin: origin.origin, conversation_id: discovery.conversation.id, actor_id: bootstrap.data.principal.id, initial_human_rows: initial.items.length, phone_measurements: phoneMeasurements, keyboard_scope: "reduced viewport focus, Shift+Enter and composition event guard; physical OS keyboard not qualified",
     admitted, scope_switch_performed: scopeSwitch, runtime: discovery.runtime, references: ["04-supervisor-chat.png", "09-supervisor-full-desktop.png", "12-supervisor-mobile.png"],
     visual_subset: "full-page global human-message history and pending-safe text composer; docking deferred", served_bundle_digest: bootstrap.data.product.dashboard_digest,
     explicit_enqueue_requests: writes.length, page_errors: errors.length, captures, elapsed_ms: Math.round(performance.now() - started),

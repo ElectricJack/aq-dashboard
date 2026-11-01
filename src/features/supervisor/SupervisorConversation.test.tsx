@@ -53,7 +53,7 @@ test("keeps one global history and draft across project changes without scoped r
   await act(() => app.router.navigate("/supervisor?scope=project:other-project"));
   expect(await composer()).toHaveValue("Preserved global draft"); expect(screen.getByText("Retained human message 1")).toBeInTheDocument();
   expect(app.discoveries()).toBe(1); expect(app.reads.every(search => !search.includes("scope"))).toBe(true);
-  expect(screen.getByText(/Central runtime unavailable/)).toBeInTheDocument();
+  expect(screen.getByText(/Supervisor is not connected/)).toBeInTheDocument();
 });
 test("sends one frozen text-only intent and renders actual queued history without inventing a reply", async () => {
   const app = setup(); await ready(); await userEvent.type(await composer(), "Inspect the retained boundary");
