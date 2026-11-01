@@ -84,3 +84,13 @@ test("task inspector prioritizes acceptance and dependencies with verification i
  expect(within(region).getByText("Record details and verification")).toBeVisible();
  expect(within(region).queryByRole("heading",{name:"Verification"})).not.toBeInTheDocument();
 });
+
+test("a missing feature record stays scoped and keeps dashboard navigation available",async()=>{
+ enable();const n=handlers();
+ server.use(http.get(`/api/human/projects/${graphProject}/knowledge/${n.id}`,()=>HttpResponse.json({error:"not_found",message:"Not available"},{status:404})));
+ renderApp(`/knowledge/${n.id}${scope}`);
+ expect(await screen.findByText("This item does not exist or is not available to you.")).toBeInTheDocument();
+ expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
+ expect(screen.queryByRole("heading",{name:"Dashboard update required"})).not.toBeInTheDocument();
+ expect(screen.getByRole("heading",{name:"Knowledge",level:1})).toBeInTheDocument();
+});
