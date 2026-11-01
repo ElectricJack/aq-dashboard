@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState} from "react";
+import {useEffect,useId,useLayoutEffect,useRef,useState} from "react";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {Link,useSearchParams} from "react-router";
 import {Plus} from "lucide-react";
@@ -15,40 +15,56 @@ import styles from "./CreateTask.module.css";
 const blank:TaskDraft={title:"",body:"",acceptance_criteria:"",task_state:"draft"};
 export function CreateTaskAction(){
  const {bootstrap,queryContext}=useSession();const [scope]=useScope();const capability=bootstrap.capability("tasks.create");
+ const identity=`${queryContext.principalId}:${queryContext.authorizationRevision}`;const [revoked,setRevoked]=useState<string|null>(null);
  const project=scope.kind==="project"&&validGraphId(scope.project_id)?scope.project_id:undefined;
+ if(revoked===identity)return <div className={styles.action}><p role="alert" className={styles.warning}>Access changed. Reload after signing in to check the operation.</p><ActionButton onClick={()=>window.location.reload()}>Reload access</ActionButton></div>;
  if(!capability.enabled||!project)return <div className={styles.action}><ActionButton disabled title={!capability.enabled?capability.reason:"Choose a project first"}><Plus size={18} aria-hidden/>Create task</ActionButton><span className={styles.hint}>{!capability.enabled?capability.reason:"Choose a project first"}</span></div>;
- return <Composer key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} project={project}/>;
+ return <Composer key={`${identity}:${project}`} project={project} onAccessRevoked={()=>setRevoked(identity)}/>;
 }
-function Composer({project}:{project:string}){
+function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>void}){
  const {queryContext}=useSession();const client=useQueryClient();const [params,setParams]=useSearchParams();const raw=params.get("operation");const selectedOperation=validGraphId(raw)?raw:undefined;
- const [open,setOpen]=useState(!!selectedOperation);const [draft,setDraft]=useState<TaskDraft>({...blank});const [frozen,setFrozen]=useState<FrozenTaskCreate|null>(null);
- const [status,setStatus]=useState<TaskOperation|null>(null);const [created,setCreated]=useState<GraphNode|null>(null);const [error,setError]=useState<string|null>(null);const [readError,setReadError]=useState<string|null>(null);const [busy,setBusy]=useState(false);
+ const [open,setOpen]=useState(!!selectedOperation);const [draft,setDraft]=useState<TaskDraft>({...blank});const [frozenIntent,setFrozen]=useState<FrozenTaskCreate|null>(null);
+ const [operationStatus,setStatus]=useState<TaskOperation|null>(null);const [verifiedTask,setCreated]=useState<GraphNode|null>(null);const [error,setError]=useState<string|null>(null);const [readError,setReadError]=useState<string|null>(null);const [busy,setBusy]=useState(false);
  const active=useRef(true),busyRef=useRef(false),frozenRef=useRef<FrozenTaskCreate|null>(null),request=useRef<AbortController|null>(null);const dialog=useRef<HTMLDialogElement>(null);const initialLookup=useRef<string|null>(null);const titleId=useId();
- const operation=frozen?.operationId??selectedOperation;
+ const sequence=useRef(0),urlOperation=useRef(selectedOperation),internalUrl=useRef<{value:string|undefined}|null>(null);
+ const operation=selectedOperation??(internalUrl.current?.value===frozenIntent?.operationId?frozenIntent?.operationId:undefined);
+ const frozen=frozenIntent?.operationId===operation?frozenIntent:null;
+ const status=operationStatus?.operation_id===operation?operationStatus:null;
+ const created=status?.state==="confirmed"&&verifiedTask?.id===operation?verifiedTask:null;
  const context=useQuery({queryKey:queryKey(queryContext,"task-create-context",{project}),enabled:open&&!operation,retry:false,refetchOnWindowFocus:false,staleTime:0,
   queryFn:async({signal})=>adaptGraphPage(await apiGet<unknown>(`${graphPath(project,"task")}?limit=1`,signal),project,"task").project});
  useEffect(()=>{active.current=true;return()=>{active.current=false;request.current?.abort();};},[]);
+ useLayoutEffect(()=>{
+  if(urlOperation.current===selectedOperation)return;
+  urlOperation.current=selectedOperation;const own=internalUrl.current!==null&&internalUrl.current.value===selectedOperation;internalUrl.current=null;
+  if(own)return; // Our first submit/revise changes the URL without replacing its intent.
+  sequence.current++;request.current?.abort();request.current=null;busyRef.current=false;setBusy(false);
+  clearPrivate();setOpen(!!selectedOperation);
+ },[selectedOperation]);
  useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current?.close();},[open]);
- function operationParam(value?:string){setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set("operation",value);else next.delete("operation");return next;},{replace:true});}
- async function verifyTask(value:TaskOperation,signal:AbortSignal){
+ function clearPrivate(){frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setDraft({...blank});setReadError(null);setError(null);initialLookup.current=null;}
+ function current(ticket:number){return active.current&&sequence.current===ticket;}
+ function revokeAccess(){sequence.current++;active.current=false;request.current?.abort();request.current=null;busyRef.current=false;setBusy(false);clearPrivate();onAccessRevoked();void client.invalidateQueries({queryKey:["bootstrap"]});}
+ function operationParam(value?:string){internalUrl.current={value};setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set("operation",value);else next.delete("operation");return next;},{replace:true});}
+ async function verifyTask(value:TaskOperation,signal:AbortSignal,ticket:number){
   if(value.state!=="confirmed"||!value.receipt)return;
   try{
    const record=adaptGraphDetail(await apiGet<unknown>(graphPath(project,"task",value.task_id),signal),project,"task",value.task_id);
    if(record.project.workspace_id!==value.receipt.workspace_id)throw new Error("Task workspace changed");
-   if(active.current){setCreated(record.data);setReadError(null);void client.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","overview-task-contributions"].includes(String(q.queryKey[4]))});}
-  }catch(reason){if(active.current){setCreated(null);setReadError("The creation receipt is confirmed, but the task record could not be read. Check the task record again.");if(reason instanceof ApiError&&[401,403].includes(reason.status??0))void client.invalidateQueries({queryKey:["bootstrap"]});}}
+   if(current(ticket)){setCreated(record.data);setReadError(null);void client.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","overview-task-contributions"].includes(String(q.queryKey[4]))});}
+  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){revokeAccess();return;}setCreated(null);setReadError("The creation receipt is confirmed, but the task record could not be read. Check the task record again.");}}
  }
  async function execute(kind:"submit"|"lookup"|"recover",id:string,intent?:FrozenTaskCreate){
-  const controller=new AbortController();request.current=controller;
+  const ticket=++sequence.current;const controller=new AbortController();request.current=controller;
   try{
    const path=kind==="submit"?graphPath(project,"task"):`/api/human/operations/${encodeURIComponent(id)}${kind==="recover"?"/recover":""}`;
    const raw=await taskOperationRequest(kind==="lookup"?"GET":"POST",path,kind==="submit"?intent!.bytes:kind==="recover"?"{}":undefined,controller.signal);
    const value=adaptTaskOperation(raw,{operationId:id,project,actor:queryContext.principalId,...(intent?{digest:intent.digest}:{})});
-   if(!active.current)return;setStatus(value);setError(null);await verifyTask(value,controller.signal);
-  }catch(reason){if(active.current){setCreated(null);setError(reason instanceof ApiError&&[401,403].includes(reason.status??0)?"Access changed. Sign in and check the operation before continuing.":"The operation outcome is not confirmed. Check its status before starting another task.");if(reason instanceof ApiError&&[401,403].includes(reason.status??0))void client.invalidateQueries({queryKey:["bootstrap"]});}}
-  finally{if(active.current){setBusy(false);busyRef.current=false;}request.current=null;}
+   if(!current(ticket))return;setStatus(value);setCreated(null);setReadError(null);setError(null);await verifyTask(value,controller.signal,ticket);
+  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){revokeAccess();return;}setCreated(null);setError("The operation outcome is not confirmed. Check its status before starting another task.");}}
+  finally{if(current(ticket)){setBusy(false);busyRef.current=false;}if(request.current===controller)request.current=null;}
  }
- async function lookup(){if(!operation||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("lookup",operation,frozenRef.current??undefined);}
+ async function lookup(){if(!operation||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("lookup",operation,frozenRef.current?.operationId===operation?frozenRef.current:undefined);}
  useEffect(()=>{
   if(!selectedOperation||frozenRef.current?.operationId===selectedOperation||initialLookup.current===selectedOperation)return;
   initialLookup.current=selectedOperation;if(busyRef.current)return;busyRef.current=true;setBusy(true);void execute("lookup",selectedOperation);
@@ -59,13 +75,14 @@ function Composer({project}:{project:string}){
   event.preventDefault();if(busyRef.current||operation||!context.data||context.isFetching)return;
   const problem=validateTaskDraft(draft);if(problem){setError(problem);return;}
   busyRef.current=true;setBusy(true);setError(null);
-  try{const intent=await freezeTaskCreate(project,queryContext.principalId,context.data.revision,draft);if(!active.current)return;setStatus(null);setCreated(null);setReadError(null);frozenRef.current=intent;setFrozen(intent);operationParam(intent.operationId);await execute("submit",intent.operationId,intent);}
-  catch{if(active.current){setError("The task request could not be prepared. Your draft is preserved.");setBusy(false);busyRef.current=false;}}
+  const preparation=sequence.current;
+  try{const intent=await freezeTaskCreate(project,queryContext.principalId,context.data.revision,draft);if(!current(preparation))return;setStatus(null);setCreated(null);setReadError(null);frozenRef.current=intent;setFrozen(intent);operationParam(intent.operationId);await execute("submit",intent.operationId,intent);}
+  catch{if(current(preparation)){setError("The task request could not be prepared. Your draft is preserved.");setBusy(false);busyRef.current=false;}}
  }
- async function recover(){if(!operation||busyRef.current||!status?.recovery.allowed)return;busyRef.current=true;setBusy(true);await execute("recover",operation,frozenRef.current??undefined);}
- async function retryOriginal(){if(!frozenRef.current||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("submit",frozenRef.current.operationId,frozenRef.current);}
+ async function recover(){if(!operation||busyRef.current||!status?.recovery.allowed)return;busyRef.current=true;setBusy(true);await execute("recover",operation,frozenRef.current?.operationId===operation?frozenRef.current:undefined);}
+ async function retryOriginal(){if(!frozenRef.current||frozenRef.current.operationId!==operation||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("submit",frozenRef.current.operationId,frozenRef.current);}
  function revise(){if(!status||!["conflict","rejected","confirmed"].includes(status.state)||busyRef.current)return;if(status.state==="confirmed")setDraft({...blank});frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setReadError(null);setError(null);initialLookup.current=null;operationParam();void context.refetch();}
- function leaveConfirmedTask(){setOpen(false);frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setDraft({...blank});setReadError(null);setError(null);initialLookup.current=null;}
+ function leaveConfirmedTask(){setOpen(false);clearPrivate();}
  const terminal=status&&["conflict","rejected","confirmed"].includes(status.state);
  return <>
   <div className={styles.action}><ActionButton className={styles.primary} onClick={()=>{setOpen(true);if(!operation)void context.refetch();}}><Plus size={18} aria-hidden/>{operation?"Task operation":"Create task"}</ActionButton></div>
