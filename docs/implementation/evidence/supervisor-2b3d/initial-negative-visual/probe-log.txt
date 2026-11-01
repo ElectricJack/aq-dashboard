@@ -1,0 +1,7 @@
+
+running 1 test
+{"passed":true,"origin":"http://127.0.0.1:45047","conversation_id":"70993aaa-b03c-4305-bc06-2cbb57e74374","actor_id":"a6f36c2b-371d-4a1b-8bd7-f04703b44f98","initial_human_rows":2,"admitted":{"operation_id":"abd0187e-1149-40ea-9bc1-91416d0a54f8","message_id":"b5eaa10e-9d30-4ba4-83da-0dd367a4d27d","cursor":"3","state":"queued","delivery":"not_attempted"},"scope_switch_performed":false,"runtime":{"state":"unavailable","binding":null,"reason":"central_runtime_not_connected"},"references":["04-supervisor-chat.png","09-supervisor-full-desktop.png","12-supervisor-mobile.png"],"visual_subset":"full-page global human-message history and pending-safe text composer; docking deferred","served_bundle_digest":"sha256:7c98faa820f51f21991d9fe2b33b06041fc8f1bc80c03d482ee34d498329ffa6","explicit_enqueue_requests":1,"page_errors":0,"captures":["/tmp/aq-supervisor-owner-browser/desktop-conversation-history.png","/tmp/aq-supervisor-owner-browser/desktop-queued-message.png","/tmp/aq-supervisor-owner-browser/phone-conversation-history.png","/tmp/aq-supervisor-owner-browser/phone-text-composer.png"],"elapsed_ms":1168,"note":"Actual mailbox owner and SQL history; optional single enqueue uses the disposable synthetic owner fixture. Queued only, no delivery/runtime/provider/worker claim or fabricated replies. No interception or body storage."}
+test history_replay_retained_refusals_and_shared_owner_scope_use_one_mailbox ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 2.28s
+

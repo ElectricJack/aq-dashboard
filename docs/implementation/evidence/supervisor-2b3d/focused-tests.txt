@@ -1,0 +1,13 @@
+
+> aq-dashboard@0.0.0 test /tmp/aq-supervisor-conversation-ui-v2
+> vitest run src/api/adapters/supervisor.test.ts src/api/adapters/supervisorLiveContract.test.ts src/api/supervisorClient.test.ts src/features/supervisor/SupervisorConversation.test.tsx
+
+
+ RUN  v5.0.5 /tmp/aq-supervisor-conversation-ui-v2
+
+
+ Test Files  4 passed (4)
+      Tests  30 passed (30)
+   Start at  10:51:07
+   Duration  4.00s (tests 49%, environment 35%, setup 7%, import 5%, transform 4%)
+
