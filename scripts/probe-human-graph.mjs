@@ -31,6 +31,13 @@ async function read(path) {
   if(path.startsWith("/api/human/")) { expect(value.contract).toBe("human-graph-1");expect(value.project.id).toBe(project); }
   return value;
 }
+async function expectDocumentBody(container, body) {
+  const preview=container.locator("[data-document-body]").first();
+  for(const line of body.split(/\r?\n/).filter(line=>line.trim()&&!/^\s*```/.test(line))) {
+    const readable=line.replace(/^#{1,6}\s+/,"").replace(/^\s*(?:[-+*]|\d+\.)\s+/,"");
+    await expect(preview).toContainText(readable);
+  }
+}
 const scope=new URLSearchParams({scope:`project:${project}`}).toString();
 const human=`/api/human/projects/${project}`;
 const screenshot=async (name,target=page)=>{
@@ -64,7 +71,7 @@ try {
   const taskList=page.getByRole("list",{name:"Tasks",exact:true});
   await taskList.getByRole("link").filter({hasText:task.title}).click();
   const taskDetail=page.getByRole("region",{name:task.title,exact:true});
-  await expect(taskDetail).toBeVisible();await expect(taskDetail.getByText(task.body,{exact:true})).toBeVisible();
+  await expect(taskDetail).toBeVisible();await expectDocumentBody(taskDetail,task.body);
   await expect(taskDetail.getByText(`Current revision ${task.content_revision}`,{exact:true})).toBeVisible();
   expect(new URL(page.url()).searchParams.get("scope")).toBe(`project:${project}`);
   await screenshot("work-detail-desktop.png");
@@ -73,16 +80,28 @@ try {
   await expect(neighborhood.getByText(/one-hop neighborhood/)).toBeVisible();
   for(const node of graph.nodes) await expect(neighborhood.getByRole("link").filter({hasText:node.title})).toBeVisible();
   await screenshot("work-graph-desktop.png");
+  const neighbor=graph.nodes.find(node=>node.id!==taskId);
+  if(neighbor) {
+    const link=neighborhood.getByRole("link").filter({hasText:neighbor.title});
+    await link.click();
+    await expect(page.getByRole("region",{name:neighbor.title,exact:true})).toBeVisible();
+    await expect(neighborhood).toBeVisible();await expect(link).toHaveAttribute("aria-current","page");
+    expect(new URL(page.url()).searchParams.get("view")).toBe("graph");
+    expect(new URL(page.url()).searchParams.get("root")).toBe(taskId);
+    await screenshot("work-graph-selection-desktop.png");
+    await page.goBack();await expect(taskDetail).toBeVisible();
+  }
   await page.goBack();await expect(taskDetail).toBeVisible();
   await page.reload();await expect(taskDetail.getByText(`Current revision ${task.content_revision}`,{exact:true})).toBeVisible();
   await page.goto(new URL(`/knowledge/${knowledgeId}?${scope}`,origin).href);
   const document=page.getByRole("region",{name:knowledge.title,exact:true});
-  await expect(document.getByText(knowledge.body,{exact:true})).toBeVisible();
+  await expectDocumentBody(document,knowledge.body);
   await expect(document.getByText(`Current revision ${knowledge.content_revision}`,{exact:true})).toBeVisible();
   await screenshot("knowledge-content-desktop.png");
   await document.getByRole("button",{name:`Sources (${knowledge.provenance.length})`,exact:true}).click();
   if(knowledge.provenance.length) await expect(document.getByRole("list",{name:"Recorded sources"}).getByRole("listitem")).toHaveCount(knowledge.provenance.length);
-  await document.getByRole("button",{name:"Record & revisions",exact:true}).click();
+  await document.getByRole("button",{name:"History",exact:true}).click();
+  await document.getByText("Record details",{exact:true}).click();
   await expect(document.getByText("Record version",{exact:true}).locator("xpath=following-sibling::dd[1]")).toHaveText(knowledge.version);
   await document.getByLabel("Exact content revision").fill(knowledge.content_revision);
   await document.getByRole("button",{name:"View revision",exact:true}).click();
@@ -111,18 +130,30 @@ try {
   await expect(phoneTask.getByRole("link",{name:"All tasks",exact:true})).toBeVisible();
   expect(await phone.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
   await screenshot("work-detail-mobile.png",phone);
+  await phone.getByRole("navigation",{name:"Work view"}).getByRole("button",{name:"Graph",exact:true}).click();
+  const phoneGraph=phone.getByRole("region",{name:"Dependency graph",exact:true});
+  await expect(phoneGraph.getByText(/one-hop neighborhood/)).toBeVisible();
+  const canvas=phoneGraph.getByRole("region",{name:"Scrollable task graph",exact:true});
+  if(graph.nodes.length>1) {
+    await expect(phoneGraph.getByRole("button",{name:"Pan right",exact:true})).toBeVisible();
+    await phoneGraph.getByRole("button",{name:"Pan right",exact:true}).click();
+    await expect.poll(()=>canvas.evaluate(element=>element.scrollLeft)).toBeGreaterThan(0);
+  }
+  await screenshot("work-graph-mobile.png",phone);
+  await phone.getByRole("navigation",{name:"Work view"}).getByRole("button",{name:"List",exact:true}).click();
   await phoneTask.getByRole("link",{name:"All tasks",exact:true}).click();await expect(phone.getByRole("list",{name:"Tasks",exact:true})).toBeVisible();
   await phone.goto(new URL(`/knowledge/${knowledgeId}?${scope}&revision=${encodeURIComponent(knowledge.content_revision)}`,origin).href);
   const phoneDocument=phone.getByRole("region",{name:knowledge.title,exact:true});
   await expect(phoneDocument.getByText(`Pinned revision ${pinned.content_revision}`,{exact:true})).toBeVisible();
   expect(await phone.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
   await screenshot("knowledge-pinned-mobile.png",phone);
-  await phoneDocument.getByRole("button",{name:"Record & revisions",exact:true}).click();
+  await phoneDocument.getByRole("button",{name:"History",exact:true}).click();
+  await phoneDocument.getByText("Record details",{exact:true}).click();
   await expect(phoneDocument.getByText("Record version",{exact:true}).locator("xpath=following-sibling::dd[1]")).toHaveText(knowledge.version);
   await phoneDocument.getByRole("link",{name:"All records",exact:true}).click();await expect(phone.getByRole("list",{name:"Knowledge records",exact:true})).toBeVisible();
   await phone.close();
   await expect(page.getByText(/Mock data/)).toHaveCount(0);expect(mutations).toEqual([]);expect(errors).toEqual([]);
-  const result={passed:true,origin:origin.origin,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
+  const result={passed:true,origin:origin.origin,served_bundle_digest:bootstrap.data.product.dashboard_digest,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
   await writeFile(join(output,"result.json"),JSON.stringify(result,null,2)+"\n");console.log(JSON.stringify(result));
 } catch(error) {
   await screenshot("failure.png").catch(()=>{});
