@@ -1,7 +1,7 @@
 import { useId, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import styles from "./Workspace.module.css";
 
-function classes(base: string, extra?: string) { return extra ? `${base} ${extra}` : base; }
+function classes(base: string | undefined, extra?: string) { return [base, extra].filter(Boolean).join(" "); }
 /** Shared presentation only. Feature owners retain data, capability and action policy. */
 export function Panel({ title, description, actions, children, className, ...props }: Omit<ComponentPropsWithoutRef<"section">, "title"> & {
   title: ReactNode; description?: ReactNode; actions?: ReactNode;
