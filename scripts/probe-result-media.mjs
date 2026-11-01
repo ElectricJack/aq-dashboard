@@ -28,7 +28,7 @@ await mkdir(output, { recursive: true });
 const api = await request.newContext({ baseURL: origin.origin, timeout: 10000, maxRedirects: 0 });
 const browser = await chromium.launch({ headless: true });
 const started = performance.now(), captures = [], pages = [], errors = [], browserWrites = [], external = [], requests = [], mutations = [];
-let admitted = null;
+let admitted = null, attemptedIntent = null;
 async function get(path) { const response = await api.get(path); expect(response.status(), path).toBe(200); return response.json(); }
 async function mutate(method, path, data, mime) {
   mutations.push({ method, path });
@@ -47,6 +47,29 @@ function pngShape(bytes, descriptor) {
   expect(bytes[24]).toBe(8); expect([2, 6]).toContain(bytes[25]); expect(bytes[28]).toBe(0);
   if (descriptor) { expect(width).toBe(descriptor.width); expect(height).toBe(descriptor.height); expect(bytes[25]).toBe(6); }
   return { width, height };
+}
+function inputPngPolicy(bytes) {
+  // Do not rewrite screenshots. Abort before admission if Chromium emits unsupported metadata.
+  const kinds = []; let offset = 8, idat = false, afterIdat = false, srgb = false, ended = false;
+  while (offset < bytes.length) {
+    expect(offset + 12).toBeLessThanOrEqual(bytes.length);
+    const length = bytes.readUInt32BE(offset), end = offset + 12 + length;
+    expect(end).toBeLessThanOrEqual(bytes.length);
+    const kind = bytes.toString("ascii", offset + 4, offset + 8); kinds.push(kind);
+    expect(["IHDR", "sRGB", "IDAT", "IEND"]).toContain(kind);
+    let crc = 0xffffffff;
+    for (const value of bytes.subarray(offset + 4, end - 4)) { crc ^= value; for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1; }
+    expect(bytes.readUInt32BE(end - 4)).toBe((crc ^ 0xffffffff) >>> 0);
+    if (kinds.length === 1) { expect(kind).toBe("IHDR"); expect(length).toBe(13); }
+    else expect(kind).not.toBe("IHDR");
+    if (kind === "sRGB") { expect(srgb || idat).toBe(false); expect(length).toBe(1); expect(bytes[offset + 8]).toBeLessThanOrEqual(3); srgb = true; }
+    if (kind === "IDAT") { expect(afterIdat).toBe(false); idat = true; }
+    else if (idat) afterIdat = true;
+    if (kind === "IEND") { expect(length).toBe(0); expect(idat).toBe(true); expect(end).toBe(bytes.length); ended = true; }
+    offset = end;
+  }
+  expect(ended).toBe(true); expect(bytes[26]).toBe(0); expect(bytes[27]).toBe(0);
+  return kinds;
 }
 function track(page) {
   pages.push(page); page.on("pageerror", error => errors.push(error.message));
@@ -74,10 +97,10 @@ try {
   const source = await browser.newPage({ viewport: { width: 960, height: 600 }, deviceScaleFactor: 1 }); track(source); await source.goto(new URL(pagePath, origin).href);
   await expect(source.getByRole("heading", { name: label, exact: true })).toBeVisible();
   const inputPath = join(output, "aq-disposable-fixture.png"); const bytes = await source.screenshot({ path: inputPath, type: "png" });
-  const dimensions = pngShape(bytes); expect(bytes.length).toBeLessThanOrEqual(1048576); expect(dimensions).toEqual({ width: 960, height: 600 }); await source.close();
+  const dimensions = pngShape(bytes), inputChunks = inputPngPolicy(bytes); expect(bytes.length).toBeLessThanOrEqual(1048576); expect(dimensions).toEqual({ width: 960, height: 600 }); await source.close();
   const operation = randomUUID(), input = { digest: sha(bytes), bytes: bytes.length, filename: "aq-disposable-fixture.png" };
   const create = { operation_id: operation, input_digest: input.digest, input_bytes: input.bytes, filename: input.filename, capture: null };
-  const raw = Buffer.from(JSON.stringify(create)); await writeFile(join(output, "upload-create.json"), raw);
+  const raw = Buffer.from(JSON.stringify(create)); attemptedIntent = { operation_id: operation, request_digest: sha(raw), input }; await writeFile(join(output, "upload-create.json"), raw);
   const reservationResponse = await mutate("POST", `${reportPath}/media-uploads`, raw, "application/json"); expect(reservationResponse.status()).toBe(201);
   const reservation = await reservationResponse.json(); assertStatus(reservation, raw, input, operation); expect(reservation.state).toBe("reserved"); expect(reservation.artifact).toBe(null); expect(reservation.recovery.put_allowed).toBe(true);
   const operationPath = `/api/human/result-media-uploads/${operation}`;
@@ -112,10 +135,10 @@ try {
   }
   const final = await get(mediaPath); expect(final.items.map(item => item.receipt_digest)).toEqual([artifact.receipt_digest]); expect((await get(operationPath)).artifact.receipt_digest).toBe(artifact.receipt_digest);
   expect(browserWrites).toEqual([]); expect(mutations.map(item => item.method)).toEqual(["POST", "PUT", "POST"]); expect(external).toEqual([]); expect(errors).toEqual([]);
-  admitted = { operation_id: operation, artifact_id: receipt.artifact_id, request_digest: status.request_digest, receipt_digest: artifact.receipt_digest, input, dimensions, state: status.state };
+  admitted = { operation_id: operation, artifact_id: receipt.artifact_id, request_digest: status.request_digest, receipt_digest: artifact.receipt_digest, input, dimensions, input_chunks: inputChunks, state: status.state };
   const result = { passed: true, source_only: false, origin: origin.origin, qualification: "Actual disposable AQ Owner/SQL/private PNG storage and actual compiled client; one explicit human-supplemental upload", served_bundle_digest: bundleDigest, binding: expected, actor_id: actor, fixture_label: label, admitted, direct_proof: directProof, views, captures, input_capture: inputPath, mutations, browser_mutations: browserWrites, external_requests: external, page_errors: errors, media_reads: requests, elapsed_ms: Math.round(performance.now() - started), references: ["10-results-desktop-v2.png", "13-results-mobile-v2.png"], limits: "Positive read/selector/expand/close/refresh/reload only. Authorization/expiry/late-result negatives qualified separately. No worker capture/source coverage/acceptance/provider claim. Listing availability alone is not SHA proof." };
   await writeFile(join(output, "result.json"), JSON.stringify(result, null, 2) + "\n"); console.log(JSON.stringify(result));
 } catch (error) {
   for (const [index, page] of pages.entries()) if (!page.isClosed()) await page.screenshot({ path: join(output, `failure-${index}.png`) }).catch(() => {});
-  await writeFile(join(output, "result.json"), JSON.stringify({ passed: false, source_only: false, error: String(error), admitted, captures, errors, mutations, browser_mutations: browserWrites, external_requests: external }, null, 2) + "\n"); throw error;
+  await writeFile(join(output, "result.json"), JSON.stringify({ passed: false, source_only: false, error: String(error), attempted_intent: attemptedIntent, admitted, captures, errors, mutations, browser_mutations: browserWrites, external_requests: external }, null, 2) + "\n"); throw error;
 } finally { await api.dispose(); await browser.close(); }
