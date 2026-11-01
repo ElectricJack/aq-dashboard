@@ -19,20 +19,22 @@ function Sessions() {
  </section>;
 }
 export function Infrastructure() {
- const {bootstrap,queryContext,connection}=useSession();
+ const {bootstrap,queryContext}=useSession();
  const capability=bootstrap.capability("workers.read");
  const workers=useQuery({queryKey:queryKey(queryContext,"overview-worker-heartbeats",{}),enabled:capability.enabled,retry:false,refetchInterval:15000,queryFn:async({signal})=>adaptOverviewWorkers(await apiGet<unknown>("/api/workers",signal))});
  return <aside className={styles.secondary} aria-label="Infrastructure observations">
- <section className={styles.panel} aria-labelledby="overview-workers-heading"><h2 id="overview-workers-heading">Worker nodes</h2>
- <p className={styles.meta}>Installation-wide heartbeat observations</p>
+ <section className={styles.panel} aria-labelledby="overview-capacity-heading">
+ <h2 id="overview-capacity-heading">Capacity</h2><p className={styles.capacityValue}>Not reported</p>
+ <p className={styles.meta}>Slot capacity and project eligibility are not reported here.</p>
+ <section className={styles.infrastructureSection} aria-labelledby="overview-workers-heading"><h3 id="overview-workers-heading">Worker nodes</h3>
  {!capability.enabled?<p className={styles.meta}>{capability.reason}</p>:!workers.data||workers.isError?<QueryStatus status={workers.isError?"error":"pending"} error={workers.error} label="worker heartbeats" onRetry={()=>void workers.refetch()}/>:<>
- <p className={styles.workerTotal}><strong>{workers.data.length}</strong> enrolled</p>
- {workers.data.length===0?<p className={styles.meta}>No enrolled worker records.</p>:<ul className={styles.snapshotList}>{workers.data.slice(0,4).map(worker=><li key={worker.id}><strong>{worker.name}</strong><span className={styles.meta}>{worker.status==="online"?"Heartbeat online":worker.status==="offline"?"Heartbeat offline":worker.status==="revoked"?"Revoked":"Heartbeat state unknown"}</span>{worker.last_seen_at&&<time className={styles.meta} dateTime={worker.last_seen_at}>{worker.last_seen_at}</time>}</li>)}</ul>}
- {workers.data.length>4&&<p className={styles.meta}>Showing 4 of {workers.data.length} workers.</p>}
+ <p className={styles.meta}>{workers.data.length} enrolled worker records · installation-wide</p>
+ {workers.data.length===0?<p className={styles.meta}>No enrolled worker records.</p>:<details className={styles.observationDetails}><summary>Inspect heartbeat observations</summary><ul className={styles.snapshotList}>{workers.data.slice(0,4).map(worker=><li key={worker.id}><strong>{worker.name}</strong><span className={styles.meta}>{worker.status==="online"?"Heartbeat online":worker.status==="offline"?"Heartbeat offline":worker.status==="revoked"?"Revoked":"Heartbeat state unknown"}</span>{worker.last_seen_at&&<time className={styles.meta} dateTime={worker.last_seen_at}>{worker.last_seen_at}</time>}</li>)}</ul>{workers.data.length>4&&<p className={styles.meta}>Showing 4 of {workers.data.length} workers.</p>}</details>}
  </>}
- <p className={styles.meta}>Slot capacity and project eligibility are not reported here.</p><Link to="/settings">Inspect configuration →</Link>
+ </section>
+ <section className={styles.infrastructureSection} aria-labelledby="overview-provider-heading"><h3 id="overview-provider-heading">Provider status</h3><p className={styles.meta}>Availability not reported.</p></section>
+ <Link to="/settings">Inspect configuration →</Link>
  </section>
  <Sessions/>
- <section className={styles.panel} aria-labelledby="overview-connection-heading"><h2 id="overview-connection-heading">Connection</h2><p>{connection==="connected"?"Dashboard connected":connection==="signed_out"?"Signed out":"AQ unreachable"}</p><p className={styles.meta}>Provider account usage remains in the top bar when a source is available.</p></section>
  </aside>;
 }

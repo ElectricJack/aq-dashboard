@@ -203,3 +203,16 @@
 .meta { overflow-wrap: anywhere; }
 @media(min-width:1200px) { .columns { grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); } }
 @media(max-width:767px) { .counts { gap: var(--space-3); justify-content: space-between; padding: var(--space-4); } .taskList li { flex-wrap: wrap; } }
+
+/* Reference01 groups project movement/outcomes and capacity/provider facts. */
+.recordedTasks { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.recordedTasks>h3 { margin: 0; font-size: var(--font-size-meta); color: var(--color-text-secondary); font-weight: 400; }
+.projectList { gap: var(--space-3); }
+.taskCounts { padding-block: var(--space-2); }
+.observationDetails { margin-block-start: var(--space-2); font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+.observationDetails summary { cursor: pointer; min-block-size: 28px; }
+.outcomeSection, .infrastructureSection { padding-block-start: var(--space-4); border-block-start: 1px solid var(--color-border); }
+.outcomeSection { display: grid; gap: var(--space-3); }
+.infrastructureSection h3 { margin: 0; font-size: 16px; }
+.capacityValue { margin: 0; font-size: 26px; font-weight: 600; }
+.counts { justify-content: space-around; }

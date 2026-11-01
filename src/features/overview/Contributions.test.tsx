@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { screen,within } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http,HttpResponse } from "msw";
@@ -18,8 +19,12 @@ test("one unavailable project remains explicit while the other project is readab
  capabilities();const value=overviewTasks();value.coverage="partial";value.projects.push({...value.projects[0]!,project:{...value.projects[0]!.project,id:overviewId(8),name:"Unavailable project"},source_status:"unavailable",coverage:"unavailable",count_accuracy:"unknown",observed_at:null,task_counts:null,tasks:[],more_tasks:null,reason:"Graph source unavailable"});server.use(http.get("/api/human/overview/tasks",()=>HttpResponse.json(value)));renderApp("/overview");await screen.findByText("Graph source unavailable");expect(screen.getByRole("link",{name:"Recorded work item"})).toBeInTheDocument();expect(screen.getByText(/Partial coverage · More records/)).toBeInTheDocument();
 });
 test("heartbeat observations show real source status and no inferred slot capacity",async()=>{
- capabilities(false,true);server.use(http.get("/api/workers",()=>HttpResponse.json([{id:"worker1",name:"Actual worker",status:"online",last_seen_at:"2026-11-01T15:00:00.000Z"}])));renderApp("/overview");const region=await screen.findByRole("region",{name:"Worker nodes"});await within(region).findByText("Actual worker");expect(region).toHaveTextContent("Heartbeat online");expect(region).toHaveTextContent("Slot capacity and project eligibility are not reported here.");expect(region).not.toHaveTextContent("slots occupied");
+ capabilities(false,true);server.use(http.get("/api/workers",()=>HttpResponse.json([{id:"worker1",name:"Actual worker",status:"online",last_seen_at:"2026-11-01T15:00:00.000Z"}])));renderApp("/overview");const region=await screen.findByRole("region",{name:"Worker nodes"});await within(region).findByText("Actual worker");await userEvent.click(within(region).getByText("Inspect heartbeat observations"));expect(within(region).getByText("Heartbeat online")).toBeVisible();const capacity=screen.getByRole("region",{name:"Capacity"});expect(capacity).toHaveTextContent("Slot capacity and project eligibility are not reported here.");expect(capacity).not.toHaveTextContent("slots occupied");
 });
 test("base overview failure does not hide available task contributions",async()=>{
  capabilities();server.use(http.get("/api/v1/overview",()=>HttpResponse.json({},{status:503})),http.get("/api/human/overview/tasks",()=>HttpResponse.json(overviewTasks())));renderApp("/overview");await screen.findByRole("link",{name:"Recorded work item"});expect((await screen.findAllByRole("alert"))[0]).toBeInTheDocument();expect(screen.queryByRole("list",{name:"Work counts"})).toBeNull();
+});
+
+test("live contribution shares the reference work/outcomes panel rather than duplicating project panes",async()=>{
+ capabilities();server.use(http.get("/api/human/overview/tasks",()=>HttpResponse.json(overviewTasks())));renderApp("/overview");await screen.findByRole("link",{name:"Recorded work item"});const motion=screen.getByRole("region",{name:"Work in motion"});expect(within(motion).getByRole("region",{name:"Recorded tasks"})).toBeInTheDocument();expect(within(motion).getByRole("region",{name:"Recent outcomes"})).toBeInTheDocument();expect(screen.queryByRole("table",{name:"Work in motion"})).toBeNull();expect(screen.getByRole("region",{name:"Provider status"})).toHaveTextContent("Availability not reported");
 });

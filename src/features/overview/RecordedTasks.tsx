@@ -14,14 +14,13 @@ function Project({ row }: { row: OverviewTaskProject }) {
  return <li className={styles.projectCard}>
   <div className={styles.panelHeading}><h3>{row.project.name}</h3>{bootstrap.capability("tasks.read").enabled && <Link to={{pathname:"/work",search}}>Open work →</Link>}</div>
   {row.source_status === "unavailable" ? <p className={styles.warning}>{row.reason ?? "Task records unavailable for this project"}</p> : <>
-   <p className={styles.meta}>{row.count_accuracy === "lower_bound" ? "Sampled task records" : "Observed task records"} · {row.observed_at && <time dateTime={row.observed_at}>{row.observed_at}</time>}</p>
-   <ul className={styles.taskCounts} aria-label={`${row.project.name} recorded task states`}>{STATES.map(state=><li key={state}><strong>{row.task_counts?.[state]}</strong> {state}</li>)}</ul>
-   {row.tasks.length === 0 ? <p className={styles.meta}>No task records in this observation.</p> : <ul className={styles.taskList}>{row.tasks.slice(0,5).map(task=><li key={task.id}><span>{bootstrap.capability("tasks.read").enabled ? <Link to={{pathname:`/work/${task.id}`,search}}>{task.title}</Link> : task.title}</span><span className={styles.meta}>{task.task_state ?? "State unknown"}</span></li>)}</ul>}
-   {(row.more_tasks || row.tasks.length>5) && <p className={styles.meta}>Showing a bounded selection. Open Work for more records.</p>}
+   <ul className={styles.taskCounts} aria-label={`${row.project.name} recorded task states`}>{STATES.filter(state=>(row.task_counts?.[state]??0)>0).map(state=><li key={state}><strong>{row.task_counts?.[state]}</strong> {state}</li>)}{STATES.every(state=>row.task_counts?.[state]===0)&&<li>0 observed task records</li>}</ul>
+   {row.tasks.length === 0 ? <p className={styles.meta}>No task records in this observation.</p> : <ul className={styles.taskList}>{row.tasks.slice(0,1).map(task=><li key={task.id}><span>{bootstrap.capability("tasks.read").enabled ? <Link to={{pathname:`/work/${task.id}`,search}}>{task.title}</Link> : task.title}</span><span className={styles.meta}>{task.task_state ?? "State unknown"}</span></li>)}</ul>}
+   <details className={styles.observationDetails}><summary>Observation details{row.count_accuracy === "lower_bound" ? " · partial" : ""}</summary><p className={styles.meta}>{row.observed_at && <time dateTime={row.observed_at}>{row.observed_at}</time>} · {row.count_accuracy === "lower_bound" ? "Sampled task records" : "Observed task records"}</p>{row.tasks.length>1&&<ul className={styles.taskList}>{row.tasks.slice(1,5).map(task=><li key={task.id}>{bootstrap.capability("tasks.read").enabled?<Link to={{pathname:`/work/${task.id}`,search}}>{task.title}</Link>:task.title}<span className={styles.meta}>{task.task_state??"State unknown"}</span></li>)}</ul>}{(row.more_tasks||row.tasks.length>5)&&<p className={styles.meta}>More records are available in Work.</p>}</details>
   </>}
  </li>;
 }
-export function RecordedTasks() {
+export function RecordedTasks({embedded=false}:{embedded?:boolean}) {
  const [scope]=useScope(); const {bootstrap,queryContext}=useSession();
  const capability=bootstrap.capability("human.overview.tasks.read");
  const project=scope.kind==="project"?scope.project_id:undefined;
@@ -30,8 +29,8 @@ export function RecordedTasks() {
   return adaptOverviewTasks(await apiGet<unknown>(`/api/human/overview/tasks?${params}`,signal),project);
  }});
  if(!capability.enabled)return null;
- return <section className={styles.panel} aria-labelledby="recorded-tasks-heading">
-  <h2 id="recorded-tasks-heading">Recorded tasks</h2>
+ return <section className={embedded?styles.recordedTasks:styles.panel} aria-labelledby="recorded-tasks-heading">
+  {embedded?<h3 id="recorded-tasks-heading">Recorded tasks</h3>:<h2 id="recorded-tasks-heading">Recorded tasks</h2>}
   <p className={styles.meta}>Observed task lifecycle, excluding retired or disputed records. Active records do not establish running agents or execution readiness.</p>
   {!query.data || query.isError ? <QueryStatus status={query.isError?"error":"pending"} error={query.error} label="project task records" onRetry={()=>void query.refetch()} /> : <>
    {query.data.projects.length===0 ? <p>No configured projects in this scope.</p> : <ul className={styles.projectList} aria-label="Project task observations">{query.data.projects.map(row=><Project row={row} key={row.project.id}/>)}</ul>}

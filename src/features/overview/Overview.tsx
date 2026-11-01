@@ -12,6 +12,7 @@ import { useRead } from "../../app/useRead";
 import styles from "./Overview.module.css";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
+import { useSession } from "../../app/session";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
 const OVERVIEW_POLL_MS = 10_000;
@@ -79,6 +80,8 @@ function Attention({ view, serverTime, complete, search }: {
 
 export function Overview() {
   const [scope] = useScope();
+  const { bootstrap } = useSession();
+  const taskContributions = bootstrap.capability("human.overview.tasks.read").enabled;
   const search = scopeSearch(scope);
   const query = useRead<OverviewWire, OverviewView>({
     resource: "overview",
@@ -130,11 +133,9 @@ export function Overview() {
       {coverage.reason && <p className={styles.warning}>{coverage.reason}</p>}
       <div className={styles.columns}><div className={styles.primary}>
       <Attention view={view} serverTime={serverTime} complete={complete} search={search} />
-      <RecordedTasks />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
-        {/* Scrolls on its own at narrow widths; focusable so keyboard users can scroll it. */}
-        <div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
+        {taskContributions ? <RecordedTasks embedded /> : <div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
           <table aria-labelledby="motion-heading" className={styles.table}>
             <thead>
               <tr>
@@ -157,9 +158,8 @@ export function Overview() {
               ))}
             </tbody>
           </table>
-        </div>
-      </section>
-      <section className={styles.panel} aria-labelledby="outcomes-heading">
+        </div>}
+      <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
         <h2 id="outcomes-heading">Recent outcomes</h2>
         {view.recentOutcomes.length === 0 ? (
           <p className={styles.meta}>{complete ? "No recent outcomes" : "Outcomes may be incomplete"}</p>
@@ -179,6 +179,7 @@ export function Overview() {
             })}
           </ul>
         )}
+      </section>
       </section>
       </div><Infrastructure /></div>
     </div>
