@@ -7,12 +7,16 @@ import { join } from "node:path";
 
 const origin = new URL(process.env.AQ_LIVE_URL ?? "http://localhost:4196");
 const sessionId = process.env.AQ_LIVE_SESSION_ID ?? "9767942b-b7f8-5ae4-be04-136f81509cce";
+const expectedBinding = process.env.AQ_LIVE_USAGE_BINDING ? JSON.parse(process.env.AQ_LIVE_USAGE_BINDING) : null;
+const expectedRevision = process.env.AQ_LIVE_USAGE_REVISION ? Number(process.env.AQ_LIVE_USAGE_REVISION) : null;
+const expectedSubtotals = process.env.AQ_LIVE_USAGE_SUBTOTALS ? JSON.parse(process.env.AQ_LIVE_USAGE_SUBTOTALS) : null;
 const output = process.env.AQ_LIVE_OUTPUT_DIR ?? "/tmp/aq-session-usage-browser";
 await mkdir(output, { recursive: true });
 const started = performance.now();
 const browser = await chromium.launch({ headless: true });
 const api = await request.newContext();
 const errors = [], mutations = [], usageReads = [], captures = [];
+const pages = [];
 async function read(path) {
   const response = await api.get(new URL(path, origin).href);
   expect(response.status(), path).toBe(200);
@@ -32,9 +36,17 @@ try {
   const binding = detail.observation_binding;
   expect(binding?.session.session_id).toBe(sessionId);
   expect(binding.project_id).toBe(detail.project.id); expect(binding.task_id).toBe(detail.task.id); expect(binding.attempt_id).toBe(detail.attempt_id);
+  if (process.env.AQ_LIVE_ATTEMPT_ID) expect(binding.attempt_id).toBe(process.env.AQ_LIVE_ATTEMPT_ID);
+  if (process.env.AQ_LIVE_PROJECT_ID) expect(binding.project_id).toBe(process.env.AQ_LIVE_PROJECT_ID);
+  if (expectedBinding) expect(binding).toEqual(expectedBinding);
   const usage = await read(`/api/observations/sessions/${encodeURIComponent(binding.attempt_id)}/usage`);
   expect(usage.schema_version).toBe(1); expect(usage.binding).toEqual(binding);
   expect(usage.usage.costs).toEqual([{ kind: "unknown", reason: "not_reported" }]);
+  if (expectedRevision !== null) { expect(Number.isSafeInteger(expectedRevision)).toBe(true); expect(usage.revision).toBe(expectedRevision); }
+  if (expectedSubtotals) {
+    expect(usage.known_category_subtotals).toEqual(expectedSubtotals);
+    expect(usage.revision).toBeGreaterThan(0); expect(usage.usage.completeness.kind).toBe("incomplete");
+  }
   let servedDigest = bootstrap.data.product.dashboard_digest;
   if (process.env.AQ_LIVE_CANDIDATE_MANIFEST) {
     const expected = await readFile(process.env.AQ_LIVE_CANDIDATE_MANIFEST);
@@ -46,6 +58,7 @@ try {
   const measurements = [];
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     const page = await browser.newPage({ viewport });
+    pages.push(page);
     page.on("pageerror", error => errors.push(error.message));
     page.on("request", request => {
       const path = new URL(request.url()).pathname;
@@ -66,10 +79,29 @@ try {
       expect(usage.last_recorded_at_ms).toBe(null);
       await expect(section.getByText("No accounting projection has been recorded for this session.", { exact: true })).toBeVisible();
       await expect(section.getByText(/Reported subtotal/)).toHaveCount(0);
+    } else {
+      for (const [index, category] of ["input", "output", "cache_read", "cache_write", "reasoning"].entries()) {
+        const label = { input: "Input", output: "Output", cache_read: "Cache read", cache_write: "Cache write", reasoning: "Reasoning" }[category];
+        const card = section.getByText(label, { exact: true }).locator("..");
+        const counter = usage.usage.counters[category];
+        if (expectedSubtotals) expect(counter).toEqual({ kind: "unknown", reason: "incomplete" });
+        if (counter.kind === "unknown") {
+          await expect(card.getByText(`Unknown · ${counter.reason.replaceAll("_", " ")}`, { exact: true })).toBeVisible();
+          await expect(card.getByText(`Reported subtotal: ${usage.known_category_subtotals[index].toLocaleString("en-US")} · partial`, { exact: true })).toBeVisible();
+        } else await expect(card.getByText(counter.value.toLocaleString("en-US"), { exact: true })).toBeVisible();
+      }
+      await expect(section.getByText(/Incomplete accounting/)).toBeVisible();
     }
+    await expect(section.getByText(/total tokens|total cost|remaining quota/i)).toHaveCount(0);
     expect(usageReads.filter(read => read.width === viewport.width).length).toBe(1);
     await section.scrollIntoViewIfNeeded();
     await capture(page, `${prefix}-usage-details.png`, viewport.width === 1440);
+    if (viewport.width === 390 && usage.revision > 0) {
+      await section.getByRole("heading", { name: "Session usage", exact: true }).scrollIntoViewIfNeeded();
+      await capture(page, "phone-usage-categories.png");
+      await section.getByRole("button", { name: "Refresh session usage", exact: true }).scrollIntoViewIfNeeded();
+      await capture(page, "phone-usage-cost.png");
+    }
     const bounds = await section.boundingBox(); measurements.push({ viewport, usage: bounds });
     expect(bounds.width).toBeLessThanOrEqual(viewport.width);
     await section.getByRole("button", { name: "Refresh session usage", exact: true }).click();
@@ -87,12 +119,13 @@ try {
   }
   expect(errors).toEqual([]); expect(mutations).toEqual([]);
   const result = { passed: true, origin: origin.origin, session_id: sessionId, attempt_id: binding.attempt_id, binding,
-    usage_revision: usage.revision, canonical_calls: usage.canonical_calls, cost: "unknown/not_reported", actual_projection: usage.revision === 0 ? "no accounting projection" : "retained projection",
+    usage_revision: usage.revision, canonical_calls: usage.canonical_calls, known_category_subtotals: usage.known_category_subtotals, cost: "unknown/not_reported", actual_projection: usage.revision === 0 ? "no accounting projection" : expectedSubtotals ? "synthetic persisted incomplete accounting fixture" : "retained projection",
     references: ["08-agents-focus-desktop.png", "11-agent-mobile-v2.png"], visual_subset: "on-demand session usage within preserved focused output workspace",
     served_bundle_digest: servedDigest, api_product_bundle_digest: bootstrap.data.product.dashboard_digest, measurements, usage_browser_reads: usageReads.length,
     mutations: mutations.length, page_errors: errors.length, captures, elapsed_ms: Math.round(performance.now() - started),
-    note: "Actual AQ owner reads only; no interception, domain mutations, provider calls or quota/health inference. Revision-zero qualification does not claim nonempty live provider accounting." };
+    note: "Actual AQ owner reads only; no interception, domain mutations, provider calls or quota/health inference. Optional nonempty fixture is persisted synthetic accounting evidence, never live provider usage or an invoice." };
   await writeFile(join(output, "result.json"), JSON.stringify(result, null, 2) + "\n"); console.log(JSON.stringify(result));
 } catch (error) {
+  for (const [index, page] of pages.entries()) if (!page.isClosed()) await page.screenshot({ path: join(output, `failure-${index}.png`) }).catch(() => {});
   await writeFile(join(output, "result.json"), JSON.stringify({ passed: false, error: String(error), errors, mutations, usageReads }, null, 2) + "\n"); throw error;
 } finally { await api.dispose(); await browser.close(); }
