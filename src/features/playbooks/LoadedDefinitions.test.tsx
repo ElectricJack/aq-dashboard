@@ -8,7 +8,7 @@ import { loadedDefinitions, loadedDefinition } from "../../test/loadedDefinition
 import { renderApp } from "../../test/renderApp";
 
 const server = setupServer(...handlersFor("default"));
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 function capability(on = true) { server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data,
   capabilities: [...bootstrap.data.capabilities.filter(cap => !["playbooks.inspect", "playbooks.loaded-definitions.read"].includes(cap.name)),

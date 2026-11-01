@@ -1,6 +1,7 @@
 import { adaptLoadedDefinitions } from "./loadedDefinitions";
 import { loadedDefinition, loadedDefinitions } from "../../test/loadedDefinitions";
 import { PLAYBOOK_NAMESPACE } from "../../test/playbooks";
+const withPrivateFields = { ...loadedDefinition(), registry: { private: true } };
 
 test("loaded metadata retains exact immutable identities and configuration provenance", () => {
   const value = adaptLoadedDefinitions(loadedDefinitions(), PLAYBOOK_NAMESPACE.project_id);
@@ -16,7 +17,7 @@ test.each([
   loadedDefinitions([]), loadedDefinitions(Array.from({ length: 5 }, () => loadedDefinition())),
   loadedDefinitions([loadedDefinition(), loadedDefinition()]),
   loadedDefinitions([{ ...loadedDefinition(), artifact: "sha256:invalid" }]),
-  loadedDefinitions([{ ...loadedDefinition(), registry: { private: true } }]),
+  loadedDefinitions([withPrivateFields]),
   loadedDefinitions([{ ...loadedDefinition(), entries: ["main", "main"] }]),
   loadedDefinitions([{ ...loadedDefinition(), purpose: "é".repeat(2049) }]),
   loadedDefinitions([{ ...loadedDefinition(), purpose: "\ud800" }]),
