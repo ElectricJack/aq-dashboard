@@ -4,13 +4,13 @@ Planning update: November 1, 2026. Audited AQ `468617f`, dashboard `e89da32`, an
 
 ## Outcome and diagnosis
 
-Every navigation destination should become a useful view of real AQ infrastructure, with the composition and interactions in the accepted mockups. Today five destinations are only `DestinationPage` stubs. Work is implemented against proposed mocks, and Overview's real response is deliberately partial. Agents and Settings have working integrations, but Agents does not yet implement the focused workspace design.
+Every navigation destination should become a useful view of real AQ infrastructure, with the composition and interactions in the accepted mockups. At the audited planning baseline, five destinations were only `DestinationPage` stubs, Work used proposed mocks, and Overview was partial. Subsequent live integrations and visual corrections are recorded in `docs/implementation/` and `docs/evidence/`; the coverage table below describes that initial baseline, not the current preview.
 
 The twelve selected [mockups](../design/index.html) and their [manifest](../design/manifest.json) remain the visual reference. [Product specification 0002](../specs/0002-product-design.md) governs behavior and resolves differences between mockup generations. Colors alone are insufficient: the missing columns, inspectors, timelines, feed, conversation and focused workspace are the main visual gap. Sample numbers and media in PNGs are never production data.
 
 This work can run alongside the native worker runner. Task/knowledge reads, review and playbook inspection, historical results, notifications, worker status and visual layout do not require a live model. Real supervisor replies and interactive terminal control do require their respective runtime owners.
 
-## Current coverage and target per destination
+## Planning baseline coverage and target per destination
 
 Paths below are relative to the owning repository. Existing routes and proposed additions are deliberately distinguished.
 
