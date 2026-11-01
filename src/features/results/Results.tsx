@@ -2,15 +2,17 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { apiGet } from "../../api/client";
 import { ContractError } from "../../api/adapters/contract";
-import { adaptResults, type ResultMetadata } from "../../api/adapters/results";
+import { adaptResults, type ResultMetadata, type ResultPage } from "../../api/adapters/results";
 import { scopedKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { scopeSearch, useScope } from "../../app/scope";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton } from "../../components/layout/Workspace";
 import styles from "./Results.module.css";
+import { resultMediaBinding } from "../../api/adapters/resultMedia";
+import { ResultMedia, ResultMediaWindow, resultMediaKey } from "./ResultMedia";
 
-function Record({ item, exact }: { item: ResultMetadata; exact: boolean }) {
+function Record({ item, exact, coverage }: { item: ResultMetadata; exact: boolean; coverage: ResultPage["coverage"] }) {
   const [scope] = useScope();
   const { bootstrap } = useSession();
   const search = scopeSearch(scope);
@@ -20,10 +22,13 @@ function Record({ item, exact }: { item: ResultMetadata; exact: boolean }) {
     <p className={styles.meta}>Task {bootstrap.capability("tasks.read").enabled ? <Link to={{ pathname: `/work/${item.task_id}`, search }}>{item.task_id}</Link> : item.task_id} · Project {item.project_id}</p>
     <p>Worker-reported outcome: <strong>{item.process_outcome}</strong></p>
     <p className={styles.meta}>Recorded <time dateTime={date}>{date}</time> · Acceptance and task settlement are not evaluated by this view.</p>
+    <ResultMedia binding={resultMediaBinding(item, coverage)} />
+    <details><summary>Report details and evidence references</summary>
     <div className={exact ? styles.detail : undefined}>
       <dl className={styles.facts}><dt>Attempt</dt><dd>{item.attempt_id}</dd><dt>Report</dt><dd>{item.report_id}</dd><dt>Exact revision</dt><dd>{item.revision}</dd><dt>Repository</dt><dd>{item.repository_id}</dd><dt>Source base</dt><dd>{item.source_base.hex}</dd>{item.supersedes && <><dt>Corrects report</dt><dd>{item.supersedes}</dd></>}</dl>
       <section className={styles.evidence} aria-label="Reported evidence references"><h3>Evidence references</h3><p className={styles.meta}>References supplied with the worker report. These references do not establish verification or acceptance.</p><p>Source receipts: {item.source_receipt_ids.length}</p>{exact && item.source_receipt_ids.map(id => <p key={id} className={styles.meta}>{id}</p>)}<p>Pending effects: {item.pending_effect_ids.length}</p>{exact && item.pending_effect_ids.map(id => <p key={id} className={styles.meta}>{id}</p>)}</section>
     </div>
+    </details>
   </article>;
 }
 export function Results() {
@@ -56,12 +61,13 @@ export function Results() {
   const items = pages.flatMap(p => p.items);
   const ids = new Set(items.map(v => v.report_id));
   if (ids.size !== items.length) return <p role="alert">Result pages changed. Refresh to reload the recorded reports.</p>;
-  return <div className={styles.layout}>
+  const mediaWindowKey = JSON.stringify([queryContext, scope, resultId, revision]);
+  return <ResultMediaWindow key={mediaWindowKey} keys={items.map(item => resultMediaKey(resultMediaBinding(item, pages[0]!.coverage)))}><div className={styles.layout}>
     <p className={styles.intro}>Recorded worker reports and their exact evidence references.</p>
     <div className={styles.toolbar}>{exact ? <Link to={{ pathname: "/results", search: scopeSearch(scope) }}>Back to results</Link> : <span className={styles.tab}>Recorded reports</span>}<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh results</ActionButton></div>
-    <p className={styles.meta}>Coverage: retained legacy native reports. Reports are ordered by stable identity. Media and discussion are not available in this increment.</p>
-    {items.length === 0 ? <p>No recorded result reports in this scope.</p> : <ul className={styles.feed} aria-label="Recorded results">{items.map(item => <li key={item.report_id}><Record item={item} exact={!!exact} /></li>)}</ul>}
+    <p className={styles.meta}>Coverage: retained legacy native reports, ordered by stable identity. {bootstrap.capability("results.media.read").enabled ? "Supplemental images are human-provided additions. Discussion and capture-policy evaluation are not available." : "Media and discussion are not available in this increment."}</p>
+    {items.length === 0 ? <p>No recorded result reports in this scope.</p> : <ul className={styles.feed} aria-label="Recorded results">{items.map(item => <li key={item.report_id}><Record item={item} exact={!!exact} coverage={pages[0]!.coverage} /></li>)}</ul>}
     {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more recorded results</ActionButton>}
     {pages.length === 4 && pages[3]?.next_after && <p>Showing the first 40 reports. Additional reports are not displayed.</p>}
-  </div>;
+  </div></ResultMediaWindow>;
 }

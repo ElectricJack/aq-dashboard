@@ -1,0 +1,89 @@
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSession } from "../../app/session";
+import { queryKey } from "../../api/queryKeys";
+import { adaptResultMedia, canonicalMedia, type MediaArtifact, type MediaBinding, type MediaPage } from "../../api/adapters/resultMedia";
+import { MediaUnavailableError, resultMediaBytes, resultMediaJson } from "../../api/resultMediaClient";
+import { ActionButton } from "../../components/layout/Workspace";
+import styles from "./ResultMedia.module.css";
+
+type Selection = { binding: MediaBinding; artifact: MediaArtifact; page: MediaPage; started: number; returnFocus: HTMLElement };
+type WindowContext = { active(key: string): boolean; visible(key: string, value: boolean): void; prefer(key: string): void; expand(value: Selection): void };
+const MediaWindow = createContext<WindowContext | null>(null);
+export const resultMediaKey = (binding: MediaBinding) => canonicalMedia(binding);
+/** At most two visible selected previews and one explicit expanded render. */
+export function ResultMediaWindow({ keys, children }: { keys: string[]; children: ReactNode }) {
+  const { bootstrap } = useSession(); const enabled = bootstrap.capability("results.media.read").enabled;
+  const [visible, setVisible] = useState<Set<string>>(() => new Set()), [preferred, setPreferred] = useState<string | null>(null), [expanded, setExpanded] = useState<Selection | null>(null);
+  const visibility = useCallback((key: string, value: boolean) => { setVisible(old => { if (old.has(key) === value) return old; const next = new Set(old); if (value) next.add(key); else next.delete(key); return next; }); }, []);
+  const ordered = [...(preferred && visible.has(preferred) ? [preferred] : []), ...keys.filter(key => visible.has(key) && key !== preferred)].slice(0, 2);
+  const close = () => { const button = expanded?.returnFocus; setExpanded(null); requestAnimationFrame(() => { if (button?.isConnected) button.focus(); }); };
+  useLayoutEffect(() => { if (!enabled) setExpanded(null); }, [enabled]);
+  return <MediaWindow.Provider value={{ active: key => enabled && ordered.includes(key), visible: visibility, prefer: key => { visibility(key, true); setPreferred(key); }, expand: setExpanded }}>
+    {children}{enabled && expanded && <ExpandedImage key={`${resultMediaKey(expanded.binding)}:${expanded.artifact.receipt_digest}`} selection={expanded} close={close} />}
+  </MediaWindow.Provider>;
+}
+export function ResultMedia({ binding }: { binding: MediaBinding }) {
+  const { bootstrap, queryContext } = useSession(); const window = useContext(MediaWindow)!;
+  const enabled = bootstrap.capability("results.media.read").enabled, key = resultMediaKey(binding), element = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!enabled || !element.current || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => { for (const entry of entries) window.visible(key, entry.isIntersecting); }, { rootMargin: "0px", threshold: 0 });
+    observer.observe(element.current); return () => { observer.disconnect(); window.visible(key, false); };
+  }, [key, enabled, window.visible]);
+  if (!enabled) return null;
+  return <div ref={element} className={styles.surface}>
+    {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} /> : <div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>}
+  </div>;
+}
+function MediaGallery({ binding }: { binding: MediaBinding }) {
+  const { queryContext } = useSession(); const window = useContext(MediaWindow)!; const [selected, setSelected] = useState<string | null>(null);
+  const query = useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    queryFn: async ({ signal }) => { const started = performance.now(); const page = await adaptResultMedia(await resultMediaJson(binding, signal), binding); signal.throwIfAborted(); return { page, started }; } });
+  if (query.isPending) return <p role="status">Loading supplemental images…</p>;
+  if (query.isError) return <div><p role="status">Supplemental images unavailable.</p><ActionButton onClick={() => void query.refetch()}>Retry images</ActionButton></div>;
+  const { page, started } = query.data;
+  const artifact = page.items.find(item => item.receipt.artifact_id === selected) ?? page.items[0];
+  if (!artifact) return <p className={styles.note}>No supplemental images are retained for this exact report.</p>;
+  return <section aria-label="Human supplemental images" className={styles.gallery}>
+    <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} /></div>
+    <div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>
+    <div className={styles.caption}><strong>Human-supplemental PNG</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
+    <p className={styles.note}>Added by a human after the worker report. This image does not establish worker capture, acceptance or capture-policy completion.</p>
+    <details className={styles.provenance}><summary>Image provenance</summary><p>Uploaded by {artifact.receipt.uploader_id}</p><p>Artifact {artifact.receipt.artifact_id}</p><p>Receipt {artifact.receipt_digest}</p>
+      {artifact.receipt.capture ? <><p>Uploader assertions · not independently verified</p><p>{artifact.receipt.capture.scenario} · {artifact.receipt.capture.environment}</p>{artifact.receipt.capture.claimed_source && <p>Claimed source: {artifact.receipt.capture.claimed_source.hex}</p>}</> : <p>No capture assertions supplied.</p>}
+    </details>
+    <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh images</ActionButton>
+  </section>;
+}
+const unavailable = { expired: "Image expired.", missing: "Image files are missing.", withheld: "Image withheld by its owner.", failed: "Image verification or storage failed." };
+/** No URL is minted until exact length/MIME/receipt/variant/SHA checks finish. */
+function VerifiedImage({ binding, artifact, variant, page, started }: { binding: MediaBinding; artifact: MediaArtifact; variant: "preview" | "render"; page: MediaPage; started: number }) {
+  const { queryContext } = useSession();
+  const owner = JSON.stringify([queryContext, binding, artifact.receipt.artifact_id, artifact.receipt_digest, variant, artifact.receipt.variants[variant]]);
+  const [expired, setExpired] = useState(false), [broken, setBroken] = useState<string | null>(null), [image, setImage] = useState<{ owner: string; url: string } | null>(null);
+  const ttl = artifact.receipt.retain_until_ms - page.server_time_ms - (performance.now() - started);
+  const allowed = artifact.availability.state === "available" && !expired && ttl > 0;
+  useLayoutEffect(() => { setExpired(false); const remaining = artifact.receipt.retain_until_ms - page.server_time_ms - (performance.now() - started); if (remaining <= 0) { setExpired(true); return; } const timer = setTimeout(() => setExpired(true), Math.min(remaining, 604800000)); return () => clearTimeout(timer); }, [owner, page.server_time_ms, started]);
+  const query = useQuery({ queryKey: queryKey(queryContext, "result-media-bytes", { binding, artifact: artifact.receipt.artifact_id, receipt: artifact.receipt_digest, variant, descriptor: artifact.receipt.variants[variant] }), enabled: allowed, retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    queryFn: ({ signal }) => resultMediaBytes(binding, artifact, variant, signal) });
+  useLayoutEffect(() => {
+    if (!allowed || query.isError || !query.data || broken === owner) { setImage(null); return; }
+    const url = URL.createObjectURL(new Blob([Uint8Array.from(query.data)], { type: "image/png" })); setImage({ owner, url });
+    return () => URL.revokeObjectURL(url);
+  }, [owner, allowed, query.data, query.isError, broken]);
+  if (artifact.availability.state !== "available") return <p role="status">{unavailable[artifact.availability.state]}</p>;
+  if (!allowed) return <p role="status">Image expired. Refresh images to inspect current retention.</p>;
+  if (query.isError) return <p role="status">{query.error instanceof MediaUnavailableError ? { media_expired: "Image expired.", media_missing: "Image files are missing.", media_withheld: "Image withheld by its owner.", media_failed: "Image verification or storage failed." }[query.error.code] : "Image unavailable. No previous image is shown."}</p>;
+  if (broken === owner) return <p role="status">Image could not be displayed.</p>;
+  return image?.owner === owner ? <img src={image.url} alt={`Human supplemental ${artifact.receipt.input.filename}`} width={artifact.receipt.variants[variant].width} height={artifact.receipt.variants[variant].height} onError={() => setBroken(owner)} /> : <p role="status">Verifying image…</p>;
+}
+function ExpandedImage({ selection, close }: { selection: Selection; close(): void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useLayoutEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
+  return <dialog ref={dialog} className={styles.dialog} aria-label="Expanded supplemental image" onCancel={event => { event.preventDefault(); close(); }}>
+    <header className={styles.caption}><h2>{selection.artifact.receipt.input.filename}</h2><ActionButton onClick={close}>Close image</ActionButton></header>
+    <p className={styles.note}>Human-supplemental image · exact retained report · not worker capture proof</p>
+    <div className={styles.expanded}><VerifiedImage {...selection} variant="render" /></div>
+  </dialog>;
+}
