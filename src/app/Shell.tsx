@@ -91,6 +91,12 @@ export function Shell() {
   const lastTitlePath = useRef<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchButton = useRef<HTMLButtonElement>(null);
+  const usageDetails = useRef<HTMLDetailsElement>(null);
+  const usageSummary = useRef<HTMLElement>(null);
+  const closeUsage = () => {
+    if (usageDetails.current) usageDetails.current.open = false;
+    usageSummary.current?.focus();
+  };
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     searchButton.current?.focus();
@@ -105,7 +111,7 @@ export function Shell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [canSearch]);
-  const compactUsage = focusedSession && usage.state.status !== "ready";
+  const compactUsage = usage.state.status !== "ready";
   const status = connection === "connected" && usage.unreachable ? "unreachable" : connection;
   const search = scopeSearch(scope);
   const isMock = import.meta.env.MODE === "mock";
@@ -146,11 +152,13 @@ export function Shell() {
             Mock data · proposed contracts, not a live AQ server
           </p>
         )}
-        <p className={styles.phoneBrand} aria-hidden="true">
-          <span className={styles.mark}>aq</span>
-          Agent Q
-        </p>
-        <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} />
+        <div className={styles.scopeRow}>
+          <p className={styles.phoneBrand} aria-hidden="true">
+            <span className={styles.mark}>aq</span>
+            Agent Q
+          </p>
+          <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} />
+        </div>
         <button
           ref={searchButton}
           type="button"
@@ -167,7 +175,15 @@ export function Shell() {
           </kbd>
         </button>
         <div className={styles.standardUsage}><ProviderUsageStrip state={usage.state} /></div>
-        {compactUsage && <details className={styles.compactUsage}><summary>{usage.state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</summary><ProviderUsageStrip state={usage.state} /></details>}
+        {compactUsage && <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
+          if (event.key === "Escape") { event.preventDefault(); closeUsage(); }
+        }}>
+          <summary ref={usageSummary}>{usage.state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</summary>
+          <div className={styles.usageReason}>
+            <p>{usage.state.status === "disabled" ? usage.state.reason : usage.state.status === "error" ? "AQ did not return provider usage" : "Provider usage is loading."}</p>
+            <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>
+          </div>
+        </details>}
         <span className={styles.connection} data-state={status} role="status">
           {CONNECTION_TEXT[status]}
         </span>
