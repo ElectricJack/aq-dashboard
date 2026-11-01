@@ -1,17 +1,17 @@
 {
   "profile": "dashboard-read-1",
   "source_repository": "agent-q",
-  "source_commit": "01df4f94216bb8f79c40f051d9a4fc0cae665ccf",
-  "upstream_source_commit": "01df4f94216bb8f79c40f051d9a4fc0cae665ccf",
+  "source_commit": "58811adee2798b9776b90f8bf6076c79d972ff30",
+  "upstream_source_commit": "080fc6fb6d933b5448ad66d9c4131e145ff41a09",
   "source_directory": "protocol/dashboard-read/v1",
-  "fixtures": "Retained original actual-router captures over synthetic PostgreSQL owners; older captures omit optional lifecycle history. Not production agents.",
+  "fixtures": "Retained actual-router fixtures over synthetic PostgreSQL owners; the session fixture includes its exact optional observation binding. Not production agents.",
   "sha256": {
-    "schema.json": "13d1f60855e6e84d604c6b7083345597f92a7973d73462383bc03e14a7c4b846",
+    "schema.json": "a02ddfafafa5c492ae962f3132bdd0dd463978101628e93cf12ff2ef1cd612f8",
     "fixtures/bootstrap.json": "4e599a5cd2e2f27fd4000396da15b57c5b2fd6043fbe06021b7ce4951fffc958",
     "fixtures/overview.json": "ecf68ff0b67e47169ed22b1fd716729d47f935b3493d0a9231212040b7b90bb9",
     "fixtures/projects.json": "730b0236aa495c5098e716ef458dd8868853792798f28c0780e84beb1f008b80",
-    "fixtures/session.json": "996efc9fe3e2c9109166ce23e23fd3b5f4c4ef62aa3150098d630d9fe1d4008e",
+    "fixtures/session.json": "3c6a122e7fcd32bd60b924a7334bdd6cb28e0a34617e6e79f12173960274f24a",
     "fixtures/sessions.json": "9f9c776fb120c337bac62d228156b68f0e433d118c41728c880f087e9a30d332"
   },
-  "fixture_source_commit": "44dcab8ee656c251208ce20356a0273432663b25"
+  "fixture_source_commit": "080fc6fb6d933b5448ad66d9c4131e145ff41a09"
 }
