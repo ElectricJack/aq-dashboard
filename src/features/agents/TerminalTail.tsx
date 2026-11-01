@@ -93,7 +93,7 @@ function Tail({ terminalId }: { terminalId: string }) {
   }
   return <section className={styles.panel} aria-label="Read-only output tail">
     <h3>Output tail</h3>
-    <p>Incomplete literal output only. Earlier bytes may be missing. This is not a terminal screen or snapshot.</p>
+    <p><span className={styles.fullCoverage}>Incomplete literal output only. Earlier bytes may be missing. This is not a terminal screen or snapshot.</span><span className={styles.compactCoverage}>Literal output · coverage incomplete</span></p>
     <p role="status">{status}</p>
     {gaps > 0 && <p>Output gaps or sequence discontinuities ({gaps}); preceding text was cleared.</p>}
     {trimmed && <p>Older browser output discarded at the 64 KiB limit.</p>}

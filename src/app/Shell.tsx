@@ -105,12 +105,13 @@ export function Shell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [canSearch]);
+  const compactUsage = focusedSession && usage.state.status !== "ready";
   const status = connection === "connected" && usage.unreachable ? "unreachable" : connection;
   const search = scopeSearch(scope);
   const isMock = import.meta.env.MODE === "mock";
 
   return (
-    <div className={styles.shell} data-focused-session={focusedSession || undefined}>
+    <div className={styles.shell} data-focused-session={focusedSession || undefined} data-compact-usage={compactUsage || undefined}>
       <a href="#content" className={styles.skip}>
         Skip to content
       </a>
@@ -165,7 +166,8 @@ export function Shell() {
             Ctrl K
           </kbd>
         </button>
-        <ProviderUsageStrip state={usage.state} />
+        <div className={styles.standardUsage}><ProviderUsageStrip state={usage.state} /></div>
+        {compactUsage && <details className={styles.compactUsage}><summary>{usage.state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</summary><ProviderUsageStrip state={usage.state} /></details>}
         <span className={styles.connection} data-state={status} role="status">
           {CONNECTION_TEXT[status]}
         </span>
