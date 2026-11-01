@@ -28,7 +28,20 @@ edit/activate action exists. Full installed discovery requires a component-owned
 bounded query and new component version as described in the
 [paired implementation record](../../../agent-q/docs/implementation/API-05-loaded-definitions.md).
 
-The actual protected fixture and `scripts/probe-loaded-playbook-definitions.mjs`
-are prepared for the next compiled bundle. Source tests are distinct from actual
-desktop/phone screenshot acceptance and canonical preview promotion; the earlier
-parent/child proof does not qualify this new metadata UI automatically.
+The actual protected fixture and frozen
+`scripts/probe-loaded-playbook-definitions.mjs` now passed against bundle
+`8fe4fa06127cc0f3188bb3bbe45fdd6741cbb395f952d27ec7d7dd29b6b3628c`
+in 2.89s (1207ms browser). [Independent actual/visual acceptance](../evidence/loaded-definitions-browser/README.md)
+reviewed desktop, 390px and 320px detail/roster, including real 128-byte
+definition/entry/dependency names and lower metadata panels. Exact pins, source,
+compiler and purpose, deep-link reload, mobile exit/focus and intentional return
+to an actual empty Runs list passed. Definitions made zero engine inspection
+requests; the final Runs navigation made one intentional read. There were no
+mutations, foreign requests, page errors or browser response interception.
+
+The complete `pnpm exec tsc -b` check and 21 new focused tests pass after two
+test-only typing corrections; the earlier app-only typecheck excluded tests.
+This qualifies the loaded-startup subset, not a current installed catalog,
+Activations or canonical runtime configuration. Root owns canonical preview
+promotion, and enabling a real local optional owner still requires its trusted
+PostgreSQL Unix socket transport.
