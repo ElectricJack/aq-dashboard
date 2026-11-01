@@ -35,14 +35,19 @@ function UploadControl({ binding, canWrite }: { binding: MediaBinding; canWrite:
   const terminal = !!status && ["retained", "rejected", "expired"].includes(status.state);
   const writeAllowed = useRef(canWrite), writeOwner = useRef<AbortController | null>(null); writeAllowed.current = canWrite;
   const dialog = useRef<HTMLDialogElement>(null), actionButton = useRef<HTMLButtonElement>(null), selected = useRef<File | null>(null);
+  const pendingAdmission = useRef<FrozenUpload | null>(null);
   const jobs = useRef(new Set<AbortController>()), active = useRef(false), busy = useRef(false), ticket = useRef(0), ownReference = useRef<string | null>(null), baseline = useRef<UploadStatus | undefined>(undefined);
-  useLayoutEffect(() => { active.current = true; return () => { active.current = false; ticket.current++; for (const job of jobs.current) job.abort(); selected.current = null; baseline.current = undefined; }; }, []);
+  useLayoutEffect(() => { active.current = true; return () => { active.current = false; ticket.current++; for (const job of jobs.current) job.abort(); selected.current = null; baseline.current = undefined; pendingAdmission.current = null; }; }, []);
   useLayoutEffect(() => {
-    if (ownReference.current === key) return;
-    ownReference.current = key; ticket.current++; for (const job of jobs.current) job.abort(); busy.current = false; setWorking(false); selected.current = null; setSelectedName(null); baseline.current = undefined; setSnapshot(null); setAcknowledged(false);
+    if (ownReference.current === key) {
+      const prepared = pendingAdmission.current;
+      if (prepared && reference && sameActor && canWrite && referenceKey(reference) === key) { pendingAdmission.current = null; void execute("create", reference, prepared, true); }
+      return;
+    }
+    ownReference.current = key; pendingAdmission.current = null; ticket.current++; for (const job of jobs.current) job.abort(); busy.current = false; setWorking(false); selected.current = null; setSelectedName(null); baseline.current = undefined; setSnapshot(null); setAcknowledged(false);
     if (reference && sameActor) void execute("lookup", reference);
   }, [key]);
-  useLayoutEffect(() => { if (!canWrite) { if (writeOwner.current) { writeOwner.current.abort(); writeOwner.current = null; ticket.current++; busy.current = false; setWorking(false); } selected.current = null; setSelectedName(null); setSnapshot(old => old ? { ...old, frozen: null } : old); } }, [canWrite]);
+  useLayoutEffect(() => { if (!canWrite) { if (pendingAdmission.current) { pendingAdmission.current = null; ticket.current++; busy.current = false; setWorking(false); } if (writeOwner.current) { writeOwner.current.abort(); writeOwner.current = null; ticket.current++; busy.current = false; setWorking(false); } selected.current = null; setSelectedName(null); setSnapshot(old => old ? { ...old, frozen: null } : old); } }, [canWrite]);
   useLayoutEffect(() => { const element = dialog.current; if (open) element?.showModal(); else element?.close(); return () => element?.close(); }, [open]);
   function close() { setOpen(false); requestAnimationFrame(() => actionButton.current?.focus()); }
   function saveReference(ref: Reference | null) {
@@ -94,8 +99,9 @@ function UploadControl({ binding, canWrite }: { binding: MediaBinding; canWrite:
       const intent = await freezeUpload(selected.current, binding, queryContext.principalId);
       if (!active.current || currentTicket !== ticket.current) return;
       selected.current = null; const ref: Reference = { operation: intent.operation, actor: intent.actor, requestDigest: intent.requestDigest, recipe: "1" };
-      setSnapshot({ key: referenceKey(ref), frozen: intent, status: null, error: null }); saveReference(ref);
-      await execute("create", ref, intent, true);
+      setSnapshot({ key: referenceKey(ref), frozen: intent, status: null, error: null }); pendingAdmission.current = intent; saveReference(ref);
+      // The reference layout effect starts admission only after the router commits
+      // the exact recovery URL. A reload must never lose an already sent intent.
     } catch { if (active.current && currentTicket === ticket.current) { busy.current = false; setWorking(false); setSnapshot({ key, frozen: null, status: null, error: "This PNG could not be prepared. Use a static RGB or RGBA PNG within 1 MiB and 2 megapixels; remove unsupported metadata before choosing another file." }); } }
   }
   function recover(action: UploadAction) {
