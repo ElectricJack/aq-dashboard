@@ -10,6 +10,12 @@ The twelve selected [mockups](../design/index.html) and their [manifest](../desi
 
 This work can run alongside the native worker runner. Task/knowledge reads, review and playbook inspection, historical results, notifications, worker status and visual layout do not require a live model. Real supervisor replies and interactive terminal control do require their respective runtime owners.
 
+## Qualified increments after the planning baseline
+
+The [November 1 source/qualification record](../../../agent-q/docs/implementation/dashboard-qualified-status-2026-11-01.md) pins the integrated source, tests and remaining gates. Decisions has actual compiled-browser discovery/evidence and disposable answer/retry qualification. Playbooks has an actual configured parent/child run, pinned receipt timeline and reviewed desktop/phone inspection subset. Typed task creation has actual compiled-browser creation/receipt/reload qualification with one real Graph mutation and reviewed desktop/phone composer captures. Current-account notification inspection has paired backend/UI source and focused actual owner tests; its positive compiled-browser gate remains separate.
+
+These are useful increments, not complete tab designs. Definitions/Activations, richer review evidence/discussion, task editing/knowledge authoring and the broader operational panels remain with their existing owners. Canonical preview promotion requires root's separate served-bundle/process evidence. An isolated fixture listener or a capability-disabled browser skip is not that promotion.
+
 ## Planning baseline coverage and target per destination
 
 Paths below are relative to the owning repository. Existing routes and proposed additions are deliberately distinguished.
