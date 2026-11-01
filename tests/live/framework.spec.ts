@@ -53,6 +53,7 @@ type SessionRead = {
   label: string;
   execution_authority?: string;
   observation: { state: string };
+  terminal?: { type: string; id: string } | null;
   lifecycle?: { started_at: string | null; stopped_at: string | null } | null;
 };
 
@@ -85,7 +86,9 @@ async function expectLifecycle(container: Locator, session: SessionRead) {
 }
 
 
-test("visible sessions connect roster, exact detail and deep-link refresh", async ({ page }) => {
+test("visible sessions connect roster, exact detail and deep-link refresh", async ({ page, request }) => {
+  const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
+  const watchEnabled = bootstrap.data.capabilities.some((c: { name: string; version: string; enabled: boolean }) => c.name === "terminal.watch" && c.version === "1" && c.enabled === true);
   const rosterRead = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/v1/sessions" && r.request().method() === "GET");
   await page.goto("/agents");
   const response = await rosterRead;
@@ -122,7 +125,13 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(detailApi.execution_authority));
   await expectLifecycle(detail, detailApi);
   if (detailApi.observation.state === "unknown") await expect(detail).toContainText("State unknown");
-  await expect(detail.getByText("Terminal is not available", { exact: true })).toBeVisible();
+  if (detailApi.terminal && watchEnabled) {
+    const tail = detail.getByRole("region", { name: "Read-only output tail" });
+    await expect(tail).toBeVisible();
+    await expect(tail.getByRole("status")).toHaveText("Not watching");
+    await expect(tail.getByRole("button", { name: "Watch output for up to 15 seconds" })).toBeVisible();
+    await expect(tail).toContainText("This is not a terminal screen or snapshot");
+  } else await expect(detail.getByText("Terminal is not available", { exact: true })).toBeVisible();
   await expect(detail).toContainText("Recorded lifecycle reports are historical evidence");
   const detailImage = test.info().outputPath("session-detail-desktop.png");
   await page.screenshot({ path: detailImage, fullPage: true });
