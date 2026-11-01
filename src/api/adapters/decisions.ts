@@ -32,9 +32,10 @@ export function adaptDecision(raw: unknown, expected: string, actor: string): De
     ensure(isRecord(ref) && text(ref.id) && text(ref.version) && typeof ref.digest === "string" && /^[0-9a-f]{64}$/.test(ref.digest));
     return { label: String(label), id: ref.id, digest: ref.digest };
   });
+  ensure((base.state === "pending") === (raw.receipt === null));
   let finality: string | null = null;
   if (raw.receipt !== null) {
-    ensure(isRecord(raw.receipt) && raw.receipt.schema_version === 1 && raw.receipt.decision_id === expected && raw.receipt.decision_revision === 2 && positive(raw.receipt.recorded_at_ms) && isRecord(raw.receipt.finality));
+    ensure(isRecord(raw.receipt) && raw.receipt.schema_version === 1 && raw.receipt.decision_id === expected && raw.receipt.decision_revision === base.revision && raw.receipt.decision_revision === 2 && positive(raw.receipt.recorded_at_ms) && isRecord(raw.receipt.finality));
     const sameRef = (a: unknown, b: unknown) => isRecord(a) && isRecord(b) && a.id === b.id && a.version === b.version && a.digest === b.digest;
     ensure(sameRef(raw.receipt.subject, r.subject) && sameRef(raw.receipt.review_policy, r.review_policy));
     ensure(raw.receipt.eligibility_project_revision === r.eligibility_project_revision && typeof raw.receipt.request_digest === "string" && /^[0-9a-f]{64}$/.test(raw.receipt.request_digest));
