@@ -1,0 +1,304 @@
+{
+  "passed": true,
+  "source_only": false,
+  "origin": "http://localhost:4206",
+  "qualification": "Actual disposable AQ Owner/SQL/private PNG storage and actual compiled client; one explicit human-supplemental upload",
+  "served_bundle_digest": "sha256:af51fe1636a87934ff0ef85ad03336c8e3a0b3bffc97817e6b8087bb3d58c127",
+  "binding": {
+    "attempt_id": "e1c6ad8e-2827-4ec3-8107-dcf0f8a68f54",
+    "coverage": "recorded_legacy_native_only",
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "report_id": "790281ef-e8c1-4aee-b83a-570bf4dbdc3c",
+    "report_revision": "bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119",
+    "source": {
+      "base": {
+        "format": "sha1",
+        "hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "repository_id": "8ec1e4b2-1801-4ee6-acf5-42fafaa19744"
+    },
+    "task_id": "00000000-0000-0000-0000-000000000003"
+  },
+  "actor_id": "13cd459e-3b0e-4bff-bae8-535c905453d3",
+  "fixture_label": "AQ disposable media fixture",
+  "admitted": {
+    "operation_id": "18db7bb4-c508-4fb4-b192-c7492c031620",
+    "artifact_id": "18db7bb4-c508-4fb4-b192-c7492c031620",
+    "request_digest": "sha256:07a9ee792cb2626310fcef28b281d975cf6ef23f4a851508b947ceb6f4972747",
+    "receipt_digest": "sha256:f6952072a61bc81a5f3332f54b97fdced2c72228259eb758163dda37490d2437",
+    "input": {
+      "digest": "sha256:c11807d14abe9b8b23524134656997826b0dd765d6393b274ff035af8f16d97d",
+      "bytes": 83919,
+      "filename": "aq-disposable-fixture.png"
+    },
+    "dimensions": {
+      "width": 960,
+      "height": 600
+    },
+    "input_chunks": [
+      "IHDR",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IDAT",
+      "IEND"
+    ],
+    "state": "retained"
+  },
+  "direct_proof": {
+    "preview": {
+      "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+      "bytes": 37957
+    },
+    "render": {
+      "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+      "bytes": 195989
+    }
+  },
+  "views": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "preview": {
+        "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+        "bytes": 37957,
+        "mime": "image/png",
+        "width": 384,
+        "height": 240
+      },
+      "render": {
+        "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+        "bytes": 195989,
+        "mime": "image/png",
+        "width": 960,
+        "height": 600
+      },
+      "close_bounds": {
+        "x": 1162.484375,
+        "y": 151,
+        "width": 132.515625,
+        "height": 44
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "preview": {
+        "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+        "bytes": 37957,
+        "mime": "image/png",
+        "width": 384,
+        "height": 240
+      },
+      "render": {
+        "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+        "bytes": 195989,
+        "mime": "image/png",
+        "width": 960,
+        "height": 600
+      },
+      "close_bounds": {
+        "x": 32,
+        "y": 278.625,
+        "width": 132.515625,
+        "height": 44
+      }
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "preview": {
+        "digest": "sha256:8f69871dc227f154965436081535757559a5f404d4eecbc14fdd292bb924bca0",
+        "bytes": 37957,
+        "mime": "image/png",
+        "width": 384,
+        "height": 240
+      },
+      "render": {
+        "digest": "sha256:35bec3c0dfe97349596f0f684491e1b42468762c7bfbb4ad8239804ed37c05fc",
+        "bytes": 195989,
+        "mime": "image/png",
+        "width": 960,
+        "height": 600
+      },
+      "close_bounds": {
+        "x": 32,
+        "y": 240.5,
+        "width": 132.515625,
+        "height": 44
+      }
+    }
+  ],
+  "captures": [
+    "/tmp/aq-result-media-actual-browser/1440-actual-preview.png",
+    "/tmp/aq-result-media-actual-browser/1440-actual-expanded.png",
+    "/tmp/aq-result-media-actual-browser/390-actual-preview.png",
+    "/tmp/aq-result-media-actual-browser/390-actual-expanded.png",
+    "/tmp/aq-result-media-actual-browser/320-actual-preview.png",
+    "/tmp/aq-result-media-actual-browser/320-actual-expanded.png"
+  ],
+  "input_capture": "/tmp/aq-result-media-actual-browser/aq-disposable-fixture.png",
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media-uploads"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/human/result-media-uploads/18db7bb4-c508-4fb4-b192-c7492c031620/content"
+    },
+    {
+      "method": "POST",
+      "path": "/api/human/result-media-uploads/18db7bb4-c508-4fb4-b192-c7492c031620/finalize"
+    }
+  ],
+  "browser_mutations": [],
+  "external_requests": [],
+  "page_errors": [],
+  "media_reads": [
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=render",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=render",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=preview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=render",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media",
+      "query": "",
+      "method": "GET"
+    },
+    {
+      "path": "/api/human/results/790281ef-e8c1-4aee-b83a-570bf4dbdc3c/revisions/bc41c82bb8111f1f1308c1923b1c8674ff340f48c6cf8965e182209e27d17119/media/18db7bb4-c508-4fb4-b192-c7492c031620/content",
+      "query": "?variant=preview",
+      "method": "GET"
+    }
+  ],
+  "elapsed_ms": 3809,
+  "references": [
+    "10-results-desktop-v2.png",
+    "13-results-mobile-v2.png"
+  ],
+  "limits": "Positive read/selector/expand/close/refresh/reload only. Authorization/expiry/late-result negatives qualified separately. No worker capture/source coverage/acceptance/provider claim. Listing availability alone is not SHA proof.",
+  "qualified_server_source": "55b1dc67",
+  "qualified_server_sha256": "49006758bfcf378f54a24343b6444563c55adf32cc214c0904c29ec3f58b30e8",
+  "probe_source": "ea96ee7",
+  "visual_review": {
+    "reviewed": true,
+    "viewport_widths": [
+      1440,
+      390,
+      320
+    ],
+    "subset": "Human-supplemental PNG frame, actual filename selector, provenance, expansion/Close, refresh and reload",
+    "findings": "No horizontal page overflow. Images contained without crop; filename wraps; Close visible at all widths, focus returns, phone exits work. Preview captures scroll to media rather than preserving page heading in first viewport. The source PNG truthfully captures transient loading of the previously empty media list. Report timestamp is original synthetic legacy fixture data.",
+    "remaining": "Full10/13 page fidelity remains open: review/comments, richer media, comparison, capture requirements and acceptance are not provided."
+  }
+}
