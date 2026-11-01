@@ -2,6 +2,8 @@
 
 Status: implementation specification proposed from the accepted visual direction. Date: 2026-10-31. The user approved the mockup direction; this document supplies implementation decisions, not a claim that the APIs or application are implemented.
 
+Implementation status, November 1, 2026: the [delivered matrix](../plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state35) and [canonical state35 record](../../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md) distinguish mounted partial features from isolated/source proof. Global human history/text enqueue is implemented; live central Supervisor dispatch/replies remain unavailable. Loaded Playbooks startup metadata is isolated-qualified, not a current catalog. PNG validation/processing is pure core only, with no Store/HTTP/media UI. The complete requirements and proposed routes below remain the target, not blanket implementation claims.
+
 Read with the [architecture baseline](0001-dashboard.md), [API contract proposal](0003-dashboard-api.md), [implementation plan](../plans/0001-dashboard-implementation.md), and [contract audit](../research/2026-10-31-contract-audit.md). Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.
 
 ## 1. Product outcome and boundaries

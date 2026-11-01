@@ -4,35 +4,46 @@ Planning update: November 1, 2026. Audited AQ `468617f`, dashboard `e89da32`, an
 
 ## Outcome and diagnosis
 
-Every navigation destination should become a useful view of real AQ infrastructure, with the composition and interactions in the accepted mockups. At the audited planning baseline, five destinations were only `DestinationPage` stubs, Work used proposed mocks, and Overview was partial. Subsequent live integrations and visual corrections are recorded in `docs/implementation/` and `docs/evidence/`; the coverage table below describes that initial baseline, not the current preview.
+Every navigation destination should become a useful view of real AQ infrastructure, with the composition and interactions in the accepted mockups. At the audited planning baseline, five destinations were only `DestinationPage` stubs, Work used proposed mocks, and Overview was partial. Subsequent live integrations and visual corrections are recorded in `docs/implementation/` and `docs/evidence/`; the delivered matrix below records the current canonical preview and keeps isolated qualification separate.
 
 The twelve selected [mockups](../design/index.html) and their [manifest](../design/manifest.json) remain the visual reference. [Product specification 0002](../specs/0002-product-design.md) governs behavior and resolves differences between mockup generations. Colors alone are insufficient: the missing columns, inspectors, timelines, feed, conversation and focused workspace are the main visual gap. Sample numbers and media in PNGs are never production data.
 
 This work can run alongside the native worker runner. Task/knowledge reads, review and playbook inspection, historical results, notifications, worker status and visual layout do not require a live model. Real supervisor replies and interactive terminal control do require their respective runtime owners.
 
-## Qualified increments after the planning baseline
+## Delivered increments and remaining gates at canonical state35
 
-The [November 1 source/qualification record](../../../agent-q/docs/implementation/dashboard-qualified-status-2026-11-01.md) pins the integrated source, tests and remaining gates. Decisions has actual compiled-browser discovery/evidence and disposable answer/retry qualification. Playbooks has an actual configured parent/child run, pinned receipt timeline and reviewed desktop/phone inspection subset. Typed task creation has actual compiled-browser creation/receipt/reload qualification with one real Graph mutation and reviewed desktop/phone composer captures. Current-account notification inspection has paired backend/UI source and focused actual owner tests; its positive compiled-browser gate remains separate.
+The [canonical state35 promotion](../../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md)
+now binds actual `http://localhost:4188` to compiled bundle
+`sha256:2b3d3d6ee8be801288f2f7c95446ac18e73e80e8010c18d905885e9d4b077689` and the recorded state35 binary.
+The composed dashboard passed 464 tests in 21.33s; typecheck and 564ms/29-asset
+production build passed with no mocks. Root's canonical Supervisor read-only
+scope/draft check passed in 1833ms with zero enqueue requests; canonical Graph
+passed in 3462ms (16 reads, zero mutations), and core Overview in 736ms. Full parent
+feature/design tasks remain open. Historical state34 evidence remains retained.
 
-These are useful increments, not complete tab designs. Definitions/Activations, richer review evidence/discussion, task editing/knowledge authoring and the broader operational panels remain with their existing owners. Canonical preview promotion requires root's separate served-bundle/process evidence. An isolated fixture listener or a capability-disabled browser skip is not that promotion.
-
-## Planning baseline coverage and target per destination
-
-Paths below are relative to the owning repository. Existing routes and proposed additions are deliberately distinguished.
-
-| Destination | Current evidence | Next useful live delivery | Required visual composition |
+| Destination | Canonical state35 delivered subset | Separate qualification | Remaining functional / visual gate |
 | --- | --- | --- | --- |
-| Overview | `src/features/overview/Overview.tsx`; real `/api/v1/overview`, but four unknown counts, empty attention/outcomes, bounded session-derived projects | Aggregate authorized task, review, result and worker facts with per-source coverage; link each attention item to a working detail page | `01-overview-v3.png`: attention/work/outcomes main column, capacity/health/pinned sessions side column, compact status band |
-| Work | `src/features/work/`; list/detail/graph exist, proposed `/api/v1/tasks` routes are absent from AQ | Human project-authorized task list, exact detail and bounded dependency neighborhood from Graph; then create/edit and other explicitly supported commands | `02-work-explorer-v3.png`: list/graph switch, filters, graph controls and contextual inspector; phone list → detail |
-| Knowledge | `src/features/knowledge/index.tsx` is a stub; no human Graph gateway or `knowledge.read` capability | Share Work's human Graph gateway for search, document/revision, sources, relationships and verification; authoring follows typed commands | `07-knowledge-v2.png`: searchable library plus full document/metadata panes, independent lifecycle/verification filters |
-| Decisions | Stub; AQ `reviews.rs` has conditional known-ID inspect/resolve/cancel, but no eligible-user inbox | Bounded decision discovery; exact evidence and revision-bound approve/reject using the existing owner | `03-decision-workspace-v3.png`: inbox, evidence/proposal workspace, context and clear action area |
-| Playbooks | Stub; conditional AQ `/api/playbooks/status`, binding and run-by-ID reads exist; lists are missing | Configured runtime status, run/admission discovery and pinned timeline; installed definition/binding/activation inspection where represented by the actual owner | `06-playbooks.png`: Runs / Definitions / Activations, list/detail and step timeline with waits, children and receipts |
-| Results | Stub; AQ retains validated historical result claims, but has no human result feed | First metadata/evidence links and exact revision detail; then retained media, comments/annotations and explicit feedback tasks | `10-results-desktop-v2.png`, `13-results-mobile-v2.png`: centered feed, large evidence cards, selected comments panel; bounded mobile feed |
-| Agents | Real sessions/detail, lifecycle receipts and optional literal output tail; focused layout/control absent | Focused read-only output workspace, session switcher and details drawer using existing APIs; add observation/usage panels where available | `08-agents-focus-desktop.png`, `11-agent-mobile-v2.png`: one large readable output area, compact tabs, status footer and optional details. Literal tail stays labelled; it is not a screen snapshot |
-| Supervisor | Stub; AQ mailboxes exist, but no global conversation/runtime integration | Durable global conversation identity/history and explicit dispatch association; full/docked/mobile composer. Real replies require AQ-17 | `04-supervisor-chat.png`, `09-supervisor-full-desktop.png`, `12-supervisor-mobile.png`: shared history/draft/context across dock/full modes, keyboard-aware phone composer |
-| Settings | Real identity, daemon, workers and project bindings | Organize existing profile/catalog, worker, notification and project reads; expose only supported Owner actions | Use the shared layout, controls and disclosures; Settings has no separate accepted PNG. Heartbeat does not establish capacity or eligibility |
+| Overview | Recorded task/project contribution, partial attention/outcomes and accepted two-column grouping; account usage stays unavailable. | [Core Overview](../implementation/core-overview.md), actual canonical 736ms probe. | Complete review/result aggregation, actual capacity/provider sources, pinned-session persistence and full 01 composition. |
+| Work | Authorized task list/detail/dependency graph, scope/navigation and task-create composer. | [One actual task creation](../implementation/create-task-live.md) uses disposable Graph/AQ state; canonical probes are read-only. | Editing, complete lifecycle/explanation/activity and remaining 02 controls. |
+| Knowledge | Scoped library/search, readable current/pinned document, sources/verification metadata. | [Actual Work/Knowledge visual subset](../implementation/work-knowledge-visual-fidelity.md); canonical Graph 16-read proof. | Author/correct/verify/retire commands, richer history/relationships and full 07 design. |
+| Decisions | Optional review owner is not configured; unavailable is not a successful empty inbox. | [Actual discovery/revision-bound answers](../implementation/decisions-live.md), including disposable response-loss recovery. | Mount actual optional owner; richer document/media evidence, discussion/comparisons and full 03 design. |
+| Playbooks | Optional runtime/real UDS owner remains unavailable. | [Configured parent/child runs](../implementation/playbooks-inspection.md) plus [startup definitions 8fe proof](../evidence/loaded-definitions-browser/README.md): max 4, historical configuration, `current_catalog=false`, exact immutable pins. | Actual optional runtime/UDS qualification, current installed catalog/activation discovery, actions/editor and full 06 design. |
+| Results | Retained legacy metadata/revision inspection is implemented; no media bytes are served. | [Metadata subset](../implementation/results-metadata.md); [pure PNG core](../../../agent-q/docs/implementation/API-11-core-qualification.md) has 24 focused cases (codec target 1.20s). | Media Store/HTTP/upload/browsing, capture-policy owner, comments/feedback and full 10/13 design. Pure codec source is not media delivery. |
+| Agents | Large focused read-only literal-output workspace, session switcher/details and on-demand accounting; canonical accounting is absent. | [Usage inspection](../implementation/session-usage-inspection.md) includes a separately persisted synthetic nonempty projection. [Shared header](../evidence/shell-mobile-responsive/README.md) retains 62px focused header and phone exit. | Actual transcript/producers, renderer/control, live terminal interaction and full 08/11 acceptance; no quota/billing inference. |
+| Supervisor | One stable global human conversation; canonical history empty, runtime unavailable, text composer and pending-safe receipt/recovery. | [Exact 2b3d full-page visual and owner proof](../implementation/supervisor-conversation-foundation.md) enqueued one human message only in disposable state. Canonical scope/draft probe enqueued none. | Dock/full shared draft/reading state, context/attachments/evidence cards, central dispatch/replies and full 04/09/12 design. Queued history is not an assistant reply. |
+| Settings | Real identity/status/worker/project reads and current-account notification inspection. | [Notification owner/browser proof](../implementation/notification-inspection.md) has no external route/delivery. | Broader profile/observation/admin panels and supported actions; heartbeat does not establish capacity or eligibility. |
+| Shared shell | Compact 114px phone brand/project + Search/usage/connection header at 390/320; 69px desktop; bounded reason overlay preserves composer allocation. | [Actual compiled-bundle screenshots](../evidence/shell-mobile-responsive/README.md), 44px controls, Close/Escape/search/scope focus. Earlier dev results are explicitly source-only. | Populated account-quota producer qualification and the remaining full shared-shell/feature acceptance. |
 
-Search is implemented against mocks and needs the human Graph/read adapters. Provider quota is independently missing: session token/cost accounting and provider availability cannot supply account-wide quota percentages or reset windows.
+Search now uses the authorized human Graph adapter. Provider quota remains a
+separate missing producer; session accounting and provider availability cannot
+supply account-wide percentages or reset windows. No illustrative mockup facts
+are substituted for absent data.
+
+Native named read-only/scoped-auth source and KERNEL/static physical-peer checks
+are accepted within their recorded scope. Production capsule provisioning,
+upstream-key visibility, final implicit context/tool accounting and actual
+provider/tool admission remain open. [Native source/evidence limits](../../../agent-q/docs/implementation/dashboard-canonical-state35-2026-11-01.md)
+are separate from these useful human dashboard increments.
 
 ## Parallel execution with eight subagents
 
