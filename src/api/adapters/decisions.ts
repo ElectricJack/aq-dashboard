@@ -13,10 +13,10 @@ function summary(v: unknown): DecisionSummary {
   ensure((v.state === "pending") === (v.decision_revision === 1) && v.decision_revision <= 2);
   return { decisionId: v.decision_id, revision: v.decision_revision, state: String(v.state), expires: v.expires_at_ms, projectId: v.project_id, taskId: v.task_id, reportId: v.report_id, current: v.current_report_head, eligible: v.eligible_owner };
 }
-export function adaptDecisions(raw: unknown): DecisionPage {
+export function adaptDecisions(raw: unknown, project?: string): DecisionPage {
   ensure(isRecord(raw) && raw.api_version === "review-inbox-1" && raw.sampled === true && positive(raw.server_time_ms) && Array.isArray(raw.items) && raw.items.length <= 50);
   ensure(raw.next_cursor === null || (typeof raw.next_cursor === "string" && raw.next_cursor.length <= 4096 && /^[0-9a-f]+$/.test(raw.next_cursor)));
-  const items = raw.items.map(summary); ensure(new Set(items.map(i => i.decisionId)).size === items.length);
+  const items = raw.items.map(summary); ensure(new Set(items.map(i => i.decisionId)).size === items.length && (!project || items.every(i => i.projectId === project)));
   return { items, cursor: raw.next_cursor, serverTime: raw.server_time_ms };
 }
 export function adaptDecision(raw: unknown, expected: string, actor: string): DecisionDetail {

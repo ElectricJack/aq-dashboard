@@ -22,7 +22,7 @@ export function Component() {
   const inbox = useInfiniteQuery({
     queryKey: queryKey(queryContext, "decision-inbox", { project, state }), enabled: permission.enabled,
     initialPageParam: null as string | null,
-    queryFn: async ({ pageParam, signal }) => { const q = new URLSearchParams({ state, limit: "25" }); if (project) q.set("project_id", project); if (pageParam) q.set("cursor", pageParam); return adaptDecisions(await apiGet(`${ROOT}?${q}`, signal)); },
+    queryFn: async ({ pageParam, signal }) => { const q = new URLSearchParams({ state, limit: "25" }); if (project) q.set("project_id", project); if (pageParam) q.set("cursor", pageParam); return adaptDecisions(await apiGet(`${ROOT}?${q}`, signal), project); },
     getNextPageParam: (last, pages) => pages.length < 4 ? last.cursor ?? undefined : undefined, retry: false,
   });
   const rows = inbox.data?.pages.flatMap(p => p.items);
