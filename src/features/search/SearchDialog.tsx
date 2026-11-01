@@ -7,6 +7,7 @@ import { scopeSearch, useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { subjectPath } from "../../app/subjects";
 import { useRead } from "../../app/useRead";
+import { HumanSearchResults } from "./HumanSearchResults";
 import styles from "./SearchDialog.module.css";
 
 const MIN_CHARS = 2;
@@ -116,6 +117,7 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
   const q = useDebounced(text.trim(), DEBOUNCE_MS);
   const { bootstrap } = useSession();
   const capability = bootstrap.capability("search.read");
+  const humanGraph = bootstrap.capability("human.graph.read").enabled;
 
   useEffect(() => {
     const el = dialog.current;
@@ -164,7 +166,7 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
         ) : q.length < MIN_CHARS ? (
           <p className={styles.muted}>Type at least {MIN_CHARS} characters to search.</p>
         ) : (
-          <Results q={q} onChoose={() => dialog.current?.close()} />
+          humanGraph ? <HumanSearchResults q={q} onChoose={() => dialog.current?.close()} /> : <Results q={q} onChoose={() => dialog.current?.close()} />
         )}
       </div>
     </dialog>
