@@ -80,3 +80,9 @@
 .taskDependencies { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-3); }
 .taskDependencies li { display:grid; gap:var(--space-1); }
 @media(max-width:1199px) { .workspace[data-kind=task][data-detail=true] .filters { display:flex; } .workspace[data-kind=task][data-detail=true] .filters .search,.workspace[data-kind=task][data-detail=true] .filters > label { display:none; } }
+
+@media(max-width:1199px) {
+  .workspace[data-kind=knowledge][data-detail=true] > .subtitle { display:none; }
+  .documentTabs { flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; justify-content:start; scrollbar-width:thin; }
+  .documentTabs button { flex:none; }
+}

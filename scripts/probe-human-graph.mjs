@@ -79,6 +79,11 @@ try {
   const neighborhood=page.getByRole("region",{name:"Dependency graph",exact:true});
   await expect(neighborhood.getByText(/one-hop neighborhood/)).toBeVisible();
   for(const node of graph.nodes) await expect(neighborhood.getByRole("link").filter({hasText:node.title})).toBeVisible();
+  const desktopCanvas=neighborhood.getByRole("region",{name:"Scrollable task graph",exact:true});
+  const graphBox=await neighborhood.boundingBox(), inspectorBox=await taskDetail.boundingBox();
+  expect(graphBox.width).toBeGreaterThan(inspectorBox.width);
+  const desktopFit=await desktopCanvas.evaluate(element=>element.scrollWidth<=element.clientWidth+1);
+  if(graph.nodes.length<=2) expect(desktopFit,"bounded fixture graph fits the desktop workspace without reducing label size").toBe(true);
   await screenshot("work-graph-desktop.png");
   const neighbor=graph.nodes.find(node=>node.id!==taskId);
   if(neighbor) {
@@ -139,6 +144,14 @@ try {
     await phoneGraph.getByRole("button",{name:"Pan right",exact:true}).click();
     await expect.poll(()=>canvas.evaluate(element=>element.scrollLeft)).toBeGreaterThan(0);
   }
+  const visibleNodes=await canvas.evaluate(element=>{
+    const clip=element.getBoundingClientRect();
+    return [...element.querySelectorAll("a")].map(node=>node.getBoundingClientRect().toJSON()).filter(bounds=>bounds.left>=clip.left-1&&bounds.right<=clip.right+1);
+  });
+  expect(visibleNodes.length,"phone graph has a horizontally readable node after panning").toBeGreaterThan(0);
+  const graphPhoneNav=await phone.getByRole("navigation",{name:"Primary (compact)",exact:true}).boundingBox();
+  expect(visibleNodes[0].top,"phone graph exposes actual nodes within the first viewport").toBeLessThan(844*.85);
+  expect(visibleNodes[0].bottom,"phone graph node is readable above fixed phone navigation").toBeLessThanOrEqual(graphPhoneNav.top);
   await screenshot("work-graph-mobile.png",phone);
   await phone.getByRole("navigation",{name:"Work view"}).getByRole("button",{name:"List",exact:true}).click();
   await phoneTask.getByRole("link",{name:"All tasks",exact:true}).click();await expect(phone.getByRole("list",{name:"Tasks",exact:true})).toBeVisible();
@@ -146,6 +159,11 @@ try {
   const phoneDocument=phone.getByRole("region",{name:knowledge.title,exact:true});
   await expect(phoneDocument.getByText(`Pinned revision ${pinned.content_revision}`,{exact:true})).toBeVisible();
   expect(await phone.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
+  const phoneBody=phoneDocument.locator("[data-document-body]").first();
+  const firstParagraph=await phoneBody.locator("p").first().boundingBox();
+  const phoneNav=await phone.getByRole("navigation",{name:"Primary (compact)",exact:true}).boundingBox();
+  expect(firstParagraph.top,"document body begins within the first phone viewport").toBeLessThan(844*.8);
+  expect(firstParagraph.bottom,"first document paragraph is readable above fixed phone navigation").toBeLessThanOrEqual(phoneNav.top);
   await screenshot("knowledge-pinned-mobile.png",phone);
   await phoneDocument.getByRole("button",{name:"History",exact:true}).click();
   await phoneDocument.getByText("Record details",{exact:true}).click();
@@ -153,7 +171,7 @@ try {
   await phoneDocument.getByRole("link",{name:"All records",exact:true}).click();await expect(phone.getByRole("list",{name:"Knowledge records",exact:true})).toBeVisible();
   await phone.close();
   await expect(page.getByText(/Mock data/)).toHaveCount(0);expect(mutations).toEqual([]);expect(errors).toEqual([]);
-  const result={passed:true,origin:origin.origin,served_bundle_digest:bootstrap.data.product.dashboard_digest,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
+  const result={passed:true,visual_measurements:{desktop_graph_width:graphBox.width,desktop_inspector_width:inspectorBox.width,desktop_graph_fits:desktopFit,phone_graph_node_top:visibleNodes[0].top,phone_graph_node_bottom:visibleNodes[0].bottom,phone_navigation_top:graphPhoneNav.top,phone_document_paragraph_top:firstParagraph.top,phone_document_paragraph_bottom:firstParagraph.bottom},references:["02-work-explorer-v3.png","07-knowledge-v2.png"],visual_subset:"task workspace with readable dependency graph and contextual inspector; document library with first-viewport phone reading",origin:origin.origin,served_bundle_digest:bootstrap.data.product.dashboard_digest,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
   await writeFile(join(output,"result.json"),JSON.stringify(result,null,2)+"\n");console.log(JSON.stringify(result));
 } catch(error) {
   await screenshot("failure.png").catch(()=>{});
