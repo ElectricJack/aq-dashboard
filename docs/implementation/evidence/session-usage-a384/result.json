@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "origin": "http://127.0.0.1:33341",
+  "session_id": "9ce7aec6-a630-4ac1-95ec-e248824c2593",
+  "attempt_id": "fb113c69-5fb2-48fd-9888-d944d3059fa0",
+  "binding": {
+    "project_id": "00000000-0000-0000-0000-000000000001",
+    "task_id": "00000000-0000-0000-0000-000000000003",
+    "lineage_id": "aac06eab-3c76-5a50-830e-720fbe521fd8",
+    "attempt_id": "fb113c69-5fb2-48fd-9888-d944d3059fa0",
+    "attempt_generation": 1,
+    "session": {
+      "kind": "remote",
+      "node_id": "a7abfb30-7412-4acb-8828-e9967e299e8d",
+      "boot_id": "4f7ddf9e-4ea5-4d60-8b2b-e34de7398348",
+      "attempt_id": "fb113c69-5fb2-48fd-9888-d944d3059fa0",
+      "assignment_generation": 1,
+      "session_id": "9ce7aec6-a630-4ac1-95ec-e248824c2593"
+    }
+  },
+  "usage_revision": 3,
+  "canonical_calls": 2,
+  "known_category_subtotals": [
+    120,
+    9,
+    80,
+    0,
+    3
+  ],
+  "cost": "unknown/not_reported",
+  "actual_projection": "synthetic persisted incomplete accounting fixture",
+  "references": [
+    "08-agents-focus-desktop.png",
+    "11-agent-mobile-v2.png"
+  ],
+  "visual_subset": "on-demand session usage within preserved focused output workspace",
+  "served_bundle_digest": "sha256:a384e31c82f84f9ee5565512bc4ecbfad483bed0aefeac4fc7829668a5952ac5",
+  "api_product_bundle_digest": "sha256:a384e31c82f84f9ee5565512bc4ecbfad483bed0aefeac4fc7829668a5952ac5",
+  "measurements": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "usage": {
+        "x": 273,
+        "y": 332.1875,
+        "width": 1118,
+        "height": 460.15625
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "usage": {
+        "x": 33,
+        "y": -746.890625,
+        "width": 324,
+        "height": 1167.109375
+      }
+    }
+  ],
+  "usage_browser_reads": 6,
+  "mutations": 0,
+  "page_errors": 0,
+  "captures": [
+    "/tmp/aq-session-usage-nonempty-browser-reviewed/desktop-focused-output.png",
+    "/tmp/aq-session-usage-nonempty-browser-reviewed/desktop-usage-details.png",
+    "/tmp/aq-session-usage-nonempty-browser-reviewed/phone-focused-output.png",
+    "/tmp/aq-session-usage-nonempty-browser-reviewed/phone-usage-details.png",
+    "/tmp/aq-session-usage-nonempty-browser-reviewed/phone-usage-categories.png",
+    "/tmp/aq-session-usage-nonempty-browser-reviewed/phone-usage-cost.png"
+  ],
+  "elapsed_ms": 2000,
+  "note": "Actual AQ owner reads only; no interception, domain mutations, provider calls or quota/health inference. Optional nonempty fixture is persisted synthetic accounting evidence, never live provider usage or an invoice."
+}
