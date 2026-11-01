@@ -31,13 +31,15 @@ async function read(path) {
 try {
   const boot = await read("/api/v1/bootstrap");
   expect(boot.api_version).toBe("dashboard-read-1");
+  expect(boot.data.product.dashboard_digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+  if (process.env.AQ_LIVE_DASHBOARD_SHA256) expect(boot.data.product.dashboard_digest).toBe(`sha256:${process.env.AQ_LIVE_DASHBOARD_SHA256}`);
   expect(boot.data.capabilities.some(c => c.name === "notifications.read" && c.version === "1" && c.enabled === true)).toBe(true);
-  let after = 0, row;
+  let after = 0, row, targetPage = 0;
   for (let n = 0; n < 4; n++) {
     const inbox = await read(`/api/notifications?after=${after}&limit=16`);
     expect(inbox.items.length).toBeLessThanOrEqual(16);
     for (const item of inbox.items) expect(item.message.recipient_user_id).toBe(boot.data.principal.id);
-    row = inbox.items.find(item => item.message.message_id === notificationId);
+    row = inbox.items.find(item => item.message.message_id === notificationId); targetPage = n;
     if (row || inbox.next_after === null) break;
     expect(Number.isSafeInteger(inbox.next_after) && inbox.next_after > after).toBe(true); after = inbox.next_after;
   }
@@ -51,12 +53,11 @@ try {
   await page.goto("/settings", { waitUntil: "domcontentloaded", timeout: 6000 });
   const panel = page.getByRole("region", { name: "Your notifications" });
   const message = panel.locator(`button[data-message-id="${notificationId}"]`);
-  for (let n = 0; n < 3 && await message.count() === 0; n++) {
-    const more = panel.getByRole("button", { name: "Load more notifications" });
-    const firstRow = panel.getByRole("list", { name: "Notification inbox" }).getByRole("button").first();
-    await expect(firstRow).toBeVisible();
-    if (await message.count()) break;
-    await expect(more).toBeVisible(); await more.click();
+  await expect(panel.getByRole("list", { name: "Notification inbox" }).getByRole("button").first()).toBeVisible();
+  for (let n = 0; n < targetPage; n++) {
+    const reply = page.waitForResponse(r => new URL(r.url()).pathname === "/api/notifications" && r.request().method() === "GET");
+    await panel.getByRole("button", { name: "Load more notifications" }).click();
+    expect((await reply).status()).toBe(200);
   }
   await expect(message).toBeVisible(); await message.click();
   const detail = panel.getByRole("region", { name: "Notification delivery details" });
@@ -77,7 +78,7 @@ try {
   await detail.getByRole("button", { name: "Back to inbox" }).click();
   await expect(message).toBeFocused();
   expect(mutations).toEqual([]); expect(foreignRequests).toEqual([]); expect(errors).toEqual([]);
-  const result = { passed: true, origin: origin.origin, notification_id: notificationId, recipient_id: boot.data.principal.id,
+  const result = { passed: true, origin: origin.origin, dashboard_digest: boot.data.product.dashboard_digest, notification_id: notificationId, recipient_id: boot.data.principal.id,
     external_state: inspected.external_state, delivery_count: inspected.deliveries.length, mutations: mutations.length, external_requests: foreignRequests.length,
     elapsed_ms: Math.round(performance.now() - started), screenshots: [join(output, "notifications-desktop.png"), join(output, "notifications-mobile.png")],
     note: "Actual current-recipient persisted no-external-route notification; read-only UI inspection. No sends, retries, transport acceptance or human-acknowledgment claim." };
