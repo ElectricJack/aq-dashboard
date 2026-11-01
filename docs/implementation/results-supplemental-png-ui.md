@@ -42,3 +42,54 @@ Implementation owner inspected the images directly. Durable source-only evidence
 The [initial source observation](evidence/result-media-source-ui/initial-source-observation/) is retained separately. It exposed excessive paragraph/grid spacing and selector overflow. At 320 px the original expectation also waited for a preview that had not entered the lazy visible window; the harness now scrolls to the media area before asserting its image. The first development harness attempt intercepted `/src/api/client.ts` with an overly broad API glob, yielding a blank page; that harness-only path matcher was corrected to the exact private `/api/` prefix. Those observations are not failures of a mounted AQ media API.
 
 Presentation checks after the changes: 22 affected component tests passed in 3.97 seconds; exact TypeScript and diff checks passed. The earlier 44-test security/adapter/lifecycle qualification remains separate. No production build or Cargo command was run.
+
+### Actual mounted-owner browser probe
+
+`scripts/probe-result-media.mjs` is separate from the synthetic source renderer. It
+has no interception and refuses to run without an explicit disposable-upload
+opt-in, an HTTP loopback origin, an expected actor, the independently retained
+API06 report binding, a visible fixture label and an exact compiled manifest.
+It does not change canonical configuration or provide an uploader UI.
+
+Required environment, supplied by the integration owner after the disposable
+schema36 database, private media root, upload-enabled actual owner and compiled
+bundle have been staged:
+
+- `AQ_LIVE_ALLOW_MEDIA_UPLOAD=1`
+- `AQ_LIVE_URL=http://localhost:<owned-stage-port>`
+- `AQ_LIVE_ACTOR_ID`: exact human Owner UUID
+- `AQ_LIVE_MEDIA_BINDING`: JSON containing the independent API06 coverage,
+  report/revision/project/task/attempt/repository/base binding
+- `AQ_LIVE_MEDIA_FIXTURE_LABEL`: exact report conclusion containing “fixture”
+- `AQ_LIVE_CANDIDATE_MANIFEST`: local compiled `dashboard-manifest.json` path
+- Optional `AQ_LIVE_OUTPUT_DIR`: private screenshot/report output directory
+
+Run `node scripts/probe-result-media.mjs` only after the owner releases that
+fixture and browser slot. The probe checks bootstrap's digest against SHA256 of
+the local manifest bytes; the AQ asset router need not publicly serve a manifest.
+The exact UI path is `/results/{report}/revisions/{bare64digest}`.
+
+The source capture is one real Playwright PNG of that actual labelled AQ page at
+960×600 CSS pixels, DPR1. It must fit the admitted 1MiB/2MP limits. Capture claims
+remain null; the retained image is human-supplemental evidence. The probe freezes
+one literal admission JSON body and UUID, sends one POST/PUT/finalize sequence
+with normal Origin/CSRF headers, and performs only pure lookups if processing is
+still finishing. It never regenerates an intent, retries admission or silently
+recovers a mutation. An ambiguous mutation outcome fails the qualification.
+
+The positive case compares request digest with literal JSON bytes, independently
+pins the report through API06, verifies canonical receipt SHA and immutable
+receipt fields, checks exact served PNG headers/length/SHA/dimensions, then hashes
+the Blob bytes actually accepted by the compiled client. Fresh1440/390/320 pages
+exercise the retained selector, preview, explicit expansion, visible Close/focus
+return, refresh, reload without another upload, and phone navigation exit/Back.
+It records browser writes (must be zero), the three explicit API mutations,
+external requests (must be zero), errors, screenshots and the served bundle digest.
+Listing `available` is treated as observed file presence, not SHA attestation.
+
+Source validation: `node --check scripts/probe-result-media.mjs` and
+`node --test scripts/probe-result-media.test.mjs` (four fail-before-network guard
+cases). Actual HTTP/browser execution and screenshot review remain open until
+reported with a concrete owned fixture and bundle. Authorization, expiry and late
+result negative cases remain covered by separate server/client tests; this
+positive probe does not claim those scenarios or worker/source capture proof.
