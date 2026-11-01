@@ -7,8 +7,10 @@ export type TaskOperation={contract:"human-task-create-1";operation_id:string;pr
 function check(v:unknown):asserts v{if(!v)throw new ContractError("Invalid task operation");}
 function revision(v:unknown):v is string{return typeof v==="string"&&/^[1-9][0-9]{0,18}$/.test(v)&&BigInt(v)<=9223372036854775807n;}
 export function validateTaskDraft(draft:TaskDraft):string|null{
+ if([draft.title,draft.body,draft.acceptance_criteria].some(v=>/[\uD800-\uDFFF]/u.test(v)))return "Task text must contain valid Unicode characters.";
  if(!draft.title.trim()||[...draft.title.trim()].length>512)return "Enter a title of at most 512 characters.";
  if(/\p{Cc}/u.test(draft.title.trim()))return "Title cannot contain control characters.";
+ if(draft.body.includes("\0")||draft.acceptance_criteria.includes("\0"))return "Task text cannot contain NUL characters.";
  if(new TextEncoder().encode(draft.body).length>32768)return "Description exceeds 32 KiB.";
  if(new TextEncoder().encode(draft.acceptance_criteria).length>8192)return "Acceptance criteria exceed 8 KiB.";
  return null;
