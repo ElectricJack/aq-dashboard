@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Actual AQ human API -> actual configured Graph only. No interception or writes.
+import { createHash } from "node:crypto";
 import { chromium, expect } from "@playwright/test";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -56,6 +57,15 @@ const screenshot=async (name,target=page)=>{
 };
 try {
   const bootstrap=await read("/api/v1/bootstrap");
+  let servedBundleDigest=bootstrap.data.product.dashboard_digest;
+  if(process.env.AQ_LIVE_CANDIDATE_MANIFEST) {
+    const bytes=await readFile(process.env.AQ_LIVE_CANDIDATE_MANIFEST);
+    const manifestResponse=await page.request.get(new URL("/dashboard-manifest.json",origin).href);
+    expect(manifestResponse.status()).toBe(200);
+    const served=await manifestResponse.body();
+    expect(createHash("sha256").update(served).digest("hex")).toBe(createHash("sha256").update(bytes).digest("hex"));
+    servedBundleDigest=`sha256:${createHash("sha256").update(served).digest("hex")}`;
+  }
   for(const name of ["human.graph.read","tasks.read","knowledge.read","search.read"]) expect(bootstrap.data.capabilities.some(c=>c.name===name&&c.version==="1"&&c.enabled===true),name).toBe(true);
   const tasks=await read(`${human}/tasks?limit=25`), task=(await read(`${human}/tasks/${taskId}`)).data;
   expect(tasks.data.items.some(n=>n.id===taskId)).toBe(true);
@@ -144,6 +154,10 @@ try {
     await phoneGraph.getByRole("button",{name:"Pan right",exact:true}).click();
     await expect.poll(()=>canvas.evaluate(element=>element.scrollLeft)).toBeGreaterThan(0);
   }
+  await expect.poll(()=>canvas.evaluate(element=>{
+    const clip=element.getBoundingClientRect();
+    return [...element.querySelectorAll("a")].filter(node=>{const bounds=node.getBoundingClientRect();return bounds.left>=clip.left-1&&bounds.right<=clip.right+1;}).length;
+  }),{message:"phone smooth-pan settles with a complete readable node"}).toBeGreaterThan(0);
   const visibleNodes=await canvas.evaluate(element=>{
     const clip=element.getBoundingClientRect();
     return [...element.querySelectorAll("a")].map(node=>node.getBoundingClientRect().toJSON()).filter(bounds=>bounds.left>=clip.left-1&&bounds.right<=clip.right+1);
@@ -151,7 +165,7 @@ try {
   expect(visibleNodes.length,"phone graph has a horizontally readable node after panning").toBeGreaterThan(0);
   const graphPhoneNav=await phone.getByRole("navigation",{name:"Primary (compact)",exact:true}).boundingBox();
   expect(visibleNodes[0].top,"phone graph exposes actual nodes within the first viewport").toBeLessThan(844*.85);
-  expect(visibleNodes[0].bottom,"phone graph node is readable above fixed phone navigation").toBeLessThanOrEqual(graphPhoneNav.top);
+  expect(visibleNodes[0].bottom,"phone graph node is readable above fixed phone navigation").toBeLessThanOrEqual(graphPhoneNav.y);
   await screenshot("work-graph-mobile.png",phone);
   await phone.getByRole("navigation",{name:"Work view"}).getByRole("button",{name:"List",exact:true}).click();
   await phoneTask.getByRole("link",{name:"All tasks",exact:true}).click();await expect(phone.getByRole("list",{name:"Tasks",exact:true})).toBeVisible();
@@ -162,8 +176,8 @@ try {
   const phoneBody=phoneDocument.locator("[data-document-body]").first();
   const firstParagraph=await phoneBody.locator("p").first().boundingBox();
   const phoneNav=await phone.getByRole("navigation",{name:"Primary (compact)",exact:true}).boundingBox();
-  expect(firstParagraph.top,"document body begins within the first phone viewport").toBeLessThan(844*.8);
-  expect(firstParagraph.bottom,"first document paragraph is readable above fixed phone navigation").toBeLessThanOrEqual(phoneNav.top);
+  expect(firstParagraph.y,"document body begins within the first phone viewport").toBeLessThan(844*.8);
+  expect((firstParagraph.y+firstParagraph.height),"first document paragraph is readable above fixed phone navigation").toBeLessThanOrEqual(phoneNav.y);
   await screenshot("knowledge-pinned-mobile.png",phone);
   await phoneDocument.getByRole("button",{name:"History",exact:true}).click();
   await phoneDocument.getByText("Record details",{exact:true}).click();
@@ -171,7 +185,7 @@ try {
   await phoneDocument.getByRole("link",{name:"All records",exact:true}).click();await expect(phone.getByRole("list",{name:"Knowledge records",exact:true})).toBeVisible();
   await phone.close();
   await expect(page.getByText(/Mock data/)).toHaveCount(0);expect(mutations).toEqual([]);expect(errors).toEqual([]);
-  const result={passed:true,visual_measurements:{desktop_graph_width:graphBox.width,desktop_inspector_width:inspectorBox.width,desktop_graph_fits:desktopFit,phone_graph_node_top:visibleNodes[0].top,phone_graph_node_bottom:visibleNodes[0].bottom,phone_navigation_top:graphPhoneNav.top,phone_document_paragraph_top:firstParagraph.top,phone_document_paragraph_bottom:firstParagraph.bottom},references:["02-work-explorer-v3.png","07-knowledge-v2.png"],visual_subset:"task workspace with readable dependency graph and contextual inspector; document library with first-viewport phone reading",origin:origin.origin,served_bundle_digest:bootstrap.data.product.dashboard_digest,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
+  const result={passed:true,visual_measurements:{desktop_graph_width:graphBox.width,desktop_inspector_width:inspectorBox.width,desktop_graph_fits:desktopFit,phone_graph_node_top:visibleNodes[0].top,phone_graph_node_bottom:visibleNodes[0].bottom,phone_navigation_top:graphPhoneNav.y,phone_document_paragraph_top:firstParagraph.y,phone_document_paragraph_bottom:(firstParagraph.y+firstParagraph.height)},references:["02-work-explorer-v3.png","07-knowledge-v2.png"],visual_subset:"task workspace with readable dependency graph and contextual inspector; document library with first-viewport phone reading",origin:origin.origin,served_bundle_digest:servedBundleDigest,api_product_bundle_digest:bootstrap.data.product.dashboard_digest,project_id:project,task_id:taskId,task_revision:task.content_revision,knowledge_id:knowledgeId,knowledge_revision:knowledge.content_revision,task_rows:tasks.data.items.length,knowledge_rows:knowledgePage.data.items.length,graph_nodes:graph.nodes.length,graph_edges:graph.edges.length,human_reads:humanReads.length,mutations:mutations.length,page_errors:errors.length,elapsed_ms:Math.round(performance.now()-started),output,note:"Actual AQ human API and actual configured Graph; labelled local fixture, no interception or domain mutations. Current and exact pinned revision inspected; no older-history claim."};
   await writeFile(join(output,"result.json"),JSON.stringify(result,null,2)+"\n");console.log(JSON.stringify(result));
 } catch(error) {
   await screenshot("failure.png").catch(()=>{});
