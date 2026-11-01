@@ -107,3 +107,25 @@ A later gain under the same principal/authorization/scope cannot paint old
 incarnation rows or controls while its new first page is pending. The delayed
 replacement-incarnation regression passed; historical and unrelated query caches
 are unchanged. This follows a live interface loss, not continuous catalog polling.
+
+
+## Actual compiled current-catalog acceptance
+
+The [current-catalog browser record](../evidence/current-catalog-browser/README.md)
+now qualifies the Definitions/Activations read subset against immutable bundle
+`624707540cc6566158c3721e4733f69934c8a1670c4ffb972afb7d469fb8e663`
+(source integrationf2dbe5e). The original frozen probe passed in 2294 ms browser /
+3.81 s complete; two real retained artifacts, later activation revision2, exact
+pins, dependency references/controls, reload/bound navigation and 1440/390/320px
+exits/focus/reflow passed. Phone roster/detail supplements were also inspected,
+including the valid128-byte boundaries. There were no browser mutations, foreign
+requests, errors, historical fallback or unrelated catalog-view engine reads.
+One intentional final Runs read remained empty. The entire composed frontend
+passed633 tests and its exact production build checks.
+
+The retained actual fixture uses explicitly synthetic local UDS forwarding into
+a disposable PostgreSQL and source schema36. It is not the separate actual
+private UDS deployment or merged schema37/canonical promotion gate. No canonical
+runtime configuration, provider/workflow admission or project eligibility was
+fabricated. Editing/compilation/installation/activation mutations and full parent
+Playbooks design remain deferred.
