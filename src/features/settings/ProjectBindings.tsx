@@ -1,0 +1,70 @@
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { apiGet } from "../../api/client";
+import { adaptProjectBindings, mergeProjectPages, PROJECT_PAGE_SIZE, validationLabel } from "../../api/adapters/projectBindings";
+import { queryKey } from "../../api/queryKeys";
+import { useSession } from "../../app/session";
+import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import styles from "./ProjectBindings.module.css";
+
+const MAX_PAGES = 4;
+export function ProjectBindings() {
+  const { bootstrap, queryContext } = useSession();
+  const capability = bootstrap.capability("projects.read");
+  const query = useInfiniteQuery({
+    queryKey: queryKey(queryContext, "project-execution-bindings", {}),
+    enabled: capability.enabled,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam, signal }) => {
+      const params = new URLSearchParams({ limit: String(PROJECT_PAGE_SIZE) });
+      if (pageParam) params.set("after", pageParam);
+      return adaptProjectBindings(await apiGet<unknown>(`/api/projects?${params}`, signal), pageParam);
+    },
+    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined,
+    retry: false,
+  });
+  const pages = query.data?.pages;
+  let items: ReturnType<typeof mergeProjectPages> = [];
+  let pageError: unknown;
+  try { items = mergeProjectPages(pages ?? []); } catch (e) { pageError = e; }
+  return <section className={styles.section} aria-labelledby="project-bindings-heading">
+    <h2 id="project-bindings-heading">Project execution bindings</h2>
+    <p>Saved project settings and recorded connection checks.</p>
+    {!capability.enabled ? <p>{capability.reason}</p> : !pages || query.isError || pageError ?
+      <QueryStatus status={query.isError || pageError ? "error" : "pending"} error={query.error ?? pageError} label="project execution bindings" onRetry={() => void query.refetch()} /> : <>
+      <button type="button" className={styles.more} disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh bindings</button>
+      {pages[0]?.items.length === 0 && <p>No project execution bindings configured.</p>}
+      <ul className={styles.list} aria-label="Project execution bindings">
+        {items.map(p => <li className={styles.card} key={p.id} data-project-id={p.id}>
+          <h3>{p.name}</h3>
+          <p>{p.enabled ? "Configured enabled" : "Configured disabled"} · Revision {p.revision}</p>
+          <dl className={styles.facts}>
+            <dt>Repository ID</dt><dd>{p.repositoryId}</dd>
+            <dt>Graph workspace ID</dt><dd>{p.workspaceId}</dd>
+            <dt>Allowed agent profiles</dt><dd>{p.agents.join(", ")}</dd>
+            <dt>Allowed intelligence profiles</dt><dd>{p.intelligence.join(", ")}</dd>
+            <dt>Allowed execution profiles</dt><dd>{p.execution.join(", ")}</dd>
+            <dt>Allowed worker groups</dt><dd>{p.workerGroups.join(", ") || "None listed"}</dd>
+            <dt>Allowed environments</dt><dd>{p.environments.join(", ")}</dd>
+          </dl>
+          <h4>Recorded external checks</h4>
+          <p>Repository: {validationLabel(p.validation.repository)} · Graph: {validationLabel(p.validation.graph)}</p>
+          <p>Observed <time dateTime={p.validation.observedAt}>{p.validation.observedAt}</time></p>
+          <details><summary>Identifiers and check times</summary>
+          <dl className={styles.facts}>
+            <dt>Project ID</dt><dd>{p.id}</dd>
+            <dt>Repository binding generation</dt><dd>{p.repositoryGeneration}</dd>
+            <dt>Explicitly allowed worker node IDs</dt><dd>{p.nodeIds.join(", ") || "None individually listed"}</dd>
+            <dt>Catalog digest</dt><dd>{p.catalogDigest}</dd>
+            <dt>Check observed at</dt><dd><time dateTime={p.validation.observedAt}>{p.validation.observedAt}</time></dd>
+            <dt>Check expiry</dt><dd><time dateTime={p.validation.expiresAt}>{p.validation.expiresAt}</time></dd>
+            <dt>Binding validated at</dt><dd><time dateTime={p.validation.recordedAt}>{p.validation.recordedAt}</time></dd>
+          </dl>
+          <p>Worker admission uses listed node IDs or configured group membership.</p>
+          </details>
+        </li>)}
+      </ul>
+      {query.hasNextPage && <button type="button" className={styles.more} disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more project bindings</button>}
+      {pages.length === MAX_PAGES && pages[MAX_PAGES - 1]!.next && <p>Showing the first {MAX_PAGES * PROJECT_PAGE_SIZE} bindings. Additional bindings are not displayed.</p>}
+    </>}
+  </section>;
+}

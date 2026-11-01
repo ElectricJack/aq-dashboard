@@ -139,3 +139,41 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
+
+test("saved project bindings match the actual owner API without implying readiness", async ({ page, request }) => {
+  const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
+  const capability = bootstrap.data.capabilities.find((c: { name: string }) => c.name === "projects.read");
+  if (!capability?.enabled) {
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "Project execution bindings" })).toBeVisible();
+    await expect(page.getByText(capability?.reason ?? "Not offered by this AQ server", { exact: true })).toBeVisible();
+    return;
+  }
+  const response = page.waitForResponse(r => new URL(r.url()).pathname === "/api/projects" && r.request().method() === "GET");
+  await page.goto("/settings");
+  const result = await response;
+  expect(result.status()).toBe(200);
+  const actual = await result.json();
+  const list = page.getByRole("list", { name: "Project execution bindings" });
+  await expect(list.getByRole("listitem")).toHaveCount(actual.items.length);
+  for (const row of actual.items) {
+    const item = list.locator(`li[data-project-id="${row.binding.project_id}"]`);
+    await expect(item).toContainText(row.binding.enabled ? "Configured enabled" : "Configured disabled");
+    await expect(item).toContainText(`Revision ${row.revision}`);
+    await expect(item).toContainText(row.binding.repository_id);
+    await expect(item).toContainText(row.binding.graph_workspace_id);
+    await expect(item).toContainText("Recorded external checks");
+    for (const group of row.binding.allowed_worker_groups) await expect(item).toContainText(group);
+    for (const profile of row.binding.allowed_agent_profiles) await expect(item).toContainText(profile);
+    await item.getByText("Identifiers and check times", { exact: true }).click();
+    await expect(item).toContainText(row.binding.catalog_digest);
+    for (const node of row.binding.allowed_node_ids) await expect(item).toContainText(node);
+    await expect(item.locator(`time[datetime="${new Date(row.validation.expires_at_ms).toISOString()}"]`)).toBeVisible();
+  }
+  test.info().annotations.push({ type: "actual-project-bindings", description: `${actual.items.length} first-page saved bindings checked; no current readiness assertion` });
+  if (actual.items.length === 0) await expect(page.getByText("No project execution bindings configured.")).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("project-bindings-desktop.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  await page.screenshot({ path: test.info().outputPath("project-bindings-mobile.png"), fullPage: true });
+});

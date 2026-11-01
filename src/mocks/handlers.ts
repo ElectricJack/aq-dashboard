@@ -68,6 +68,7 @@ export function handlersFor(name: string | null | undefined) {
   };
 
   return [
+    http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
     http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>(s.bootstrap))),
     http.get("/api/v1/provider-usage", () =>
       s.providerUsage.kind === "ok"
