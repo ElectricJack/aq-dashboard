@@ -1,6 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setupServer } from "msw/node";
+import { http, HttpResponse } from "msw";
+import { SERVER_TIME, SESSIONS } from "../../mocks/inspectionData";
+import type { SessionDetail } from "../../api/wire/proposed";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
 
@@ -81,4 +84,43 @@ test("Back from a session returns focus to its roster row", async () => {
   await screen.findByRole("heading", { level: 2, name: "Worker 12" });
   await router.navigate(-1);
   await waitFor(() => expect(within(screen.getByRole("list", { name: "Sessions" })).getByRole("link", { name: "Worker 12" })).toHaveFocus());
+});
+
+function nativeLifecycleSession(lifecycle: SessionDetail["lifecycle"]): SessionDetail {
+  return { ...SESSIONS[0]!, observation: { state: "unknown", observed_at: SERVER_TIME, fresh_until: SERVER_TIME }, execution_authority: "finished", lifecycle };
+}
+function useLifecycleResponse(value: SessionDetail) {
+  const envelope = (data: unknown) => ({ api_version: "proposed-0", request_id: "lifecycle", server_time: SERVER_TIME, scope: { kind: "all_authorized" }, data, observation: { observed_at: SERVER_TIME, fresh_until: SERVER_TIME, source: "worker_receipts", quality: "reported", coverage: "complete" }, pending_operations: [], coverage: { state: "complete" } });
+  server.use(
+    http.get("/api/v1/sessions", () => HttpResponse.json(envelope({ items: [value], next_cursor: null, has_more: false, snapshot_id: "lifecycle", total: { value: 1, accuracy: "exact" } }))),
+    http.get("/api/v1/sessions/:id", () => HttpResponse.json(envelope(value))),
+  );
+}
+
+test("native lifecycle is visible in roster and peek while live state and terminal stay unknown", async () => {
+  useLifecycleResponse(nativeLifecycleSession({ started_at: "2026-10-31T11:58:00.000Z", stopped_at: "2026-10-31T11:59:00.000Z" }));
+  const { router } = renderApp("/agents");
+  const row = within(await roster()).getByRole("listitem");
+  expect(row).toHaveTextContent("State unknown");
+  expect(row).toHaveTextContent("Central state: Finished");
+  expect(row).toHaveTextContent("Start recorded 2m ago");
+  expect(row).toHaveTextContent("Stop recorded 1m ago");
+  expect(row).not.toHaveTextContent("Running (reported)");
+  await userEvent.click(within(row).getByRole("link"));
+  await waitFor(() => expect(router.state.location.pathname).toBe(`/agents/${SESSIONS[0]!.id}`));
+  const detail = await screen.findByRole("region", { name: SESSIONS[0]!.label });
+  expect(detail).toHaveTextContent("Start recorded 2m ago");
+  expect(detail).toHaveTextContent("Stop recorded 1m ago");
+  expect(within(detail).getByText(/historical evidence/)).toBeInTheDocument();
+  expect(within(detail).getByText("Terminal is not available")).toBeInTheDocument();
+  expect(within(detail).getByText("Configured provider")).toBeInTheDocument();
+});
+
+test("an implemented lifecycle read with no reports stays explicitly empty", async () => {
+  useLifecycleResponse(nativeLifecycleSession({ started_at: null, stopped_at: null }));
+  renderApp("/agents");
+  const row = within(await roster()).getByRole("listitem");
+  expect(row).toHaveTextContent("No worker lifecycle reports");
+  expect(row).toHaveTextContent("State unknown");
+  expect(row).not.toHaveTextContent("Stop recorded");
 });

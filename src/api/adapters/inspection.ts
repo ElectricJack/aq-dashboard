@@ -311,6 +311,30 @@ export function adaptOverview(o: Overview): OverviewView {
 const AUTHORITIES = ["central", "remote", "unknown"] as const;
 const CONTROLLER_STATES = ["none", "held", "unknown"] as const;
 
+const EXECUTION_AUTHORITIES = ["offered", "preparing", "granted", "cancelling", "never_granted", "declined", "finished", "unknown"] as const;
+type ExecutionAuthority = typeof EXECUTION_AUTHORITIES[number];
+function lifecycle(value: unknown): { startedAt: string | null; stoppedAt: string | null } | null {
+  if (value == null) return null;
+  if (!isRecord(value)) throw new ContractError("session lifecycle must be an object");
+  const time = (key: string): string | null => {
+    const v = value[key];
+    if (v === null) return null;
+    if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v) || !Number.isFinite(Date.parse(v)) || new Date(v).toISOString() !== v) {
+      throw new ContractError(`session lifecycle ${key} must be a timestamp or null`);
+    }
+    return v;
+  };
+  const startedAt = time("started_at");
+  const stoppedAt = time("stopped_at");
+  if (stoppedAt && !startedAt) throw new ContractError("stopped lifecycle requires its start report");
+  return { startedAt, stoppedAt };
+}
+function executionAuthority(value: unknown): ExecutionAuthority | Unsupported | null {
+  if (value == null) return null;
+  if (typeof value !== "string") throw new ContractError("session execution authority must be a string");
+  return known(value, EXECUTION_AUTHORITIES);
+}
+
 export type SessionView = {
   id: string;
   label: string;
@@ -327,6 +351,8 @@ export type SessionView = {
   wait: SessionSummary["wait"];
   controller: { state: SessionSummary["controller"]["state"] | Unsupported; label: string | null };
   terminal: SessionSummary["terminal"];
+  lifecycle: ReturnType<typeof lifecycle>;
+  executionAuthority: ExecutionAuthority | Unsupported | null;
 };
 
 export function adaptSession(s: SessionSummary, serverTime: string): SessionView {
@@ -346,6 +372,8 @@ export function adaptSession(s: SessionSummary, serverTime: string): SessionView
     wait: s.wait,
     controller: { state: known(s.controller.state, CONTROLLER_STATES), label: s.controller.label },
     terminal: s.terminal,
+    lifecycle: lifecycle(s.lifecycle),
+    executionAuthority: executionAuthority(s.execution_authority),
   };
 }
 

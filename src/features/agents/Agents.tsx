@@ -14,12 +14,22 @@ import { scopeSearch, useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
-import { AUTHORITY_LABEL, controllerText, OBSERVATION_LABEL, profileText } from "./labels";
+import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
 const DETAIL_POLL_MS = 5_000;
+
+function LifecycleHistory({ session, serverTime }: { session: SessionView; serverTime: string }) {
+  const history = session.lifecycle;
+  if (!history) return <span>Lifecycle history unavailable</span>;
+  if (!history.startedAt && !history.stoppedAt) return <span>No worker lifecycle reports</span>;
+  return <span>
+    {history.startedAt && <>Start recorded <time dateTime={history.startedAt} title={history.startedAt}>{formatAge(serverTime, history.startedAt)}</time></>}
+    {history.stoppedAt && <> · Stop recorded <time dateTime={history.stoppedAt} title={history.stoppedAt}>{formatAge(serverTime, history.stoppedAt)}</time></>}
+  </span>;
+}
 
 function Roster({ search }: { search: string }) {
   const [scope] = useScope();
@@ -71,6 +81,8 @@ function Roster({ search }: { search: string }) {
                   stale={s.observation.freshness === "stale"}
                 />
               </span>
+              <span className={styles.meta}>Central state: {executionAuthorityText(s.executionAuthority)}</span>
+              <span className={styles.meta}><LifecycleHistory session={s} serverTime={serverTime} /></span>
               <span className={styles.meta}>
                 {controllerText(s.controller)}
                 {s.wait && <> · {s.wait.explanation}</>}
@@ -145,11 +157,13 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       </div>
 
       <dl className={styles.facts}>
-        <dt>Execution authority</dt>
+        <dt>Authority location</dt>
         <dd>{AUTHORITY_LABEL[s.authority]}</dd>
-        <dt>Provider</dt>
+        <dt>Central execution state</dt>
+        <dd>{executionAuthorityText(s.executionAuthority)}</dd>
+        <dt>Configured provider</dt>
         <dd>{s.profile.provider ?? "Unknown"}</dd>
-        <dt>Model and harness</dt>
+        <dt>Configured model and harness</dt>
         <dd>{profileText(s.profile)}</dd>
         <dt>Controller</dt>
         <dd>{controllerText(s.controller)}</dd>
@@ -158,6 +172,10 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
         <dt>Attempt</dt>
         <dd>{s.attemptId ?? "None"}</dd>
       </dl>
+
+      <h3>Worker lifecycle history</h3>
+      <p><LifecycleHistory session={s} serverTime={serverTime} /></p>
+      <p className={styles.muted}>Recorded lifecycle reports are historical evidence. Live process observation remains separate.</p>
 
       <h3>Profile revisions</h3>
       <ul aria-label="Profile revisions" className={styles.bullets}>
