@@ -25,3 +25,17 @@ test("keeps explicit graph truncation and rejects edges to omitted records",()=>
  expect(adaptGraphNeighborhood(graphEnvelope(valid),graphProject,root.id).data.truncated).toBe(true);
  expect(()=>adaptGraphNeighborhood(graphEnvelope({...valid,nodes:[root]}),graphProject,root.id)).toThrow();
 });
+
+test.each(["task", "knowledge"] as const)("%s titles accept 512 Unicode scalars including supplementary emoji", kind => {
+ const n=graphNode(kind);
+ for (const title of ["😀".repeat(512), "a".repeat(511)+"😀"]) {
+  expect(adaptGraphDetail(graphEnvelope({...n,title}),graphProject,kind,n.id).data.title).toBe(title);
+ }
+ for (const title of ["😀".repeat(513), "a".repeat(512)+"😀"]) {
+  expect(()=>adaptGraphDetail(graphEnvelope({...n,title}),graphProject,kind,n.id)).toThrow();
+ }
+});
+test.each(["\0", "valid\0title", "\ud800", "\udfff", "a\ud800b", "a\udfffb", "  "])("rejects malformed or empty Graph title %j", title => {
+ const n=graphNode("task");
+ expect(()=>adaptGraphDetail(graphEnvelope({...n,title}),graphProject,"task",n.id)).toThrow();
+});

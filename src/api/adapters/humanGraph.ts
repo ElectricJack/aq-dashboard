@@ -20,12 +20,22 @@ const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 export function validGraphId(value: unknown): value is string { return typeof value === "string" && UUID.test(value) && value !== "00000000-0000-0000-0000-000000000000"; }
 function check(value: unknown): asserts value { if (!value) throw new ContractError("Invalid human Graph response"); }
 function text(value: unknown, max: number): value is string { return typeof value === "string" && value.length <= max; }
+/** Graph titles are bounded by Unicode scalars, matching the Rust API. */
+function title(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 1024 || !value.trim()) return false;
+  let scalars = 0;
+  for (const character of value) {
+    const scalar = character.codePointAt(0)!;
+    if (scalar === 0 || (scalar >= 0xd800 && scalar <= 0xdfff) || ++scalars > 512) return false;
+  }
+  return true;
+}
 function revision(value: unknown): value is string { return typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value); }
 function time(value: unknown): value is string { return text(value, 40) && Number.isFinite(Date.parse(value)); }
 function optional(value: unknown, test: (v: unknown) => boolean) { return value === null || test(value); }
 export function adaptGraphNode(value: unknown, kind: GraphNode["kind"]): GraphNode {
   check(isRecord(value));
-  check(validGraphId(value.id) && value.kind === kind && text(value.title, 512) && value.title.trim());
+  check(validGraphId(value.id) && value.kind === kind && title(value.title));
   check(text(value.body, 262144) && text(value.acceptance_criteria, 16384));
   check(Array.isArray(value.labels) && value.labels.length <= 64 && value.labels.every(v => text(v,128)));
   check(optional(value.task_state, v => text(v,64)) && optional(value.verification,v => text(v,64)) && optional(value.content_type,v => text(v,128)));
