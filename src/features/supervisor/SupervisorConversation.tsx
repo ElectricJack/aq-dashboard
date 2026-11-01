@@ -29,6 +29,7 @@ export function SupervisorConversation() {
   const jobs = useRef(new Set<AbortController>()), ticket = useRef(0), ownReference = useRef(":"), anchoredId = useRef<string | null>(null);
   const sendJob = useRef<AbortController | null>(null);
   const composing = useRef(false);
+  const workspace = useRef<HTMLElement>(null);
   const history = useRef<HTMLDivElement>(null), atBottom = useRef(true), end = useRef<HTMLDivElement>(null);
   const discovery = useQuery({ queryKey: queryKey(queryContext, "supervisor-global", {}), retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => {
@@ -41,6 +42,20 @@ export function SupervisorConversation() {
   const operation = frozen?.operation ?? operationParam;
   const settled = receipt !== null;
   useEffect(() => { active.current = true; return () => { active.current = false; ticket.current++; for (const job of jobs.current) job.abort(); pending.current = null; }; }, []);
+  useLayoutEffect(() => {
+    const element = workspace.current;
+    if (!element) return;
+    const measure = () => {
+      const viewport = window.visualViewport;
+      const available = Math.max(0, (viewport?.height ?? window.innerHeight) - Math.max(0, element.getBoundingClientRect().top - (viewport?.offsetTop ?? 0)));
+      const value = `${Math.floor(available)}px`;
+      if (element.style.getPropertyValue("--conversation-available-height") !== value) element.style.setProperty("--conversation-available-height", value);
+    };
+    measure(); window.addEventListener("resize", measure); window.visualViewport?.addEventListener("resize", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    for (const parent of [element.parentElement, element.parentElement?.parentElement]) if (parent) observer?.observe(parent);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", measure); window.visualViewport?.removeEventListener("resize", measure); };
+  }, []);
   function operationUrl(op?: string, message?: string) {
     setParams(previous => { const next = new URLSearchParams(previous); if (op && message) { next.set("operation", op); next.set("message", message); } else { next.delete("operation"); next.delete("message"); } return next; }, { replace: true });
   }
@@ -120,9 +135,9 @@ export function SupervisorConversation() {
     if (!settled || busy.current) return;
     pending.current = null; ownReference.current = ":"; setFrozen(null); setReceipt(null); setSendError(null); operationUrl(); void discovery.refetch();
   }
-  return <section className={styles.workspace} aria-label="Global supervisor conversation">
-    <header className={styles.header}><div><PageTitle>Global supervisor</PageTitle><p>Global conversation · retained across projects</p></div><ActionButton disabled={!conversation || historyBusy} onClick={() => void load("new")}>Refresh history</ActionButton></header>
-    <p className={styles.runtime} role="note">Central runtime unavailable. Messages can be queued for a future central adapter; delivery has not been attempted.</p>
+  return <section ref={workspace} className={styles.workspace} aria-label="Global supervisor conversation">
+    <header className={styles.header}><div><PageTitle>Global supervisor</PageTitle><p>Global conversation · All projects</p></div><ActionButton aria-label="Refresh history" disabled={!conversation || historyBusy} onClick={() => void load("new")}><span className={styles.fullControl}>Refresh history</span><span className={styles.compactControl} aria-hidden="true">↻</span></ActionButton></header>
+    <p className={styles.runtime} role="note">Supervisor is not connected. Messages stay queued.</p>
     {discovery.isError && <p role="status">Global conversation unavailable. <ActionButton onClick={() => void discovery.refetch()}>Retry conversation</ActionButton></p>}
     <div ref={history} className={styles.history} aria-label="Conversation history" role="region" tabIndex={0} onScroll={() => { const e = history.current; if (e) atBottom.current = e.scrollHeight - e.scrollTop - e.clientHeight < 48; }}>
       {!loaded && !discovery.isError && <p role="status">Loading conversation history…</p>}
@@ -140,7 +155,7 @@ export function SupervisorConversation() {
       <textarea id="global-supervisor-message" value={draft} readOnly={!!operation || sending} rows={3} placeholder="Message the global supervisor…" onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229 && !event.repeat && window.matchMedia?.("(pointer: fine)")?.matches) { event.preventDefault(); void send(); }
       }} />
-      <div className={styles.composerActions}><span>Text only · no attachments or context</span><ActionButton type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim()}>{sending ? "Sending…" : "Send message"}</ActionButton></div>
+      <div className={styles.composerActions}><span><span className={styles.fullControl}>Text only · no attachments or context</span><span className={styles.compactControl}>Text only</span></span><ActionButton aria-label={sending ? "Sending…" : "Send message"} type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim()}>{sending ? "Sending…" : <><span className={styles.fullControl}>Send message</span><span className={styles.compactControl}>Send</span></>}</ActionButton></div>
       {!canSend && <p role="status">Message enqueue is unavailable. Your draft is preserved.</p>}
       {sendError && <p role="status">{sendError}</p>}
       {receipt && <p role="status">{receipt.state === "queued" ? "Queued in the global mailbox. Delivery has not been attempted." : receipt.reason === "conversation_revision_changed" ? "Not queued: the conversation revision changed. Revise before sending a new request." : "Not queued: this message ID is already reserved."}</p>}
