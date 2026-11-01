@@ -78,7 +78,7 @@ test("finalizing busy permits lookup only; actor drift cannot inspect or mutate 
 test.each([401, 403])("%s during upload fences all private state while bootstrap is offline", async status => {
   const app = setup(); await open(); choose(); server.use(http.post(`${media}-uploads`, () => new HttpResponse(null, { status })), http.get("/api/v1/bootstrap", () => new HttpResponse(null, { status: 503 })));
   await userEvent.click(screen.getByRole("button", { name: "Upload image" })); await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
-  await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); expect(screen.queryByRole("dialog")).toBeNull(); expect(screen.queryByText("Human example.png")).toBeNull(); expect(screen.queryByText(resultRecord().conclusion)).toBeNull();
+  await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); expect(screen.queryByText("Human example.png")).toBeNull(); expect(screen.queryByText(resultRecord().conclusion)).toBeNull();
 });
 test("held preparation cannot create an intent after leaving the exact report", async () => {
   const app = setup(); await open(); let release!: () => void; const held = new Promise<ArrayBuffer>(resolve => { release = () => resolve(Uint8Array.from(fixturePng()).buffer); }); const file = uploadFile(); Object.defineProperty(file, "arrayBuffer", { value: () => held }); choose(file);
@@ -149,4 +149,21 @@ test.each(["missing", "reserved"] as const)("capability loss fences held %s file
   await act(async () => { release(); await held; }); expect(screen.queryByText("Selected: Human example.png")).toBeNull(); expect(app.writes).toHaveLength(0);
   allowed = true; await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await screen.findByLabelText(/^Reselect original PNG/);
   expect(screen.queryByRole("button", { name: "Replay original admission" })).toBeNull(); expect(screen.queryByRole("button", { name: "Resume original upload" })).toBeNull(); expect(screen.queryByText("Selected: Human example.png")).toBeNull(); expect(app.writes).toHaveLength(0);
+});
+test.each(["reserved", "received"] as const)("%s with typed expired recovery describes the last checked deadline without asking for input/finalization", async state => {
+  const original = uploadFixture(state); original.recovery = { put_allowed: false, finalize_allowed: false, reason: "expired" };
+  const app = setup({ path: `${exact}?${uploadReference(original)}`, status: original });
+  await screen.findByText("Upload deadline expired at the last check. This upload cannot resume.");
+  expect(screen.queryByText("Upload reserved. The original PNG is still needed.")).toBeNull(); expect(screen.queryByText("Original PNG received. Finalize it to add the image.")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Finalize upload" })).toBeNull(); expect(screen.queryByLabelText(/^Reselect original PNG/)).toBeNull(); expect(app.writes).toHaveLength(0);
+});
+test("initial held preparation is unmounted on capability loss and cannot publish a URL or revive a file", async () => {
+  const app = setup(); await open(); let release!: () => void, reading = false, allowed = true;
+  const held = new Promise<ArrayBuffer>(resolve => { release = () => resolve(Uint8Array.from(fixturePng()).buffer); }), file = uploadFile();
+  Object.defineProperty(file, "arrayBuffer", { value: () => { reading = true; return held; } }); choose(file);
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, principal: { ...bootstrap.data.principal, id: uploadActor }, capabilities: [{ name: "results.read", version: "1", enabled: true }, { name: "results.media.read", version: "1", enabled: true }, { name: "results.media.upload", version: "1", enabled: allowed }] } })));
+  await userEvent.click(screen.getByRole("button", { name: "Upload image" })); await waitFor(() => expect(reading).toBe(true));
+  allowed = false; await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await act(async () => { release(); await held; }); expect(app.router.state.location.search).toBe(""); expect(app.writes).toHaveLength(0);
+  allowed = true; await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await open(); expect(screen.getByRole("button", { name: "Upload image" })).toBeDisabled(); expect(screen.queryByText("Selected: Human example.png")).toBeNull(); expect(app.router.state.location.search).toBe("");
 });
