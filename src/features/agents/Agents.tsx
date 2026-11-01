@@ -16,6 +16,7 @@ import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
+import { TerminalTail } from "./TerminalTail";
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
@@ -151,10 +152,10 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       </p>
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
 
-      <div className={styles.terminal} role="note">
+      {s.terminal && terminal.enabled ? <TerminalTail key={s.terminal.id} terminalId={s.terminal.id} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
-      </div>
+      </div>}
 
       <dl className={styles.facts}>
         <dt>Authority location</dt>
