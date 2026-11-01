@@ -1,0 +1,98 @@
+#!/usr/bin/env node
+// Actual mounted AQ observation API only: read-only, no interception or fixture writes.
+import { chromium, expect, request } from "@playwright/test";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+const origin = new URL(process.env.AQ_LIVE_URL ?? "http://localhost:4196");
+const sessionId = process.env.AQ_LIVE_SESSION_ID ?? "9767942b-b7f8-5ae4-be04-136f81509cce";
+const output = process.env.AQ_LIVE_OUTPUT_DIR ?? "/tmp/aq-session-usage-browser";
+await mkdir(output, { recursive: true });
+const started = performance.now();
+const browser = await chromium.launch({ headless: true });
+const api = await request.newContext();
+const errors = [], mutations = [], usageReads = [], captures = [];
+async function read(path) {
+  const response = await api.get(new URL(path, origin).href);
+  expect(response.status(), path).toBe(200);
+  return response.json();
+}
+async function capture(page, name, fullPage = false) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), "no whole-page horizontal overflow").toBe(false);
+  const path = join(output, name);
+  await page.screenshot({ path, fullPage }); captures.push(path);
+}
+try {
+  const bootstrap = await read("/api/v1/bootstrap");
+  expect(bootstrap.data.capabilities.some(cap => cap.name === "session.usage.read" && cap.version === "1" && cap.enabled === true)).toBe(true);
+  const detail = (await read(`/api/v1/sessions/${encodeURIComponent(sessionId)}`)).data;
+  expect(detail.id).toBe(sessionId);
+  const binding = detail.observation_binding;
+  expect(binding?.session.session_id).toBe(sessionId);
+  expect(binding.project_id).toBe(detail.project.id); expect(binding.task_id).toBe(detail.task.id); expect(binding.attempt_id).toBe(detail.attempt_id);
+  const usage = await read(`/api/observations/sessions/${encodeURIComponent(binding.attempt_id)}/usage`);
+  expect(usage.schema_version).toBe(1); expect(usage.binding).toEqual(binding);
+  expect(usage.usage.costs).toEqual([{ kind: "unknown", reason: "not_reported" }]);
+  let servedDigest = bootstrap.data.product.dashboard_digest;
+  if (process.env.AQ_LIVE_CANDIDATE_MANIFEST) {
+    const expected = await readFile(process.env.AQ_LIVE_CANDIDATE_MANIFEST);
+    const served = await api.get(new URL("/dashboard-manifest.json", origin).href);
+    expect(served.status()).toBe(200);
+    const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+    const bytes = await served.body(); expect(digest(bytes)).toBe(digest(expected)); servedDigest = `sha256:${digest(bytes)}`;
+  }
+  const measurements = [];
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    const page = await browser.newPage({ viewport });
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("request", request => {
+      const path = new URL(request.url()).pathname;
+      if (!["GET", "HEAD"].includes(request.method())) mutations.push({ method: request.method(), path });
+      if (path === `/api/observations/sessions/${binding.attempt_id}/usage`) usageReads.push({ width: viewport.width, path });
+    });
+    const prefix = viewport.width === 390 ? "phone" : "desktop";
+    await page.goto(new URL(`/agents/${encodeURIComponent(sessionId)}?scope=project:${binding.project_id}`, origin).href);
+    const detailsButton = page.getByRole("button", { name: "Session details", exact: true });
+    await expect(detailsButton).toHaveAttribute("aria-expanded", "false");
+    expect(usageReads.filter(read => read.width === viewport.width).length, "opening a session does not read usage").toBe(0);
+    await capture(page, `${prefix}-focused-output.png`, viewport.width === 1440);
+    await detailsButton.click();
+    const section = page.getByRole("region", { name: "Session usage", exact: true });
+    await expect(section.getByRole("button", { name: "Refresh session usage", exact: true })).toBeVisible();
+    await expect(section.getByText("Unknown · not reported", { exact: true })).toBeVisible();
+    if (usage.revision === 0) {
+      expect(usage.last_recorded_at_ms).toBe(null);
+      await expect(section.getByText("No accounting projection has been recorded for this session.", { exact: true })).toBeVisible();
+      await expect(section.getByText(/Reported subtotal/)).toHaveCount(0);
+    }
+    expect(usageReads.filter(read => read.width === viewport.width).length).toBe(1);
+    await section.scrollIntoViewIfNeeded();
+    await capture(page, `${prefix}-usage-details.png`, viewport.width === 1440);
+    const bounds = await section.boundingBox(); measurements.push({ viewport, usage: bounds });
+    expect(bounds.width).toBeLessThanOrEqual(viewport.width);
+    await section.getByRole("button", { name: "Refresh session usage", exact: true }).click();
+    await expect(section.getByRole("button", { name: "Refresh session usage", exact: true })).toBeEnabled();
+    await expect.poll(() => usageReads.filter(read => read.width === viewport.width).length).toBe(2);
+    await detailsButton.click();
+    await expect(section).toHaveCount(0);
+    await detailsButton.click();
+    await expect(section.getByRole("button", { name: "Refresh session usage", exact: true })).toBeVisible();
+    await expect.poll(() => usageReads.filter(read => read.width === viewport.width).length).toBe(3);
+    await detailsButton.click();
+    await page.getByRole("link", { name: "All sessions", exact: true }).click();
+    await expect(page.getByRole("list", { name: "Sessions", exact: true })).toBeVisible();
+    await page.close();
+  }
+  expect(errors).toEqual([]); expect(mutations).toEqual([]);
+  const result = { passed: true, origin: origin.origin, session_id: sessionId, attempt_id: binding.attempt_id, binding,
+    usage_revision: usage.revision, canonical_calls: usage.canonical_calls, cost: "unknown/not_reported", actual_projection: usage.revision === 0 ? "no accounting projection" : "retained projection",
+    references: ["08-agents-focus-desktop.png", "11-agent-mobile-v2.png"], visual_subset: "on-demand session usage within preserved focused output workspace",
+    served_bundle_digest: servedDigest, api_product_bundle_digest: bootstrap.data.product.dashboard_digest, measurements, usage_browser_reads: usageReads.length,
+    mutations: mutations.length, page_errors: errors.length, captures, elapsed_ms: Math.round(performance.now() - started),
+    note: "Actual AQ owner reads only; no interception, domain mutations, provider calls or quota/health inference. Revision-zero qualification does not claim nonempty live provider accounting." };
+  await writeFile(join(output, "result.json"), JSON.stringify(result, null, 2) + "\n"); console.log(JSON.stringify(result));
+} catch (error) {
+  await writeFile(join(output, "result.json"), JSON.stringify({ passed: false, error: String(error), errors, mutations, usageReads }, null, 2) + "\n"); throw error;
+} finally { await api.dispose(); await browser.close(); }
