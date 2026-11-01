@@ -115,3 +115,23 @@ test("late exact409 from a replaced stamp cannot hide a freshly read roster", as
   await act(async () => { release(); await gate; });
   expect(screen.getByRole("list", { name: "Current playbook definitions" })).toHaveTextContent("fresh-definition"); expect(screen.queryByRole("alert")).toBeNull();
 });
+
+
+test("capability loss and gain cannot repaint the old incarnation while its new first page is held", async () => {
+  capability(); let nextSource = false, requested = false, release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
+  const oldBinding = catalogActivation(), newBinding = catalogActivation(); newBinding.record.metadata.revision = "4"; newBinding.record.metadata.controls.calls_enabled = false; newBinding.record.metadata.controls.event_starts_enabled = true;
+  const exactIncarnations: (string | null)[] = [];
+  server.use(http.get("/api/playbooks/inspection/catalog/activations", async ({ request }) => {
+    const query = new URL(request.url).searchParams; if (query.has("exact")) exactIncarnations.push(query.get("incarnation"));
+    if (!nextSource) return HttpResponse.json(activationCatalog([oldBinding]));
+    requested = true; await gate; return HttpResponse.json({ ...activationCatalog([newBinding]), incarnation: "3", metadata_revision: "6" });
+  }));
+  const app = renderApp(`/playbooks?view=activations&activation=${encodeURIComponent(oldBinding.key)}`); await screen.findByRole("region", { name: "Activation catalog-contract-binding" });
+  capability(false); await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await screen.findByText("Current namespace catalog is unavailable");
+  expect(screen.queryByRole("region", { name: "Activation catalog-contract-binding" })).toBeNull();
+  nextSource = true; capability(true); await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await waitFor(() => expect(requested).toBe(true));
+  expect(screen.queryByRole("list", { name: "Current playbook activations" })).toBeNull(); expect(screen.queryByRole("region", { name: "Activation catalog-contract-binding" })).toBeNull();
+  await act(async () => { release(); await gate; }); const detail = await screen.findByRole("region", { name: "Activation catalog-contract-binding" });
+  expect(within(detail).getByText("4")).toBeInTheDocument(); expect(within(detail).queryByText("3")).toBeNull(); expect(exactIncarnations.at(-1)).toBe("3");
+  expect(within(detail).getByRole("region", { name: "Stored controls" })).toHaveTextContent("New callsDisabled"); expect(within(detail).getByRole("region", { name: "Stored controls" })).toHaveTextContent("Event startsEnabled");
+});

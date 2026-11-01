@@ -71,8 +71,8 @@ or becomes an empty success. Explicit refresh clears protected detail; catalog
 change conflicts restart from a fresh first page. There are no create/install/
 activate/edit commands and no provider effects.
 
-Source checks: 60 focused finite-client/adapter/feature/unchanged-fallback tests
-passed in 3.12 s and the full `pnpm exec tsc -b` passed. One initial assertion expected a
+Source checks: 61 focused finite-client/adapter/feature/unchanged-fallback tests
+passed in 2.94 s and the full `pnpm exec tsc -b` passed. One initial assertion expected a
 local error for a malformed 200 response; the existing global contract fence
 correctly removed the page. The assertion now checks that fence, with a separate
 valid 409 case checking local explicit refresh. No production bundle or browser
@@ -99,3 +99,11 @@ explicit fresh epoch, including when selection is cleared through the tab. A
 late conflict for a replaced stamp cannot hide a newer validated roster. Both
 cases passed in the final focused suite. This fence retains only the refused
 context, not a successful current-data cache or fallback authority.
+
+
+Capability loss clears the current-catalog query source while the view is hidden:
+a layout fence cancels/removes only roster/detail queries and advances its epoch.
+A later gain under the same principal/authorization/scope cannot paint old
+incarnation rows or controls while its new first page is pending. The delayed
+replacement-incarnation regression passed; historical and unrelated query caches
+are unchanged. This follows a live interface loss, not continuous catalog polling.
