@@ -7,6 +7,7 @@ test("binds exact detail identity and shows retained evidence without invented i
 });
 test("rejects duplicate summaries, unknown states and oversized cursors", () => {
   const p = decisionPage(); expect(adaptDecisions(p).items).toHaveLength(1);
+  expect(() => adaptDecisions(p, decisionId(8))).toThrow();
   expect(() => adaptDecisions({ ...p, items: [p.items[0], p.items[0]] })).toThrow();
   expect(() => adaptDecisions({ ...p, items: [{ ...p.items[0], state: "invented" }] })).toThrow();
   expect(() => adaptDecisions({ ...p, next_cursor: "a".repeat(4097) })).toThrow();
