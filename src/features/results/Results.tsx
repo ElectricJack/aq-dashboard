@@ -21,7 +21,7 @@ function Record({ item, exact, coverage }: { item: ResultMetadata; exact: boolea
     <div className={styles.header}><h2 className={styles.title}>{exact ? item.conclusion : <Link to={{ pathname: `/results/${item.report_id}/revisions/${item.revision}`, search }}>{item.conclusion}</Link>}</h2><span className={styles.badge}>{item.current_report_head ? "Current report" : "Superseded report"}</span></div>
     <p className={styles.meta}>Task {bootstrap.capability("tasks.read").enabled ? <Link title={item.task_id} aria-label={item.task_id} to={{ pathname: `/work/${item.task_id}`, search }}>{item.task_id.slice(-8)}</Link> : <span title={item.task_id}>{item.task_id.slice(-8)}</span>} · Project <span title={item.project_id}>{item.project_id.slice(-8)}</span></p>
     <p>Worker-reported outcome: <strong>{item.process_outcome}</strong></p>
-    <p className={styles.meta}>Recorded <time dateTime={date}>{date}</time> · Acceptance unavailable</p>
+    <p className={styles.meta}>Recorded <time dateTime={date} title={date}>{new Date(item.recorded_at_ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</time> · Acceptance unavailable</p>
     <ResultMedia binding={resultMediaBinding(item, coverage)} />
     <details><summary>Report details and evidence references</summary>
     <div className={exact ? styles.detail : undefined}>
@@ -64,7 +64,7 @@ export function Results() {
   const mediaWindowKey = JSON.stringify([queryContext, scope, resultId, revision]);
   return <ResultMediaWindow key={mediaWindowKey} keys={items.map(item => resultMediaKey(resultMediaBinding(item, pages[0]!.coverage)))}><div className={styles.layout}>
     <p className={styles.intro}>Recorded worker reports and their exact evidence references.</p>
-    <div className={styles.toolbar}>{exact ? <Link to={{ pathname: "/results", search: scopeSearch(scope) }}>Back to results</Link> : <span className={styles.tab}>Recorded reports</span>}<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh results</ActionButton></div>
+    <div className={styles.toolbar}>{exact ? <Link to={{ pathname: "/results", search: scopeSearch(scope) }}>Back to results</Link> : <span className={styles.tab}>Legacy reports</span>}<ActionButton aria-label="Refresh results" disabled={query.isFetching} onClick={() => void query.refetch()}><span className={styles.fullLabel}>Refresh results</span><span className={styles.compactLabel}>Refresh</span></ActionButton></div>
     <p className={styles.meta}>Retained legacy reports. {bootstrap.capability("results.media.read").enabled ? "Images are uploaded separately by a human." : "Images and discussion are unavailable."}</p>
     {items.length === 0 ? <p>No recorded result reports in this scope.</p> : <ul className={styles.feed} aria-label="Recorded results">{items.map(item => <li key={item.report_id}><Record item={item} exact={!!exact} coverage={pages[0]!.coverage} /></li>)}</ul>}
     {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more recorded results</ActionButton>}

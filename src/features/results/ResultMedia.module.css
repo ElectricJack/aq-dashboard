@@ -1,9 +1,9 @@
 .surface { min-inline-size: 0; margin-block: var(--space-4); }
 .gallery { display: grid; gap: var(--space-3); min-inline-size: 0; }
 .frame, .placeholder { display: grid; place-items: center; min-block-size: 260px; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: #0b0e11; }
-.frame img { display: block; inline-size: 100%; block-size: auto; max-block-size: 480px; object-fit: contain; }
-.selector { display: flex; gap: var(--space-2); overflow-x: auto; padding-block: var(--space-1); }
-.selector button { flex: 0 0 auto; max-inline-size: 28ch; overflow-wrap: anywhere; }
+.frame img { display: block; inline-size: 100%; block-size: auto; max-block-size: 360px; object-fit: contain; }
+.selector { display: flex; flex-wrap: wrap; gap: var(--space-2); padding-block: var(--space-1); }
+.selector button { flex: 0 1 auto; min-inline-size: 0; max-inline-size: 28ch; overflow-wrap: anywhere; font-size: var(--font-size-meta); }
 .selector button[aria-pressed=true] { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
 .caption { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .note, .provenance { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
@@ -13,4 +13,4 @@
 .dialog h2 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
 .expanded { display: grid; place-items: center; min-block-size: 200px; margin-block-start: var(--space-3); }
 .expanded img { display: block; max-inline-size: 100%; inline-size: auto; block-size: auto; max-block-size: 75dvh; object-fit: contain; }
-@media(max-width:600px) { .frame, .placeholder { min-block-size: 200px; padding: var(--space-2); } .dialog { padding: var(--space-3); } .dialog .expanded img { max-block-size: 65dvh; } }
+@media(max-width:600px) { .frame, .placeholder { min-block-size: 200px; padding: var(--space-2); } .selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .selector button { max-inline-size: 100%; } .dialog { padding: var(--space-3); } .dialog .expanded img { max-block-size: 65dvh; } }
