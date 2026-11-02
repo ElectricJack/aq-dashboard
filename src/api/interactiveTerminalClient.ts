@@ -12,6 +12,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   const path = `/api/v1/terminals/${encodeURIComponent(options.terminalId)}`;
   let info: TerminalInfo | undefined, clock = 0, clockAt = 0, owned: string | null = null;
   let paused = options.initiallyPaused ?? false, connected = false, busy = false, queue: Uint8Array[] = [], queued = 0, resizeSequence = 0, renewing = false;
+  let inputBatchTimer: ReturnType<typeof setTimeout> | undefined;
   let pendingResize: { columns: number; rows: number } | null = null;
   const now = () => clock + performance.now() - clockAt;
   const active = () => !!(connected && !paused && info?.input_enabled && !info.disconnected && info.control.fence_acknowledged && !info.control.input_paused && info.control.lease?.lease_id === owned && info.control.lease.expires_at_ms > now());
@@ -57,7 +58,12 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     busy = true;
     try {
       while (queue.length && active()) {
-        const bytes = queue.shift()!; queued -= bytes.length;
+        // Preserve byte order while amortizing one durable receipt across a burst.
+        const chunks: Uint8Array[] = []; let length = 0;
+        while (queue.length && length + queue[0]!.length <= 4096) { const next = queue.shift()!; chunks.push(next); length += next.length; }
+        const bytes = new Uint8Array(length); let offset = 0;
+        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+        queued -= bytes.length;
         const operation = crypto.randomUUID(); const binding = fields();
         let body: unknown;
         try {
@@ -133,12 +139,13 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       if (!active() || !bytes.length) return;
       if (queued + bytes.length > 16384) { pause(); return; }
       for (let i = 0; i < bytes.length; i += 4096) queue.push(bytes.slice(i, i + 4096));
-      queued += bytes.length; void flush();
+      queued += bytes.length;
+      if (inputBatchTimer === undefined) inputBatchTimer = setTimeout(() => { inputBatchTimer = undefined; void flush(); }, 20);
     },
     resize(columns: number, rows: number) {
       if (!active()) return;
       pendingResize = { columns: Math.max(2, Math.min(500, columns)), rows: Math.max(1, Math.min(300, rows)) }; void flush();
     },
-    close() { if (busy) pause(); abort.abort(); owned = null; queue = []; queued = 0; },
+    close() { if (inputBatchTimer !== undefined) clearTimeout(inputBatchTimer); if (busy) pause(); abort.abort(); owned = null; queue = []; queued = 0; },
   };
 }
