@@ -6,6 +6,7 @@ import { adaptTerminalTail, adaptWatch, sameTerminal } from './adapters/terminal
 import { isRecord, ContractError } from './adapters/contract';
 import { terminalJson } from './terminalClient';
 export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean }
+class NotDelivered extends Error {}
 type Read = (part: string, fetcher: () => ReturnType<typeof terminalJson>) => ReturnType<typeof terminalJson>;
 export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void }) {
   const abort = new AbortController(), { signal } = abort;
@@ -49,7 +50,8 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       if (body === undefined) body = (await json(`receipt-${operation}`, `/receipts/${operation}`)).body;
       const r = adaptInputReceipt(body, info.terminal, operation);
       if (r.disposition === 'applied' && !r.input_paused) return;
-      if (['delivery_unknown', 'expired', 'rejected'].includes(r.disposition) || r.input_paused) throw new Error('Input not confirmed');
+      if (r.input_paused || r.disposition === 'delivery_unknown') throw new Error('Input not confirmed');
+      if (r.disposition === 'expired' || r.disposition === 'rejected') throw new NotDelivered(`Input ${r.disposition} — type again`);
       await delay(100); body = undefined;
     }
     throw new Error('Receipt not confirmed');
@@ -80,7 +82,11 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
         const raw = await json('resize', '/mutations', { kind: 'resize', body: { ...fields(), operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), sequence, ...size } });
         if (!isRecord(raw.body) || raw.body.kind !== 'resize' || !isRecord(raw.body.body) || raw.body.body.operation_id !== operation || raw.body.body.sequence !== sequence || !sameTerminal(raw.body.body.terminal as TerminalInfo['terminal'], info!.terminal)) throw new ContractError('Resize reply');
       }
-    } catch { if (!signal.aborted) { if (inputInFlight) pause(); else emit('Resize unavailable — keyboard control retained'); } }
+    } catch (error) { if (!signal.aborted) {
+      if (error instanceof NotDelivered) { queue = []; queued = 0; emit(error.message); }
+      else if (inputInFlight) pause();
+      else emit('Resize unavailable — keyboard control retained');
+    } }
     finally { busy = false; if ((queue.length || pendingResize) && active()) void flush(); }
   }
   async function control(kind: 'control' | 'renew') {
