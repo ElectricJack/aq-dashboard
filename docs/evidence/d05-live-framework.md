@@ -45,9 +45,9 @@ is retained as [visual evidence](live-framework/mobile-session.png).
 
 Backend qualification separately retains five PostgreSQL/router tests, two pure
 cursor tests, strict targeted lint and schema checks in
-[agent-q's record](../../../agent-q/docs/implementation/dashboard-read-1-evidence.md).
+[agent-q's record](../../../aq-server/docs/implementation/dashboard-read-1-evidence.md).
 Static serving separately retains 88 passing checks and one preexisting ignored
-fixture in [its record](../../../agent-q/docs/evidence/dashboard-assets/README.md).
+fixture in [its record](../../../aq-server/docs/evidence/dashboard-assets/README.md).
 These counts are distinct from the assembled browser smoke.
 
 ## Fixture and reproduction boundary

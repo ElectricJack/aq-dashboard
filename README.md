@@ -2,7 +2,7 @@
 
 The standalone dashboard for Agent Q v2. It consumes the central AQ API and owns browser presentation, interaction and accessibility. AQ owns authorization, scheduling, lifecycle policy and authoritative state.
 
-The application includes responsive task/knowledge inspection, recorded Overview contributions, Agents/source events, human Supervisor history, Results metadata and capability-gated policy/review views. The [current local availability matrix](docs/plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37) records actual canonical AQ37/source511ee99 with bundle6247: real Playbooks/Decisions owners, successful empty current Definitions/Activations and review queue. Its unchanged frontend has 633 passing tests. Full page designs, workflow automation, live Supervisor responses, provider quota and terminal control remain open; canonical PNG uploads remain disabled. The [cutover evidence](../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md) distinguishes live features from disposable populated/action fixtures.
+The application includes responsive task/knowledge inspection, recorded Overview contributions, Agents/source events, human Supervisor history, Results metadata and capability-gated policy/review views. The [current local availability matrix](docs/plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37) records actual canonical AQ37/source511ee99 with bundle6247: real Playbooks/Decisions owners, successful empty current Definitions/Activations and review queue. Its unchanged frontend has 633 passing tests. Full page designs, workflow automation, live Supervisor responses, provider quota and terminal control remain open; canonical PNG uploads remain disabled. The [cutover evidence](../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md) distinguishes live features from disposable populated/action fixtures.
 
 - [Full specification reader](docs/index.html) — product design, API proposal, implementation plan and contract audit in one browser document.
 - [Product and interaction design](docs/specs/0002-product-design.md) — all screens, responsive layouts, provider usage, full-page supervisor, focused terminals and Results/feedback.
@@ -14,9 +14,9 @@ The application includes responsive task/knowledge inspection, recorded Overview
 - [Visual gallery](docs/design/index.html) — twelve selected desktop/mobile mockups preserved with hashes.
 - [Visual acceptance](docs/design/visual-acceptance.md) — per-page reference, composition and screenshot review requirements while connecting real infrastructure.
 - [Dashboard architecture baseline](docs/specs/0001-dashboard.md)
-- [AQ ecosystem and releases](../agent-q/docs/architecture/0001-ecosystem-and-releases.md)
-- [Execution and recovery](../agent-q/docs/architecture/0002-execution-and-recovery.md)
-- [Profiles, intelligence, mandatory tmux hosting and remote terminals](../agent-q/docs/architecture/0003-agent-profiles-harnesses-and-terminals.md)
+- [AQ ecosystem and releases](../aq-server/docs/architecture/0001-ecosystem-and-releases.md)
+- [Execution and recovery](../aq-server/docs/architecture/0002-execution-and-recovery.md)
+- [Profiles, intelligence, mandatory tmux hosting and remote terminals](../aq-server/docs/architecture/0003-agent-profiles-harnesses-and-terminals.md)
 
 The intended release is a versioned static bundle packaged into the AQ server image. Development uses a mock API or local daemon; normal dashboard tests do not require worker nodes or domain databases. Sibling documentation links assume side-by-side checkouts and are not build dependencies.
 

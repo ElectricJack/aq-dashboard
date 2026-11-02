@@ -3,7 +3,7 @@
 Local preview: **http://localhost:4188**. Verified served bundle:
 `sha256:a384e31c82f84f9ee5565512bc4ecbfad483bed0aefeac4fc7829668a5952ac5`.
 The [qualification record](qualification.json) preserves the actual owner/browser
-results and their limits. The paired [AQ qualification](../../../../agent-q/docs/implementation/dashboard-actions-preview-2026-11-01.md)
+results and their limits. The paired [AQ qualification](../../../../aq-server/docs/implementation/dashboard-actions-preview-2026-11-01.md)
 describes state34 migration and rollback.
 
 - Work has a real Create task action after selecting a project. Creation returns

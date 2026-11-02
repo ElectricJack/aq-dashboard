@@ -4,7 +4,7 @@
 
 **Date:** 2026-10-30
 
-aq-dashboard is an independently tested browser client of the AQ daemon. It presents work, evidence, execution, workflows and decisions through the same authorized domain operations available to other AQ clients. The [ecosystem design](../../../agent-q/docs/architecture/0001-ecosystem-and-releases.md) owns product assembly and releases.
+aq-dashboard is an independently tested browser client of the AQ daemon. It presents work, evidence, execution, workflows and decisions through the same authorized domain operations available to other AQ clients. The [ecosystem design](../../../aq-server/docs/architecture/0001-ecosystem-and-releases.md) owns product assembly and releases.
 
 The 2026-10-31 [product design](0002-product-design.md), [API proposal](0003-dashboard-api.md), [implementation plan](../plans/0001-dashboard-implementation.md) and [contract audit](../research/2026-10-31-contract-audit.md) extend this baseline. They select the visual/interaction direction and implementation approach without claiming that proposed APIs have shipped. U1–U14 and the authority boundaries below remain applicable.
 
@@ -37,7 +37,7 @@ These are information and interaction requirements, not a commitment to build ev
 
 AQ publishes versioned schemas suitable for generating frontend types and clients. The dashboard pins the API contract and uses mocks derived from its examples. An API compatibility mismatch shows an actionable error; it must not silently interpret unknown lifecycle states as success.
 
-Read views include source identity, relevant revision/sequence, observed time, truncation and pending-operation references. Display “last reported running” separately from current execution authority. Distinguish source uploaded, source retained, result accepted and task complete. The canonical meanings come from [execution and recovery](../../../agent-q/docs/architecture/0002-execution-and-recovery.md).
+Read views include source identity, relevant revision/sequence, observed time, truncation and pending-operation references. Display “last reported running” separately from current execution authority. Distinguish source uploaded, source retained, result accepted and task complete. The canonical meanings come from [execution and recovery](../../../aq-server/docs/architecture/0002-execution-and-recovery.md).
 
 Mutations send stable operation identities and required expected versions. A click can enter pending state immediately, but optimistic presentation must not fabricate approval, cancellation completion, publication or graph success. Lost responses lead to status lookup or identical-request retry. Conflicts preserve the user's draft and display current information for a deliberate revision; retries cannot silently overwrite intervening changes.
 
@@ -88,7 +88,7 @@ Framework choice, visual design, first-screen scope and rendering budgets are sp
 
 ## 8. Agent profiles and session terminals
 
-The canonical [profiles, intelligence and terminal design](../../../agent-q/docs/architecture/0003-agent-profiles-harnesses-and-terminals.md) owns shared semantics and limits. UI-03 adds this product-required surface after the initial UI scaffold; it is required by INT-02 and the final product gate. The earlier one-action UI milestone does not qualify terminal access or the four required harnesses.
+The canonical [profiles, intelligence and terminal design](../../../aq-server/docs/architecture/0003-agent-profiles-harnesses-and-terminals.md) owns shared semantics and limits. UI-03 adds this product-required surface after the initial UI scaffold; it is required by INT-02 and the final product gate. The earlier one-action UI milestone does not qualify terminal access or the four required harnesses.
 
 The session inspector displays profile/catalog revisions, chosen intelligence and execution settings, concrete provider/model/harness versions, explanation/provenance and the current execution authority separately from last observed process state. Prompt inspection is scoped and redacted by AQ. Display missing/unsupported optional harness capabilities and reasons; do not infer capability from a visible terminal.
 
@@ -104,7 +104,7 @@ Component tests use contract-derived fake streams and clocks for multiple viewer
 
 ## 9. Session operations, waiting and human delivery
 
-UI-04 implements the [shared operations and waits design](../../../agent-q/docs/architecture/0004-session-operations-waits-and-notifications.md).
+UI-04 implements the [shared operations and waits design](../../../aq-server/docs/architecture/0004-session-operations-waits-and-notifications.md).
 Extend the existing inspector with bounded transcript events, parser/source
 freshness, usage completeness, cost basis/currency/rate revision and task-lineage
 totals. Missing accounting is unknown, not zero. Show separate heartbeat, provider

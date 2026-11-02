@@ -1,6 +1,6 @@
 # Playbooks inspection UI
 
-The Playbooks feature consumes the `playbooks-inspection-1` human API described in [API-05](../../../agent-q/docs/implementation/API-05-playbooks-inspection.md). Its real capability is `playbooks.inspect` version 1; a disabled capability makes no inspection request.
+The Playbooks feature consumes the `playbooks-inspection-1` human API described in [API-05](../../../aq-server/docs/implementation/API-05-playbooks-inspection.md). Its real capability is `playbooks.inspect` version 1; a disabled capability makes no inspection request.
 
 This first increment replaces the placeholder with bounded run discovery, exact artifact/dependency pins, current step/status, public receipts, pending operations and child workflows. Admissions are separate from confirmed runs. Filters describe loaded rows, pagination is explicit and decimal revisions/sequences never pass through Number. Project/namespace mismatches and malformed response shape refuse rendering. Query keys participate in the existing current-identity/authorization cache fence.
 
@@ -26,7 +26,7 @@ relabel these records as installed for the selected project. Later installation
 does not restamp this history. Activations is unavailable; no create/install/
 edit/activate action exists. Full installed discovery requires a component-owned
 bounded query and new component version as described in the
-[paired implementation record](../../../agent-q/docs/implementation/API-05-loaded-definitions.md).
+[paired implementation record](../../../aq-server/docs/implementation/API-05-loaded-definitions.md).
 
 The actual protected fixture and frozen
 `scripts/probe-loaded-playbook-definitions.mjs` now passed against bundle
@@ -132,7 +132,7 @@ Playbooks design remain deferred.
 
 ## Current canonical availability after actual UDS cutover
 
-The [actual canonical record](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+The [actual canonical record](../../../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
 now qualifies source511ee99/AQ37 with the same624 bundle on4188. Component0.1.3
 current catalog and Playbooks inspection are mounted through the real UDS owner.
 Definitions/Activations and Runs/admissions are successfully empty in the new

@@ -930,7 +930,7 @@ contracts/              pinned schemas, semantic vectors, provenance lock
 <p>Release qualification uses the selected immutable server, worker/relay and dashboard artifacts. Exercise a viewer and owner, scope restriction, unavailable services, a decision, terminal control, supervisor reply, media capture, feedback creation and stale-tab upgrade. Record limitations alongside the release, including terminal receipt/capacity limits and unsupported central authority. Feature rollout cannot claim unqualified providers or mobile platforms.</p>
 <p>Rollback selects a compatible whole product manifest and respects backend migration constraints; replacing only the UI with an incompatible older bundle is not a recovery plan. Stop mutation features when contract compatibility cannot be established, while offering safe draft recovery.</p>
 <p>Done means product behavior, published contracts, mounted authorized adapters, failure recovery, responsive/accessibility checks, measured budgets and embedded-bundle qualification all pass for the declared feature set. No new implementation, schema publication, integration test pass or deployment is asserted by this specification.</p></section><section id="live-delivery"><p class="source"><a href="plans/0003-live-dashboard-delivery.md">Canonical Markdown</a> · <a href="#">Back to top</a></p><h1>Live dashboard delivery and visual completion</h1>
-<p>Planning update: November 1, 2026. Audited AQ <code>468617f</code>, dashboard <code>e89da32</code>, and the accepted design gallery. This executes and subdivides <a href="#plan">D00–D13</a>; it does not replace the product design or claim that planned endpoints exist. Canonical task identities, ownership and dependencies live in <a href="../../agent-q/docs/plans/0001-v2-milestones.json">AQ's milestone graph</a>. Writing this plan does not dispatch implementation or enable capabilities.</p>
+<p>Planning update: November 1, 2026. Audited AQ <code>468617f</code>, dashboard <code>e89da32</code>, and the accepted design gallery. This executes and subdivides <a href="#plan">D00–D13</a>; it does not replace the product design or claim that planned endpoints exist. Canonical task identities, ownership and dependencies live in <a href="../../aq-server/docs/plans/0001-v2-milestones.json">AQ's milestone graph</a>. Writing this plan does not dispatch implementation or enable capabilities.</p>
 <h2>Outcome and diagnosis</h2>
 <p>Every navigation destination should become a useful view of real AQ infrastructure, with the composition and interactions in the accepted mockups. At the audited planning baseline, five destinations were only <code>DestinationPage</code> stubs, Work used proposed mocks, and Overview was partial. Subsequent live integrations and visual corrections are recorded in <code>docs/implementation/</code> and <code>docs/evidence/</code>; the delivered matrix below records the current canonical preview and keeps isolated qualification separate.</p>
 <p>The twelve selected <a href="design/index.html">mockups</a> and their <a href="design/manifest.json">manifest</a> remain the visual reference. <a href="#design">Product specification 0002</a> governs behavior and resolves differences between mockup generations. Colors alone are insufficient: the missing columns, inspectors, timelines, feed, conversation and focused workspace are the main visual gap. Sample numbers and media in PNGs are never production data.</p>
@@ -945,7 +945,7 @@ identity are unchanged. The full 633-test frontend suite passed in 26.48s; exact
 TypeScript/build/bundle checks passed in 2.448s (Vite 1.23s), 29 manifest files, no
 mocks. Current canonical readonly probes passed Overview 660ms, Graph 3384ms
 (16 reads), Source events 1296ms (zero reports/two reads), Supervisor 1713ms
-(empty history/zero enqueue), and Shell 1473ms. Earlier <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">5c Events35</a>,
+(empty history/zero enqueue), and Shell 1473ms. Earlier <a href="../../aq-server/docs/implementation/dashboard-canonical-events35-2026-11-01.md">5c Events35</a>,
 35/2b and 34 checkpoints stay historical. Full parent feature/design tasks remain open.</p>
 <div class="table-wrap"><table>
 <thead>
@@ -1026,7 +1026,7 @@ are substituted for absent data.</p>
 <p>Native named/scoped source, KERNEL/static and isolated actual-tool proof remain
 bounded; terminal output 409 and production capsule/key/context/provider gates
 remain open. AQ17 now has a pure 16-test authority model and shared mapper source,
-not durable dispatch/reply authority. <a href="../../agent-q/docs/implementation/dashboard-canonical-events35-2026-11-01.md">Native and central source/evidence limits</a>
+not durable dispatch/reply authority. <a href="../../aq-server/docs/implementation/dashboard-canonical-events35-2026-11-01.md">Native and central source/evidence limits</a>
 are separate from these useful human dashboard increments.</p>
 <h2>Parallel execution with eight subagents</h2>
 <p>The session has eight concurrent subagent slots plus the root coordinator. This is Codex development capacity, distinct from AQ worker/worktree capacity. Use two native lanes and six dashboard lanes initially. Each lane owns a concrete output and may cover backend and frontend for its isolated feature. Root reviews and integrates; eight agents do not require eight frontend writers or eight simultaneous builds.</p>
@@ -1312,57 +1312,57 @@ are separate from these useful human dashboard increments.</p>
 <tbody>
 <tr>
 <td>Human identity, CSRF, status, workers</td>
-<td><a href="../../agent-q/crates/aq-server/src/lib.rs">human router</a>, <a href="../../agent-q/crates/aq-server/src/admin_api.rs">admin API</a>, <a href="../../agent-q/crates/aq-server/src/authz.rs">auth</a>, <a href="../../agent-q/crates/aq-server/tests/authz.rs">auth tests</a></td>
+<td><a href="../../aq-server/crates/aq-server/src/lib.rs">human router</a>, <a href="../../aq-server/crates/aq-server/src/admin_api.rs">admin API</a>, <a href="../../aq-server/crates/aq-server/src/authz.rs">auth</a>, <a href="../../aq-server/crates/aq-server/tests/authz.rs">auth tests</a></td>
 <td>Implemented human routes. Current role checks distinguish Owner/Viewer. No complete capability/bootstrap + dashboard contract inventory found; route-specific permission still applies</td>
 </tr>
 <tr>
 <td>Projects and profile catalog</td>
-<td><a href="../../agent-q/crates/aq-server/src/project_bindings.rs">project routes</a>, <a href="../../agent-q/crates/aq-server/src/profile_catalog.rs">catalog routes</a>, <a href="../../agent-q/docs/operations/profile-catalogs.md">profile operations</a></td>
+<td><a href="../../aq-server/crates/aq-server/src/project_bindings.rs">project routes</a>, <a href="../../aq-server/crates/aq-server/src/profile_catalog.rs">catalog routes</a>, <a href="../../aq-server/docs/operations/profile-catalogs.md">profile operations</a></td>
 <td>Implemented configuration/projection pieces. Do not assume their owner-oriented shape is already a paginated viewer dashboard projection</td>
 </tr>
 <tr>
 <td>Provider quota at top</td>
-<td><a href="../../agent-q/crates/aq-server/src/intelligence.rs">intelligence API</a>, <a href="../../agent-q/docs/implementation/AQ-22-inspection.md">observation inspection</a></td>
+<td><a href="../../aq-server/crates/aq-server/src/intelligence.rs">intelligence API</a>, <a href="../../aq-server/docs/implementation/AQ-22-inspection.md">observation inspection</a></td>
 <td>Availability/selection and session accounting exist. Registry explicitly reports accounting/hard-cost enforcement unavailable; session usage is not account quota. No used-percent/window/reset collector + human quota contract found in inspected scope</td>
 </tr>
 <tr>
 <td>Tasks/Overview/Decisions</td>
-<td><a href="../../agent-q/docs/plans/0001-v2-milestones.md">API-02 and UI plan</a>, <a href="../../agent-q/crates/aq-server/src/execution/api.rs">execution routes</a>, <a href="../../agent-q/protocol/lifecycle-api/v1/request.schema.json">lifecycle request schema</a></td>
+<td><a href="../../aq-server/docs/plans/0001-v2-milestones.md">API-02 and UI plan</a>, <a href="../../aq-server/crates/aq-server/src/execution/api.rs">execution routes</a>, <a href="../../aq-server/protocol/lifecycle-api/v1/request.schema.json">lifecycle request schema</a></td>
 <td>Attempt inspection/cancel pieces and domain contracts exist. Broad task/attention/decision human views and action contract remain API-02 work; no assembled decision API inferred from lifecycle types</td>
 </tr>
 <tr>
 <td>Graph and Knowledge</td>
-<td><a href="../../aq-graph/docs/openapi.json">graph OpenAPI</a>, <a href="../../aq-graph/docs/specs/0004-shared-node-model.md">shared node model</a>, <a href="../../agent-q/protocol/agent-access/v1/README.md">agent access</a></td>
+<td><a href="../../aq-graph/docs/openapi.json">graph OpenAPI</a>, <a href="../../aq-graph/docs/specs/0004-shared-node-model.md">shared node model</a>, <a href="../../aq-server/protocol/agent-access/v1/README.md">agent access</a></td>
 <td>Rich component node/history/verification contracts and scoped machine graph routes exist. Browser must use an AQ human projection/action adapter, not graph service or per-attempt credentials</td>
 </tr>
 <tr>
 <td>Terminal schemas vs actual routes</td>
-<td><a href="../../agent-q/protocol/session-api/v1/README.md">CON-02 README</a>, <a href="../../agent-q/protocol/terminal-relay/draft-v1/README.md">relay draft</a>, <a href="../../agent-q/crates/aq-server/src/terminal/api.rs">actual human handlers</a>, <a href="../../agent-q/crates/aq-terminal-relay/src/api.rs">runtime API types</a>, <a href="../../agent-q/crates/aq-server/tests/terminal_store.rs">tests</a></td>
+<td><a href="../../aq-server/protocol/session-api/v1/README.md">CON-02 README</a>, <a href="../../aq-server/protocol/terminal-relay/draft-v1/README.md">relay draft</a>, <a href="../../aq-server/crates/aq-server/src/terminal/api.rs">actual human handlers</a>, <a href="../../aq-server/crates/aq-terminal-relay/src/api.rs">runtime API types</a>, <a href="../../aq-server/crates/aq-server/tests/terminal_store.rs">tests</a></td>
 <td>Strong reusable contracts and optional mounted implementation. CON-02 reserves <code>/terminals/watch</code>, <code>/control</code>, <code>/input</code>; actual runtime uses <code>/{terminal}/mutations</code>, <code>/output</code>, <code>/receipts/{operation}</code>. Pin runtime schema plus shared types. Central support and full bridge/browser/product qualification remain distinct gates</td>
 </tr>
 <tr>
 <td>Session observation/usage</td>
-<td><a href="../../agent-q/crates/aq-observation-api/artifacts/usage.schema.json">DTO schemas</a>, <a href="../../agent-q/crates/aq-server/src/observations/api.rs">human routes</a>, <a href="../../agent-q/docs/implementation/AQ-22-inspection.md">inspection limitations</a></td>
+<td><a href="../../aq-server/crates/aq-observation-api/artifacts/usage.schema.json">DTO schemas</a>, <a href="../../aq-server/crates/aq-server/src/observations/api.rs">human routes</a>, <a href="../../aq-server/docs/implementation/AQ-22-inspection.md">inspection limitations</a></td>
 <td>Mounted events and usage reads with scoped ACL. Cost/full stream coverage and producer qualification are incomplete; do not show absent totals as zero or infer provider quota</td>
 </tr>
 <tr>
 <td>Durable mail and Supervisor</td>
-<td><a href="../../agent-q/docs/operations/messaging.md">mail operations</a>, <a href="../../agent-q/crates/aq-server/src/agent_access/messaging.rs">handlers</a>, <a href="../../agent-q/crates/aq-server/tests/messaging.rs">tests</a>, <a href="../../agent-q/docs/plans/0001-v2-milestones.md">AQ-17 plan</a></td>
+<td><a href="../../aq-server/docs/operations/messaging.md">mail operations</a>, <a href="../../aq-server/crates/aq-server/src/agent_access/messaging.rs">handlers</a>, <a href="../../aq-server/crates/aq-server/tests/messaging.rs">tests</a>, <a href="../../aq-server/docs/plans/0001-v2-milestones.md">AQ-17 plan</a></td>
 <td>Owner send/inbox implemented, task/exact-session recipients defined. Global conversation discovery, central authority, history/context projection and actual supervisor execution are not established by that mailbox contract; AQ-17 remains planned</td>
 </tr>
 <tr>
 <td>Notifications / waits</td>
-<td><a href="../../agent-q/crates/aq-server/src/notifications/api.rs">notification routes</a>, <a href="../../agent-q/docs/implementation/AQ-24.md">notification evidence</a>, <a href="../../agent-q/protocol/lifecycle-api/v1/response.schema.json">lifecycle response schema</a></td>
+<td><a href="../../aq-server/crates/aq-server/src/notifications/api.rs">notification routes</a>, <a href="../../aq-server/docs/implementation/AQ-24.md">notification evidence</a>, <a href="../../aq-server/protocol/lifecycle-api/v1/response.schema.json">lifecycle response schema</a></td>
 <td>Human notification routes exist. Wait/continuation and typed decision integration need their owner adapters and UI-04/API-02 projections; delivery receipt does not equal human decision</td>
 </tr>
 <tr>
 <td>Playbooks</td>
-<td><a href="../../aq-playbooks/docs/specs/0001-aq-playbooks.md">component spec</a>, <a href="../../agent-q/docs/plans/0001-v2-milestones.md">AQ-12–16 plan</a></td>
+<td><a href="../../aq-playbooks/docs/specs/0001-aq-playbooks.md">component spec</a>, <a href="../../aq-server/docs/plans/0001-v2-milestones.md">AQ-12–16 plan</a></td>
 <td>Standalone runner/artifact/inspection semantics exist. Central embedding/host adapters are planned; no mounted human playbook dashboard API found in inspected server router</td>
 </tr>
 <tr>
 <td>Results and artifact bytes</td>
-<td><a href="../../agent-q/crates/aq-server/src/execution/api.rs">execution result routes</a>, <a href="../../agent-q/crates/aq-server/src/source_retention.rs">source retention</a>, <a href="../../agent-q/crates/aq-server/src/profiled_execution/artifacts.rs">execution artifacts</a>, <a href="../../aq-graph/docs/specs/0004-shared-node-model.md">graph model</a></td>
+<td><a href="../../aq-server/crates/aq-server/src/execution/api.rs">execution result routes</a>, <a href="../../aq-server/crates/aq-server/src/source_retention.rs">source retention</a>, <a href="../../aq-server/crates/aq-server/src/profiled_execution/artifacts.rs">execution artifacts</a>, <a href="../../aq-graph/docs/specs/0004-shared-node-model.md">graph model</a></td>
 <td>Execution result/source/configuration artifacts are useful foundations. They are not a media feed/upload/retention/capture-requirement contract. New Result/Artifact/Assessment ownership and worker capture ingestion required</td>
 </tr>
 <tr>
@@ -1372,7 +1372,7 @@ are separate from these useful human dashboard increments.</p>
 </tr>
 <tr>
 <td>Bundle compatibility</td>
-<td><a href="specs/0001-dashboard.md">dashboard baseline</a>, <a href="../../agent-q/docs/plans/0001-v2-milestones.md">release/UI milestones</a></td>
+<td><a href="specs/0001-dashboard.md">dashboard baseline</a>, <a href="../../aq-server/docs/plans/0001-v2-milestones.md">release/UI milestones</a></td>
 <td>Design requirements exist; dashboard application, generated human bindings and embedded-bundle acceptance are not established by this scaffold</td>
 </tr>
 </tbody>

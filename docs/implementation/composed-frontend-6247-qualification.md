@@ -1,7 +1,7 @@
 # Combined frontend qualification and canonical asset promotion
 
 November 1, 2026. **Historical asset-only state35 promotion record.** The later
-[canonical AQ37 cutover](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+[canonical AQ37 cutover](../../../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
 now supplies actual Playbooks/Decisions owners with the same immutable frontend;
 see the [current matrix](../plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37).
 The original source/test/build and state35 observations below remain unchanged
@@ -130,7 +130,7 @@ performed by these read-only browser gates.
 
 ## Later canonical backend/database cutover: current status
 
-The [actual final cutover](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+The [actual final cutover](../../../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
 now serves this exact624 bundle with AQ37/default backend source511ee99, binary
 SHA25617698c625675b7a994b0a56bbd37737becbf039380093ae9dd32fe1bdcd27b25.
 Actual protected Playbooks/Decisions owners use the same real private UDS DB as

@@ -17,7 +17,7 @@
     "new_build_for_cutover": false
   },
   "proof_source_commit": "9e52ad4",
-  "proof": "../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md",
+  "proof": "../../../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md",
   "canonical": {
     "origin": "http://localhost:4188",
     "core_bridge_engine_same_real_unix_database": true,

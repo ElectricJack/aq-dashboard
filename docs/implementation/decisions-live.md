@@ -10,13 +10,13 @@ Root integration: enable `decisions.read` version1 only with the installed revie
 
 The component/adapter test set covers disabled capability, empty discovery, source/evidence validation, exact identity, malformed states/cursors, retained criterion binding, uncertain delivery with identical retry bytes, positive actor/operation receipt, and conflict draft preservation. Actual owner/router and compiled-bundle browser qualification are separate from these fixtures.
 
-The actual [configured SQL/review-owner browser read proof](../../../agent-q/docs/implementation/API-04-browser/README.md) passed in 2.75s, with desktop/390px screenshots reviewed. Separate [disposable browser action qualification](../../../agent-q/docs/implementation/API-04-browser/actions.md) passed in 2.88s. Approve/reject double clicks each produced one POST; a loopback fault proxy truncated a committed owner's HTTP reply, the UI retained an unknown answer, and an explicit identical-byte retry recovered its original receipt. Four POSTs resolved three disposable reviews, preserving source/subject pins. No browser response interception or provider calls occurred.
+The actual [configured SQL/review-owner browser read proof](../../../aq-server/docs/implementation/API-04-browser/README.md) passed in 2.75s, with desktop/390px screenshots reviewed. Separate [disposable browser action qualification](../../../aq-server/docs/implementation/API-04-browser/actions.md) passed in 2.88s. Approve/reject double clicks each produced one POST; a loopback fault proxy truncated a committed owner's HTTP reply, the UI retained an unknown answer, and an explicit identical-byte retry recovered its original receipt. Four POSTs resolved three disposable reviews, preserving source/subject pins. No browser response interception or provider calls occurred.
 
 Both proofs used the unchanged bundle manifest SHA256 `85fa3dbfb790467dcaca3be6ce6ee7f448d9b2b39603f066df3b3811afbde2a8`. They establish the delivered discovery/evidence/answer subset, not full document/media/discussion design acceptance, task completion, merge/deployment or canonical-preview promotion. The review owner and both capability versions must be mounted in the promoted process before this behavior is available there.
 
 ## Current canonical availability
 
-The [actual AQ37 UDS cutover](../../../agent-q/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
+The [actual AQ37 UDS cutover](../../../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md)
 now mounts the real review owner on canonical4188/source511ee99 with the same624
 bundle. decisions.read and decisions.resolve are enabled; the current queue is
 successfully empty. Canonical acceptance was read-only and submitted no answer.
