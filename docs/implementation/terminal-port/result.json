@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "qualification": "SYNTHETIC source-dev terminal wire, actual xterm renderer; no real worker/input delivery claim",
+  "origin": "http://127.0.0.1:4241",
+  "captures": [
+    "terminal-1440.png",
+    "terminal-390.png",
+    "terminal-320.png"
+  ],
+  "input_bytes": 6,
+  "mutations": [
+    "watch",
+    "control",
+    "resize",
+    "input",
+    "input",
+    "input",
+    "input",
+    "input",
+    "input",
+    "resize",
+    "resize",
+    "release"
+  ],
+  "errors": []
+}

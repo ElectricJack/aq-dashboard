@@ -16,7 +16,7 @@ import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
-import { TerminalTail } from "./TerminalTail";
+import { InteractiveTerminal } from "./InteractiveTerminal";
 import { SessionUsage } from "./SessionUsage";
 import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
@@ -170,7 +170,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
     <section className={styles.detail} aria-labelledby={headingId}>
       <Toolbar className={styles.workspaceHeading}>
         <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
-        <span className={styles.focusLabel}>Focused workspace · Read only</span>
+        <span className={styles.focusLabel}>Focused workspace</span>
         <ActionButton aria-expanded={detailsOpen} aria-controls={`session-${s.id}-details`} onClick={() => setDetailsOpen(v => !v)}>Session details</ActionButton>
       </Toolbar>
       <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
@@ -188,8 +188,8 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
       <SessionSwitcher selected={s} search={search} />
       <div className={styles.outputWorkspace}>
-        <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong><span className={styles.readOnly}>Read only</span></Toolbar>
-      {s.terminal && terminal.enabled ? <TerminalTail key={s.terminal.id} terminalId={s.terminal.id} /> : <div className={styles.terminal} role="note">
+        <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong></Toolbar>
+      {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>}

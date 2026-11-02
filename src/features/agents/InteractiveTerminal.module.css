@@ -1,0 +1,25 @@
+.pane { min-inline-size: 0; background: #0d1117; color: #d1d5db; }
+.toolbar, .actions, .tabs, .status, .keys { display: flex; align-items: center; gap: 8px; }
+.toolbar { justify-content: space-between; padding: 8px 12px; flex-wrap: wrap; border-block-end: 1px solid #ffffff12; }
+.tabs button, .keys button { font: inherit; color: inherit; background: transparent; border: 1px solid #ffffff20; border-radius: 6px; padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
+.tabs button[aria-pressed=true] { color: #b9b2ff; background: #8474ed20; }
+.keys button:disabled { opacity: .4; cursor: default; }
+.frame { block-size: clamp(340px, 55dvh, 780px); min-block-size: 180px; padding: 12px; overflow: auto; }
+.host { block-size: 100%; min-inline-size: 0; }
+.host :global(.xterm) { min-inline-size: 80ch; block-size: 100%; }
+.host :global(.xterm-viewport) { background: #0d1117 !important; }
+.status { flex-wrap: wrap; justify-content: space-between; padding: 6px 12px; font-size: 12px; color: #a9b0bf; border-block-start: 1px solid #ffffff12; }
+.keys { padding: 6px 12px; overflow-x: auto; }
+.keys button { flex-shrink: 0; }
+.phoneControl { display: none; }
+.help { margin: 0; padding: 4px 12px 8px; font-size: 11px; color: #8f98a9; }
+@media (max-width: 767px) {
+  .toolbar { padding: 4px 8px; gap: 4px; }
+  .toolbar button, .keys button { min-block-size: 44px; }
+  .actions { display: none; }
+  .phoneControl { display: block; }
+  .frame { block-size: max(220px, calc(100dvh - 460px)); padding: 8px; }
+  .status { padding: 4px 8px; gap: 2px; font-size: 11px; }
+  .keys { padding: 4px 8px; gap: 4px; }
+  .help { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
