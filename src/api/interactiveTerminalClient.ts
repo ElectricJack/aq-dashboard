@@ -33,6 +33,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     const raw = await json('info'); const next = adaptInteractiveInfo(raw.body, options.terminalId);
     if (info && (!sameTerminal(next.terminal, info.terminal) || next.session_revision !== info.session_revision)) throw new ContractError('Terminal binding changed');
     info = next;
+    if (info.control.input_paused) { paused = true; queue = []; queued = 0; pendingResize = null; }
     if (owned && info.control.lease?.lease_id !== owned) { owned = null; queue = []; queued = 0; }
     connected = !info.disconnected; emit();
   }
