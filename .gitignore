@@ -7,3 +7,4 @@ playwright-report/
 *.log
 
 test-results-live/
+/graft/
