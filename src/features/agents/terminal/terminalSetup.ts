@@ -82,3 +82,9 @@ export function guardObservedTerminalQueries(terminal: Terminal): IDisposable[] 
     terminal.parser.registerCsiHandler({ prefix: '?', final: 'n' }, () => true),
   ];
 }
+
+/** Focus notifications describe the local viewer, not operator keystrokes.
+ * Upstream tmux already owns application focus. Ordinary Escape is untouched. */
+export function isObservedFocusReport(data: string): boolean {
+  return data === '\x1b[I' || data === '\x1b[O';
+}

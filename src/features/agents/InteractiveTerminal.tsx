@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
 import { connectInteractiveTerminal, type TerminalState } from '../../api/interactiveTerminalClient';
-import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries } from './terminal/terminalSetup';
+import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
 import { ActionButton } from '../../components/layout/Workspace';
@@ -48,7 +48,7 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
       reset: () => term.reset(),
       state: next => { uncertain.current ||= next.paused; term.options.disableStdin = !next.controlling; setState(next); },
     }); connection.current = transport;
-    const data = term.onData(value => transport.sendInput(new TextEncoder().encode(value)));
+    const data = term.onData(value => { if (!isObservedFocusReport(value)) transport.sendInput(new TextEncoder().encode(value)); });
     const binary = term.onBinary(value => transport.sendInput(Uint8Array.from(value, c => c.charCodeAt(0) & 255)));
     const resize = term.onResize(size => transport.resize(size.cols, size.rows));
     let animation = 0;
