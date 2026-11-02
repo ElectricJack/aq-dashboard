@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
 import { connectInteractiveTerminal, type TerminalState } from '../../api/interactiveTerminalClient';
-import { terminalOptions, guardUntrustedOutput } from './terminal/terminalSetup';
+import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
 import { ActionButton } from '../../components/layout/Workspace';
@@ -33,7 +33,7 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
     if (!host.current || !watching || transcript) return;
     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: 24 }); terminal.current = term;
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
-    const guarded = guardUntrustedOutput(term);
+    const guarded = [...guardUntrustedOutput(term), ...guardObservedTerminalQueries(term)];
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
     term.textarea?.setAttribute('aria-describedby', 'terminal-input-help');
     term.attachCustomKeyEventHandler(event => {
