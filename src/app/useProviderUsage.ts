@@ -4,7 +4,8 @@ import {
   atServerTime,
   type ProviderUsageResult,
 } from "../api/adapters/providerUsage";
-import { ApiError, apiGet } from "../api/client";
+import { ApiError, apiGet, isProtectedReadFailure } from "../api/client";
+import { adaptConfiguredProviders } from "../api/adapters/configuredProviders";
 import { queryKey } from "../api/queryKeys";
 import type { Envelope, ProviderUsage } from "../api/wire/proposed";
 import type { ProviderUsageState } from "../components/ProviderUsageStrip/ProviderUsageStrip";
@@ -31,6 +32,14 @@ export type ProviderUsageQuery = { state: ProviderUsageState; unreachable: boole
 export function useProviderUsage(): ProviderUsageQuery {
   const { bootstrap, queryContext } = useSession();
   const capability = bootstrap.capability("provider.quota");
+  const configuredCapability = bootstrap.capability("providers.configured.read");
+  const configured = useQuery({
+    queryKey: queryKey(queryContext, "configured-provider-accounts", { contract: "human-provider-accounts-1" }),
+    queryFn: async ({ signal }) => adaptConfiguredProviders(await apiGet<unknown>("/api/human/provider-accounts", AbortSignal.any([signal, AbortSignal.timeout(QUOTA_TIMEOUT_MS)]))),
+    enabled: configuredCapability.enabled,
+    retry: false,
+    refetchInterval: QUOTA_POLL_MS,
+  });
   const query = useQuery({
     queryKey: queryKey(queryContext, "provider-usage", {}),
     queryFn: async ({ signal }) => {
@@ -47,14 +56,20 @@ export function useProviderUsage(): ProviderUsageQuery {
     query.data && { serverTime: query.data.result.serverTime, receivedAt: query.data.receivedAt },
   );
   const unreachable =
-    query.isError && (!(query.error instanceof ApiError) || query.error.kind === "transport");
+    (capability.enabled && query.isError && (!(query.error instanceof ApiError) || query.error.kind === "transport")) ||
+    (configuredCapability.enabled && configured.isError && configured.error instanceof ApiError && configured.error.kind === "transport");
+  const configuredState = (): ProviderUsageState => {
+    if (configured.isError && isProtectedReadFailure(configured.error)) return { status: "configuration-error" };
+    if (configured.data) return { status: "configured", data: configured.data, stale: configured.isError };
+    return configured.isError ? { status: "configuration-error" } : { status: "loading" };
+  };
 
-  if (!capability.enabled) return { state: { status: "disabled", reason: capability.reason }, unreachable };
+  if (!capability.enabled) return { state: configuredCapability.enabled ? configuredState() : { status: "disabled", reason: capability.reason }, unreachable };
   if (query.data) {
     const current = now ? atServerTime(query.data.result, now) : query.data.result;
     // A failed refresh keeps the last values, but they are no longer current.
     return { state: { status: "ready", data: query.isError ? markStale(current) : current }, unreachable };
   }
-  if (query.isError) return { state: { status: "error" }, unreachable };
+  if (query.isError) return { state: configuredCapability.enabled ? configuredState() : { status: "error" }, unreachable };
   return { state: { status: "loading" }, unreachable };
 }

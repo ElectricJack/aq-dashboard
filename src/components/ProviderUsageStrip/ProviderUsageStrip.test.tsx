@@ -47,6 +47,18 @@ test("labels the strip as account-wide usage", () => {
   expect(region()).toHaveAccessibleName(/account-wide/i);
 });
 
+test("configured inventory shows enabled and missing-key facts without percent bars", () => {
+  render(<ProviderUsageStrip state={{ status: "configured", stale: false, data: { schema_version: 1, contract: "human-provider-accounts-1", source: "startup_configuration", server_time_ms: 123, revision: 1, accounts: [
+    { provider: "openai", account_reference: "team", enabled: true, provisionable: false, credential_profiles: 1 },
+    { provider: "anthropic", account_reference: "other", enabled: false, provisionable: false, credential_profiles: 1 },
+  ] } }} />);
+  expect(region()).toHaveTextContent("OpenAI · team");
+  expect(region()).toHaveTextContent("Enabled · server key unavailable");
+  expect(region()).toHaveTextContent("Disabled");
+  expect(region()).not.toHaveTextContent("% used");
+  expect(region()).toHaveTextContent("authentication and model readiness are not checked");
+});
+
 test("shows provider, percent used, window name and reset", () => {
   render(<ProviderUsageStrip state={{ status: "ready", data: data([win()]) }} />);
   const r = within(region());
