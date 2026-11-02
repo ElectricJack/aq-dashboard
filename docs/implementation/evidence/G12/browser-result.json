@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "fixture": "G12 labelled deterministic fixtures intercepted at HTTP boundary; production bundle served unchanged",
+  "origin": "http://127.0.0.1:4192",
+  "manifest_digest": "sha256:6bf90e8b11142feb5e94c108b263f810bbbbfa6db7dc9bb57feb9cc631c8e54e",
+  "views": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "graph_navigation_and_exit": true,
+      "decision_refusal_retains_note_and_evidence": true,
+      "recovered_uncertain_text_visible_without_replay": true,
+      "explicit_reload_restores_both_composers": true,
+      "no_horizontal_overflow": true,
+      "visible_navigation_and_reload": true
+    },
+    {
+      "name": "phone",
+      "width": 390,
+      "height": 844,
+      "graph_navigation_and_exit": true,
+      "decision_refusal_retains_note_and_evidence": true,
+      "recovered_uncertain_text_visible_without_replay": true,
+      "explicit_reload_restores_both_composers": true,
+      "no_horizontal_overflow": true,
+      "visible_navigation_and_reload": true
+    },
+    {
+      "name": "narrow",
+      "width": 320,
+      "height": 740,
+      "graph_navigation_and_exit": true,
+      "decision_refusal_retains_note_and_evidence": true,
+      "recovered_uncertain_text_visible_without_replay": true,
+      "explicit_reload_restores_both_composers": true,
+      "no_horizontal_overflow": true,
+      "visible_navigation_and_reload": true
+    }
+  ],
+  "mutations": [],
+  "intercepted_decision_refusals": 3,
+  "page_errors": []
+}

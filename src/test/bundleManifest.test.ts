@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, utimesSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "vitest";
+import requirements from "../app/bundle-requirements.json";
 
 const manifestScript = resolve("scripts/bundle-manifest.mjs");
 const archiveScript = resolve("scripts/release-archive.mjs");
@@ -36,6 +37,8 @@ test("bundle_manifest_lists_required_capabilities_and_digest", () => {
   expect(manifest.version).toBe("0.1.0");
   expect(manifest.api_version).toBe("dashboard-read-1");
   expect(manifest.required_api_versions).toEqual(["dashboard-read-1"]);
+  expect(manifest.required_api_versions).toEqual(requirements.required_api_versions);
+  expect(manifest.required_capabilities).toEqual(requirements.required_capabilities);
   expect(manifest.required_capabilities).toEqual(expect.arrayContaining(["results.media.read", "playbooks.inspect"]));
   expect(manifest.required_capabilities.every((cap: string) => /^[a-z][a-z.-]+$/.test(cap))).toBe(true);
   expect(manifest.source).toEqual({ revision: git("rev-parse", "HEAD"), dirty: false, official: true });

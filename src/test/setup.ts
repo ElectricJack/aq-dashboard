@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); if (typeof sessionStorage !== "undefined") sessionStorage.clear(); });
 
 // jsdom does not implement modal dialogs. Real modal behaviour (inert
 // background, focus containment) is covered by Playwright.

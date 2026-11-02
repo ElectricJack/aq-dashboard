@@ -1,0 +1,12 @@
+
+> aq-dashboard@0.1.0 test /tmp/aq-dashboard-G12-baseline.uYFuWR
+> node scripts/test.mjs -- src/features/results/ResultMediaUpload.test.tsx -t 'one explicit submit freezes raw intent'
+
+
+ RUN  v5.0.5 /tmp/aq-dashboard-G12-baseline.uYFuWR
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 21 skipped (22)
+   Start at  15:42:34
+   Duration  7.03s (tests 32%, environment 30%, transform 20%, import 12%, setup 6%)

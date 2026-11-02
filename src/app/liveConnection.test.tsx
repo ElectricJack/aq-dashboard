@@ -17,6 +17,7 @@ function liveBootstrap(capabilities: string[]) {
     data: {
       ...fixture.data,
       product: { version: "0.1.0", dashboard_digest: null },
+      contracts: [{ name: "dashboard-read", version: "dashboard-read-1", digest: "sha256:fixture" }],
       capabilities: capabilities.map((name) => ({ name, version: "1", enabled: true })),
     },
   };
@@ -93,6 +94,7 @@ test.each([401, 403])("resource %s clears private worker data even when bootstra
     http.get("/api/workers", () => HttpResponse.json({}, { status })),
   );
   await act(() => queryClient.refetchQueries({ predicate: (q) => q.queryKey[0] === "aq" }));
+
   expect(await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" })).toBeInTheDocument();
   expect(screen.queryByText("Private worker name")).not.toBeInTheDocument();
   expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
@@ -150,6 +152,14 @@ test.each(["version", "scope", "upgrade required"])("single read clears previous
     ...(mismatch === "version" ? { api_version: "future-99" } : { scope: { kind: "project", project_id: "other" } }),
   })));
   await act(() => queryClient.refetchQueries({ predicate: (q) => q.queryKey[0] === "aq" }));
+  if (mismatch === "upgrade required") {
+    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(screen.getByRole("note", { name: "Dashboard version" })).toHaveTextContent("Install compatible versions, then reload.");
+    expect(screen.queryByRole("heading", { name: "Dashboard update required" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Private project label" })).not.toBeInTheDocument();
+    expect(queryClient.getQueryCache().findAll({ predicate: query => query.queryKey[0] === "aq" && query.queryKey[4] === "projects" }).every(query => query.state.data === undefined)).toBe(true);
+    return;
+  }
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(screen.queryByRole("option", { name: "Private project label" })).not.toBeInTheDocument();
   expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);

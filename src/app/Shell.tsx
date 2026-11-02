@@ -9,6 +9,7 @@ import { TitleFocusContext } from "./DestinationPage";
 import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
 import { scopeSearch, useScope } from "./scope";
 import { useSession } from "./session";
+import { BundleNotice } from "./BundleNotice";
 import styles from "./Shell.module.css";
 import { useProjects } from "./useProjects";
 import { useProviderUsage } from "./useProviderUsage";
@@ -211,6 +212,7 @@ export function Shell() {
         </span>
       </header>
       <main id="content" className={styles.main}>
+        <BundleNotice />
         <TitleFocusContext value={lastTitlePath}>
           <Outlet />
         </TitleFocusContext>

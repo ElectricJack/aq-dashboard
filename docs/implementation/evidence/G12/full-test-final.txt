@@ -1,0 +1,987 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2
+> node scripts/test.mjs -- --maxWorkers=1
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+stderr | src/features/agents/TerminalTail.test.tsx > registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop
+No `HydrateFallback` element provided to render during initial hydration
+
+stderr | src/features/agents/TerminalTail.test.tsx > registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > reported gaps discard preceding text and distinguish disconnection
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > not-retained output does not invent a snapshot or replay old bytes
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 401 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 403 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 404 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 503 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > Watch expiry clears output without automatic renewal
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+ ❯ src/features/agents/TerminalTail.test.tsx (8 tests | 8 failed) 8221ms
+   × registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop 1094ms
+   × reported gaps discard preceding text and distinguish disconnection 1026ms
+   × not-retained output does not invent a snapshot or replay old bytes 1015ms
+   × a subsequent 401 clears previously visible output 1016ms
+   × a subsequent 403 clears previously visible output 1019ms
+   × a subsequent 404 clears previously visible output 1015ms
+   × a subsequent 503 clears previously visible output 1010ms
+   × Watch expiry clears output without automatic renewal 1014ms
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/agents/TerminalTail.test.tsx:54:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > reported gaps discard preceding text and distinguish disconnection
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:63:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > not-retained output does not invent a snapshot or replay old bytes
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:69:47
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 401 clears previously visible output
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 403 clears previously visible output
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 404 clears previously visible output
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 503 clears previously visible output
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:74:76
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > Watch expiry clears output without automatic renewal
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-2/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:80:82
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+
+ Test Files  1 failed | 71 passed (72)
+      Tests  8 failed | 663 passed (671)
+   Start at  15:45:56
+   Duration  237.09s (tests 57%, environment 29%, setup 7%, import 6%, transform 1%)
+
+Environment  jsdom was created 72 times · 64.05s total, 29% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+ ELIFECYCLE  Test failed. See above for more details.

@@ -8,17 +8,19 @@ import { queryKey } from "../../api/queryKeys";
 import { ApiError } from "../../api/client";
 import { ContractError } from "../../api/adapters/contract";
 import { useSession } from "../../app/session";
+import { useDraft } from "../../app/useDraft";
 import { PageTitle } from "../../app/DestinationPage";
 import { ActionButton } from "../../components/layout/Workspace";
 import styles from "./SupervisorConversation.module.css";
 
 const MAX_LOADED = 64;
+const validDraft = (value: unknown): value is string => typeof value === "string";
 export function SupervisorConversation() {
   const { bootstrap, queryContext } = useSession();
   const client = useQueryClient();
   const [params, setParams] = useSearchParams();
   const operationParam = params.get("operation"), messageParam = params.get("message");
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useDraft("supervisor-global", "", validDraft);
   const [frozen, setFrozen] = useState<FrozenSupervisorMessage | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [sending, setSending] = useState(false), [sendError, setSendError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export function SupervisorConversation() {
   const active = useRef(true), busy = useRef(false), historyBusyRef = useRef(false), pending = useRef<FrozenSupervisorMessage | null>(null);
   const jobs = useRef(new Set<AbortController>()), ticket = useRef(0), ownReference = useRef(":"), anchoredId = useRef<string | null>(null);
   const sendJob = useRef<AbortController | null>(null);
+  const referenceLoaded = useRef(false);
   const composing = useRef(false);
   const workspace = useRef<HTMLElement>(null);
   const history = useRef<HTMLDivElement>(null), atBottom = useRef(true), end = useRef<HTMLDivElement>(null);
@@ -109,9 +112,10 @@ export function SupervisorConversation() {
   useLayoutEffect(() => {
     if (!conversation) return;
     const reference = `${operationParam ?? ""}:${messageParam ?? ""}`;
+    const initial = !referenceLoaded.current; referenceLoaded.current = true;
     if (ownReference.current === reference) return;
     ownReference.current = reference; ticket.current++; sendJob.current?.abort();
-    pending.current = null; setFrozen(null); setReceipt(null); setDraft("");
+    pending.current = null; setFrozen(null); setReceipt(null); if (!initial) setDraft("");
     if (operationParam) { busy.current = true; setSending(true); void execute("lookup", operationParam, messageParam ?? ""); }
     else { busy.current = false; setSending(false); setSendError(null); }
   }, [operationParam, messageParam, conversation?.id]);

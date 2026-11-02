@@ -50,3 +50,8 @@ test("revision conflict retains the note and offers explicit evidence refresh", 
   await userEvent.click(screen.getByRole("button", { name: "Request changes" })); await screen.findByText(/The review changed/);
   expect(screen.getByRole("textbox", { name: "Decision note" })).toHaveValue("Retained note"); expect(screen.getByRole("button", { name: "Refresh evidence" })).toBeInTheDocument();
 });
+test("resolve 426 disables answering with upgrade guidance and retains the note and evidence", async () => {
+  setup(true,true); let writes=0; server.use(http.post("/api/reviews/decisions/:id/resolve",()=>{writes++;return new HttpResponse(null,{status:426});}));
+  renderApp(`/decisions/${decisionId(1)}`);await userEvent.type(await screen.findByRole("textbox",{name:"Decision note"}),"Retain this review note");await userEvent.click(screen.getByRole("button",{name:"Approve revision 1"}));
+  expect(await screen.findByRole("note",{name:"Dashboard version"})).toHaveTextContent("Install compatible versions, then reload.");expect(screen.queryByRole("button",{name:"Retry same answer"})).not.toBeInTheDocument();expect(screen.getByRole("textbox",{name:"Decision note"})).toHaveValue("Retain this review note");expect(screen.getByRole("heading",{name:"Decision context"})).toBeInTheDocument();expect(writes).toBe(1);
+});

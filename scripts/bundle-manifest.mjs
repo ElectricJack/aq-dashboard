@@ -4,19 +4,12 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const requirements = JSON.parse(await readFile(new URL("../src/app/bundle-requirements.json", import.meta.url), "utf8"));
+
 export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 // Capability identifiers from dashboard-read-1 bootstrap. These describe the
 // bundle's compatibility requirements, not the current principal's grants.
-export const requiredCapabilities = [
-  "dashboard.overview", "decisions.read", "decisions.resolve", "human.graph.read",
-  "human.overview.tasks.read", "knowledge.read", "notifications.read",
-  "playbooks.catalog.read", "playbooks.inspect", "playbooks.loaded-definitions.read",
-  "projects.read", "provider.quota", "providers.configured.read", "results.media.read",
-  "results.media.upload", "results.read", "search.read", "session.events.read",
-  "session.usage.read", "sessions.read", "status.read", "supervisor.history.read",
-  "supervisor.message.enqueue", "tasks.create", "tasks.read", "terminal.control",
-  "terminal.watch", "workers.read",
-].sort();
+export const requiredCapabilities = requirements.required_capabilities;
 
 export function sourceProvenance(official) {
   const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
@@ -50,7 +43,7 @@ export async function writeManifest(root, official) {
   const manifest = {
     schema_version: 2, api_version: "dashboard-read-1", version: pkg.version, source,
     toolchain: { node: process.version, pnpm, lockfile_sha256: sha256(await readFile("pnpm-lock.yaml")) },
-    required_api_versions: ["dashboard-read-1"], required_capabilities: requiredCapabilities, files,
+    required_api_versions: requirements.required_api_versions, required_capabilities: requiredCapabilities, files,
   };
   await writeFile(join(root, "dashboard-manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   console.log(`Dashboard manifest: ${Object.keys(files).length} files, source ${source.revision}`);

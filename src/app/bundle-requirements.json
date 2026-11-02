@@ -1,0 +1,35 @@
+{
+  "required_api_versions": [
+    "dashboard-read-1"
+  ],
+  "required_capabilities": [
+    "dashboard.overview",
+    "decisions.read",
+    "decisions.resolve",
+    "human.graph.read",
+    "human.overview.tasks.read",
+    "knowledge.read",
+    "notifications.read",
+    "playbooks.catalog.read",
+    "playbooks.inspect",
+    "playbooks.loaded-definitions.read",
+    "projects.read",
+    "provider.quota",
+    "providers.configured.read",
+    "results.media.read",
+    "results.media.upload",
+    "results.read",
+    "search.read",
+    "session.events.read",
+    "session.usage.read",
+    "sessions.read",
+    "status.read",
+    "supervisor.history.read",
+    "supervisor.message.enqueue",
+    "tasks.create",
+    "tasks.read",
+    "terminal.control",
+    "terminal.watch",
+    "workers.read"
+  ]
+}

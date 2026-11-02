@@ -64,7 +64,7 @@ function Selected({ id, project }: { id: string; project: string | undefined }) 
 }
 type Answer = { schema_version: 1; operation_id: string; decision_id: string; expected_decision_revision: number; choice: "approve" | "reject"; comment: string | null };
 function DecisionAction({ detail: d, enabled, onRecorded }: { detail: DecisionDetail; enabled: boolean; onRecorded(): void }) {
-  const { queryContext } = useSession();
+  const { queryContext, reportIncompatible } = useSession();
   const [note, setNote] = useState(""); const [status, setStatus] = useState(""); const [busy, setBusy] = useState(false); const [uncertain, setUncertain] = useState(false);
   const pending = useRef<Answer | null>(null);
   const available = enabled && d.state === "pending" && d.revision === 1 && d.current && d.eligible;
@@ -80,11 +80,12 @@ function DecisionAction({ detail: d, enabled, onRecorded }: { detail: DecisionDe
       validateAnswerReceipt(receipt, d, answer.operation_id, answer.choice, queryContext.principalId);
       setStatus("Decision recorded. Refreshing evidence…"); setUncertain(false); onRecorded();
     } catch (error) {
+      if (error instanceof ApiError && error.status === 426) { reportIncompatible("decisions.resolve"); setStatus("Answering requires a compatible AQ API. Your note is preserved."); setUncertain(false); return; }
       if (error instanceof ApiError && [400, 403, 404, 409].includes(error.status ?? 0)) { setStatus(error.status === 409 ? "The review changed. Your note is preserved; refresh the evidence before answering again." : "The server refused this answer. Your note is preserved."); setUncertain(false); }
       else { setStatus("Delivery is unknown. Inspect the review or retry the same answer; no new answer has been created."); setUncertain(true); }
     } finally { setBusy(false); }
   }
-  return <><h3>Your decision</h3>{!available ? <p>{d.state !== "pending" ? "This review has a recorded disposition." : "Answering is unavailable for this review or installation."}</p> : <>
+  return <><h3>Your decision</h3>{!available && note && <label>Decision note<textarea className={styles.note} readOnly value={note}/></label>}{!available ? <p>{d.state !== "pending" ? "This review has a recorded disposition." : "Answering is unavailable for this review or installation."}</p> : <>
     <label htmlFor={`decision-note-${d.decisionId}`}>Decision note</label><textarea id={`decision-note-${d.decisionId}`} className={styles.note} value={note} maxLength={2048} disabled={busy || pending.current !== null} onChange={e => setNote(e.target.value)} />
     <p className={styles.muted}>Applies to decision revision {d.revision}. The server rechecks current authority and source.</p>
     <div className={styles.actions}>{!pending.current ? <><ActionButton disabled={busy} onClick={() => void submit("approve")}>Approve revision {d.revision}</ActionButton><ActionButton disabled={busy} onClick={() => void submit("reject")}>Request changes</ActionButton></> : uncertain && <ActionButton disabled={busy} onClick={() => void submit()}>Retry same answer</ActionButton>}</div>

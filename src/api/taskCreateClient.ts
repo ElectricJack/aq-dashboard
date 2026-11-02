@@ -6,7 +6,7 @@ export async function taskOperationRequest(method:"GET"|"POST",path:string,bytes
  const timer=setTimeout(abort,6000);
  try{
   const response=await fetch(path,{method,credentials:"same-origin",signal:controller.signal,headers:{Accept:"application/json",...(method==="POST"?{"Content-Type":"application/json","X-AQ-Request":"1"}:{})},...(bytes!==undefined?{body:bytes}:{})});
-  if([401,403].includes(response.status))throw new ApiError("http",`AQ responded ${response.status}`,{status:response.status,effectUnknown:method==="POST"});
+  if([401,403,426].includes(response.status))throw new ApiError("http",`AQ responded ${response.status}`,{status:response.status,effectUnknown:method==="POST"});
   if(!response.headers.get("content-type")?.includes("application/json")||!response.body)throw new ContractError("Task operation response is not JSON");
   const reader=response.body.getReader();const chunks:Uint8Array[]=[];let length=0;
   try{while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>65536){await reader.cancel();throw new ContractError("Task operation response exceeds its bound");}chunks.push(value);}}finally{reader.releaseLock();}
