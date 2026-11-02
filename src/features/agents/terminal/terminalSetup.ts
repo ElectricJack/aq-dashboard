@@ -70,3 +70,15 @@ export function guardUntrustedOutput(terminal: Terminal): IDisposable[] {
     terminal.parser.registerOscHandler(8, () => true),
   ];
 }
+
+/** The upstream tmux owns the application TTY and already answers its device
+ * queries. A Watch renderer must not turn those queries into operator input. */
+export function guardObservedTerminalQueries(terminal: Terminal): IDisposable[] {
+  return [
+    terminal.parser.registerCsiHandler({ final: 'c' }, () => true),
+    terminal.parser.registerCsiHandler({ prefix: '>', final: 'c' }, () => true),
+    terminal.parser.registerCsiHandler({ prefix: '=', final: 'c' }, () => true),
+    terminal.parser.registerCsiHandler({ final: 'n' }, () => true),
+    terminal.parser.registerCsiHandler({ prefix: '?', final: 'n' }, () => true),
+  ];
+}
