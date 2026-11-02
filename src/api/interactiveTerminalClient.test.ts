@@ -40,13 +40,14 @@ it('allows a fresh user operation after a definitive rejection without replaying
     else if (doc?.kind === 'control') { generation++; lease = { terminal, principal_id: 'fixture', lease_id: '10000000-0000-4000-8000-000000000005', generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
     else if (doc?.kind === 'input') { sent.push(doc.body.bytes as number[]); value = { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: sent.length === 1 ? 'rejected' : 'applied', input_paused: false, observed_at_ms: 1000 } }; }
     else if (path.includes('/tail?')) value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, frames: [], gaps: [], next_sequence: 0, more: false };
-    else value = { ...info, control: control() };
+    else value = { ...info, disconnected: lease === null, control: control() };
     return { body: value, serverTime: 1000 };
   });
-  let controlling = false;
-  const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { states.push(s.message); controlling = s.controlling; } });
+  let controlling = false, canControl = false;
+  const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { states.push(s.message); controlling = s.controlling; canControl = s.canControl; } });
   try {
-    await vi.waitFor(() => expect(states).toContain('Watch only'));
+    await vi.waitFor(() => expect(canControl).toBe(true));
+    expect(controlling).toBe(false); // Stale peer contact permits intent, never stdin.
     await c.takeControl(); await vi.waitFor(() => expect(controlling).toBe(true));
     c.sendInput(new Uint8Array([65]));
     await vi.waitFor(() => expect(states).toContain('Input rejected — type again'));

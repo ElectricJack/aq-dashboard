@@ -18,7 +18,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   const now = () => clock + performance.now() - clockAt;
   const active = () => !!(connected && !paused && info?.input_enabled && !info.disconnected && info.control.fence_acknowledged && !info.control.input_paused && info.control.lease?.lease_id === owned && info.control.lease.expires_at_ms > now());
   const emit = (message = active() ? 'You have control' : paused ? 'Input delivery uncertain — typing paused' : connected ? 'Watch only' : 'Connecting…') => {
-    if (!signal.aborted) options.state({ message, connected, controlling: active(), canControl: !!(connected && info?.input_enabled && !info.disconnected && options.allowControl && !paused), paused });
+    if (!signal.aborted) options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused });
   };
   const request: Read = async (part, fetcher) => {
     const value = await options.read(part, fetcher);
@@ -90,7 +90,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     finally { busy = false; if ((queue.length || pendingResize) && active()) void flush(); }
   }
   async function control(kind: 'control' | 'renew') {
-    if (renewing || !info || !connected || paused || !options.allowControl || !info.input_enabled) return;
+    if (renewing || !info || (kind === 'renew' && !connected) || paused || !options.allowControl || !info.input_enabled) return;
     renewing = true;
     try {
       const operation = crypto.randomUUID();
