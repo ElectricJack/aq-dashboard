@@ -1,0 +1,12 @@
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+
+ ✓ src/test/bundleManifest.test.ts > bundle_manifest_lists_required_capabilities_and_digest 2445ms
+ ✓ src/test/bundleManifest.test.ts > official_manifest_refuses_dirty_tracked_and_untracked_sources 2083ms
+ ✓ src/test/bundleManifest.test.ts > release_refuses_mismatched_tag_tampered_assets_and_undeclared_paths 2752ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:14:02
+   Duration  9.23s (tests 85%, setup 13%, import 1%, transform 1%)
+

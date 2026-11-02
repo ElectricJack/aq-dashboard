@@ -1,0 +1,2337 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+> node scripts/test.mjs
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+stderr | src/features/agents/TerminalTail.test.tsx > registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop
+No `HydrateFallback` element provided to render during initial hydration
+
+stderr | src/features/work/CreateTask.test.tsx > project scope and explicit Owner capability are required before any creation
+No `HydrateFallback` element provided to render during initial hydration
+
+stderr | src/features/playbooks/CurrentCatalog.test.tsx > direct current Definitions reads neither runs, admissions nor historical startup metadata
+No `HydrateFallback` element provided to render during initial hydration
+
+stderr | src/features/agents/TerminalTail.test.tsx > reported gaps discard preceding text and distinguish disconnection
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > not-retained output does not invent a snapshot or replay old bytes
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 401 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 403 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 404 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > a subsequent 503 clears previously visible output
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+stderr | src/features/agents/TerminalTail.test.tsx > Watch expiry clears output without automatic renewal
+Error handled by React Router default ErrorBoundary: TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29) {
+  [stack]: [Getter/Setter],
+  [message]: 'this._parentWindow.matchMedia is not a function'
+}
+
+The above error occurred in the <TerminalPane> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
+
+React Router caught the following error during render TypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+
+ ❯ src/features/agents/TerminalTail.test.tsx (8 tests | 8 failed) 8989ms
+   × registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop 1319ms
+   × reported gaps discard preceding text and distinguish disconnection 1277ms
+   × not-retained output does not invent a snapshot or replay old bytes 1116ms
+   × a subsequent 401 clears previously visible output 1068ms
+   × a subsequent 403 clears previously visible output 1040ms
+   × a subsequent 404 clears previously visible output 1025ms
+   × a subsequent 503 clears previously visible output 1042ms
+   × Watch expiry clears output without automatic renewal 1052ms
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ src/features/playbooks/CurrentCatalog.test.tsx (14 tests | 1 failed) 11893ms
+   × direct current Definitions reads neither runs, admissions nor historical startup metadata 1420ms
+ ❯ src/app/Shell.test.tsx (30 tests | 6 failed) 17509ms
+   × redirects / to the Overview page 1377ms
+   × marks the current destination 1020ms
+   × moves focus to the page heading after navigation 1648ms
+   × keeps project scope in the URL across navigation 1853ms
+   × changing scope to All projects removes the scope parameter 1019ms
+   × a destination whose capability is not offered explains why instead of fetching 1037ms
+ ❯ src/features/work/CreateTask.test.tsx (17 tests | 1 failed) 22828ms
+   × project scope and explicit Owner capability are required before any creation 1230ms
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/Shell.test.tsx > redirects / to the Overview page
+TestingLibraryElementError: Unable to find role="heading" and name "Overview"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink pending"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+ ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink pending"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+ ...
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/app/Shell.test.tsx:23:23
+     21| test("redirects / to the Overview page", async () => {
+     22|   const { router } = renderApp("/");
+     23|   expect(await screen.findByRole("heading", { level: 1, name: "Overvie…
+       |                       ^
+     24|   expect(router.state.location.pathname).toBe("/overview");
+     25| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/16]⎯
+
+ FAIL  src/app/Shell.test.tsx > marks the current destination
+TestingLibraryElementError: Unable to find role="navigation" and name "Primary"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ rail src/app/Shell.test.tsx:18:17
+     16|
+     17| async function rail() {
+     18|   return screen.findByRole("navigation", { name: "Primary" });
+       |                 ^
+     19| }
+     20|
+ ❯ src/app/Shell.test.tsx:45:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/16]⎯
+
+ FAIL  src/app/Shell.test.tsx > moves focus to the page heading after navigation
+TestingLibraryElementError: Unable to find role="heading" and name "Agents"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"page"[39m
+                [33mclass[39m=[32m"navLink active"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+      ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"page"[39m
+                [33mclass[39m=[32m"navLink active"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+      ...
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/app/Shell.test.tsx:74:32
+     72|   renderApp("/overview");
+     73|   await userEvent.click(within(await rail()).getByRole("link", { name:…
+     74|   const heading = await screen.findByRole("heading", { level: 1, name:…
+       |                                ^
+     75|   await waitFor(() => expect(heading).toHaveFocus());
+     76| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/16]⎯
+
+ FAIL  src/app/Shell.test.tsx > keeps project scope in the URL across navigation
+TestingLibraryElementError: Unable to find role="heading" and name "Work"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"page"[39m
+                [33mclass[39m=[32m"navLink active"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink pending"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"page"[39m
+                [33mclass[39m=[32m"navLink active"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink pending"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results?scope=project%3Aalpha"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                ...
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/app/Shell.test.tsx:81:16
+     79|   const { router } = renderApp("/overview?scope=project:alpha");
+     80|   await userEvent.click(within(await rail()).getByRole("link", { name:…
+     81|   await screen.findByRole("heading", { level: 1, name: "Work" });
+       |                ^
+     82|   expect(router.state.location.search).toBe("?scope=project%3Aalpha");
+     83| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ FAIL  src/app/Shell.test.tsx > changing scope to All projects removes the scope parameter
+TestingLibraryElementError: Unable to find role="combobox" and name "Scope"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/app/Shell.test.tsx:87:31
+     85| test("changing scope to All projects removes the scope parameter", asy…
+     86|   const { router } = renderApp("/work?scope=project:alpha");
+     87|   const picker = await screen.findByRole("combobox", { name: "Scope" }…
+       |                               ^
+     88|   expect(picker).toHaveValue("project:alpha");
+     89|   await userEvent.selectOptions(picker, "all");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/16]⎯
+
+ FAIL  src/app/Shell.test.tsx > a destination whose capability is not offered explains why instead of fetching
+TestingLibraryElementError: Unable to find role="heading" and name "Results"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/app/Shell.test.tsx:96:16
+     94| test("a destination whose capability is not offered explains why inste…
+     95|   renderApp("/results");
+     96|   await screen.findByRole("heading", { level: 1, name: "Results" });
+       |                ^
+     97|   const main = screen.getByRole("main");
+     98|   expect(await within(main).findByText(/not available/i)).toBeInTheDoc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/16]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/agents/TerminalTail.test.tsx:54:16
+     52| test("registered terminal only watches on explicit action; renders esc…
+     53|   const q = setup();
+     54|   await screen.findByRole("button", { name: /Watch output for/ }); exp…
+       |                ^
+     55|   await start();
+     56|   const output = await screen.findByText("hello <img src=x>\\u001b[2J"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/16]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > reported gaps discard preceding text and distinguish disconnection
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:63:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/16]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > not-retained output does not invent a snapshot or replay old bytes
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:69:47
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/16]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 401 clears previously visible output
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 403 clears previously visible output
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 404 clears previously visible output
+ FAIL  src/features/agents/TerminalTail.test.tsx > a subsequent 503 clears previously visible output
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:74:76
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/16]⎯
+
+ FAIL  src/features/agents/TerminalTail.test.tsx > Watch expiry clears output without automatic renewal
+TestingLibraryElementError: Unable to find role="button" and name `/Watch output for/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<h2>[39m
+      [0mUnexpected Application Error![0m
+    [36m</h2>[39m
+    [36m<h3[39m
+      [33mstyle[39m=[32m"font-style: italic;"[39m
+    [36m>[39m
+      [0mthis._parentWindow.matchMedia is not a function[0m
+    [36m</h3>[39m
+    [36m<pre[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; background-color: rgba(200, 200, 200, 0.5);"[39m
+    [36m>[39m
+      [0mTypeError: this._parentWindow.matchMedia is not a function
+    at a._updateDpr (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:105071)
+    at new a (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:104320)
+    at new o (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:103007)
+    at t.InstantiationService.createInstance (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:274327)
+    at x.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:19752)
+    at u.open (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.js:1:486284)
+    at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/src/features/agents/InteractiveTerminal.tsx:35:59
+    at Object.react_stack_bottom_frame (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+    at runWithFiberInDEV (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+    at commitHookEffectListMount (/home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)[0m
+    [36m</pre>[39m
+    [36m<p>[39m
+      [0m💿 Hey developer 👋[0m
+    [36m</p>[39m
+    [36m<p>[39m
+      [0mYou can provide a way better UX than this when your app throws errors by providing your own [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0mErrorBoundary[0m
+      [36m</code>[39m
+      [0m or[0m
+      [0m [0m
+      [36m<code[39m
+        [33mstyle[39m=[32m"padding: 2px 4px; background-color: rgba(200, 200, 200, 0.5);"[39m
+      [36m>[39m
+        [0merrorElement[0m
+      [36m</code>[39m
+      [0m prop on your route.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ matchMedia node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:125:57
+ ❯ _updateDpr node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:88:10
+ ❯ new o node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/services/CoreBrowserService.ts:16:46
+ ❯ t.InstantiationService.createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/common/services/InstantiationService.ts:83:12
+ ❯ createInstance node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/CoreBrowserTerminal.ts:457:74
+ ❯ open node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/webpack:/@xterm/xterm/src/browser/public/Terminal.ts:152:16
+ ❯ src/features/agents/InteractiveTerminal.tsx:35:59
+     33|     if (!host.current || !watching || transcript) return;
+     34|     const term = new Terminal({ ...terminalOptions(), cols: 80, rows: …
+     35|     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.cu…
+       |                                                           ^
+     36|     const guarded = [...guardUntrustedOutput(term), ...guardObservedTe…
+     37|     term.textarea?.setAttribute('aria-label', `${name} terminal input`…
+ ❯ Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28656:20
+ ❯ runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ start src/features/agents/TerminalTail.test.tsx:50:61
+ ❯ src/features/agents/TerminalTail.test.tsx:80:82
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/16]⎯
+
+ FAIL  src/features/playbooks/CurrentCatalog.test.tsx > direct current Definitions reads neither runs, admissions nor historical startup metadata
+TestingLibraryElementError: Unable to find role="list" and name "Current playbook definitions"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+      [33mdata-compact-usage[39m=[32m"true"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                 ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell"[39m
+      [33mdata-compact-usage[39m=[32m"true"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"skip"[39m
+        [33mhref[39m=[32m"#content"[39m
+      [36m>[39m
+        [0mSkip to content[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"rail"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mark"[39m
+          [36m>[39m
+            [0maq[0m
+          [36m</span>[39m
+          [0mAgent Q[0m
+        [36m</p>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"Primary"[39m
+          [33mclass[39m=[32m"railNav"[39m
+        [36m>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/overview"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-house lucide-home"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mOverview[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/supervisor"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-monitor"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mx[39m=[32m"2"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"8"[39m
+                    [33mx2[39m=[32m"16"[39m
+                    [33my1[39m=[32m"21"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                  [36m<line[39m
+                    [33mx1[39m=[32m"12"[39m
+                    [33mx2[39m=[32m"12"[39m
+                    [33my1[39m=[32m"17"[39m
+                    [33my2[39m=[32m"21"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mSupervisor[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/work"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-workflow"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.75"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"3"[39m
+                    [33my[39m=[32m"3"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M7 11v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                  [36m<rect[39m
+                    [33mheight[39m=[32m"8"[39m
+                    [33mrx[39m=[32m"2"[39m
+                    [33mwidth[39m=[32m"8"[39m
+                    [33mx[39m=[32m"13"[39m
+                    [33my[39m=[32m"13"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0mWork[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"navLink"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/results"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-list"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mfocusable[39m=[32m"false"[39m
+                  [33mheight[39m=[32m"20"[39m
+                 ...
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/playbooks/CurrentCatalog.test.tsx:18:58
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/16]⎯
+
+ FAIL  src/features/work/CreateTask.test.tsx > project scope and explicit Owner capability are required before any creation
+TestingLibraryElementError: Unable to find role="button" and name "Create task"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/work/CreateTask.test.tsx:36:49
+     34| test("project scope and explicit Owner capability are required before …
+     35|  enable(false);let writes=0;server.use(http.post("/api/human/projects/…
+     36|  renderApp(`/work${scope}`);expect(await screen.findByRole("button",{n…
+       |                                                 ^
+     37| });
+     38| test("all-project scope disables creation instead of guessing a projec…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/16]⎯
+
+
+ Test Files  4 failed | 66 passed (70)
+      Tests  16 failed | 631 passed (647)
+   Start at  15:15:36
+   Duration  101.74s (tests 52%, environment 32%, import 7%, setup 7%, transform 1%)
+
+Environment  jsdom was created 70 times · 119.62s total, 32% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+ ELIFECYCLE  Test failed. See above for more details.

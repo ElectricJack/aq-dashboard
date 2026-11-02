@@ -1,7 +1,7 @@
 {
   "name": "aq-dashboard",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.34.5",
   "engines": {
@@ -12,10 +12,11 @@
     "dev:mock": "vite --mode mock",
     "build": "tsc -b && vite build && node scripts/check-bundle.mjs dist && node scripts/bundle-manifest.mjs dist",
     "typecheck": "tsc -b",
-    "test": "vitest run",
+    "test": "node scripts/test.mjs",
     "test:e2e": "playwright test",
     "preview": "vite preview",
-    "test:live": "playwright test --config playwright.live.config.ts"
+    "test:live": "playwright test --config playwright.live.config.ts",
+    "lint": "node scripts/lint.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.105.0",

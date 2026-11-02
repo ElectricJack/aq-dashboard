@@ -1,0 +1,38 @@
+name: Dashboard release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Generate official manifest and deterministic archive
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/bundle-manifest.mjs dist --official
+          node scripts/release-archive.mjs dist "$RUNNER_TEMP/dashboard-release" "$RELEASE_TAG" "$GITHUB_REPOSITORY"
+      - name: Publish archive, digest and release record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag --title "Dashboard $RELEASE_TAG" --generate-notes "$RUNNER_TEMP/dashboard-release/"*

@@ -1,0 +1,33 @@
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+
+ ❯ src/test/bundleManifest.test.ts (3 tests | 1 failed | 2 skipped) 401ms
+   × bundle_manifest_lists_required_capabilities_and_digest 396ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/test/bundleManifest.test.ts > bundle_manifest_lists_required_capabilities_and_digest
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/test/bundleManifest.test.ts:35:35
+     33|   const manifestBytes = readFileSync(join(root, "dist/dashboard-manife…
+     34|   const manifest = JSON.parse(manifestBytes.toString());
+     35|   expect(manifest.schema_version).toBe(2);
+       |                                   ^
+     36|   expect(manifest.version).toBe("0.1.0");
+     37|   expect(manifest.api_version).toBe("dashboard-read-1");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  15:13:01
+   Duration  1.39s (setup 42%, tests 39%, transform 15%, import 2%, worker 1%)
+
