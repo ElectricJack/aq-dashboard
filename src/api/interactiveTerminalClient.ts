@@ -110,15 +110,15 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
           const rawTail = await json('tail', `/tail?subscription_id=${encodeURIComponent(subscription.subscription_id)}&after_sequence=${after}`);
           const tail = await adaptTerminalTail(rawTail.body, info!.terminal, subscription.subscription_id, after);
           if (tail.server_time_ms !== rawTail.serverTime || tail.session_revision !== info!.session_revision || tail.expires_at_ms !== subscription.expires_at_ms) throw new ContractError('Tail binding');
-          connected = !tail.disconnected;
-          if (!connected) { owned = null; queue = []; queued = 0; }
+          // Tail retention describes output coverage, not the controller peer.
+          // TerminalInfo is the authority for live input connectivity.
           let discontinuity = tail.gaps.length > 0;
           let previous = after;
           for (const frame of tail.frames) { if (frame.sequence !== previous + 1) discontinuity = true; previous = frame.sequence; }
           if (discontinuity || tail.availability === 'not_retained') options.reset();
           for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
           after = tail.next_sequence;
-          emit(tail.availability === 'not_retained' ? 'Output not retained' : discontinuity ? 'Output gap — screen restarted' : undefined);
+          emit(tail.availability === 'not_retained' ? 'Output not retained' : discontinuity ? 'Output gap — screen restarted' : tail.disconnected ? 'Output stream disconnected' : undefined);
           if (performance.now() - lastInspect >= 750) {
             await inspect(); lastInspect = performance.now();
             if (owned && info!.control.lease && info!.control.lease.expires_at_ms - now() < 6000) await control('renew');
