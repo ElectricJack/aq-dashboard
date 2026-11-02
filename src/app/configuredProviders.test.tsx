@@ -19,7 +19,7 @@ test("configured account appears without quota RPC or authentication claims", as
   const summary = await screen.findByText("OpenAI", { selector: "summary span span:first-child" });
   expect(summary).toBeInTheDocument();
   const header = await screen.findByRole("banner");
-  expect(header.querySelector("summary")).toHaveTextContent("Enabled · server key present · quota unavailable");
+  expect(header.querySelector("summary")).toHaveTextContent("Enabled · server credentials present · quota unavailable");
   expect(header).not.toHaveTextContent("% used");
   expect(quotas).toBe(0);
   const details = header.querySelector("details")!; details.open = true;

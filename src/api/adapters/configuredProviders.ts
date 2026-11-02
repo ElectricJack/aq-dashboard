@@ -24,5 +24,5 @@ export function configuredAccountLabel(account: ConfiguredAccount): string {
   return `${configuredProviderLabel(account)} · ${account.account_reference}`;
 }
 export function configuredAccountStatus(account: ConfiguredAccount): string {
-  return !account.enabled ? "Disabled" : account.provisionable ? "Enabled · server key present" : "Enabled · server key unavailable";
+  return !account.enabled ? "Disabled" : account.provisionable ? "Enabled · server credentials present" : "Enabled · server credentials unavailable";
 }

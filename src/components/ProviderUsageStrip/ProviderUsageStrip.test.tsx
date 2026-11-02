@@ -53,7 +53,7 @@ test("configured inventory shows enabled and missing-key facts without percent b
     { provider: "anthropic", account_reference: "other", enabled: false, provisionable: false, credential_profiles: 1 },
   ] } }} />);
   expect(region()).toHaveTextContent("OpenAI · team");
-  expect(region()).toHaveTextContent("Enabled · server key unavailable");
+  expect(region()).toHaveTextContent("Enabled · server credentials unavailable");
   expect(region()).toHaveTextContent("Disabled");
   expect(region()).not.toHaveTextContent("% used");
   expect(region()).toHaveTextContent("authentication and model readiness are not checked");
