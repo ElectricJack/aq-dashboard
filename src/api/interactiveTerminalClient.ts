@@ -56,7 +56,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   }
   async function flush() {
     if (busy || !active()) return;
-    busy = true;
+    busy = true; let inputInFlight = false;
     try {
       while (queue.length && active()) {
         // Preserve byte order while amortizing one durable receipt across a burst.
@@ -65,14 +65,14 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
         const bytes = new Uint8Array(length); let offset = 0;
         for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
         queued -= bytes.length;
-        const operation = crypto.randomUUID(); const binding = fields();
+        const operation = crypto.randomUUID(); const binding = fields(); inputInFlight = true;
         let body: unknown;
         try {
           const raw = await json(`input-${operation}`, '/mutations', { kind: 'input', body: { ...binding, operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), bytes: [...bytes] } });
           if (!isRecord(raw.body) || raw.body.kind !== 'input') throw new ContractError('Input reply');
           body = raw.body.body;
         } catch { /* The operation may already exist: never replay its bytes. */ }
-        await receipt(operation, body);
+        await receipt(operation, body); inputInFlight = false;
       }
       if (pendingResize && active()) {
         const size = pendingResize; pendingResize = null;
@@ -80,7 +80,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
         const raw = await json('resize', '/mutations', { kind: 'resize', body: { ...fields(), operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), sequence, ...size } });
         if (!isRecord(raw.body) || raw.body.kind !== 'resize' || !isRecord(raw.body.body) || raw.body.body.operation_id !== operation || raw.body.body.sequence !== sequence || !sameTerminal(raw.body.body.terminal as TerminalInfo['terminal'], info!.terminal)) throw new ContractError('Resize reply');
       }
-    } catch { if (!signal.aborted) pause(); }
+    } catch { if (!signal.aborted) { if (inputInFlight) pause(); else emit('Resize unavailable — keyboard control retained'); } }
     finally { busy = false; if ((queue.length || pendingResize) && active()) void flush(); }
   }
   async function control(kind: 'control' | 'renew') {
