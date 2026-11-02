@@ -1,0 +1,24 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs src/app/Shell.test.tsx src/features/overview/Overview.test.tsx src/features/work/Work.test.tsx src/features/results/ResultMediaUpload.test.tsx src/features/agents/TerminalTail.test.tsx src/features/overview/Contributions.test.tsx src/features/work/CreateTask.test.tsx src/features/playbooks/CurrentCatalog.test.tsx src/features/playbooks/LoadedDefinitions.test.tsx src/test/bundleManifest.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  10 passed (10)
+      Tests  130 passed (130)
+   Start at  15:33:16
+   Duration  40.56s (tests 76%, environment 13%, import 7%, setup 3%, transform 1%)
+
+    Isolate  10 workers spawned · ~1.15s startup each (spawn + environment, per file)
+             at least ~4.59s faster with isolate: false — reuses workers across files instead of one per file
