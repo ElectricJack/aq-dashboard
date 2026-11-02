@@ -7,11 +7,14 @@ import type {
 import { FreshnessLabel } from "../QueryStatus/FreshnessLabel";
 import { formatUntil } from "../time/relative";
 import styles from "./ProviderUsageStrip.module.css";
+import { configuredAccountLabel, configuredAccountStatus, type ConfiguredProviders } from "../../api/adapters/configuredProviders";
 
 export type ProviderUsageState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "disabled"; reason: string }
+  | { status: "configured"; data: ConfiguredProviders; stale: boolean }
+  | { status: "configuration-error" }
   | { status: "ready"; data: ProviderUsageResult };
 
 const UNAVAILABLE_TEXT: Record<Exclude<QuotaWindowView["state"], "known">, string> = {
@@ -106,6 +109,19 @@ function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; 
 export function ProviderUsageStrip({ state }: { state: ProviderUsageState }) {
   let body;
   switch (state.status) {
+    case "configured":
+      body = state.data.accounts.length === 0 ? <span className={styles.notice}>No providers configured</span> : <>
+        {state.data.accounts.map(account => <div className={styles.entry} key={JSON.stringify([account.provider, account.account_reference])}>
+          <span className={styles.name}>{configuredAccountLabel(account)}</span>
+          <span className={styles.meta}>{configuredAccountStatus(account)}</span>
+          <span className={styles.unknown}>Quota unavailable</span>
+        </div>)}
+        <span className={styles.notice}>Startup configuration only; authentication and model readiness are not checked.{state.stale && " Configuration refresh unavailable."}</span>
+      </>;
+      break;
+    case "configuration-error":
+      body = <span className={styles.notice}>Provider configuration unavailable</span>;
+      break;
     case "loading":
       body = <span className={styles.notice}>Loading usage…</span>;
       break;

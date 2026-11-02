@@ -12,6 +12,7 @@ import { useSession } from "./session";
 import styles from "./Shell.module.css";
 import { useProjects } from "./useProjects";
 import { useProviderUsage } from "./useProviderUsage";
+import { configuredAccountLabel, configuredAccountStatus, configuredProviderLabel } from "../api/adapters/configuredProviders";
 
 function DestinationLink({ dest, search }: { dest: Destination; search: string }) {
   return (
@@ -83,6 +84,13 @@ const CONNECTION_TEXT = {
 
 /** Compact presentation only; the full account/window facts remain in the disclosure. */
 function UsageSummary({ state }: { state: ProviderUsageState }) {
+  if (state.status === "configured") {
+    if (state.data.accounts.length === 0) return <>No providers configured</>;
+    return <span className={styles.usageAccounts}>{state.data.accounts.slice(0, 2).map(account => <span className={styles.usageAccount} key={JSON.stringify([account.provider, account.account_reference])} title={`${configuredAccountLabel(account)}: ${configuredAccountStatus(account)}; quota unavailable; startup configuration only`}>
+      <span>{configuredProviderLabel(account)}</span><span data-stale={state.stale || undefined}>{configuredAccountStatus(account)} · quota unavailable</span>
+    </span>)}{state.data.accounts.length > 2 && <span>+{state.data.accounts.length - 2}</span>}</span>;
+  }
+  if (state.status === "configuration-error") return <>Provider configuration unavailable</>;
   if (state.status !== "ready") return <>{state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</>;
   if (state.data.providers.length === 0) return <>No provider accounts reported</>;
   return <span className={styles.usageAccounts}>{state.data.providers.map(provider => {
@@ -126,7 +134,7 @@ export function Shell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [canSearch]);
-  const compactUsage = usage.state.status !== "ready";
+  const compactUsage = usage.state.status !== "ready" && !(usage.state.status === "configured" && usage.state.data.accounts.length > 0);
   const status = connection === "connected" && usage.unreachable ? "unreachable" : connection;
   const search = scopeSearch(scope);
   const isMock = import.meta.env.MODE === "mock";
