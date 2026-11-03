@@ -26,10 +26,25 @@ The supervisor authorized a narrow fix in the failing direct-navigation test
 (message `msg-ec5796dfd3f34533a6154bac23ce7c8b`). It now observes the primary
 navigation and Playbooks heading before awaiting the loaded definitions list;
 the existing metadata/engine read-count assertions are unchanged. All three
-affected suites passed 50/50 tests before the fresh qualification attempt.
-Twenty consecutive full passes have **not** yet been established. The restarted
-attempt must stop if another unrelated flake occurs; the supervisor owns filing
-any follow-up, and the close must explicitly state the whole-suite limit.
+affected suites passed 50/50 tests before the fresh qualification attempt
+([output](evidence/navigation-test-stability/expanded-focused.txt)).
+
+The restarted attempt passed **four consecutive full runs**, each 698/698
+tests in 75 files, then stopped on run 5 with 696 passes and two initial-list
+timeouts: `CurrentCatalog.test.tsx:18` (direct current Definitions) and
+`Work.test.tsx:19` (bounded first task page). The repaired root redirects,
+graph Back focus check and loaded Definitions direct read passed all five runs.
+See the [source hashes and run summaries](evidence/navigation-test-stability/restarted-repetitions.json),
+[first](evidence/navigation-test-stability/restarted-run-01.txt),
+[second](evidence/navigation-test-stability/restarted-run-02.txt),
+[third](evidence/navigation-test-stability/restarted-run-03.txt),
+[fourth](evidence/navigation-test-stability/restarted-run-04.txt) and
+[fifth](evidence/navigation-test-stability/restarted-run-05.txt) full logs.
+
+**Twenty consecutive full-suite passes were not achieved.** Per the supervisor's
+bounded authorization, no further repairs, restarts or follow-up filings are
+included. The supervisor owns the remaining failures. These results qualify the
+scoped repair; they do not establish whole-suite stability or a green main.
 
 Checks run through the existing foreground AQ bridge:
 
@@ -60,3 +75,21 @@ After merging, the same focused command passed 44/44 tests again
 `git diff --check` passed. The restarted qualification uses main `079b9ee` plus
 the Shell, Work and LoadedDefinitions readiness changes, with logs in
 `/tmp/agile-current-11/restarted-repetitions/`.
+
+For the final focused check, append
+`src/features/playbooks/LoadedDefinitions.test.tsx` to the first command above.
+For the bounded full attempt, use `/tmp/agile-current-11/restarted-repetitions`
+and `/tmp/agile-current-11/restarted-repetitions.log` as the output paths in the
+second command. Full runs used the native `pnpm test` command without any
+filters or deadline/worker overrides.
+
+PR [#8](https://github.com/ElectricJack/aq-dashboard/pull/8) targets `main` and
+remains unmerged. Updating its description through the GitHub connector returned
+403 `Resource not accessible by integration`; the supervisor was notified to
+refresh the PR metadata from this final report. Final commits and publication
+SHA are recorded in the task close evidence.
+
+Final submission: `git merge origin/main` reported already up to date. The
+three-file focused command then passed 50/50 again
+([output](evidence/navigation-test-stability/final-focused.txt)), and
+`git diff --check` passed. No full-suite rerun followed the bounded stop.
