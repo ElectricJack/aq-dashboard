@@ -42,11 +42,15 @@
 
 /* The shell owns this stable surface; changing presentation preserves the DOM. */
 .surfaces { min-inline-size: 0; position: relative; }
-.surfaces[data-docked] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 40%); gap: var(--space-4); align-items: start; }
+/* Docked: an edge pane flush with the header bottom and the viewport's right edge.
+   The surface bleeds through main's top, end and bottom padding; the destination
+   keeps that padding itself. */
+.surfaces[data-docked] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 40%); gap: var(--space-4); align-items: start; margin-block: calc(-1 * var(--space-5)) calc(-1 * var(--space-7)); margin-inline-end: calc(-1 * var(--gutter-desktop)); }
+.surfaces[data-docked] > .destination { padding-block: var(--space-5) var(--space-7); }
 .destination, .presentation { min-inline-size: 0; }
 .destination { container: destination / inline-size; }
 .destination[hidden], .presentation[hidden] { display: none; }
-.presentation[data-mode=dock] { position: sticky; inset-block-start: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); padding: var(--space-3); }
+.presentation[data-mode=dock] { position: sticky; inset-block-start: var(--dock-top, 0px); box-sizing: border-box; block-size: calc(100dvh - var(--dock-top, 0px)); display: flex; flex-direction: column; border-inline-start: 1px solid var(--color-border); background: var(--color-canvas); padding: var(--space-3) var(--space-4) var(--space-4); }
 .launcher { position: fixed; inset-block-end: var(--space-5); inset-inline-end: var(--space-5); z-index: 15; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-accent); cursor: pointer; }
 .headerActions { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--space-2); }
 .presentationButton { padding: var(--space-2) var(--space-3); min-block-size: var(--touch-target); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); cursor: pointer; }
@@ -57,14 +61,20 @@
 .pending { max-inline-size: min(88%, 76ch); margin-inline-start: auto; }
 .pending .body { background: var(--color-accent); color: var(--color-accent-contrast); }
 .pending > p:last-child { font-size: 12px; color: var(--color-text-secondary); text-align: end; }
-.workspace[data-presentation=dock] { block-size: max(420px, calc(var(--conversation-available-height, 100dvh) - var(--space-7))); gap: var(--space-2); }
-.workspace[data-presentation=dock] .header { align-items: center; }
+.workspace[data-presentation=dock] { flex: 1; block-size: auto; min-block-size: 0; gap: var(--space-2); }
+.workspace[data-presentation=dock] .header { align-items: center; padding-block-end: var(--space-3); border-block-end: 1px solid var(--color-border); }
 .workspace[data-presentation=dock] .fullControl { display: none; }
 .workspace[data-presentation=dock] .compactControl { display: inline; }
 .workspace[data-presentation=dock] .headerActions { flex-wrap: nowrap; }
 .workspace[data-presentation=dock] .headerActions button { min-inline-size: var(--touch-target); padding-inline: var(--space-2); }
 .workspace[data-presentation=dock] .message { max-inline-size: 94%; }
-.workspace[data-presentation=dock] .metadata { font-size: 11px; }
+.workspace[data-presentation=dock] .metadata { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Short dock status; the full delivery text shows on hover or keyboard focus. */
+.delivery { border-radius: 2px; }
+.deliveryDetail { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.metadata:has(.delivery:is(:hover, :focus-visible)) { overflow: visible; position: relative; }
+.delivery:is(:hover, :focus-visible) .deliveryDetail { inset-block-start: 100%; inset-inline-end: 0; z-index: 1; inline-size: max-content; max-inline-size: 30ch; block-size: auto; clip-path: none; white-space: normal; margin-block-start: var(--space-1); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-raised); color: var(--color-text); text-align: start; }
+.delivery:is(:hover, :focus-visible) .separator { display: none; }
 .workspace[data-presentation=dock] .composer { padding: var(--space-3); }
 @media (max-width: 1199px) { .launcher { display: none; } }
 @media (max-width: 767px) {
