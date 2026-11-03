@@ -26,8 +26,9 @@ export default defineConfig({
   test: {
     // Bound cold jsdom/module work while Rust components build nearby. Two
     // workers leave enough CPU for route rendering within assertion deadlines.
-    // Assertion deadlines remain unchanged.
     maxWorkers: 2,
+    // Leave room for several async assertions using the shared 5s deadline.
+    testTimeout: 15_000,
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],

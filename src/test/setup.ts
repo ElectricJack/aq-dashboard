@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
+
+// Bootstrap and lazy routes share CI CPU with other work. Allow their visible
+// state to settle without weakening findBy/waitFor assertions.
+configure({ asyncUtilTimeout: 5_000 });
 
 afterEach(() => { cleanup(); if (typeof sessionStorage !== "undefined") sessionStorage.clear(); });
 
