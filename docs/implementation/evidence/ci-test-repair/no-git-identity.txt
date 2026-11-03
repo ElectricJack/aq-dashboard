@@ -1,0 +1,13 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+> node scripts/test.mjs -- src/test/bundleManifest.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  22:36:35
+   Duration  2.96s (tests 89%, setup 8%, transform 1%, import 1%)
+

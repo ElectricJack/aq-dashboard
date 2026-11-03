@@ -1,0 +1,59 @@
+{
+  "command": [
+    "pnpm",
+    "test"
+  ],
+  "requested_repetitions": 20,
+  "maxWorkers": 2,
+  "source_sha256": {
+    "src/test/bundleManifest.test.ts": "d279267c55e9cca36aff6ca7048953be67dd2899baf54fe9ad1ca561e785f812",
+    "src/features/agents/SessionEvents.test.tsx": "2608f939a1108b14ba960cddfda6a3c9f5a13035153e220cb3516515f82d63e3",
+    "vite.config.ts": "ea0802d2899fa3c170bdbefd918c610215052359db12b91b7b83fd72f2705e68"
+  },
+  "runs": [
+    {
+      "repetition": 1,
+      "exit_code": 0,
+      "duration_seconds": 100.43,
+      "log": "/tmp/quick-meadow-44-repetitions/run-01.log",
+      "summary": [
+        "Test Files  75 passed (75)",
+        "Tests  698 passed (698)",
+        "Duration  99.17s (tests 50%, environment 33%, setup 8%, import 7%, transform 2%)"
+      ]
+    },
+    {
+      "repetition": 2,
+      "exit_code": 0,
+      "duration_seconds": 90.67,
+      "log": "/tmp/quick-meadow-44-repetitions/run-02.log",
+      "summary": [
+        "Test Files  75 passed (75)",
+        "Tests  698 passed (698)",
+        "Duration  89.58s (tests 50%, environment 35%, setup 8%, import 6%, transform 1%)"
+      ]
+    },
+    {
+      "repetition": 3,
+      "exit_code": 0,
+      "duration_seconds": 84.8,
+      "log": "/tmp/quick-meadow-44-repetitions/run-03.log",
+      "summary": [
+        "Test Files  75 passed (75)",
+        "Tests  698 passed (698)",
+        "Duration  83.93s (tests 49%, environment 35%, setup 8%, import 6%, transform 1%)"
+      ]
+    },
+    {
+      "repetition": 4,
+      "exit_code": 1,
+      "duration_seconds": 124.94,
+      "log": "/tmp/quick-meadow-44-repetitions/run-04.log",
+      "summary": [
+        "Test Files  2 failed | 73 passed (75)",
+        "Tests  2 failed | 696 passed (698)",
+        "Duration  124.01s (tests 61%, environment 26%, setup 6%, import 6%, transform 1%)"
+      ]
+    }
+  ]
+}
