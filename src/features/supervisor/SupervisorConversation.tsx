@@ -55,6 +55,8 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   useLayoutEffect(() => {
     const element = workspace.current;
     if (!element) return;
+    // Only the dock measures; the full page fits the viewport through the shell's flex column.
+    if (full) { element.style.removeProperty("--conversation-available-height"); return; }
     const measure = () => {
       const viewport = window.visualViewport;
       const available = Math.max(0, (viewport?.height ?? window.innerHeight) - Math.max(0, element.getBoundingClientRect().top - (viewport?.offsetTop ?? 0)));
@@ -164,7 +166,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
     if (!settled || busy.current) return;
     pending.current = null; setRetained(null); ownReference.current = ":"; setFrozen(null); setReceipt(null); setSendError(null); operationUrl(); void discovery.refetch();
   }
-  return <section ref={workspace} className={styles.workspace} data-presentation={presentation} aria-label="Global supervisor conversation">
+  return <section ref={workspace} className={styles.workspace} data-presentation={presentation} data-viewport-fit={full || undefined} aria-label="Global supervisor conversation">
     <header className={styles.header}><div>{full ? <PageTitle>Global supervisor</PageTitle> : <h2>Global supervisor</h2>}<p>Global conversation · All projects</p></div><div className={styles.headerActions}>{controls}<ActionButton aria-label="Refresh history" disabled={!conversation || !historyAllowed || historyBusy} onClick={() => void load("new")}><span className={styles.fullControl}>Refresh history</span><span className={styles.compactControl} aria-hidden="true">↻</span></ActionButton></div></header>
     {!available && <p className={styles.runtime} role="note">Supervisor is not connected. Conversation unavailable; your draft is preserved.</p>}
     {!historyAllowed && <p role="status">Supervisor history is unavailable.</p>}

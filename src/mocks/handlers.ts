@@ -71,7 +71,7 @@ export function handlersFor(name: string | null | undefined) {
 
   return [
     ...decisionHandlers(),
-    ...humanGraphHandlers(s.reads),
+    ...humanGraphHandlers(s.reads, s.graph),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
     http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...s.bootstrap,capabilities:[...s.bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true}]}))),

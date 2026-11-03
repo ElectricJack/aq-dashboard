@@ -284,3 +284,19 @@
 @container destination (max-width: 900px) {
  .columns { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* OV-B (reference 01): two-line attention rows, kind action with arrow, "View all" heading link. */
+.attentionRow { padding-block: var(--space-2); }
+.rowTitle, .rowSecondary { display: block; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.rowSecondary { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.action { gap: var(--space-2); }
+.actionArrow { flex: none; }
+.viewAll { display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: 32px; font-size: var(--font-size-meta); text-decoration: none; }
+.viewAll:hover { text-decoration: underline; }
+@media (min-width: 768px) {
+ .attentionRow > .impact { justify-self: start; max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 767px) {
+ .rowTitle, .rowSecondary { white-space: normal; overflow-wrap: anywhere; }
+ .attentionRow > .impact { grid-column: 2; justify-self: start; }
+}
