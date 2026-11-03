@@ -72,6 +72,7 @@
   border: 1px solid var(--color-border);
   border-radius: 4px;
   font: 12px var(--font-sans);
+  white-space: nowrap;
   color: var(--color-text-secondary);
 }
 
@@ -154,14 +155,17 @@
   background: var(--color-error);
 }
 
+/* A labelled chip inside the header row; it never adds a row on desktop or tablet. */
 .mockBanner {
-  flex-basis: 100%;
+  flex: none;
   margin: 0;
-  padding: var(--space-1) var(--space-3);
+  padding: 2px var(--space-2);
   border: 1px solid var(--color-attention);
-  border-radius: var(--radius-control);
+  border-radius: 999px;
   color: var(--color-attention);
-  font-size: var(--font-size-meta);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .top {
@@ -170,16 +174,17 @@
   inset-block-start: 0;
   z-index: 5;
   display: flex;
-  flex-wrap: nowrap;
+  /* One row when the strip fits (1440 default); a long stale strip moves to a second row
+     instead of squeezing scope and search. */
+  flex-wrap: wrap;
   align-items: center;
-  min-block-size: 69px;
-  gap: var(--space-3) var(--space-5);
-  padding: var(--space-3) var(--gutter-desktop);
+  min-block-size: 64px;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) var(--gutter-desktop);
   background: var(--color-canvas);
   border-block-end: 1px solid var(--color-border);
 }
 
-.top:has(.mockBanner) { flex-wrap: wrap; }
 
 .phoneBrand {
   display: none;
@@ -190,9 +195,9 @@
 }
 
 .scope {
-  flex: 0 1 15rem;
+  flex: 0 1 11rem;
   inline-size: clamp(7.5rem, 18vw, 15rem);
-  min-inline-size: 0;
+  min-inline-size: 10rem;
   max-inline-size: 100%;
 }
 
@@ -216,7 +221,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 1 200px;
+  flex: 0 1 160px;
   min-inline-size: 140px;
   text-align: start;
   color: var(--color-text-secondary);
@@ -377,6 +382,7 @@
   .mockBanner {
     grid-column: 1 / -1;
     grid-row: 1;
+    justify-self: start;
   }
 
   .top:has(.mockBanner) .scopeRow { grid-row: 2; }
@@ -429,17 +435,19 @@
 .shell[data-focused-session] .main > h1 { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
 @media (max-width: 767px) { .shell[data-focused-session] .phoneNav { display: none; } .shell[data-focused-session] .main { padding-block-end: max(var(--space-4), env(safe-area-inset-bottom)); } }
 
-.compactUsage { display: block; flex: 1 1 18rem; min-inline-size: 0; font-size: var(--font-size-meta); }
-.compactUsage summary { display: flex; align-items: center; gap: var(--space-1); min-block-size: var(--touch-target); padding: 0; cursor: pointer; white-space: nowrap; }
-.compactUsage summary::before { content: "▸"; flex: none; }
-.compactUsage[open] summary::before { content: "▾"; }
+.compactUsage { display: block; flex: none; margin-inline-start: auto; min-inline-size: 0; font-size: var(--font-size-meta); }
+.compactUsage summary { display: flex; align-items: center; gap: var(--space-2); min-block-size: var(--touch-target); padding: 0; cursor: pointer; white-space: nowrap; list-style: none; }
+.compactUsage summary::-webkit-details-marker { display: none; }
+.usageChevron { flex: none; color: var(--color-text-secondary); transition: transform var(--motion-duration); }
+.compactUsage[open] .usageChevron { transform: rotate(180deg); }
 .compactUsage summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
-.usageAccounts { display: flex; gap: var(--space-3); min-inline-size: 0; inline-size: 100%; }
-.usageAccount { display: grid; flex: 1 1 0; gap: 2px; min-inline-size: 0; }
-.usageAccount > span { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.usageAccount > span:first-child { font-weight: 600; }
-.usageAccount > span:last-child { color: var(--color-accent); }
-.usageAccount > span[data-stale] { color: var(--color-attention); }
+/* Below the width where the strip fits beside scope and search, the header keeps two rows at most:
+   chip, scope, search and connection, then the provider strip. */
+@media (min-width: 768px) and (max-width: 1439px) {
+  .top { flex-wrap: wrap; }
+  .connection { margin-inline-start: auto; }
+  .compactUsage { order: 1; flex-basis: 100%; margin-inline-start: 0; }
+}
 .usageReason { position: absolute; inset-block-start: calc(100% + var(--space-1)); inset-inline-end: var(--gutter-desktop); z-index: 10; display: grid; gap: var(--space-3); inline-size: min(36rem, calc(100% - 2 * var(--gutter-desktop))); max-block-size: min(70dvh, 32rem); overflow: auto; min-inline-size: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-raised); box-shadow: var(--shadow-overlay); overflow-wrap: anywhere; white-space: normal; }
 .usageReason .button { justify-self: start; color: var(--color-text); font: inherit; cursor: pointer; }
 .usageReason button { min-block-size: var(--touch-target); }
@@ -448,8 +456,6 @@
 @media (max-width: 767px) {
   .compactUsage { grid-column: 2; grid-row: 2; }
   .scope { inline-size: 100%; }
-  .usageAccounts { gap: var(--space-1); }
-  .usageAccount { font-size: 12px; }
   .usageReason { inset-inline: var(--gutter-mobile); inline-size: auto; }
   .shell[data-focused-session] .scopeRow,
   .shell[data-focused-session] .search { display: none; }
@@ -457,17 +463,14 @@
   .shell[data-focused-session] .main > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
-/* Account facts wrap as text; the header never truncates quota/reset/freshness. */
-.compactUsage summary { white-space: normal; }
-.usageAccount > span { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
-.usageAccount { align-content: start; }
-@media (max-width: 1199px) { .usageAccounts { flex-wrap: wrap; } .usageAccount { flex-basis: 12rem; } }
+/* Phone: account facts wrap as text; the header never truncates quota/reset/freshness. */
 @media (max-width: 767px) {
+ .compactUsage summary { white-space: normal; }
+ .usageChevron { display: none; }
  .compactUsage { grid-column: 2 / -1; }
  .connection { grid-row: 1; align-self: end; font-size: 11px; }
  .scopeRow { grid-template-columns: max-content minmax(0,1fr); padding-block-end: var(--space-3); }
  .connection { grid-column: 2 / -1; justify-self: end; }
  .top:has(.mockBanner) .connection { grid-row: 2; }
- .usageAccount { flex-basis: 100%; }
  .shell[data-focused-session] .compactUsage { flex: 1; }
 }

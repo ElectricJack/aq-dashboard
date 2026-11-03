@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ProviderUsageResult, QuotaWindowView } from "../../api/adapters/providerUsage";
-import { ProviderUsageStrip } from "./ProviderUsageStrip";
+import { ProviderUsageStrip, ProviderUsageSummary } from "./ProviderUsageStrip";
 
 const SERVER_TIME = "2026-10-31T12:00:00.000Z";
 
@@ -195,4 +195,20 @@ test('shows a missing reset explicitly', () => {
  render(<ProviderUsageStrip state={{status:'ready',data:data([win({resetsAt:null})])}}/>);
  expect(within(region()).getByTestId('quota-primary')).toHaveTextContent('reset unknown');
  expect(region()).toHaveTextContent('anthropic');
+});
+
+test("header summary labels each quota bar with its percent and drops the raw provider id", () => {
+  const { container } = render(<ProviderUsageSummary state={{ status: "ready", data: data([win()]) }} />);
+  expect(screen.getByRole("progressbar", { name: "Claude Week: 42% used" })).toHaveAttribute("aria-valuenow", "42");
+  expect(container).not.toHaveTextContent("anthropic");
+});
+
+test("header summary shares one freshness label only when every entry is fresh", () => {
+  const { container, rerender } = render(<ProviderUsageSummary state={{ status: "ready", data: data([win()]) }} />);
+  expect(container.querySelector("[data-shared-freshness]")).not.toBeNull();
+  expect(screen.getByText("Updated 2s ago")).toBeInTheDocument();
+  rerender(<ProviderUsageSummary state={{ status: "ready", data: data([win({ freshness: "stale", observedAt: "2026-10-31T11:00:00.000Z" })]) }} />);
+  expect(container.querySelector("[data-shared-freshness]")).toBeNull();
+  expect(screen.queryByText(/^Updated/)).toBeNull();
+  expect(container).toHaveTextContent("Stale, observed 1h ago");
 });

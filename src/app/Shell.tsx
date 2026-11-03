@@ -2,9 +2,9 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { SupervisorWorkspace } from "../features/supervisor/SupervisorWorkspace";
 import { SearchDialog } from "../features/search/SearchDialog";
 import { NavLink, Outlet, useLocation } from "react-router";
-import { Ellipsis, Search } from "lucide-react";
+import { ChevronDown, Ellipsis, Search } from "lucide-react";
 import { DESTINATION_ICON, Icon } from "../components/icons";
-import { ProviderUsageStrip, WindowSummary, type ProviderUsageState } from "../components/ProviderUsageStrip/ProviderUsageStrip";
+import { ProviderUsageStrip, ProviderUsageSummary } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
 import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
@@ -14,7 +14,6 @@ import { BundleNotice } from "./BundleNotice";
 import styles from "./Shell.module.css";
 import { useProjects } from "./useProjects";
 import { useProviderUsage } from "./useProviderUsage";
-import { configuredAccountLabel, configuredAccountStatus, configuredProviderLabel } from "../api/adapters/configuredProviders";
 
 function DestinationLink({ dest, search }: { dest: Destination; search: string }) {
   return (
@@ -84,26 +83,6 @@ const CONNECTION_TEXT = {
   signed_out: "Sign-in expired",
 } as const;
 
-/** Compact presentation only; the full account/window facts remain in the disclosure. */
-function UsageSummary({ state }: { state: ProviderUsageState }) {
-  if (state.status === "configured") {
-    if (state.data.accounts.length === 0) return <>No providers configured</>;
-    return <span className={styles.usageAccounts}>{state.data.accounts.slice(0, 2).map(account => <span className={styles.usageAccount} key={JSON.stringify([account.provider, account.account_reference])} title={`${configuredAccountLabel(account)}: ${configuredAccountStatus(account)}; quota unavailable; startup configuration only`}>
-      <span>{configuredProviderLabel(account)}</span><span data-stale={state.stale || undefined}>{configuredAccountStatus(account)} · quota unavailable</span>
-    </span>)}{state.data.accounts.length > 2 && <span>+{state.data.accounts.length - 2}</span>}</span>;
-  }
-  if (state.status === "configuration-error") return <>Provider configuration unavailable</>;
-  if (state.status !== "ready") return <>{state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</>;
-  if (state.data.providers.length === 0) return <>No provider accounts reported</>;
-  return <span className={styles.usageAccounts}>{state.data.providers.map(provider => {
-    const primary = provider.windows.find(window => window.id === provider.preferredWindowId);
-    return <span key={`${provider.providerId}:${provider.accountRef}`} className={styles.usageAccount}>
-      <span>{provider.providerId} · {provider.accountLabel}</span>
-      {primary ? <WindowSummary win={primary} serverTime={state.data.serverTime} compact /> : <span>{provider.windows.length ? "No preferred window reported" : "Usage unavailable"}</span>}
-    </span>;
-  })}</span>;
-}
-
 export function Shell() {
   const { bootstrap, connection } = useSession();
   const focusedSession = /^\/agents\/[^/]+\/?$/.test(useLocation().pathname);
@@ -171,8 +150,8 @@ export function Shell() {
       </aside>
       <header className={styles.top}>
         {isMock && (
-          <p className={styles.mockBanner} role="note">
-            Mock data · proposed contracts, not a live AQ server
+          <p className={styles.mockBanner} role="note" title="Mock data · proposed contracts, not a live AQ server">
+            Mock data<span className="visually-hidden"> · proposed contracts, not a live AQ server</span>
           </p>
         )}
         <div className={styles.scopeRow}>
@@ -200,7 +179,7 @@ export function Shell() {
         <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
           if (event.key === "Escape") { event.preventDefault(); closeUsage(); }
         }}>
-          <summary ref={usageSummary}><span className="visually-hidden">Provider usage (account-wide) </span><UsageSummary state={usage.state} /></summary>
+          <summary ref={usageSummary}><span className="visually-hidden">Provider usage (account-wide) </span><ProviderUsageSummary state={usage.state} /><Icon icon={ChevronDown} size={16} className={styles.usageChevron} /></summary>
           <div className={styles.usageReason}>
             <ProviderUsageStrip state={usage.state} />
             <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>

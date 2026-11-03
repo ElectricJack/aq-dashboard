@@ -5,9 +5,9 @@ import type {
   QuotaWindowView,
 } from "../../api/adapters/providerUsage";
 import { FreshnessLabel } from "../QueryStatus/FreshnessLabel";
-import { formatUntil } from "../time/relative";
+import { formatAge, formatUntil } from "../time/relative";
 import styles from "./ProviderUsageStrip.module.css";
-import { configuredAccountLabel, configuredAccountStatus, type ConfiguredProviders } from "../../api/adapters/configuredProviders";
+import { configuredAccountLabel, configuredAccountStatus, configuredProviderLabel, type ConfiguredProviders } from "../../api/adapters/configuredProviders";
 
 export type ProviderUsageState =
   | { status: "loading" }
@@ -30,19 +30,42 @@ export function formatPercent(pct: number): string {
   return `${Math.round(pct)}%`;
 }
 
-export function WindowSummary({ win, serverTime, compact = false }: { win: QuotaWindowView; serverTime: string; compact?: boolean }) {
+/**
+ * "full" is the disclosure presentation. "strip" is the one-row header presentation: it adds a
+ * labelled progress bar and keeps freshness in its own span so a shared label can replace it.
+ */
+export function WindowSummary({ win, serverTime, variant = "full", name }: { win: QuotaWindowView; serverTime: string; variant?: "full" | "strip"; name?: string }) {
   const known = win.state === "known" && win.usedPercent !== null;
   const level = known && win.usedPercent! >= 80 ? "high" : "normal";
+  const strip = variant === "strip";
+  const used = known ? `${formatPercent(win.usedPercent!)} used` : "";
   return (
     <>
       <span className={styles.figure}>
         {known ? (
           <>
-            {!compact && <span className={styles.bar} data-level={level} aria-hidden="true">
-              <span style={{ inlineSize: `${win.usedPercent}%` }} />
-            </span>}
-            <span className={styles.percent} data-level={level}>
-              {formatPercent(win.usedPercent!)} used
+            {strip ? (
+              <span
+                className={styles.bar}
+                data-level={level}
+                data-stale={win.freshness === "stale" || undefined}
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(win.usedPercent!)}
+                aria-valuetext={used}
+                aria-label={[name, win.label].filter(Boolean).join(" ") + `: ${used}`}
+              >
+                <span style={{ inlineSize: `${win.usedPercent}%` }} />
+              </span>
+            ) : (
+              <span className={styles.bar} data-level={level} aria-hidden="true">
+                <span style={{ inlineSize: `${win.usedPercent}%` }} />
+              </span>
+            )}
+            {/* In the strip the progress bar carries the spoken value. */}
+            <span className={styles.percent} data-level={level} aria-hidden={strip || undefined}>
+              {used}
             </span>
             {win.quality === "estimated" && <span className={styles.qualifier}>estimated</span>}
           </>
@@ -54,11 +77,45 @@ export function WindowSummary({ win, serverTime, compact = false }: { win: Quota
         {win.label}
         {win.coverage === "partial" && <span className={styles.qualifier}> · partial data</span>}
         {win.resetsAt ? <> · resets {formatUntil(serverTime, win.resetsAt)}</> : " · reset unknown"}
-        {" · "}
-        <FreshnessLabel serverTime={serverTime} observedAt={win.observedAt} stale={win.freshness === "stale"} />
+        <span className={styles.freshness}>
+          {" · "}
+          <FreshnessLabel serverTime={serverTime} observedAt={win.observedAt} stale={win.freshness === "stale"} />
+        </span>
       </span>
     </>
   );
+}
+
+/**
+ * Header summary: one entry per provider account with its preferred window. When every entry
+ * is fresh, the per-entry ages collapse into one trailing label showing the oldest observation;
+ * otherwise each entry keeps its own (stale) freshness. Full facts stay in ProviderUsageStrip.
+ */
+export function ProviderUsageSummary({ state }: { state: ProviderUsageState }) {
+  if (state.status === "configured") {
+    if (state.data.accounts.length === 0) return <>No providers configured</>;
+    return <span className={styles.summary}>{state.data.accounts.slice(0, 2).map(account => <span className={styles.summaryEntry} key={JSON.stringify([account.provider, account.account_reference])} title={`${configuredAccountLabel(account)}: ${configuredAccountStatus(account)}; quota unavailable; startup configuration only`}>
+      <span className={styles.summaryName}>{configuredProviderLabel(account)}</span><span className={styles.summaryStatus} data-stale={state.stale || undefined}>{configuredAccountStatus(account)} · quota unavailable</span>
+    </span>)}{state.data.accounts.length > 2 && <span>+{state.data.accounts.length - 2}</span>}</span>;
+  }
+  if (state.status === "configuration-error") return <>Provider configuration unavailable</>;
+  if (state.status !== "ready") return <>{state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</>;
+  if (state.data.providers.length === 0) return <>No provider accounts reported</>;
+  const { serverTime } = state.data;
+  const rows = state.data.providers.map(provider => ({ provider, primary: provider.windows.find(w => w.id === provider.preferredWindowId) }));
+  const shared = rows.every(row => row.primary?.freshness === "fresh");
+  const oldest = shared
+    ? rows.map(row => row.primary!.observedAt).reduce((a, b) => (Date.parse(b) < Date.parse(a) ? b : a))
+    : null;
+  return <span className={styles.summary} data-shared-freshness={shared || undefined}>
+    {rows.map(({ provider, primary }) => <span key={`${provider.providerId}:${provider.accountRef}`} className={styles.summaryEntry}>
+      <span className={styles.summaryName} title={`Provider: ${provider.providerId}`}>{provider.accountLabel}</span>
+      {primary
+        ? <WindowSummary win={primary} serverTime={serverTime} variant="strip" name={provider.accountLabel} />
+        : <span className={styles.summaryStatus}>{provider.windows.length ? "No preferred window reported" : "Usage unavailable"}</span>}
+    </span>)}
+    {oldest && <span className={styles.sharedFreshness} title={`Oldest provider observation: ${oldest}`}>Updated {formatAge(serverTime, oldest)}</span>}
+  </span>;
 }
 
 function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; serverTime: string }) {
@@ -71,7 +128,7 @@ function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; 
   return (
     <div className={styles.entry}>
       <div className={styles.head}>
-        <span className={styles.name}>{provider.providerId} · <span>{provider.accountLabel}</span></span>
+        <span className={styles.name} title={`Provider: ${provider.providerId}`}>{provider.accountLabel} <span className={styles.providerId}>({provider.providerId})</span></span>
         {many && (
           <button
             type="button"
