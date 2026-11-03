@@ -1,9 +1,10 @@
-"""Run the requested full-suite qualification sequentially under the AQ bridge."""
+"""Repeat full-suite or focused qualification sequentially under the AQ bridge."""
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import time
 
@@ -13,7 +14,7 @@ output = Path(os.environ["DASHBOARD_REPETITION_DIR"])
 output.mkdir(parents=True, exist_ok=True)
 tracked = subprocess.check_output(["git", "ls-files", "src", "scripts", "vite.config.ts", "pnpm-lock.yaml", "package.json"], cwd=root, text=True).splitlines()
 report = {
-    "command": ["pnpm", "test"],
+    "command": shlex.split(os.environ.get("DASHBOARD_REPETITION_COMMAND", "pnpm test")),
     "requested_repetitions": 20,
     "maxWorkers": 2,
     "source_sha256": {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in tracked},
