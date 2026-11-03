@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView } from "../../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
-import { CircleCheck, TriangleAlert } from "lucide-react";
+import { ArrowRight, CircleCheck, TriangleAlert } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -32,26 +32,28 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   const [inspect, setInspect] = useState(false);
   const path = item.kind === "unsupported" ? null : subjectPath(item.subject);
   const label = ACTION_LABEL[item.kind];
+  const age = item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown";
+  const secondary = [
+    item.project?.label ?? "Installation",
+    age,
+    item.reason,
+    item.action && !item.action.allowed ? item.action.explanation : null,
+  ].filter(Boolean).join(" · ");
+  const actionContent = <>{label}<Icon icon={ArrowRight} size={16} className={styles.actionArrow} /></>;
   return (
-    <li className={styles.attentionRow} data-kind={item.kind}>
+    <li className={styles.attentionRow} data-attention-row="" data-kind={item.kind}>
       <Icon icon={ATTENTION_ICON[item.kind]} size={28} className={styles.kindIcon} />
       <div className={styles.attentionMain}>
-        <span className={styles.rowTitle}>{item.title}</span>
-        <span className={styles.meta}>
-          {item.project?.label ?? "Installation"} · {item.kind === "unsupported" ? "Unsupported item" : item.kind.replaceAll("_", " ")} · {item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown"}
-        </span>
-        <span className={styles.meta}>{item.reason}</span>
-        {item.action && !item.action.allowed && item.action.explanation && (
-          <span className={styles.meta}>{item.action.explanation}</span>
-        )}
+        <span className={styles.rowTitle} title={item.title}>{item.title}</span>
+        <span className={styles.rowSecondary} title={secondary}>{secondary}</span>
       </div>
-      <span className={styles.impact}>{item.impact}</span>
+      <span className={styles.impact} title={item.impact}>{item.impact}</span>
       {path ? (
         <Link className={styles.action} to={{ pathname: path, search }} aria-label={`${label}: ${item.title}`}>
-          {label}
+          {actionContent}
         </Link>
       ) : item.kind === "worker_offline" || item.kind === "uncertain_operation" ? (
-        <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${item.title}`} onClick={() => setInspect(!inspect)}>{label}</button>
+        <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${item.title}`} onClick={() => setInspect(!inspect)}>{actionContent}</button>
       ) : (
         <span className={styles.meta}>{item.kind === "unsupported" ? "Unsupported item type" : "Inspection unavailable"}</span>
       )}
@@ -66,9 +68,16 @@ function Attention({ view, serverTime, complete, search }: {
   complete: boolean;
   search: string;
 }) {
+  const total = view.counts.needs_you;
   return (
     <section className={styles.panel} aria-labelledby="attention-heading">
-      <h2 id="attention-heading">Needs your attention</h2>
+      <div className={styles.panelHeading}>
+        <h2 id="attention-heading">Needs your attention</h2>
+        <Link className={styles.viewAll} to={{ pathname: "/decisions", search }}>
+          View all{total.value !== null && <> <CountLabel total={total} /></>}
+          <Icon icon={ArrowRight} size={16} />
+        </Link>
+      </div>
       {!complete && (
         <p className={styles.warning}>Attention may be incomplete.</p>
       )}
