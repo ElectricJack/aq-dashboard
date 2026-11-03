@@ -10,26 +10,6 @@ const VIEWPORTS = [
   { name: "m", width: 390, height: 844 },
 ];
 
-/**
- * LABELLED TEST FIXTURE: the proposed mock bootstrap does not advertise `tasks.create`.
- * Enable it for this page only by amending the parsed bootstrap envelope in the browser.
- */
-async function enableTaskCreate(page: Page) {
-  await page.addInitScript(() => {
-    const json = Response.prototype.json;
-    Response.prototype.json = async function (this: Response) {
-      const value = await json.call(this);
-      if (new URL(this.url, location.href).pathname === "/api/v1/bootstrap" && Array.isArray(value?.data?.capabilities)) {
-        value.data.capabilities = [
-          ...value.data.capabilities.filter((c: { name: string }) => c.name !== "tasks.create"),
-          { name: "tasks.create", version: "1", enabled: true },
-        ];
-      }
-      return value;
-    };
-  });
-}
-
 function title(page: Page) {
   return page.getByRole("heading", { level: 1, name: "Overview" });
 }
@@ -65,7 +45,6 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("header stacks title over summary with a visible Create task", async ({ page }) => {
-      await enableTaskCreate(page);
       await page.goto("/overview");
       await expect(page.getByRole("region", { name: "Needs your attention" }).getByRole("listitem").first()).toBeVisible({ timeout: 15_000 });
       await expect(summary(page)).toHaveText("3 decisions need you. Work is moving in 4 projects.");
@@ -83,7 +62,6 @@ for (const vp of VIEWPORTS) {
     });
 
     test("project scope enables Create task and uses the zero summary form", async ({ page }) => {
-      await enableTaskCreate(page);
       await page.goto(scoped);
       await expect(summary(page)).toHaveText("No decisions need you. No work is in motion.", { timeout: 15_000 });
       await expectStackedHeader(page);
@@ -111,7 +89,8 @@ for (const vp of VIEWPORTS) {
 
 test("Create task is hidden without tasks.create", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/overview");
+  // Mock scenario whose bootstrap disables tasks.create and the other action capabilities.
+  await page.goto("/overview?scenario=actions-unavailable");
   await expect(summary(page)).toHaveText(/3 decisions need you/, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: /create task/i })).toHaveCount(0);
 });

@@ -82,7 +82,7 @@ function motionSentence(projects: number, complete: boolean): string {
 function OverviewHeader({ children }: { children: ReactNode }) {
   const { bootstrap } = useSession();
   return (
-    <header className={styles.header}>
+    <div className={styles.header}>
       <div className={styles.titleBlock}>
         <PageTitle>Overview</PageTitle>
         <p className={styles.summary} data-testid="overview-summary">{children}</p>
@@ -92,7 +92,7 @@ function OverviewHeader({ children }: { children: ReactNode }) {
           <CreateTaskAction />
         </div>
       )}
-    </header>
+    </div>
   );
 }
 
