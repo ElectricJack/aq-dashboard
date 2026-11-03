@@ -258,3 +258,20 @@
  .counts strong { font-size: 16px; }
  .countIcon { inline-size: 20px; block-size: 20px; }
 }
+
+/* SBX25 disk storage inside the Capacity panel; bar follows the provider usage meter. */
+.storageList { list-style: none; margin: 0; padding: 0; display: grid; }
+.storageRow { display: grid; gap: var(--space-1); padding-block: var(--space-2); border-block-start: 1px solid var(--color-border); min-inline-size: 0; overflow-wrap: anywhere; }
+.storageList > .storageRow:first-child { border-block-start: 0; }
+.storageRow[data-level="unknown"] { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+.storageHeading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--space-1) var(--space-3); }
+.storageLevel { font-size: var(--font-size-meta); }
+.storageRow[data-level="warning"] .storageLevel { color: var(--color-attention); }
+.storageRow[data-level="refusal"] .storageLevel { color: var(--color-error); }
+.storageBar { display: block; block-size: 8px; border-radius: 4px; background: var(--color-raised); overflow: hidden; }
+.storageBar > span { display: block; block-size: 100%; background: var(--color-success); }
+.storageRow[data-level="warning"] .storageBar > span { background: var(--color-attention); }
+.storageRow[data-level="refusal"] .storageBar > span { background: var(--color-error); }
+.storageFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-3); margin: 0; font-size: var(--font-size-meta); }
+.storageFacts dt { color: var(--color-text-secondary); }
+.storageFacts dd { margin: 0; font-variant-numeric: tabular-nums; }

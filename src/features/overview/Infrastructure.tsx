@@ -8,6 +8,8 @@ import { useScope } from "../../app/scope";
 import { PinnedSessions } from "./PinnedSessions";
 import { adaptConfiguredProviders, configuredAccountLabel, configuredAccountStatus } from "../../api/adapters/configuredProviders";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { unreportedStorage } from "../../api/adapters/nodeStorage";
+import { StorageCapacity } from "./StorageCapacity";
 import styles from "./Overview.module.css";
 export function Infrastructure() {
  const {bootstrap,queryContext}=useSession();
@@ -20,6 +22,8 @@ export function Infrastructure() {
  <section className={styles.panel} aria-labelledby="overview-capacity-heading">
  <h2 id="overview-capacity-heading">Capacity</h2><p className={styles.capacityValue}>Slots unavailable</p><p className={styles.meta}>Occupied: unknown · Idle: unknown</p>
  <p className={styles.meta}>Slot capacity and project eligibility are not reported here.</p>
+ {/* SBX25: central storage has no server source yet, so it stays "Not reported". */}
+ <StorageCapacity central={unreportedStorage} nodes={capability.enabled&&workers.data&&!workers.isError?workers.data:null} nodesUnavailable={!capability.enabled||workers.isError?"Node storage unavailable.":"Loading node storage…"}/>
  <section className={styles.infrastructureSection} aria-labelledby="overview-workers-heading"><h3 id="overview-workers-heading">Worker nodes</h3>
  {!capability.enabled?<p className={styles.meta}>{capability.reason}</p>:!workers.data||workers.isError?<QueryStatus status={workers.isError?"error":"pending"} error={workers.error} label="worker heartbeats" onRetry={()=>void workers.refetch()}/>:<>
  <p className={styles.meta}>{workers.data.length} enrolled worker records · installation-wide</p>
