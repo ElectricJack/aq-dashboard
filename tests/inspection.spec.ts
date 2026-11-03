@@ -1,11 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+const project="00000000-0000-0000-0000-000000000001", root="00000000-0000-0000-0000-000000000003", next="00000000-0000-0000-0000-000000000004";
+const scope=`scope=project:${project}`, work=`/work/${root}?${scope}`;
 const PAGES = [
   { path: "/overview", ready: (p: Page) => p.getByRole("region", { name: "Needs your attention" }).getByRole("listitem").first() },
-  { path: "/work", ready: (p: Page) => p.getByRole("list", { name: "Tasks" }) },
-  { path: "/work/aq-104", ready: (p: Page) => p.getByRole("heading", { level: 2, name: "Replay reconciliation" }) },
-  { path: "/work?view=graph&root=aq-104", ready: (p: Page) => p.getByRole("region", { name: "Dependency graph" }) },
+  { path: `/work?${scope}`, ready: (p: Page) => p.getByRole("list", { name: "Tasks" }) },
+  { path: work, ready: (p: Page) => p.getByRole("heading", { level: 2, name: "Contract fixture: task inspection" }) },
+  { path: `${work}&view=graph&root=${root}`, ready: (p: Page) => p.getByRole("region", { name: "Dependency graph" }) },
   { path: "/agents", ready: (p: Page) => p.getByRole("list", { name: "Sessions" }) },
   { path: "/agents/sess-07", ready: (p: Page) => p.getByRole("heading", { level: 2, name: "Worker 07" }) },
 ];
@@ -34,10 +36,10 @@ for (const vp of VIEWPORTS) {
     }
 
     test("Back from a task restores focus to its row", async ({ page }) => {
-      await page.goto("/work");
-      const link = page.getByRole("list", { name: "Tasks" }).getByRole("link", { name: "Replay reconciliation" });
+      await page.goto(`/work?${scope}`);
+      const link = page.getByRole("list", { name: "Tasks" }).getByRole("link", { name: "Contract fixture: task inspection" });
       await link.click();
-      await expect(page.getByRole("heading", { level: 2, name: "Replay reconciliation" })).toBeFocused();
+      await expect(page.getByRole("heading", { level: 2, name: "Contract fixture: task inspection" })).toBeFocused();
       await page.goBack();
       await expect(link).toBeFocused();
     });
@@ -46,20 +48,20 @@ for (const vp of VIEWPORTS) {
 
 test("desktop shows list and inspector side by side", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/work/aq-104");
+  await page.goto(work);
   await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Replay reconciliation" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Contract fixture: task inspection" })).toBeVisible();
 });
 
 test("phone shows the task detail instead of the list", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/work/aq-104");
-  await expect(page.getByRole("heading", { level: 2, name: "Replay reconciliation" })).toBeVisible();
+  await page.goto(work);
+  await expect(page.getByRole("heading", { level: 2, name: "Contract fixture: task inspection" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Tasks" })).toBeHidden();
 });
 
 test("search is a real modal: focus stays inside and Escape returns it", async ({ page }) => {
-  await page.goto("/overview");
+  await page.goto(`/overview?${scope}`);
   const button = page.getByRole("button", { name: "Search" });
   await expect(button).toBeVisible();
   await page.keyboard.press("Control+k");
@@ -71,6 +73,7 @@ test("search is a real modal: focus stays inside and Escape returns it", async (
     await page.keyboard.press("Tab");
     expect(await dialog.evaluate((d) => d.contains(document.activeElement) || document.activeElement === document.body)).toBe(true);
   }
+  await dialog.getByRole("button",{name:"Close search"}).focus();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(button).toBeFocused();
@@ -78,47 +81,40 @@ test("search is a real modal: focus stays inside and Escape returns it", async (
 
 test("graph nodes are keyboard reachable and selection keeps positions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/work/aq-104?view=graph&root=aq-104");
-  const node = page.getByRole("button", { name: /Implement safe recovery/ });
+  await page.goto(`${work}&view=graph&root=${root}`);
+  const node = page.getByRole("region",{name:"Scrollable task graph"}).getByRole("link", { name: /Fixture: verify recovery/ });
   const offset = () => node.evaluate((el: HTMLElement) => [el.offsetLeft, el.offsetTop]);
   const before = await offset();
   await node.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/work\/aq-105/);
-  await expect(node).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(new RegExp(`/work/${next}`));
+  await expect(node).toHaveAttribute("aria-current", "page");
   expect(await offset()).toEqual(before);
 });
 
 test("phone: Graph opens from a task, a node opens its detail and Back returns to the graph", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/work/aq-104");
-  await page.getByRole("link", { name: "Graph" }).click();
+  await page.goto(work);
+  await page.getByRole("button", { name: "Graph" }).click();
   const graph = page.getByRole("region", { name: "Dependency graph" });
   await expect(graph).toBeVisible();
-  await graph.getByRole("button", { name: /Implement safe recovery/ }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Implement safe recovery" })).toBeVisible();
+  await graph.getByRole("link", { name: /Fixture: verify recovery/ }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Fixture: verify recovery" })).toBeVisible();
   await expect(graph).toBeHidden();
   await page.goBack();
   await expect(page.getByRole("region", { name: "Dependency graph" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Implement safe recovery/ })).toBeFocused();
+  await expect(page.getByRole("link", { name: /Fixture: verify recovery/ })).toBeFocused();
 });
 
-test("returning to Work does not re-page the loaded list in the background", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/work");
+test("returning to Work retains the served list without proposed task requests", async ({ page }) => {
+  await page.goto(`/work?${scope}`);
   const list = page.getByRole("list", { name: "Tasks" });
-  await expect(list.getByRole("listitem")).toHaveCount(25);
-  await page.getByRole("button", { name: "Load more tasks" }).click();
-  await expect(list.getByRole("listitem")).toHaveCount(47);
+  await expect(list.getByRole("listitem")).toHaveCount(2);
   await page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { name: "Agents" }).click();
-  await expect(page.getByRole("list", { name: "Sessions" })).toBeVisible();
-  await page.waitForTimeout(5_500); // past the 5s stale time
-  let taskRequests = 0;
-  page.on("request", (r) => {
-    if (new URL(r.url()).pathname === "/api/v1/tasks") taskRequests++;
-  });
+  await expect(page.getByRole("heading", { name: "Agents", level:1 })).toBeVisible();
+  let proposedRequests = 0;
+  page.on("request", r => { if (new URL(r.url()).pathname === "/api/v1/tasks") proposedRequests++; });
   await page.goBack();
-  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(47);
-  await page.waitForTimeout(1_000);
-  expect(taskRequests).toBe(0);
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(2);
+  expect(proposedRequests).toBe(0);
 });

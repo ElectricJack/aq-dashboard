@@ -1,0 +1,13 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/features/actions/RecordActions.test.tsx -t 'work_task_edit_handles_unknown_effect|knowledge_correct_conflict_offers_reload'
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 34 skipped (36)
+   Start at  06:32:37
+   Duration  5.70s (tests 40%, environment 29%, import 12%, transform 11%, setup 7%)

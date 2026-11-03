@@ -1,64 +1,20 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setupServer } from "msw/node";
 import { handlersFor } from "../../../mocks/handlers";
+import { fixtureProject, fixtureTasks } from "../../../mocks/humanGraph";
 import { renderApp } from "../../../test/renderApp";
-
-const server = setupServer(...handlersFor("default"));
-beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
-
-async function graphRegion() {
-  return screen.findByRole("region", { name: /dependency graph/i });
-}
-
-test("switching to Graph roots the view at the selected task", async () => {
-  const { router } = renderApp("/work/aq-104");
-  await screen.findByRole("heading", { level: 2, name: "Replay reconciliation" });
-  await userEvent.click(screen.getByRole("link", { name: "Graph" }));
-  await graphRegion();
-  const params = new URLSearchParams(router.state.location.search);
-  expect(params.get("view")).toBe("graph");
-  expect(params.get("root")).toBe("aq-104");
+const server=setupServer(...handlersFor("default"));beforeAll(()=>server.listen({onUnhandledFrame:"error"}));afterEach(()=>{server.resetHandlers();vi.restoreAllMocks();});afterAll(()=>server.close());
+const scope=`?scope=project:${fixtureProject.id}`,root=fixtureTasks[0]!.id;
+test("switching to Graph roots the served neighborhood at the selection",async()=>{
+ const {router}=renderApp(`/work/${root}${scope}`);await screen.findByRole("heading",{name:fixtureTasks[0]!.title});await userEvent.click(screen.getByRole("button",{name:"Graph"}));await screen.findByRole("region",{name:"Dependency graph"});expect(new URLSearchParams(router.state.location.search).get("root")).toBe(root);
 });
-
-test("renders the bounded neighbourhood with omitted counts", async () => {
-  renderApp("/work/aq-104?view=graph&root=aq-104");
-  const region = await graphRegion();
-  expect(await within(region).findAllByRole("button", { name: /·/ })).toHaveLength(7);
-  expect(region).toHaveTextContent("7 tasks shown");
-  expect(region).toHaveTextContent("3 tasks and 4 relationships not shown");
+test("Graph keeps a bounded navigation workspace and textual relationships",async()=>{
+ renderApp(`/work/${root}${scope}&view=graph`);const region=await screen.findByRole("region",{name:"Dependency graph"});await within(region).findByRole("link",{name:new RegExp(fixtureTasks[1]!.title)});expect(within(region).getAllByRole("link").length).toBeGreaterThan(1);expect(region).toHaveTextContent("blocks");expect(within(region).getByRole("region",{name:"Scrollable task graph"})).toHaveAttribute("tabindex","0");
 });
-
-test("offers the same relationships as text", async () => {
-  renderApp("/work/aq-104?view=graph&root=aq-104");
-  const list = await screen.findByRole("list", { name: "Relationships in this view" });
-  expect(list).toHaveTextContent("Define lease contract must finish before Approve recovery plan");
-  expect(list).toHaveTextContent("Replay reconciliation references Validate crash recovery");
+test("selecting a graph node retains root and stable node positions",async()=>{
+ vi.spyOn(window,"matchMedia").mockReturnValue({matches:true,addEventListener:()=>{},removeEventListener:()=>{}} as unknown as MediaQueryList);
+ const {router}=renderApp(`/work/${root}${scope}&view=graph&root=${root}`);const region=await screen.findByRole("region",{name:"Dependency graph"});const link=await within(region).findByRole("link",{name:new RegExp(fixtureTasks[1]!.title)});const position=link.getAttribute("style");await userEvent.click(link);await waitFor(()=>expect(router.state.location.pathname).toBe(`/work/${fixtureTasks[1]!.id}`));expect(new URLSearchParams(router.state.location.search).get("root")).toBe(root);expect(within(await screen.findByRole("region",{name:"Dependency graph"})).getAllByRole("link",{name:new RegExp(fixtureTasks[1]!.title)})[0]).toHaveAttribute("style",position!);
 });
-
-test("selecting a node keeps the root and the node positions", async () => {
-  const { router } = renderApp("/work/aq-104?view=graph&root=aq-104");
-  const region = await graphRegion();
-  const node = await within(region).findByRole("button", { name: /Implement safe recovery/ });
-  const before = node.getAttribute("style");
-  await userEvent.click(node);
-  await waitFor(() => expect(router.state.location.pathname).toBe("/work/aq-105"));
-  expect(new URLSearchParams(router.state.location.search).get("root")).toBe("aq-104");
-  const after = within(await graphRegion()).getByRole("button", { name: /Implement safe recovery/ });
-  expect(after.getAttribute("style")).toBe(before);
-  expect(after).toHaveAttribute("aria-pressed", "true");
-});
-
-test("graph view without a selected task asks for one", async () => {
-  renderApp("/work?view=graph");
-  expect(await screen.findByText(/choose a task to see its dependency neighbourhood/i)).toBeInTheDocument();
-});
-
-test("graph nodes and task rows show a readiness icon alongside the text", async () => {
-  renderApp("/work/aq-104?view=graph&root=aq-104");
-  const region = await graphRegion();
-  const nodes = await within(region).findAllByRole("button", { name: /·/ });
-  for (const n of nodes) expect(n.querySelector("svg[aria-hidden='true']")).not.toBeNull();
-});
+test("truncated served neighborhood is explicit",async()=>{server.use(...handlersFor("partial"));renderApp(`/work/${root}${scope}&view=graph`);expect(await screen.findByText(/Some relationships omitted/)).toBeVisible();});
+test("graph without a selection offers a visible way back to choosing a task",async()=>{renderApp(`/work${scope}&view=graph`);expect(await screen.findByRole("button",{name:"Choose a task"})).toBeVisible();});

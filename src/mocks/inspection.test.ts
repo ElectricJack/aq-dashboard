@@ -3,20 +3,16 @@ import {
   adaptOverview,
   adaptPage,
   adaptSession,
-  adaptTaskDetail,
-  adaptTaskGraph,
-  adaptTaskSummary,
 } from "../api/adapters/inspection";
-import { ApiError, apiGet } from "../api/client";
+import { adaptGraphPage, adaptGraphDetail, adaptGraphNeighborhood } from "../api/adapters/humanGraph";
+import { fixtureProject } from "./humanGraph";
+import { apiGet } from "../api/client";
 import type {
   Envelope,
   Overview,
   Page,
   SearchResults,
   SessionSummary,
-  TaskDetail,
-  TaskGraph,
-  TaskSummary,
 } from "../api/wire/proposed";
 import { handlersFor } from "./handlers";
 
@@ -27,53 +23,20 @@ afterAll(() => server.close());
 
 const get = <T,>(path: string) => apiGet<Envelope<T>>(path);
 
-test("task pages are bounded and chain by cursor without repeats", async () => {
-  const first = await get<Page<TaskSummary>>("/api/v1/tasks?limit=25");
-  expect(first.data.items).toHaveLength(25);
-  expect(first.data.has_more).toBe(true);
-  const second = await get<Page<TaskSummary>>(
-    `/api/v1/tasks?limit=25&cursor=${encodeURIComponent(first.data.next_cursor!)}`,
-  );
-  const ids = [...first.data.items, ...second.data.items].map((t) => t.id);
-  expect(new Set(ids).size).toBe(ids.length);
-  expect(second.data.snapshot_id).toBe(first.data.snapshot_id);
+test("pinned Graph task payloads satisfy the served read adapters", async () => {
+  const page=adaptGraphPage(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks`),fixtureProject.id,"task");
+  expect(page.data.items).toHaveLength(2);
+  const id=page.data.items[0]!.id;
+  expect(adaptGraphDetail(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks/${id}`),fixtureProject.id,"task",id).data.id).toBe(id);
+  expect(adaptGraphNeighborhood(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks/${id}/graph`),fixtureProject.id,id).data.edges).toHaveLength(1);
 });
-
-test("limit is capped at 100", async () => {
-  const page = await get<Page<TaskSummary>>("/api/v1/tasks?limit=1000");
-  expect(page.data.items.length).toBeLessThanOrEqual(100);
+test("unknown Graph project is a neutral 404", async () => {
+  await expect(apiGet("/api/human/projects/unknown/tasks")).rejects.toMatchObject({status:404});
 });
-
-test("project scope filters tasks and is echoed in the envelope", async () => {
-  const page = await get<Page<TaskSummary>>("/api/v1/tasks?scope=project%3Amatter-engine&limit=100");
-  expect(page.data.items.length).toBeGreaterThan(0);
-  expect(page.data.items.every((t) => t.project.id === "matter-engine")).toBe(true);
-  expect(page.scope).toEqual({ kind: "project", project_id: "matter-engine" });
-});
-
-test("readiness filter narrows tasks", async () => {
-  const page = await get<Page<TaskSummary>>("/api/v1/tasks?readiness=running&limit=100");
-  expect(page.data.items.every((t) => t.readiness.state === "running")).toBe(true);
-});
-
-test("every mock payload satisfies the adapters", async () => {
-  const tasks = await get<Page<TaskSummary>>("/api/v1/tasks?limit=100");
-  adaptPage(tasks.data, adaptTaskSummary);
-  const id = tasks.data.items[0]!.id;
-  adaptTaskDetail((await get<TaskDetail>(`/api/v1/tasks/${id}`)).data);
-  adaptTaskGraph((await get<TaskGraph>(`/api/v1/tasks/${id}/graph`)).data);
+test("remaining mock payloads satisfy their adapters", async () => {
   adaptOverview((await get<Overview>("/api/v1/overview")).data);
-  const sessions = await get<Page<SessionSummary>>("/api/v1/sessions");
-  adaptPage(sessions.data, (s) => adaptSession(s, sessions.server_time));
-  const search = await get<SearchResults>("/api/v1/search?q=recovery");
-  expect(search.data.groups.length).toBeGreaterThan(0);
-});
-
-test("an unknown task id is a neutral 404", async () => {
-  const err = await apiGet("/api/v1/tasks/nope").catch((e: unknown) => e);
-  expect(err).toBeInstanceOf(ApiError);
-  expect((err as ApiError).status).toBe(404);
-  expect((err as ApiError).envelope?.message).not.toContain("nope");
+  const sessions=await get<Page<SessionSummary>>("/api/v1/sessions");
+  adaptPage(sessions.data,s=>adaptSession(s,sessions.server_time));
 });
 
 test("partial scenario reports partial overview coverage", async () => {
@@ -91,7 +54,7 @@ test("empty scenario returns a complete overview with no attention items", async
 test("reads-failed scenario fails domain reads with 503", async () => {
   server.use(...handlersFor("reads-failed"));
   await expect(apiGet("/api/v1/overview")).rejects.toMatchObject({ status: 503 });
-  await expect(apiGet("/api/v1/tasks")).rejects.toMatchObject({ status: 503 });
+  await expect(apiGet(`/api/human/projects/${fixtureProject.id}/tasks`)).rejects.toMatchObject({ status: 503 });
 });
 
 test("search matches titles case-insensitively and caps hits per group", async () => {

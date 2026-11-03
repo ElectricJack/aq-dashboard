@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { RecordActions } from "../actions/RecordActions";
+import { useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BookOpen, ShieldCheck, FileText } from "lucide-react";
 import { type GraphEnvelope, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
@@ -17,11 +18,12 @@ function Sources({ node }: { node: GraphNode }) {
     return <li key={index}><FileText size={20} aria-hidden /><div><strong>{title ?? `Recorded source ${index + 1}`}</strong><details><summary>Source reference</summary><pre>{JSON.stringify(source, null, 2)}</pre></details></div></li>;
   })}</ul> : <p className={styles.meta}>No sources recorded for this revision.</p>;
 }
-export function KnowledgeDocument({ record, pinned }: { record: GraphEnvelope<GraphNode>; pinned?: string }) {
+export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnvelope<GraphNode>; pinned?: string; notice?: ReactNode }) {
   const n = record.data, [params, setParams] = useSearchParams();
   const [tab, setTab] = useState("content"), [revision, setRevision] = useState(pinned ?? "");
   const listParams = new URLSearchParams(params); listParams.delete("revision");
   return <Panel title={n.title} className={`${styles.detail} ${styles.knowledgeDocument}`}>
+    {notice}
     <Link className={styles.back} to={{ pathname: "/knowledge", search: `?${listParams}` }}>All records</Link>
     <div className={styles.documentIdentity}>
       <span><BookOpen size={16} aria-hidden />{n.content_type ?? "Uncategorized"}</span>
@@ -30,6 +32,7 @@ export function KnowledgeDocument({ record, pinned }: { record: GraphEnvelope<Gr
       <span className={styles.meta}>{pinned ? "Pinned" : "Current"} revision {n.content_revision}</span>
     </div>
     <p className={styles.meta}>Project: {record.project.name} · Updated <time dateTime={n.updated_at}>{n.updated_at}</time></p>
+    <RecordActions record={record} pinned={pinned} />
     <nav className={styles.documentTabs} aria-label="Document sections">
       {[ ["content", "Content"], ["sources", `Sources (${n.provenance.length})`], ["history", "History"] ].map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key!)}>{label}</button>)}
       <button type="button" disabled title="Relationship browsing is not offered by this read contract">Relationships</button>

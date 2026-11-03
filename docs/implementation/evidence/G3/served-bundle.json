@@ -1,0 +1,38 @@
+{
+  "origin": "http://127.0.0.1:32879",
+  "manifest_source": {
+    "revision": "21cde64a8dfb11fefb9b0be34e14769b579f880c",
+    "dirty": false,
+    "official": false
+  },
+  "files": {
+    "index.html": "d13531f8fcb2cb66989423aa2206c2923430fa273b8483c82674ea6d38750464",
+    "assets/HumanNodeWorkspace-D5c4ithg.js": "b6a30a430a3e29a3da5438c5303949d67934d789a7a85bb737dd3f42e128b9eb",
+    "assets/HumanNodeWorkspace-DDHedzvW.css": "65d4bcc360319817cad1932eb8ba6043b91cc46db75bdb7d4ba121e145fcf093",
+    "assets/Workspace-BCHL6DA5.js": "def616f9364b87c2ece838b53506184e0ccd525786a1cd843410319be3294c99",
+    "assets/Workspace-CoSOvQy3.css": "0290dcb9eb5279bd2223c06afdf4b3a8133bbc3e0e87ccb25b115b670f0e3aaf",
+    "assets/agents-BJo6NgFB.css": "17b5f5b532640323907b4f239b0de7c18e3602307393421a21e6f9ac41bf1c77",
+    "assets/agents-CbEN7i0Z.js": "487ec345e90607703b10eff812b81641f33c72ed65e5dee767650bb8baebe89b",
+    "assets/decisions-BJrtmaa1.js": "4b1536745f5183d89d3ea39670d0b0055b9ccbeae9f7afadb07823a3b749a7ca",
+    "assets/decisions-CNL0RKDG.css": "646ac48e184436da6d07d1868c89078119a965e6083ceefeac3146ce92957de7",
+    "assets/index-C1xdMwRe.css": "83452ad92a660646b61f1fae2fe1e82114fc7a51ceb65cdcd981e11d48d0faf7",
+    "assets/index-QYX9mJfP.js": "f5f099a7c5c364ba3244b01d372fbf8618233fc0b5b6af78b2506d5980fad914",
+    "assets/knowledge-B4rMTNGV.js": "43da943410e8aad59de86f0adba59f94aa29300ef9fd8a8c9122dbee8ea02517",
+    "assets/lib-t-5mWQf7.js": "2da3c022a364f4cd7999da87846cc40ddadd1936ae4f9202790a770291738b8e",
+    "assets/overview-ChseZ9ft.js": "35281850e6ec26e9899ccb30b9bd4c6bf7acd63eabca1bffa830f49473fcf7a9",
+    "assets/overview-DANglxAD.css": "bbba6d07a9def5d909f7eac3b556a94b3fbe62cf2e24eed9d06adf9762cf8a80",
+    "assets/playbooks-DBZLP_Cy.css": "9b61f6e0fa5908eeb1b814ede2e8511bc7efbae61f58f82cae21a8d57afcc151",
+    "assets/playbooks-DbeUoMDU.js": "6fe8acac3177850a5d8b9d38d7ae1040b73e3250fda32e28eb7b2c09a49e5a7f",
+    "assets/queryKeys-B3S5uUyX.js": "09ecaf8a7ca6b983a687e104351a28fb1ef37606df6ee8cec6854f641cb83ba3",
+    "assets/queryKeys-CX0580a3.css": "af537a06ee5b325fcbcc109fc88c23b4a2e21f81603dbba843a1e409ecbc0c58",
+    "assets/results-BHSkDu6k.css": "dfeaa69311edb1bc331732a1726b56404e9c97009d22e10a4bc1c2a904395065",
+    "assets/results-D49IBzl-.js": "ebba6fa826dd2c07b9836b314bb9e435836723daf8f439d6baf248e6704973bf",
+    "assets/settings-Di-3MKvY.js": "191445c66512e0281f26daf7842c10248c41ec3346baa575ff69308829e7541e",
+    "assets/settings-uUF_IEiO.css": "f096d371f8bb1bd5c66f5e42449f27b7e7b9eb36c9eb65e6d3f1d8ee72207f32",
+    "assets/supervisor--Jpjlypc.js": "0ff38ac710b2e3d6d513d8f0bc5a900f49321cfe900d131a9e9428c57803fec1",
+    "assets/supervisor-BGBgnvcn.css": "bc02dd11f74d200c374a951338bf1a74ee61138140bac572150a18dff4f4749a",
+    "assets/useDraft-DtcQkBYu.js": "3a25c4a389208c9f316003dc31f7a200d9d458b5c0163a4feb60e3a2aaab6ea2",
+    "assets/work-ClAD0QKi.js": "ed9be6231db33a49005d0387abcf63def4cfcdb526b31257e2720fc05dd3b728",
+    "assets/work-kn6MU7q_.css": "3582d4aeca5e2cf99b3bafa8bcdcab406d24af3564dffbe793675634b8026a50"
+  }
+}

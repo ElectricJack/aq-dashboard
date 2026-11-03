@@ -1,0 +1,10 @@
+{
+  "repository": "ElectricJack/aq-server",
+  "commit": "3fea57fbf77a9520985b13bf4d2c9e74440c61e2",
+  "path": "protocol/human-graph/v1",
+  "files": {
+    "README.md": "ebc20e54a53bdd32889a513452bdf95cd19d4319aa511c77752b655fc961b437",
+    "examples/task.json": "f257d9d95ce90ea69259151a016df79df728c190a8084acbfd516d1076307914",
+    "schema.json": "64feab9b84a73f7d3643a695fcf1b14ea05d8220116d650ca4aef4da62306273"
+  }
+}

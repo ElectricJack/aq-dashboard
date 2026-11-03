@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:75642) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/live/work-knowledge-actions.spec.ts:19:1 › G3 production forms confirm real writes and retain desktop/phone compositions (15.7s)
+
+  1 passed (17.2s)

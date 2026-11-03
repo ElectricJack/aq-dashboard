@@ -1,0 +1,2 @@
+14 requests, 5 dispositions, current-versions conflict, 10 errors, cursor, replay, invalid and compatibility fixtures passed
+G3 pinned fixture source hashes passed

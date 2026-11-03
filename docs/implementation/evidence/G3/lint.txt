@@ -1,0 +1,5 @@
+
+> aq-dashboard@0.1.0 lint /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/lint.mjs
+
+Build and release script syntax lint passed

@@ -74,10 +74,10 @@ test("an empty complete roster says there are no sessions", async () => {
   expect(await screen.findByText("No active sessions")).toBeInTheDocument();
 });
 
-test("task detail links to the running session", async () => {
-  const { router } = renderApp("/work/aq-104");
-  await userEvent.click(await screen.findByRole("link", { name: "Open session" }));
-  await waitFor(() => expect(router.state.location.pathname).toBe("/agents/sess-07"));
+test("Graph task inspection reports unavailable execution observation without a fabricated session", async () => {
+  renderApp("/work/00000000-0000-0000-0000-000000000003?scope=project:00000000-0000-0000-0000-000000000001");
+  expect(await screen.findByText("Execution readiness and agent assignment are not included in this task read.")).toBeVisible();
+  expect(screen.queryByRole("link",{name:"Open session"})).not.toBeInTheDocument();
 });
 
 test("Back from a session returns focus to its roster row", async () => {

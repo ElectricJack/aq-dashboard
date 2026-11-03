@@ -1,0 +1,14 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/features/work/graph/TaskGraph.test.tsx src/features/work/Work.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  06:36:28
+   Duration  5.50s (tests 53%, environment 22%, import 13%, transform 6%, setup 5%)

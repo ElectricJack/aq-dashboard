@@ -11,7 +11,7 @@ export type GraphNode = {
   retirement_reason: string | null; valid_from: string | null; valid_until: string | null; review_at: string | null;
   successor_id: string | null; summary: string | null; summary_of_revision: string | null;
 };
-export type GraphEdge = { id: string; source: string; target: string; edge_type: string; description: string;
+export type GraphEdge = { id: string; source: string; target: string; edge_type: string; description: string | null;
   version: string; source_revision: string | null; target_revision: string | null };
 export type GraphEnvelope<T> = { contract: typeof HUMAN_GRAPH_CONTRACT; project: { id: string; name: string; revision: string; workspace_id: string }; observed_at: string; data: T };
 export type GraphPage = { items: GraphNode[]; next_cursor: string | null };
@@ -74,7 +74,7 @@ export function adaptGraphNeighborhood(raw: unknown, project: string, root: stri
     check(ids.size===nodes.length && ids.has(root));
     const edges=value.edges.map(v=>{
       check(isRecord(v) && validGraphId(v.id) && typeof v.source === "string" && ids.has(v.source) && typeof v.target === "string" && ids.has(v.target));
-      check(text(v.edge_type,128) && text(v.description,4096) && revision(v.version) && optional(v.source_revision,revision) && optional(v.target_revision,revision));
+      check(text(v.edge_type,128) && optional(v.description,v=>text(v,4096)) && revision(v.version) && optional(v.source_revision,revision) && optional(v.target_revision,revision));
       return v as unknown as GraphEdge;
     });
     check(new Set(edges.map(e=>e.id)).size===edges.length);

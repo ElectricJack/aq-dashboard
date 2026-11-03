@@ -1,7 +1,8 @@
 import { http, HttpResponse } from "msw";
 import type { Bootstrap, Coverage, Envelope, ErrorEnvelope, Page, Scope } from "../api/wire/proposed";
-import { overview, search, SERVER_TIME, SESSIONS, TASKS, taskDetail, taskGraph } from "./inspectionData";
+import { overview, search, SERVER_TIME, SESSIONS } from "./inspectionData";
 import { scenario } from "./scenarios";
+import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
@@ -70,8 +71,10 @@ export function handlersFor(name: string | null | undefined) {
 
   return [
     ...decisionHandlers(),
+    ...humanGraphHandlers(s.reads),
+    http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
-    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>(s.bootstrap))),
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...s.bootstrap,capabilities:[...s.bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true}]}))),
     http.get("/api/v1/provider-usage", () =>
       s.providerUsage.kind === "ok"
         ? HttpResponse.json(s.providerUsage.body)
@@ -81,19 +84,6 @@ export function handlersFor(name: string | null | undefined) {
       const scope = scopeOf(new URL(request.url));
       return read(() => overview(projectOf(scope), s.reads === "empty"), scope);
     }),
-    http.get("/api/v1/tasks", ({ request }) => {
-      const url = new URL(request.url);
-      const scope = scopeOf(url);
-      const project = projectOf(scope);
-      const readiness = url.searchParams.get("readiness");
-      const items =
-        s.reads === "empty"
-          ? []
-          : TASKS.filter((t) => (!project || t.project.id === project) && (!readiness || t.readiness.state === readiness));
-      return read(() => paginate(items, url, "snap-tasks-1"), scope);
-    }),
-    http.get("/api/v1/tasks/:id", ({ params }) => read(() => taskDetail(String(params.id)))),
-    http.get("/api/v1/tasks/:id/graph", ({ params }) => read(() => taskGraph(String(params.id)))),
     http.get("/api/v1/sessions", ({ request }) => {
       const url = new URL(request.url);
       const scope = scopeOf(url);

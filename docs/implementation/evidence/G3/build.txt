@@ -1,0 +1,41 @@
+
+> aq-dashboard@0.1.0 build /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> tsc -b && vite build && node scripts/check-bundle.mjs dist && node scripts/bundle-manifest.mjs dist
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2186 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                0.69 kB │ gzip:   0.34 kB
+dist/assets/Workspace-CoSOvQy3.css             1.43 kB │ gzip:   0.55 kB
+dist/assets/decisions-CNL0RKDG.css             1.81 kB │ gzip:   0.64 kB
+dist/assets/work-kn6MU7q_.css                  2.39 kB │ gzip:   0.76 kB
+dist/assets/settings-uUF_IEiO.css              2.81 kB │ gzip:   0.82 kB
+dist/assets/supervisor-BGBgnvcn.css            3.70 kB │ gzip:   1.05 kB
+dist/assets/playbooks-DBZLP_Cy.css             5.86 kB │ gzip:   1.41 kB
+dist/assets/index-C1xdMwRe.css                 6.14 kB │ gzip:   1.83 kB
+dist/assets/overview-DANglxAD.css              8.90 kB │ gzip:   1.89 kB
+dist/assets/queryKeys-CX0580a3.css            11.13 kB │ gzip:   2.42 kB
+dist/assets/results-BHSkDu6k.css              12.87 kB │ gzip:   2.54 kB
+dist/assets/agents-BJo6NgFB.css               12.92 kB │ gzip:   2.96 kB
+dist/assets/HumanNodeWorkspace-DDHedzvW.css   15.06 kB │ gzip:   3.08 kB
+dist/assets/knowledge-B4rMTNGV.js              0.40 kB │ gzip:   0.29 kB
+dist/assets/useDraft-DtcQkBYu.js               0.41 kB │ gzip:   0.30 kB
+dist/assets/Workspace-BCHL6DA5.js              0.99 kB │ gzip:   0.47 kB
+dist/assets/decisions-BJrtmaa1.js             13.41 kB │ gzip:   4.66 kB
+dist/assets/work-ClAD0QKi.js                  15.79 kB │ gzip:   5.55 kB
+dist/assets/supervisor--Jpjlypc.js            17.27 kB │ gzip:   6.24 kB
+dist/assets/settings-Di-3MKvY.js              18.79 kB │ gzip:   5.53 kB
+dist/assets/lib-t-5mWQf7.js                   21.91 kB │ gzip:   8.06 kB
+dist/assets/overview-ChseZ9ft.js              22.86 kB │ gzip:   6.33 kB
+dist/assets/playbooks-DbeUoMDU.js             36.39 kB │ gzip:  10.14 kB
+dist/assets/HumanNodeWorkspace-D5c4ithg.js    41.05 kB │ gzip:  12.97 kB
+dist/assets/results-D49IBzl-.js               99.36 kB │ gzip:  24.32 kB
+dist/assets/queryKeys-B3S5uUyX.js            119.87 kB │ gzip:  39.15 kB
+dist/assets/index-QYX9mJfP.js                277.46 kB │ gzip:  87.08 kB
+dist/assets/agents-CbEN7i0Z.js               397.78 kB │ gzip: 101.99 kB
+
+✓ built in 3.79s
+dist: no mock code or fixtures
+Dashboard manifest: 28 files, source 21cde64a8dfb11fefb9b0be34e14769b579f880c

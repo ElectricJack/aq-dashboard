@@ -1,177 +1,33 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import task from "../../../contracts/live/human-graph/examples/task.json";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
-
-const server = setupServer(...handlersFor("default"));
-beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
-
-async function taskList() {
-  return screen.findByRole("list", { name: "Tasks" });
-}
-
-test("shows a bounded first page with its total and loads more on request", async () => {
-  renderApp("/work");
-  // Bootstrap/session activation and page mount precede the first task read.
-  // Observe each stage before starting the list's normal assertion deadline.
-  await screen.findByRole("navigation", { name: "Primary" });
-  await screen.findByRole("heading", { level: 1, name: "Work" });
-  const list = await taskList();
-  expect(within(list).getAllByRole("listitem")).toHaveLength(25);
-  expect(screen.getByText(/25 of 47 tasks/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Load more tasks" }));
-  await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(47));
-  expect(screen.queryByRole("button", { name: "Load more tasks" })).not.toBeInTheDocument();
+const server=setupServer(...handlersFor("default"));
+beforeAll(()=>server.listen({onUnhandledFrame:"error"}));afterEach(()=>server.resetHandlers());afterAll(()=>server.close());
+const scope=`?scope=project:${task.project.id}`;
+test("Work uses served project routes and pinned Graph fixtures",async()=>{
+ const reads:string[]=[];server.events.on("request:start",({request})=>{if(new URL(request.url).pathname.includes("tasks"))reads.push(new URL(request.url).pathname);});
+ renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});
+ expect(within(list).getByText(task.data.title)).toBeVisible();expect(reads).toContain(`/api/human/projects/${task.project.id}/tasks`);expect(reads.some(p=>p.startsWith("/api/v1/tasks"))).toBe(false);server.events.removeAllListeners();
 });
-
-test("rows show readiness and the server's explanation", async () => {
-  renderApp("/work");
-  const list = await taskList();
-  const row = within(list).getByRole("link", { name: "Approve recovery plan" }).closest("li")!;
-  expect(row).toHaveTextContent("Needs decision");
-  expect(row).toHaveTextContent("Approval of revision 3 required");
-  expect(row).toHaveTextContent("agent-queue");
+test("task selection preserves scope and opens requirements and acceptance",async()=>{
+ const {router}=renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});await userEvent.click(within(list).getByRole("link",{name:new RegExp(task.data.title)}));
+ const detail=await screen.findByRole("region",{name:task.data.title});expect(within(detail).getByRole("heading",{name:"Acceptance criteria"})).toBeVisible();expect(router.state.location.search).toContain(task.project.id);expect(within(detail).getByText(task.data.body)).toBeVisible();
 });
-
-test("the readiness filter lives in the URL and narrows rows", async () => {
-  const { router } = renderApp("/work?scope=project:agent-queue");
-  await taskList();
-  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Readiness" }), "running");
-  await waitFor(() => {
-    const rows = within(screen.getByRole("list", { name: "Tasks" })).getAllByRole("listitem");
-    expect(rows.every((r) => r.textContent?.includes("Running"))).toBe(true);
-  });
-  const params = new URLSearchParams(router.state.location.search);
-  expect(params.get("readiness")).toBe("running");
-  expect(params.get("scope")).toBe("project:agent-queue");
+test("task filters only describe loaded Graph states",async()=>{
+ renderApp(`/work${scope}`);await screen.findByRole("list",{name:"Tasks"});await userEvent.selectOptions(screen.getByLabelText("State of loaded tasks"),"completed");expect(await screen.findByText("No loaded records match these filters.")).toBeVisible();
 });
-
-test("selecting a task opens its detail, keeps scope and focuses the detail heading", async () => {
-  const { router } = renderApp("/work?scope=project:agent-queue");
-  const list = await taskList();
-  await userEvent.click(within(list).getByRole("link", { name: "Replay reconciliation" }));
-  const heading = await screen.findByRole("heading", { level: 2, name: "Replay reconciliation" });
-  expect(router.state.location.pathname).toBe("/work/aq-104");
-  expect(new URLSearchParams(router.state.location.search).get("scope")).toBe("project:agent-queue");
-  await waitFor(() => expect(heading).toHaveFocus());
+test("task search uses the project read and retains its URL",async()=>{
+ const {router}=renderApp(`/work${scope}`);await screen.findByRole("list",{name:"Tasks"});await userEvent.type(screen.getByRole("searchbox",{name:"Search tasks"}),"No matching title");await userEvent.click(screen.getByRole("searchbox",{name:"Search tasks"}).closest("form")!.querySelector("button")!);await waitFor(()=>expect(router.state.location.search).toContain("q=No+matching+title"));expect(await screen.findByText("No records returned for this search.")).toBeVisible();
 });
-
-test("detail shows acceptance, dependencies and distinct delivery facts", async () => {
-  renderApp("/work/aq-104");
-  const detail = await screen.findByRole("region", { name: "Replay reconciliation" });
-  expect(within(detail).getByText("Attempt 27 is running on worker-07")).toBeInTheDocument();
-  const deps = within(detail).getByRole("list", { name: "Dependencies" });
-  expect(within(deps).getByRole("link", { name: "Define lease contract" })).toBeInTheDocument();
-  expect(deps).toHaveTextContent(/satisfied/i);
-  expect(within(detail).getByRole("list", { name: /acceptance criteria/i })).toHaveTextContent(
-    "Behaviour is covered by tests",
-  );
-  const facts = within(detail).getByRole("list", { name: "Delivery facts" });
-  expect(within(facts).getByText("Merged").closest("li")).toHaveTextContent("Unknown");
-  expect(within(facts).getByText("Result accepted").closest("li")).toHaveTextContent("Not yet");
-});
-
-test("Back from a task returns focus to the row that opened it", async () => {
-  const { router } = renderApp("/work");
-  const list = await taskList();
-  const link = within(list).getByRole("link", { name: "Replay reconciliation" });
-  await userEvent.click(link);
-  await screen.findByRole("heading", { level: 2, name: "Replay reconciliation" });
-  await router.navigate(-1);
-  await waitFor(() =>
-    expect(within(screen.getByRole("list", { name: "Tasks" })).getByRole("link", { name: "Replay reconciliation" })).toHaveFocus(),
-  );
-});
-
-test("an unknown task shows a neutral unavailable message without echoing its id", async () => {
-  renderApp("/work/secret-task-id");
-  expect(await screen.findByText(/does not exist or is not available/i)).toBeInTheDocument();
-  expect(screen.queryByText(/secret-task-id/)).not.toBeInTheDocument();
-});
-
-test("a failed list read is an error, not an empty list", async () => {
-  server.use(...handlersFor("reads-failed"));
-  renderApp("/work");
-  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't load tasks/i);
-  expect(screen.queryByText(/no tasks/i)).not.toBeInTheDocument();
-});
-
-test("an empty complete read says no tasks match", async () => {
-  server.use(...handlersFor("empty"));
-  renderApp("/work");
-  expect(await screen.findByText("No tasks match these filters")).toBeInTheDocument();
-});
-
-test("task titles are rendered as text, never markup", async () => {
-  server.use(
-    http.get("/api/v1/tasks", () =>
-      HttpResponse.json({
-        api_version: "proposed-0",
-        request_id: "r",
-        server_time: "2026-10-31T12:00:00.000Z",
-        scope: { kind: "all_authorized" },
-        observation: { observed_at: "2026-10-31T12:00:00.000Z", fresh_until: "2026-10-31T12:01:00.000Z", source: "t", quality: "reported", coverage: "complete" },
-        pending_operations: [],
-        coverage: { state: "complete" },
-        data: {
-          items: [{
-            id: "x", revision: "1", title: '<img src=x onerror="alert(1)">',
-            project: { id: "p", label: "p" }, state: "active",
-            readiness: { state: "ready", explanation: "<b>bold</b>" },
-            execution: { observation: "unknown", observed_at: null, session_id: null, agent_label: null },
-            blocker: null, latest_result: null, updated_at: "2026-10-31T12:00:00.000Z",
-          }],
-          next_cursor: null, has_more: false, snapshot_id: "s", total: { value: 1, accuracy: "exact" },
-        },
-      }),
-    ),
-  );
-  renderApp("/work");
-  const list = await taskList();
-  expect(within(list).getByText('<img src=x onerror="alert(1)">')).toBeInTheDocument();
-  expect(list.querySelector("img")).toBeNull();
-  expect(list.querySelector("b")).toBeNull();
-});
-
-test("moving from one task to another shows the second task, not a cached first", async () => {
-  renderApp("/work/aq-104");
-  const detail = await screen.findByRole("region", { name: "Replay reconciliation" });
-  await userEvent.click(within(detail).getByRole("link", { name: "Define lease contract" }));
-  expect(await screen.findByRole("heading", { level: 2, name: "Define lease contract" })).toBeInTheDocument();
-});
-
-test("an unrecognised readiness value in the URL is ignored, not sent", async () => {
-  let sent: string | null = "unset";
-  server.events.on("request:start", ({ request }) => {
-    const u = new URL(request.url);
-    if (u.pathname === "/api/v1/tasks") sent = u.searchParams.get("readiness");
-  });
-  renderApp("/work?readiness=bogus");
-  const list = await taskList();
-  expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
-  expect(sent).toBeNull();
-  server.events.removeAllListeners();
-});
-
-test("Back from a task opened in the graph returns focus to its node", async () => {
-  const { router } = renderApp("/work?view=graph&root=aq-104");
-  const region = await screen.findByRole("region", { name: /dependency graph/i });
-  await userEvent.click(await within(region).findByRole("button", { name: /Implement safe recovery/ }));
-  const heading = await screen.findByRole("heading", { level: 2, name: "Implement safe recovery" });
-  // Finish the forward navigation's focus effects before starting Back.
-  await waitFor(() => expect(heading).toHaveFocus());
-  await act(async () => { await router.navigate(-1); });
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: /Implement safe recovery/ })).toHaveFocus(),
-  );
-});
-
-test("task rows show a readiness icon alongside the readiness text", async () => {
-  renderApp("/work");
-  const rows = within(await taskList()).getAllByRole("listitem");
-  for (const r of rows) expect(r.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+test("Work asks for a project rather than inventing all-project Graph data",async()=>{renderApp("/work");expect(await screen.findByRole("heading",{name:"Choose a project"})).toBeVisible();});
+test("failed and empty Graph lists remain distinct",async()=>{server.use(...handlersFor("reads-failed"));renderApp(`/work${scope}`);expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load tasks");expect(screen.queryByText("No records returned for this search.")).not.toBeInTheDocument();});
+test("successful empty Graph list says no records returned",async()=>{server.use(...handlersFor("empty"));renderApp(`/work${scope}`);expect(await screen.findByText("No records returned for this search.")).toBeVisible();});
+test("missing task is neutral and never echoes an arbitrary route",async()=>{renderApp(`/work/secret-task-id${scope}`);expect(await screen.findByText("This item does not exist or is not available to you.")).toBeVisible();expect(screen.queryByText("secret-task-id")).not.toBeInTheDocument();});
+test("literal task titles stay text on the served route",async()=>{
+ server.use(http.get(`/api/human/projects/${task.project.id}/tasks`,()=>HttpResponse.json({...task,data:{items:[{...task.data,title:'<img src=x onerror="alert(1)">'}],next_cursor:null}})));
+ renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByText('<img src=x onerror="alert(1)">')).toBeVisible();expect(list.querySelector("img")).toBeNull();
 });

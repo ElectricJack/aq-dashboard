@@ -1,0 +1,381 @@
+{
+  "origin": "http://127.0.0.1:32879",
+  "project": "e0000000-0000-4000-8000-000000000002",
+  "task": "e0000000-0000-4000-8000-000000000004",
+  "knowledge": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+  "blocker": "83978b5b-b74f-43f5-849f-911d22637cf6",
+  "events": [
+    {
+      "kind": "task.edit",
+      "status": 200,
+      "operation": {
+        "operation_id": "f66c0b01-513f-454f-b2b6-f4d6fe258227",
+        "disposition": "confirmed",
+        "request_digest": "sha256:69b6d328b22c228e05e9dd536e30f27a74cbea0706dbe64facb53697a94fcb6a",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:07.457Z",
+        "updated_at": "2026-11-03T14:16:07.511Z",
+        "subject_refs": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "3"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "10af5d88-308d-4fdf-ad85-af2f58d48662"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "4"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "changed-byte-replay",
+      "status": 409,
+      "code": "operation_conflict"
+    },
+    {
+      "kind": "task.edit",
+      "status": 200,
+      "operation": {
+        "operation_id": "8be2132f-b4fc-46e8-87e2-32310dfe0e19",
+        "disposition": "conflict",
+        "request_digest": "sha256:7f4f30c738b6db394e71ef207a7538fda184293733f225ab094cd5963f9c1f9a",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:07.899Z",
+        "updated_at": "2026-11-03T14:16:07.912Z",
+        "subject_refs": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "3"
+          }
+        ],
+        "receipt_refs": [],
+        "affected_entities": [],
+        "recovery": "refresh_and_review",
+        "current_versions": {
+          "task": "4"
+        }
+      }
+    },
+    {
+      "kind": "task.create",
+      "status": 200,
+      "operation": {
+        "operation_id": "83978b5b-b74f-43f5-849f-911d22637cf6",
+        "disposition": "confirmed",
+        "request_digest": "sha256:a3c1c1092894f3847498b05a338d1d6b52f91d937ccacf186e734a8d23b48586",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:08.047Z",
+        "updated_at": "2026-11-03T14:16:08.208Z",
+        "subject_refs": [
+          {
+            "type": "project",
+            "id": "e0000000-0000-4000-8000-000000000002",
+            "revision": "1"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "3920588e-561e-4cee-a975-54a4d9f57449",
+            "revision": "1"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "task",
+            "id": "83978b5b-b74f-43f5-849f-911d22637cf6",
+            "revision": "1"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "task.dependency.add",
+      "status": 200,
+      "operation": {
+        "operation_id": "7cd58ee4-9e08-4074-bf25-efcf3c8ef17a",
+        "disposition": "confirmed",
+        "request_digest": "sha256:251addc7ce1c151a63b14afed15d82a73cebcbb2c7bcd3ca3ca563919d06741a",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:08.335Z",
+        "updated_at": "2026-11-03T14:16:08.400Z",
+        "subject_refs": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "4"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "284a6183-60cf-41b8-b796-c7d35e44ed2c"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "graph_edge",
+            "id": "7cd58ee4-9e08-4074-bf25-efcf3c8ef17a",
+            "revision": "1"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "task.dependency.remove",
+      "status": 200,
+      "operation": {
+        "operation_id": "be493818-b24f-4650-aa60-a68dd1202fe1",
+        "disposition": "confirmed",
+        "request_digest": "sha256:7c003803e4aadf2d20df6d8893dbaad16405f5dfd53f977268358ae82cbc002d",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:08.668Z",
+        "updated_at": "2026-11-03T14:16:08.734Z",
+        "subject_refs": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "5"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "99df9e09-bf17-4010-8e6f-3cfc633ad8af"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "graph_edge",
+            "id": "7cd58ee4-9e08-4074-bf25-efcf3c8ef17a",
+            "revision": "2"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "task.cancel",
+      "status": 200,
+      "operation": {
+        "operation_id": "58741acd-8fae-4f64-889a-52964d137eee",
+        "disposition": "rejected",
+        "request_digest": "sha256:14abb66daa0b9c5ed5b2213c72b4ac49a124fd97b757197828d4f1c87cfd6dc8",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:08.983Z",
+        "updated_at": "2026-11-03T14:16:09.008Z",
+        "subject_refs": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "6"
+          }
+        ],
+        "receipt_refs": [],
+        "affected_entities": [],
+        "recovery": "refresh_and_review"
+      }
+    },
+    {
+      "kind": "task.retry",
+      "status": 200,
+      "operation": {
+        "operation_id": "c0663b73-28e9-4412-9d60-23e867dfc1df",
+        "disposition": "rejected",
+        "request_digest": "sha256:a638b12b87c37d031539c7fd4ad8d9c7dc5379e45f257c1eff3427602d7ff808",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:09.094Z",
+        "updated_at": "2026-11-03T14:16:09.112Z",
+        "subject_refs": [
+          {
+            "type": "task",
+            "id": "e0000000-0000-4000-8000-000000000004",
+            "revision": "6"
+          }
+        ],
+        "receipt_refs": [],
+        "affected_entities": [],
+        "recovery": "refresh_and_review"
+      }
+    },
+    {
+      "kind": "knowledge.author",
+      "status": 200,
+      "operation": {
+        "operation_id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+        "disposition": "confirmed",
+        "request_digest": "sha256:8d970210c57b90b6cfcca054639f50f5e7f8eac85ba2fa2c139c0a19ec66669e",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:09.235Z",
+        "updated_at": "2026-11-03T14:16:09.288Z",
+        "subject_refs": [
+          {
+            "type": "project",
+            "id": "e0000000-0000-4000-8000-000000000002",
+            "revision": "1"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "436c363d-52ce-4bbb-9c71-210094686a27"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "1"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "knowledge.correct",
+      "status": 200,
+      "operation": {
+        "operation_id": "5abf06e2-aa24-4e34-9a2e-41a0a9181d19",
+        "disposition": "confirmed",
+        "request_digest": "sha256:976881bcacd26cc5a935e75101771bd2c5e9bc58d40a2e4258078e33f75c9eec",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:09.504Z",
+        "updated_at": "2026-11-03T14:16:09.555Z",
+        "subject_refs": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "1"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "a2e008a9-643a-4e79-980b-7ba4a4bd4905"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "2"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "knowledge.verify",
+      "status": 200,
+      "operation": {
+        "operation_id": "31a2b2db-99c8-4c1c-a105-2124eadcdae5",
+        "disposition": "confirmed",
+        "request_digest": "sha256:8212d2e80910cefaadc74966126c1e1f0aebee2dcf1a0482199f71ea8e7d3bd1",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:09.762Z",
+        "updated_at": "2026-11-03T14:16:09.799Z",
+        "subject_refs": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "2"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "4ac18834-1874-4218-aad7-8bd38f1e02f3"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "3"
+          }
+        ],
+        "recovery": "none"
+      }
+    },
+    {
+      "kind": "knowledge.retire",
+      "status": 200,
+      "operation": {
+        "operation_id": "89bcfe75-d892-46ed-aa58-d01d97753ea9",
+        "disposition": "confirmed",
+        "request_digest": "sha256:dd9b932a9bc886a1537345c299235f4e902bd98656fec4f26b8ea9ce1e871a23",
+        "scope": {
+          "kind": "project",
+          "project_id": "e0000000-0000-4000-8000-000000000002"
+        },
+        "created_at": "2026-11-03T14:16:09.945Z",
+        "updated_at": "2026-11-03T14:16:10.018Z",
+        "subject_refs": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "3"
+          }
+        ],
+        "receipt_refs": [
+          {
+            "type": "graph_change_set",
+            "id": "7f8e6fc0-a729-410e-8ac2-5d356bd51b92"
+          }
+        ],
+        "affected_entities": [
+          {
+            "type": "knowledge",
+            "id": "ee2f531b-5eff-416c-bbd5-0389b1e374b1",
+            "revision": "4"
+          }
+        ],
+        "recovery": "none"
+      }
+    }
+  ]
+}

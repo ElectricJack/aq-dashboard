@@ -1,0 +1,12 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/api/adapters/humanGraph.test.ts src/features/work/TaskGraph.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  06:35:59
+   Duration  2.62s (environment 71%, transform 17%, setup 10%, worker 1%, tests 1%, import 1%)

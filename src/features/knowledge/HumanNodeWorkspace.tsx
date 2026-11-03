@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { RecordActions } from "../actions/RecordActions";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { BookOpen, List, Workflow, ListChecks } from "lucide-react";
 import { useScope } from "../../app/scope";
@@ -36,13 +37,30 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const query=useGraphList(project,kind,q);let rows:GraphNode[]=[],mergeError:unknown;
   try{rows=mergeGraphPages(query.data?.pages??[]);}catch(e){mergeError=e;}
   const search=params.toString()?`?${params}`:"";const graph=kind === "task" && params.get("view")==="graph";
+  const workspace=useRef<HTMLDivElement>(null),previous=useRef<{id?:string;graph:boolean}>({graph:false});
+  useEffect(()=>{
+    const before=previous.current;previous.current={id,graph};
+    const element=workspace.current;if(!element)return;
+    // Selection focuses its heading; Back restores the previously selected row/node.
+    const restore=(!id || graph)?before.id:undefined;
+    const focus=()=>{
+      const target=id&&!graph?element.querySelector<HTMLElement>(`.${styles.detail} h2`):restore?[...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a=>new URL(a.href).pathname===pathFor(kind,restore)):undefined;
+      if(!target)return false;
+      if(target.tagName==="H2")target.tabIndex=-1;
+      target.focus();return true;
+    };
+    if(focus())return;
+    const observer=new MutationObserver(()=>{if(focus())observer.disconnect();});
+    observer.observe(element,{childList:true,subtree:true});return()=>observer.disconnect();
+  },[id,graph,kind]);
   const graphRoot=validGraphId(params.get("root"))?params.get("root")!:id;
   const filtered=rows.filter(n=>(!taskState || n.task_state===taskState)&&(!category || n.content_type===category)&&(!lifecycle || (lifecycle==="retired"?n.retired:!n.retired))&&(!verification || n.verification===verification));
   const categories=[...new Set(rows.map(n=>n.content_type).filter((v):v is string=>!!v))].sort();
   const projectName=query.data?.pages[0]?.project.name;
   const update=(key:string,value:string)=>setParams(p=>{const n=new URLSearchParams(p);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);return n;});
-  return <div className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
+  return <div ref={workspace} className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
     <p className={styles.subtitle}>{kind==="knowledge"?"Find the decisions, procedures, and evidence behind the work.":"Inspect project tasks and their recorded dependencies."}{projectName && <span> · {projectName}</span>}</p>
+    {kind==="knowledge" && query.data?.pages[0] && <RecordActions record={{project:query.data.pages[0].project}} author />}
     <Toolbar className={styles.filters}>
       <form onSubmit={e=>{e.preventDefault();update("q",draft.trim());}} className={styles.search}>
         <label className="visually-hidden" htmlFor={`find-${kind}`}>Search {kind==="task"?"tasks":"knowledge"}</label>
@@ -78,6 +96,7 @@ function NodeDetail({project,kind,id,search}:{project:string;kind:GraphNode["kin
   const [params]=useSearchParams();const raw=params.get("revision");const pinned=kind==="knowledge" && raw && /^[1-9][0-9]{0,19}$/.test(raw)?raw:undefined;
   const query=useGraphDetail(project,kind,id,pinned);
   if(raw && kind==="knowledge" && !pinned)return <p role="status">This revision is not available.</p>;
-  if(!query.data || query.isError)return <Panel title="Record"><QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/></Panel>;
-  return kind === "task" ? <HumanTaskInspector record={query.data} search={withoutRevision(search)} /> : <KnowledgeDocument record={query.data} pinned={pinned} />;
+  if(!query.data)return <Panel title="Record"><QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/></Panel>;
+  const notice=query.isError?<p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={()=>void query.refetch()}>Refresh record</ActionButton></p>:undefined;
+  return kind === "task" ? <HumanTaskInspector record={query.data} search={withoutRevision(search)} notice={notice}/> : <KnowledgeDocument record={query.data} pinned={pinned} notice={notice}/>;
 }

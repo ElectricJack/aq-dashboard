@@ -39,3 +39,9 @@ test.each(["\0", "valid\0title", "\ud800", "\udfff", "a\ud800b", "a\udfffb", "  
  const n=graphNode("task");
  expect(()=>adaptGraphDetail(graphEnvelope({...n,title}),graphProject,"task",n.id)).toThrow();
 });
+
+test("accepts a dependency action edge without an optional description",()=>{
+ const root=graphNode("task"),blocker=graphNode("task",11);
+ const edge={id:graphId(50),source:blocker.id,target:root.id,edge_type:"blocks",description:null,version:"1",source_revision:null,target_revision:null};
+ expect(adaptGraphNeighborhood(graphEnvelope({root_id:root.id,nodes:[root,blocker],edges:[edge],truncated:false}),graphProject,root.id).data.edges[0]?.description).toBeNull();
+});

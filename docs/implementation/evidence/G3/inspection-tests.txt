@@ -1,0 +1,53 @@
+[WebServer] (node:39711) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:39801) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 20 tests using 2 workers
+
+(node:40009) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:40016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 6:24:34 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 6:24:34 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   2 [chromium] › tests/inspection.spec.ts:24:7 › phone-320 › /work?scope=project:00000000-0000-0000-0000-000000000001 reflows and passes axe (4.4s)
+  ✓   1 [chromium] › tests/inspection.spec.ts:24:7 › phone-320 › /overview reflows and passes axe (4.6s)
+[WebServer] 6:24:39 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 6:24:39 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   3 [chromium] › tests/inspection.spec.ts:24:7 › phone-320 › /work/00000000-0000-0000-0000-000000000003?scope=project:00000000-0000-0000-0000-000000000001 reflows and passes axe (4.5s)
+  ✓   4 [chromium] › tests/inspection.spec.ts:24:7 › phone-320 › /work/00000000-0000-0000-0000-000000000003?scope=project:00000000-0000-0000-0000-000000000001&view=graph&root=00000000-0000-0000-0000-000000000003 reflows and passes axe (4.6s)
+[WebServer] 6:24:43 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 6:24:43 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   6 [chromium] › tests/inspection.spec.ts:24:7 › phone-320 › /agents/sess-07 reflows and passes axe (4.0s)
+  ✓   5 [chromium] › tests/inspection.spec.ts:24:7 › phone-320 › /agents reflows and passes axe (4.5s)
+[WebServer] 6:24:47 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 6:24:47 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   7 [chromium] › tests/inspection.spec.ts:38:5 › phone-320 › Back from a task restores focus to its row (2.8s)
+[WebServer] 6:24:49 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   8 [chromium] › tests/inspection.spec.ts:24:7 › desktop-1440 › /overview reflows and passes axe (4.1s)
+[WebServer] 6:24:51 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   9 [chromium] › tests/inspection.spec.ts:24:7 › desktop-1440 › /work?scope=project:00000000-0000-0000-0000-000000000001 reflows and passes axe (3.3s)
+[WebServer] 6:24:53 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  10 [chromium] › tests/inspection.spec.ts:24:7 › desktop-1440 › /work/00000000-0000-0000-0000-000000000003?scope=project:00000000-0000-0000-0000-000000000001 reflows and passes axe (3.3s)
+[WebServer] 6:24:54 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  11 [chromium] › tests/inspection.spec.ts:24:7 › desktop-1440 › /work/00000000-0000-0000-0000-000000000003?scope=project:00000000-0000-0000-0000-000000000001&view=graph&root=00000000-0000-0000-0000-000000000003 reflows and passes axe (3.3s)
+[WebServer] 6:24:56 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  12 [chromium] › tests/inspection.spec.ts:24:7 › desktop-1440 › /agents reflows and passes axe (3.1s)
+[WebServer] 6:24:57 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  13 [chromium] › tests/inspection.spec.ts:24:7 › desktop-1440 › /agents/sess-07 reflows and passes axe (3.3s)
+  ✓  14 [chromium] › tests/inspection.spec.ts:38:5 › desktop-1440 › Back from a task restores focus to its row (2.4s)
+[WebServer] 6:24:59 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  15 [chromium] › tests/inspection.spec.ts:49:1 › desktop shows list and inspector side by side (1.9s)
+[WebServer] 6:25:00 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  16 [chromium] › tests/inspection.spec.ts:56:1 › phone shows the task detail instead of the list (2.3s)
+[WebServer] 6:25:02 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 6:25:02 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  18 [chromium] › tests/inspection.spec.ts:82:1 › graph nodes are keyboard reachable and selection keeps positions (2.6s)
+  ✓  17 [chromium] › tests/inspection.spec.ts:63:1 › search is a real modal: focus stays inside and Escape returns it (3.7s)
+[WebServer] 6:25:05 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 6:25:06 AM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  19 [chromium] › tests/inspection.spec.ts:95:1 › phone: Graph opens from a task, a node opens its detail and Back returns to the graph (3.2s)
+  ✓  20 [chromium] › tests/inspection.spec.ts:109:1 › returning to Work retains the served list without proposed task requests (3.1s)
+
+  20 passed (44.2s)
