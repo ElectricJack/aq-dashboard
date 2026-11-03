@@ -474,3 +474,9 @@
  .top:has(.mockBanner) .connection { grid-row: 2; }
  .shell[data-focused-session] .compactUsage { flex: 1; }
 }
+
+/* A viewport-fit page (full Supervisor) owns one internal scroller: the shell is exactly
+   viewport-high and main passes its remaining height to the page as a flex column. On
+   phones main's existing bottom padding still reserves the fixed bottom nav. */
+.shell:has(.main [data-viewport-fit]) { block-size: 100dvh; grid-template-rows: auto minmax(0, 1fr); }
+.shell:has(.main [data-viewport-fit]) .main { display: flex; flex-direction: column; min-block-size: 0; }
