@@ -18,12 +18,15 @@ afterEach(() => { server.resetHandlers(); vi.restoreAllMocks(); vi.unstubAllGlob
 afterAll(() => server.close());
 const oldDigest = `sha256:${"a".repeat(64)}`, newDigest = `sha256:${"b".repeat(64)}`;
 
-function setup(initial: string | null = oldDigest) {
+function setup(initial: string | null = oldDigest, options: { sendable?: boolean } = {}) {
   let digest = initial, principal = supervisorActor, revision = "1", signedOut = false;
+  // G8 sends through dashboard actions and only while the global supervisor is available.
+  const sendable = options.sendable ? ["dashboard.actions", "supervisor.conversation"] : [];
   server.use(
     http.get("/api/v1/bootstrap", () => signedOut ? HttpResponse.json({}, { status: 401 }) : HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data,
+      ...(options.sendable ? { global_supervisor: { status: "available", conversation_id: supervisorDiscovery.conversation.id } } : {}),
       principal: { ...bootstrap.data.principal, id: principal, authorization_revision: revision }, product: { ...bootstrap.data.product, dashboard_digest: digest },
-      capabilities: [...bootstrap.data.capabilities, ...["supervisor.history.read", "supervisor.message.enqueue", "human.graph.read", "tasks.create"].map(name => ({ name, version: "1", enabled: true }))] } })),
+      capabilities: [...bootstrap.data.capabilities, ...["supervisor.history.read", "supervisor.message.enqueue", "human.graph.read", "tasks.create", ...sendable].map(name => ({ name, version: "1", enabled: true }))] } })),
     http.get("/api/human/conversations/global", () => HttpResponse.json(supervisorDiscovery)),
     http.get(`/api/human/conversations/${supervisorDiscovery.conversation.id}/messages`, () => HttpResponse.json(supervisorHistory([]))),
     http.get(`/api/human/projects/${graphProject}/tasks`, () => HttpResponse.json(graphEnvelope({ items: [], next_cursor: null }))),
@@ -96,10 +99,13 @@ test.each(["missing", "version"])("a %s required capability refuses only its fea
 });
 
 test("426 blocks message enqueue, preserves its draft, and leaves the shell and history available", async () => {
-  setup();
-  server.use(http.post(`/api/human/conversations/${supervisorDiscovery.conversation.id}/messages`, () => new HttpResponse(null, { status: 426 })));
+  setup(oldDigest, { sendable: true });
+  let posts = 0;
+  server.use(http.post("/api/v1/actions", () => { posts++; return new HttpResponse(null, { status: 426 }); }));
   const app = renderApp("/supervisor"); fireEvent.change(await composer(), { target: { value: "Keep this rejected message" } });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
   await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(posts).toBe(1));
   await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled());
   expect(await composer()).toHaveValue("Keep this rejected message");
   expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
