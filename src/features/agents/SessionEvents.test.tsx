@@ -27,7 +27,12 @@ function setup(options: { enabled?: boolean; version?: string; anchor?: boolean 
   }));
   return renderApp(`/agents/${usageBinding().session.session_id}`);
 }
-async function details() { await userEvent.click(await screen.findByRole("button", { name: "Session details" })); }
+async function details() {
+  // Bootstrap mounts the shell before the session-detail read starts. Give
+  // each visible readiness step its normal assertion deadline.
+  await screen.findByRole("navigation", { name: "Primary" });
+  await userEvent.click(await screen.findByRole("button", { name: "Session details" }));
+}
 async function load() { await details(); await userEvent.click(await screen.findByRole("button", { name: "Load source events" })); return screen.findByRole("region", { name: "Session source events" }); }
 
 test("details retain focused output and only explicit Load reads source reports", async () => {

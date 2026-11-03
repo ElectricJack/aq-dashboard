@@ -1,0 +1,14 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+> node scripts/test.mjs -- src/test/bundleManifest.test.ts src/features/agents/SessionEvents.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  22:35:33
+   Duration  10.04s (tests 62%, transform 16%, environment 12%, setup 6%, import 5%)
+

@@ -20,7 +20,14 @@ function fixture() {
   writeFileSync(join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
   writeFileSync(join(root, "dist/index.html"), '<script src="/assets/app.js"></script>');
   writeFileSync(join(root, "dist/assets/app.js"), 'console.log("release");');
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  // Temporary repositories must not depend on a developer or CI Git identity.
+  const git = (...args: string[]) => execFileSync("git", args, {
+    cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env,
+      GIT_AUTHOR_NAME: "Dashboard release fixture", GIT_AUTHOR_EMAIL: "release-fixture@example.test",
+      GIT_COMMITTER_NAME: "Dashboard release fixture", GIT_COMMITTER_EMAIL: "release-fixture@example.test",
+    },
+  }).trim();
   git("init", "--quiet"); git("add", "."); git("commit", "--quiet", "-m", "fixture");
   const run = (script: string, ...args: string[]) => execFileSync(process.execPath, [script, ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   const output = mkdtempSync(join(tmpdir(), "dashboard-assets-")); temporary.push(output);
