@@ -24,6 +24,7 @@
 
 .countIcon {
   color: var(--color-text-secondary);
+  flex: none;
 }
 
 .counts li[data-count="running"] .countIcon {
@@ -222,3 +223,38 @@
 .recordedHeader h3 { margin: 0; font-size: var(--font-size-meta); color: var(--color-text-secondary); font-weight: 400; }
 .scopeDisclosure { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
 .scopeDisclosure[open] { flex-basis: 100%; }
+
+/* G5 follows reference 01: attention first, dense movement/outcomes, secondary facts. */
+.summary { margin: calc(-1 * var(--space-3)) 0 0; color: var(--color-text-secondary); font-size: 18px; }
+.referenceDetails { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: var(--space-2); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.referenceDetails dd { margin: 0; }
+.sourceList { display: grid; gap: var(--space-3); padding-inline-start: var(--space-5); }
+.sourceList span { display: block; color: var(--color-text-secondary); }
+.attentionMain, .rowTitle { overflow-wrap: anywhere; }
+.sessionRow { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: var(--space-3); }
+.sessionRow > div { display: grid; gap: var(--space-1); }
+.sessionRow .action { grid-column: 2; grid-row: 1; }
+.sessionChoice { display: grid; gap: var(--space-2); }
+.sessionChoice select { inline-size: 100%; min-inline-size: 0; min-block-size: var(--touch-target); font: inherit; background: var(--color-raised); color: var(--color-text); }
+.pinButton { min-block-size: var(--touch-target); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-raised); color: var(--color-accent); font: inherit; cursor: pointer; }
+@media (min-width: 1200px) { .columns { grid-template-columns: minmax(0,1.65fr) minmax(280px,1fr); } }
+@media (max-width: 767px) {
+ .panel { padding: var(--space-4); }
+ .attentionRow { grid-template-columns: 28px minmax(0,1fr); gap: var(--space-2) var(--space-3); }
+ .attentionRow > .action { grid-column: 2; justify-self: start; }
+ .attentionRow > .meta { grid-column: 2; }
+ .impact { grid-row: auto; max-inline-size: 100%; white-space: normal; }
+ .counts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); justify-content: initial; }
+ .counts strong { font-size: 18px; }
+ .summary { font-size: 16px; }
+}
+
+@media (min-width: 768px) { .attentionRow { grid-template-columns: 28px minmax(0,1fr) minmax(7rem,.65fr) auto; } }
+.impact { white-space: normal; }
+
+@media (max-width: 360px) {
+ .counts { padding: var(--space-3); gap: var(--space-3) var(--space-2); }
+ .counts li { gap: var(--space-1); font-size: 12px; }
+ .counts strong { font-size: 16px; }
+ .countIcon { inline-size: 20px; block-size: 20px; }
+}

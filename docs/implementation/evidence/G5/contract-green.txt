@@ -1,0 +1,17 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/api/adapters/overviewContract.test.ts src/api/adapters/providerUsage.test.ts src/api/adapters/inspection.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+
+ Test Files  3 passed (3)
+      Tests  41 passed (41)
+   Start at  19:31:53
+   Duration  5.20s (environment 68%, setup 17%, transform 13%, import 1%, tests 1%, worker 1%)
+
+Environment  jsdom was created 3 times · 5.01s total, 68% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

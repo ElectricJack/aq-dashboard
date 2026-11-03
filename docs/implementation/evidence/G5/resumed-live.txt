@@ -1,0 +1,11 @@
+file:///home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/scripts/probe-core-overview.mjs:8
+if(!process.env.AQ_LIVE_URL||!process.env.AQ_LIVE_PROJECT_ID)throw new Error("Actual G4 AQ_LIVE_URL and AQ_LIVE_PROJECT_ID are required; fixture preview is not live qualification");
+                                                                   ^
+
+Error: Actual G4 AQ_LIVE_URL and AQ_LIVE_PROJECT_ID are required; fixture preview is not live qualification
+    at file:///home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/scripts/probe-core-overview.mjs:8:68
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.15.0

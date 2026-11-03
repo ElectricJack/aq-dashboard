@@ -185,3 +185,14 @@ test("says when AQ reports only some provider accounts", () => {
   );
   expect(within(region()).getByText(/some provider accounts are not reported/i)).toBeInTheDocument();
 });
+
+test('does not select an arbitrary window when the owner has no preference', () => {
+ render(<ProviderUsageStrip state={{status:'ready',data:data([win(),win({id:'day',label:'Day',usedPercent:90})],null)}}/>);
+ expect(within(region()).queryByTestId('quota-primary')).toBeNull();
+ expect(region()).toHaveTextContent('No preferred window reported');
+});
+test('shows a missing reset explicitly', () => {
+ render(<ProviderUsageStrip state={{status:'ready',data:data([win({resetsAt:null})])}}/>);
+ expect(within(region()).getByTestId('quota-primary')).toHaveTextContent('reset unknown');
+ expect(region()).toHaveTextContent('anthropic');
+});

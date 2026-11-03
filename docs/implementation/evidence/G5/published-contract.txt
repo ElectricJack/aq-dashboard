@@ -1,0 +1,13 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/api/adapters/overviewContract.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:12:39
+   Duration  2.13s (environment 71%, setup 16%, transform 9%, import 2%, tests 1%, worker 1%)
+

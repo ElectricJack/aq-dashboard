@@ -1,0 +1,94 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+ ❯ src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx (18 tests | 2 failed) 540ms
+   × does not select an arbitrary window when the owner has no preference 23ms
+   × shows a missing reset explicitly 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx > does not select an arbitrary window when the owner has no preference
+AssertionError: expected <div class="window" …(1)>…(2)</div> to be null
+
+- Expected:
+null
+
++ Received:
+<div
+  class="window"
+  data-testid="quota-primary"
+>
+  <span
+    class="figure"
+  >
+    <span
+      aria-hidden="true"
+      class="bar"
+      data-level="normal"
+    >
+      <span
+        style="inline-size: 42%;"
+      />
+    </span>
+    <span
+      class="percent"
+      data-level="normal"
+    >
+      42%
+       used
+    </span>
+  </span>
+  <span
+    class="meta"
+  >
+    Week
+     · resets 
+    in 2d
+     · 
+    <span
+      class="fresh"
+    >
+      updated 
+      2s ago
+    </span>
+  </span>
+</div>
+
+ ❯ src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx:191:58
+    189| test('does not select an arbitrary window when the owner has no prefer…
+    190|  render(<ProviderUsageStrip state={{status:'ready',data:data([win(),wi…
+    191|  expect(within(region()).queryByTestId('quota-primary')).toBeNull();
+       |                                                          ^
+    192|  expect(region()).toHaveTextContent('No preferred window reported');
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx > shows a missing reset explicitly
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  reset unknown
+Received:
+  42% usedWeek · updated 2s ago
+ ❯ src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx:196:56
+    194| test('shows a missing reset explicitly', () => {
+    195|  render(<ProviderUsageStrip state={{status:'ready',data:data([win({res…
+    196|  expect(within(region()).getByTestId('quota-primary')).toHaveTextConte…
+       |                                                        ^
+    197|  expect(region()).toHaveTextContent('anthropic');
+    198| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 16 passed (18)
+   Start at  19:37:01
+   Duration  2.07s (environment 44%, tests 29%, setup 12%, transform 11%, import 4%, worker 1%)
+
+ ELIFECYCLE  Test failed. See above for more details.

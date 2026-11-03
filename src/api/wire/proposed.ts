@@ -8,6 +8,8 @@
 export type Id = string;
 /** Positive decimal string. Never convert to Number. */
 export type Revision = string;
+/** Entity references also accept sha256:<64 lowercase hex> pins from dashboard-read-1. */
+export type ReferenceRevision = string;
 /** UTC RFC3339 with milliseconds. */
 export type Timestamp = string;
 export type Digest = string;
@@ -86,7 +88,7 @@ export type ProviderUsage = {
   scope: "provider_account";
   windows: QuotaWindow[];
   preferred_window_id: Id | null;
-  availability_ref: { type: string; id: Id; revision?: Revision } | null;
+  availability_ref: { type: string; id: Id; revision?: ReferenceRevision } | null;
 };
 
 /* ---------------------------------------------------------------------------
@@ -97,7 +99,7 @@ export type ProviderUsage = {
  * from agent-q's lifecycle API.
  * ------------------------------------------------------------------------- */
 
-export type EntityRef = { type: string; id: Id; revision?: Revision };
+export type EntityRef = { type: string; id: Id; revision?: ReferenceRevision };
 export type TitledRef = EntityRef & { title: string };
 export type ProjectRef = { id: Id; label: string };
 

@@ -91,3 +91,32 @@ test("attention rows and counts carry decorative icons", async () => {
     expect(item.querySelector("svg[aria-hidden='true']")).not.toBeNull();
   }
 });
+
+test('overview_attention_renders_live_items',async()=>{
+ const {g4Handlers}=await import('../../test/g4');server.use(...g4Handlers());
+ renderApp('/overview');const region=await attention();
+ expect(await within(region).findByText('Worker offline')).toBeVisible();
+ expect(within(region).getByText('Waiting decision')).toBeVisible();
+ expect(within(region).getByText('Failed process result')).toBeVisible();
+ expect(within(region).getAllByText(/waiting age unknown/i)).toHaveLength(2);
+ expect(within(region).getByRole('link',{name:/Inspect: Failed process result/})).toHaveAttribute('href',expect.stringContaining('/revisions/sha256%3A'));
+ expect(within(region).getByRole('button',{name:'Inspect: Worker offline'})).toBeVisible();
+ expect(screen.getByRole('region',{name:'Recent outcomes'})).toHaveTextContent('Process failed');
+ expect(screen.getByText('Source coverage')).toBeInTheDocument();
+ expect(screen.getByRole('table',{name:'Work in motion'})).toBeInTheDocument();
+});
+test('question and unsupported attention kinds have distinct controls',async()=>{
+ const {http,HttpResponse}=await import('msw');const fixture=(await import('../../../contracts/proposed/bootstrap.json')).default;
+ const raw=(await import('../../../contracts/pinned/dashboard-read/v1/fixtures/overview-nonempty.json')).default;
+ server.use(http.get('/api/v1/overview',()=>HttpResponse.json({...raw,api_version:fixture.api_version,data:{...raw.data,attention:[{...raw.data.attention[1],id:'q',kind:'question',subject:{type:'decision',id:'q',revision:'1'},title:'Answer the question'},{...raw.data.attention[1],id:'u',kind:'future',title:'Future item'}]}})));
+ renderApp('/overview');const region=await attention();expect(await within(region).findByRole('link',{name:'Answer: Answer the question'})).toBeVisible();expect(within(region).getByText('Unsupported item type')).toBeVisible();
+});
+
+test('failed refresh of an empty read never claims nothing needs attention',async()=>{
+ server.use(...handlersFor('empty'));const {queryClient}=renderApp('/overview');
+ expect(await within(await attention()).findByText('Nothing needs your attention')).toBeVisible();
+ const {http,HttpResponse}=await import('msw');server.use(http.get('/api/v1/overview',()=>HttpResponse.json({},{status:503})));
+ await queryClient.invalidateQueries({predicate:q=>q.queryKey.includes('overview')});
+ await waitFor(()=>expect(screen.queryByText('Nothing needs your attention')).toBeNull());
+ expect(within(await attention()).getByText(/may be incomplete/i)).toBeVisible();
+});

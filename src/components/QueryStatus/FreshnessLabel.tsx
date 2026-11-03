@@ -13,8 +13,8 @@ export function FreshnessLabel({
 }) {
   const age = formatAge(serverTime, observedAt);
   return stale ? (
-    <span className={styles.stale}>Stale, observed {age}</span>
+    <span className={styles.stale} title={observedAt}>Stale, observed {age}</span>
   ) : (
-    <span className={styles.fresh}>updated {age}</span>
+    <span className={styles.fresh} title={observedAt}>updated {age}</span>
   );
 }

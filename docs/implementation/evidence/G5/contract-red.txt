@@ -1,0 +1,95 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/api/adapters/overviewContract.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+ ❯ src/api/adapters/overviewContract.test.ts (8 tests | 4 failed) 24ms
+   × G4 typed attention preserves nullable age, worker kind and digest outcome 13ms
+   × G4 malformed references and collections are rejected 3ms
+   × G4 quota preserves account usage and stale observations 1ms
+   × G4 search refs and per-group continuation are adapted 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/api/adapters/overviewContract.test.ts > G4 typed attention preserves nullable age, worker kind and digest outcome
+AssertionError: expected 'unsupported' to be 'worker_offline' // Object.is equality
+
+Expected: "worker_offline"
+Received: "unsupported"
+
+ ❯ src/api/adapters/overviewContract.test.ts:16:34
+     14| test('G4 typed attention preserves nullable age, worker kind and diges…
+     15|  const view = overview(nonempty.data);
+     16|  expect(view.attention[0]?.kind).toBe('worker_offline');
+       |                                  ^
+     17|  expect(view.attention[0]?.since).toBeNull();
+     18|  expect(view.attention[1]?.action).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/api/adapters/overviewContract.test.ts > G4 malformed references and collections are rejected
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ src/api/adapters/overviewContract.test.ts:27:33
+     25| test('G4 malformed references and collections are rejected', () => {
+     26|  const bad=structuredClone(nonempty);bad.data.attention[0]!.subject.re…
+     27|  expect(()=>overview(bad.data)).toThrow(/contract/i);
+       |                                 ^
+     28|  expect(()=>overview({...nonempty.data,attention:{}})).toThrow(/contra…
+     29| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/api/adapters/overviewContract.test.ts > G4 quota preserves account usage and stale observations
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ src/api/adapters/overviewContract.test.ts:33:74
+     31|  expect(usage(quota).providers[0]?.windows[0]?.usedPercent).toBe(25);
+     32|  expect(usage(stale).providers[0]?.windows[0]?.freshness).toBe('stale'…
+     33|  expect(()=>usage({...quota,data:[{...quota.data[0],scope:'project'}]}…
+       |                                                                          ^
+     34| });
+     35| test('G4 search refs and per-group continuation are adapted',()=>{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/api/adapters/overviewContract.test.ts > G4 search refs and per-group continuation are adapted
+AssertionError: expected undefined to be 'task' // Object.is equality
+
+- Expected:
+"task"
+
++ Received:
+undefined
+
+ ❯ src/api/adapters/overviewContract.test.ts:37:44
+     35| test('G4 search refs and per-group continuation are adapted',()=>{
+     36|  const view=adaptSearch(search.data as unknown as SearchResults);
+     37|  expect(view.groups[0]?.hits[0]?.ref.type).toBe('task');
+       |                                            ^
+     38|  expect(view.groups[0]).toHaveProperty('nextCursor',search.data.groups…
+     39| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 4 passed (8)
+   Start at  19:30:17
+   Duration  6.85s (environment 70%, setup 25%, transform 4%)
+
+ ELIFECYCLE  Test failed. See above for more details.

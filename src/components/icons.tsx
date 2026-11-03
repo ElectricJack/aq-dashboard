@@ -65,6 +65,8 @@ export const READINESS_ICON: Record<ReadinessView["state"], LucideIcon> = {
 
 export const ATTENTION_ICON: Record<AttentionView["kind"], LucideIcon> = {
   decision: FileText,
+  question: CircleHelp,
+  worker_offline: Monitor,
   blocked: OctagonAlert,
   failed: TriangleAlert,
   uncertain_operation: CircleDashed,

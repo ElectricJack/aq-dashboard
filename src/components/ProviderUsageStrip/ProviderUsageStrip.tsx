@@ -30,7 +30,7 @@ export function formatPercent(pct: number): string {
   return `${Math.round(pct)}%`;
 }
 
-function WindowSummary({ win, serverTime }: { win: QuotaWindowView; serverTime: string }) {
+export function WindowSummary({ win, serverTime, compact = false }: { win: QuotaWindowView; serverTime: string; compact?: boolean }) {
   const known = win.state === "known" && win.usedPercent !== null;
   const level = known && win.usedPercent! >= 80 ? "high" : "normal";
   return (
@@ -38,9 +38,9 @@ function WindowSummary({ win, serverTime }: { win: QuotaWindowView; serverTime: 
       <span className={styles.figure}>
         {known ? (
           <>
-            <span className={styles.bar} data-level={level} aria-hidden="true">
+            {!compact && <span className={styles.bar} data-level={level} aria-hidden="true">
               <span style={{ inlineSize: `${win.usedPercent}%` }} />
-            </span>
+            </span>}
             <span className={styles.percent} data-level={level}>
               {formatPercent(win.usedPercent!)} used
             </span>
@@ -53,7 +53,7 @@ function WindowSummary({ win, serverTime }: { win: QuotaWindowView; serverTime: 
       <span className={styles.meta}>
         {win.label}
         {win.coverage === "partial" && <span className={styles.qualifier}> · partial data</span>}
-        {win.resetsAt && <> · resets {formatUntil(serverTime, win.resetsAt)}</>}
+        {win.resetsAt ? <> · resets {formatUntil(serverTime, win.resetsAt)}</> : " · reset unknown"}
         {" · "}
         <FreshnessLabel serverTime={serverTime} observedAt={win.observedAt} stale={win.freshness === "stale"} />
       </span>
@@ -65,13 +65,13 @@ function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; 
   const [open, setOpen] = useState(false);
   const listId = useId();
   const primary =
-    provider.windows.find((w) => w.id === provider.preferredWindowId) ?? provider.windows[0];
-  const many = provider.windows.length > 1;
+    provider.windows.find((w) => w.id === provider.preferredWindowId);
+  const many = provider.windows.length > 1 || (!primary && provider.windows.length > 0);
 
   return (
     <div className={styles.entry}>
       <div className={styles.head}>
-        <span className={styles.name}>{provider.accountLabel}</span>
+        <span className={styles.name}>{provider.providerId} · <span>{provider.accountLabel}</span></span>
         {many && (
           <button
             type="button"
@@ -90,7 +90,7 @@ function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; 
           <WindowSummary win={primary} serverTime={serverTime} />
         </div>
       ) : (
-        <span className={styles.unknown}>Usage unavailable</span>
+        <span className={styles.unknown}>{provider.windows.length ? "No preferred window reported" : "Usage unavailable"}</span>
       )}
       {many && open && (
         <ul id={listId} className={styles.windows} aria-label={`${provider.accountLabel} usage windows`}>

@@ -158,7 +158,7 @@ test("an unauthenticated session asks the user to sign in", async () => {
 test("shows the signed-in principal in the rail", async () => {
   renderApp("/overview");
   await rail();
-  expect(within(screen.getByRole("complementary")).getByText("Sample Owner")).toBeInTheDocument();
+  expect(within(screen.getByRole("complementary", {name:"Application navigation"})).getByText("Sample Owner")).toBeInTheDocument();
 });
 
 test("shows connection status in the top area", async () => {
@@ -302,7 +302,7 @@ test("unknown quota summaries never invent a zero percentage", async () => {
 test("stale quota stays qualified in the compact account summary", async () => {
   useScenario("stale"); renderApp("/overview");
   const banner = await screen.findByRole("banner"); const summary = banner.querySelector("summary")!;
-  await waitFor(() => expect(summary).toHaveTextContent("42% used · stale"));
+  await waitFor(() => expect(summary).toHaveTextContent(/42% used.*Stale, observed 1h ago/));
 });
 
 
@@ -313,6 +313,6 @@ test("compact quota follows the reported preferred window and preserves estimate
   fixture.data[0]!.windows[1]!.observation.coverage = "partial";
   server.use(http.get("/api/v1/provider-usage", () => HttpResponse.json(fixture)));
   renderApp("/overview"); const banner = await screen.findByRole("banner"); const summary = banner.querySelector("summary")!;
-  await waitFor(() => expect(summary).toHaveTextContent("18% used · estimated · partial"));
+  await waitFor(() => expect(summary).toHaveTextContent(/18% used.*estimated.*partial data/));
   expect(summary).not.toHaveTextContent("42% used");
 });

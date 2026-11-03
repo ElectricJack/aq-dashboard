@@ -1,10 +1,7 @@
 import type {
   ActionDescriptor,
-  SearchResults,
-  AttentionItem,
   EdgeType,
   Fact,
-  Overview,
   Page,
   ProcessObservation,
   Readiness,
@@ -16,6 +13,8 @@ import type {
   Total,
 } from "../wire/proposed";
 import { ContractError, isRecord, isStale } from "./contract";
+import { reference } from "./reference";
+import { adaptSources } from "./overview";
 import { adaptSessionUsageAnchor } from "./sessionUsage";
 
 type Unsupported = "unsupported";
@@ -259,53 +258,7 @@ export function adaptTaskGraph(g: TaskGraph): TaskGraphView {
 
 /* ----- Overview ----- */
 
-const ATTENTION_KINDS = ["decision", "blocked", "failed", "uncertain_operation"] as const;
-
-export type AttentionView = Omit<AttentionItem, "kind" | "action"> & {
-  kind: AttentionItem["kind"] | Unsupported;
-  action: ActionView | null;
-};
-
-export type OverviewView = {
-  counts: Record<keyof Overview["counts"], TotalView>;
-  attention: AttentionView[];
-  inMotion: {
-    project: Overview["in_motion"][number]["project"];
-    running: TotalView;
-    nextConstraint: { kind: string; explanation: string } | null;
-    lastProgressAt: string | null;
-  }[];
-  recentOutcomes: (Omit<Overview["recent_outcomes"][number], "outcome"> & {
-    outcome: Fact["kind"] | Unsupported;
-  })[];
-};
-
-export function adaptOverview(o: Overview): OverviewView {
-  return {
-    counts: {
-      running: adaptTotal(o.counts.running),
-      ready: adaptTotal(o.counts.ready),
-      needs_you: adaptTotal(o.counts.needs_you),
-      recovering: adaptTotal(o.counts.recovering),
-    },
-    attention: o.attention.map((a) => {
-      const kind = known(a.kind, ATTENTION_KINDS);
-      const action = a.action && adaptAction(a.action);
-      return {
-        ...a,
-        kind,
-        action: action && kind === "unsupported" ? { ...action, allowed: false } : action,
-      };
-    }),
-    inMotion: o.in_motion.map((m) => ({
-      project: m.project,
-      running: adaptTotal(m.running),
-      nextConstraint: m.next_constraint,
-      lastProgressAt: m.last_progress_at,
-    })),
-    recentOutcomes: o.recent_outcomes.map((r) => ({ ...r, outcome: known(r.outcome, FACT_KINDS) })),
-  };
-}
+export { adaptOverview, type AttentionView, type OverviewView } from "./overview";
 
 /* ----- Sessions ----- */
 
@@ -400,24 +353,36 @@ export function adaptSessionDetail(s: SessionDetail, serverTime: string): Sessio
 const SEARCH_TYPES = ["task", "session", "result", "playbook", "knowledge"] as const;
 
 export type SearchView = {
+  snapshotId: string | null;
+  sources: import('../wire/overview').SourceObservation[];
   groups: {
-    type: SearchResults["groups"][number]["type"] | Unsupported;
-    hits: SearchResults["groups"][number]["hits"];
+    type: string;
+    hits: { ref: import('../wire/proposed').EntityRef; title:string; excerpt?:string; project?:{id:string;label:string} }[];
     hasMore: boolean;
+    nextCursor: string | null;
   }[];
 };
 
-export function adaptSearch(data: SearchResults): SearchView {
+export function adaptSearch(data: unknown): SearchView {
   if (!isRecord(data) || !Array.isArray(data.groups)) throw new ContractError("search groups must be a list");
   return {
+    snapshotId: typeof data.snapshot_id==='string'?data.snapshot_id:null,
+    sources: adaptSources(data.sources),
     groups: data.groups.map((g) => {
-      if (!isRecord(g) || !Array.isArray(g.hits)) throw new ContractError("search hits must be a list");
-      for (const h of g.hits) {
-        if (!isRecord(h) || !isRecord(h.ref) || typeof h.ref.id !== "string" || typeof h.title !== "string") {
-          throw new ContractError("search hit must have a ref and title");
+      if (!isRecord(g) || !Array.isArray(g.hits) || typeof g.type!=='string' || typeof g.has_more!=='boolean' ||
+          (g.next_cursor!=null && typeof g.next_cursor!=='string') || (g.next_cursor!=null && !g.has_more)) throw new ContractError("Invalid search group");
+      const hits = g.hits.map((h:unknown)=>{
+        if (!isRecord(h) || !isRecord(h.ref) || typeof h.title!=="string") throw new ContractError("search hit must have a ref and title");
+        const ref=reference({...h.ref,type:h.ref.kind??h.ref.type});
+        if(h.ref.kind && (ref.type!==g.type || !ref.revision))throw new ContractError('Invalid search reference binding');
+        let project: {id:string;label:string} | undefined;
+        if(h.project!=null){
+          if(!isRecord(h.project)||typeof h.project.id!=='string'||typeof h.project.label!=='string')throw new ContractError('Invalid search project');
+          project={id:h.project.id,label:h.project.label};
         }
-      }
-      return { type: known(String(g.type), SEARCH_TYPES), hits: g.hits, hasMore: g.has_more === true };
+        return {ref,title:h.title,excerpt:typeof h.excerpt==='string'?h.excerpt:undefined,project};
+      });
+      return { type: known(g.type, SEARCH_TYPES), hits, hasMore: g.has_more, nextCursor: g.next_cursor??null };
     }),
   };
 }

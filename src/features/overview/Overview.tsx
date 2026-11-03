@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView } from "../../api/adapters/inspection";
-import type { Overview as OverviewWire } from "../../api/wire/proposed";
-import { CircleCheck } from "lucide-react";
+import type { Overview as OverviewWire } from "../../api/wire/overview";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -19,6 +20,8 @@ const OVERVIEW_POLL_MS = 10_000;
 
 const ACTION_LABEL: Record<AttentionView["kind"], string> = {
   decision: "Review",
+  question: "Answer",
+  worker_offline: "Inspect",
   blocked: "Inspect",
   failed: "Inspect",
   uncertain_operation: "Reconcile",
@@ -26,7 +29,8 @@ const ACTION_LABEL: Record<AttentionView["kind"], string> = {
 };
 
 function AttentionRow({ item, serverTime, search }: { item: AttentionView; serverTime: string; search: string }) {
-  const path = subjectPath(item.subject);
+  const [inspect, setInspect] = useState(false);
+  const path = item.kind === "unsupported" ? null : subjectPath(item.subject);
   const label = ACTION_LABEL[item.kind];
   return (
     <li className={styles.attentionRow} data-kind={item.kind}>
@@ -34,9 +38,9 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
       <div className={styles.attentionMain}>
         <span className={styles.rowTitle}>{item.title}</span>
         <span className={styles.meta}>
-          {item.project.label} · {item.kind === "unsupported" ? "Unsupported item" : item.reason} · waiting{" "}
-          {formatElapsed(serverTime, item.since)}
+          {item.project?.label ?? "Installation"} · {item.kind === "unsupported" ? "Unsupported item" : item.kind.replaceAll("_", " ")} · {item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown"}
         </span>
+        <span className={styles.meta}>{item.reason}</span>
         {item.action && !item.action.allowed && item.action.explanation && (
           <span className={styles.meta}>{item.action.explanation}</span>
         )}
@@ -46,9 +50,12 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
         <Link className={styles.action} to={{ pathname: path, search }} aria-label={`${label}: ${item.title}`}>
           {label}
         </Link>
+      ) : item.kind === "worker_offline" || item.kind === "uncertain_operation" ? (
+        <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${item.title}`} onClick={() => setInspect(!inspect)}>{label}</button>
       ) : (
-        <span className={styles.meta}>No view for this item yet</span>
+        <span className={styles.meta}>{item.kind === "unsupported" ? "Unsupported item type" : "Inspection unavailable"}</span>
       )}
+      {inspect && <dl className={styles.referenceDetails}><dt>Subject</dt><dd>{item.subject.type} · {item.subject.id}</dd><dt>Revision</dt><dd>{item.subject.revision ?? "Unknown"}</dd><dt>Observation</dt><dd>{item.reason}</dd></dl>}
     </li>
   );
 }
@@ -91,22 +98,32 @@ export function Overview() {
     pollMs: OVERVIEW_POLL_MS,
   });
 
+  if (!query.data && !query.isError) return <QueryStatus status="pending" label="the overview" error={null} onRetry={()=>void query.refetch()} />;
   if (!query.data) {
     return (
       <div className={styles.columns}>
         <div className={styles.primary}>
+          <section className={styles.panel} aria-labelledby="attention-heading">
+          <h2 id="attention-heading">Needs your attention</h2>
           <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="the overview" onRetry={() => void query.refetch()} />
+          </section>
+          <section className={styles.panel} aria-labelledby="motion-heading">
+          <h2 id="motion-heading">Work in motion</h2>
+          <p className={styles.meta}>{query.isError ? "Project movement unavailable" : "Loading project movement…"}</p>
           {query.isError && <RecordedTasks />}
+          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p></section>
+          </section>
         </div>
-        {query.isError && <Infrastructure />}
+        <Infrastructure />
       </div>
     );
   }
 
   const { view, serverTime, coverage } = query.data;
-  const complete = coverage.state === "complete";
+  const complete = coverage.state === "complete" && !query.isError && view.sources.every(source => source.coverage.state === "complete");
   return (
     <div className={styles.layout}>
+      <p className={styles.summary}>Attention: <CountLabel total={view.counts.needs_you} /> need you. {view.inMotion.length} project {view.inMotion.length === 1 ? "summary" : "summaries"} reported.</p>
       {query.isError && (
         <p className={styles.warning} role="status">
           Refresh failed. Showing the last successful read, which may be out of date.
@@ -130,12 +147,13 @@ export function Overview() {
           </li>
         ))}
       </ul>
-      {coverage.reason && <details className={styles.coverageDisclosure}><summary>Partial overview</summary><p>{coverage.reason}</p></details>}
+      {coverage.reason && view.sources.length === 0 && <details className={styles.coverageDisclosure}><summary>Partial overview</summary><p>{coverage.reason}</p></details>}
+      {view.sources.length > 0 && <details className={styles.coverageDisclosure}><summary>Source coverage</summary><ul className={styles.sourceList}>{view.sources.map((source,index)=><li key={`${source.source}:${source.project?.id??index}`}><strong>{source.source.replaceAll('_',' ')}</strong> · {source.coverage.state} · <CountLabel total={source.total} /> records · {source.observation ? formatAge(serverTime,source.observation.observed_at) : 'Observation unavailable'}{source.project && ` · ${source.project.label}`}{source.coverage.reason && <span>{source.coverage.reason.replaceAll('_',' ')}</span>}</li>)}</ul></details>}
       <div className={styles.columns}><div className={styles.primary}>
       <Attention view={view} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
-        {taskContributions ? <RecordedTasks embedded /> : <div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
+        {<div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
           <table aria-labelledby="motion-heading" className={styles.table}>
             <thead>
               <tr>
@@ -152,13 +170,15 @@ export function Overview() {
                   <td>
                     <CountLabel total={m.running} /> running
                   </td>
-                  <td>{m.nextConstraint ? m.nextConstraint.explanation : complete ? "None" : "Not observed"}</td>
+                  <td>{m.nextConstraint ? m.nextConstraint.explanation : "Not reported"}</td>
                   <td>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>}
+        {view.inMotion.length === 0 && <p className={styles.meta}>{complete ? "No work in motion" : "Project movement not reported"}</p>}
+        {taskContributions && <details className={styles.observationDetails}><summary>Recorded task details</summary><RecordedTasks embedded /></details>}
       <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
         <h2 id="outcomes-heading">Recent outcomes</h2>
         {view.recentOutcomes.length === 0 ? (
@@ -169,10 +189,10 @@ export function Overview() {
               const path = subjectPath(r.subject);
               return (
                 <li key={`${r.subject.id}:${r.outcome}`}>
-                  <Icon icon={CircleCheck} size={20} className={styles.outcomeIcon} />
+                  <Icon icon={r.outcome === "process_failed" ? TriangleAlert : CircleCheck} size={20} className={r.outcome === "process_failed" ? styles.kindIcon : styles.outcomeIcon} />
                   {path ? <Link to={{ pathname: path, search }}>{r.subject.title}</Link> : <span>{r.subject.title}</span>}
                   <span className={styles.meta}>
-                    {FACT_LABEL[r.outcome]} · {r.project.label} · {formatAge(serverTime, r.at)}
+                    {FACT_LABEL[r.outcome] ?? "Unsupported outcome"} · {r.project.label} · {formatAge(serverTime, r.at)}
                   </span>
                 </li>
               );

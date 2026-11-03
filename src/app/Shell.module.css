@@ -456,3 +456,17 @@
   .shell[data-focused-session] .top { display: flex; min-block-size: 62px; justify-content: space-between; padding-block: var(--space-2); }
   .shell[data-focused-session] .main > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+
+/* Account facts wrap as text; the header never truncates quota/reset/freshness. */
+.compactUsage summary { white-space: normal; }
+.usageAccount > span { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.usageAccount { align-content: start; }
+@media (max-width: 1199px) { .usageAccounts { flex-wrap: wrap; } .usageAccount { flex-basis: 12rem; } }
+@media (max-width: 767px) {
+ .compactUsage { grid-column: 2 / -1; }
+ .connection { grid-row: 1; align-self: end; font-size: 11px; }
+ .scopeRow { grid-template-columns: max-content minmax(0,1fr); padding-block-end: var(--space-3); }
+ .connection { grid-column: 2 / -1; justify-self: end; }
+ .usageAccount { flex-basis: 100%; }
+ .shell[data-focused-session] .compactUsage { flex: 1; }
+}

@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router";
 import { adaptSearch, type SearchView } from "../../api/adapters/inspection";
-import type { SearchResults } from "../../api/wire/proposed";
+import type { Envelope, Scope } from "../../api/wire/proposed";
+import type { Search as SearchResults } from "../../api/wire/overview";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { ApiError, apiGet } from "../../api/client";
+import { ContractError } from "../../api/adapters/contract";
+import { validateReadEnvelope } from "../../api/adapters/envelope";
+import { scopedKey } from "../../api/queryKeys";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { scopeSearch, useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { subjectPath } from "../../app/subjects";
-import { useRead } from "../../app/useRead";
+import { readUrl, useRead } from "../../app/useRead";
 import { HumanSearchResults } from "./HumanSearchResults";
 import styles from "./SearchDialog.module.css";
 
@@ -30,83 +36,58 @@ function useDebounced(value: string, ms: number) {
   return debounced;
 }
 
-function Results({ q, onChoose }: { q: string; onChoose(): void }) {
-  const [scope] = useScope();
-  const search = scopeSearch(scope);
-  const query = useRead<SearchResults, SearchView>({
-    resource: "search",
-    path: "/api/v1/search",
-    scope,
-    params: { q },
-    adapt: adaptSearch,
+type Group = SearchView['groups'][number];
+
+function SearchGroup({ group, snapshot, q, scope, generation, onChoose, onRestart }: { group:Group; snapshot:string|null; q:string; scope:Scope; generation:number; onChoose():void; onRestart():void }) {
+  const {queryContext}=useSession();
+  const search=scopeSearch(scope);
+  const label=GROUP_LABEL[group.type]??'Other results';
+  const query=useInfiniteQuery({
+    queryKey:scopedKey(queryContext,scope,'search',{q,type:group.type,snapshot,generation}),
+    initialPageParam:null as string|null,
+    initialData:{pages:[group],pageParams:[null]},
+    enabled:false,
+    queryFn:async({pageParam,signal})=>{
+      const env=await apiGet<Envelope<SearchResults>>(readUrl('/api/v1/search',{q,types:group.type,cursor:pageParam??undefined},scope),signal);
+      validateReadEnvelope(env,queryContext.contractVersion,scope);
+      const view=adaptSearch(env.data);
+      const next=view.groups.find(g=>g.type===group.type);
+      if(view.snapshotId!==snapshot||!next)throw new ContractError('Search continuation changed snapshot or group');
+      return next;
+    },
+    getNextPageParam:(page)=>page.hasMore?page.nextCursor??undefined:undefined,
+    retry:false,
   });
-  if (!query.data) {
-    return (
-      <QueryStatus
-        status={query.isError ? "error" : "pending"}
-        error={query.error}
-        label="search results"
-        onRetry={() => void query.refetch()}
-      />
-    );
-  }
-  const { view, coverage } = query.data;
-  const complete = coverage.state === "complete";
-  if (view.groups.length === 0) {
-    return complete ? (
-      <p className={styles.muted} role="status">
-        No matches for “{q}”
-      </p>
-    ) : (
-      <p className={styles.warning} role="status">
-        No matches in the projects that responded; results may be incomplete.
-      </p>
-    );
-  }
-  const count = view.groups.reduce((n, g) => n + g.hits.length, 0);
-  return (
-    <div className={styles.results}>
-      <p className="visually-hidden" role="status">
-        {count} result{count === 1 ? "" : "s"}
-      </p>
-      {!complete && <p className={styles.warning}>Some projects didn't respond; results may be incomplete.</p>}
-      {view.groups.map((g) => {
-        const label = GROUP_LABEL[g.type] ?? "Other results";
-        return (
-          <section key={g.type} className={styles.group}>
-            <h3 id={`search-group-${g.type}`}>{label}</h3>
-            <ul aria-labelledby={`search-group-${g.type}`}>
-              {g.hits.map((h) => {
-                const path = subjectPath(h.ref);
-                const body = (
-                  <>
-                    <span className={styles.hitTitle}>{h.title}</span>
-                    <span className={styles.muted}>
-                      {h.project?.label}
-                      {h.project && h.excerpt && " · "}
-                      {h.excerpt}
-                    </span>
-                  </>
-                );
-                return (
-                  <li key={`${h.ref.type}:${h.ref.id}`}>
-                    {path ? (
-                      <Link to={{ pathname: path, search }} className={styles.hit} onClick={onChoose} data-search-result>
-                        {body}
-                      </Link>
-                    ) : (
-                      <span className={styles.hit}>{body}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            {g.hasMore && <p className={styles.muted}>More {label.toLowerCase()} match. Refine your search.</p>}
-          </section>
-        );
+  const hits=[...new Map(query.data.pages.flatMap(page=>page.hits).map(hit=>[JSON.stringify(hit.ref),hit])).values()];
+  const expired=query.error instanceof ApiError&&query.error.status===410;
+  return <section className={styles.group}>
+    <h3 id={`search-group-${group.type}`}>{label}</h3>
+    {expired?<p role="alert" className={styles.warning}>Search snapshot expired. <button type="button" className={styles.close} onClick={onRestart}>Restart search</button></p>:<>
+    <ul aria-labelledby={`search-group-${group.type}`}>
+      {hits.map(h=>{
+        const path=subjectPath(h.ref);
+        const body=<><span className={styles.hitTitle}>{h.title}</span><span className={styles.muted}>{h.project?.label}{h.project&&h.excerpt&&' · '}{h.excerpt}</span></>;
+        return <li key={JSON.stringify(h.ref)}>{path?<Link to={{pathname:path,search}} className={styles.hit} onClick={onChoose} data-search-result>{body}</Link>:<span className={styles.hit}>{body}</span>}</li>;
       })}
-    </div>
-  );
+    </ul>
+    {query.isError?<QueryStatus status="error" error={query.error} label={`${label.toLowerCase()} continuation`} onRetry={()=>void query.fetchNextPage()}/>:query.hasNextPage?<button type="button" className={styles.close} disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>{query.isFetchingNextPage?'Loading…':`More ${label.toLowerCase()}`}</button>:group.hasMore&&!group.nextCursor&&<p className={styles.muted}>More {label.toLowerCase()} match. Refine your search.</p>}
+    </>}
+  </section>;
+}
+
+function Results({ q, onChoose, onRestart, generation }: { q:string; onChoose():void; onRestart():void; generation:number }) {
+  const [scope]=useScope();
+  const query=useRead<SearchResults,SearchView>({resource:'search',path:'/api/v1/search',scope,params:{q},adapt:adaptSearch});
+  if(!query.data)return <QueryStatus status={query.isError?'error':'pending'} error={query.error} label="search results" onRetry={()=>void query.refetch()}/>;
+  const {view,coverage}=query.data;
+  const complete=coverage.state==='complete'&&!query.isError&&view.sources.every(s=>s.coverage.state==='complete');
+  const count=view.groups.reduce((n,g)=>n+g.hits.length,0);
+  if(count===0&&!view.groups.some(g=>g.hasMore))return <p className={complete?styles.muted:styles.warning} role="status">{complete?`No matches for “${q}”`:'No matches in the projects that responded; results may be incomplete.'}</p>;
+  return <div className={styles.results}>
+    <p className="visually-hidden" role="status">{count} result{count===1?'':'s'} in the first page</p>
+    {!complete&&<p className={styles.warning}>Some sources did not respond; results may be incomplete.</p>}
+    {view.groups.map(group=><SearchGroup key={JSON.stringify([q,scope,view.snapshotId,group.type,generation])} group={group} snapshot={view.snapshotId} generation={generation} q={q} scope={scope} onChoose={onChoose} onRestart={()=>{void query.refetch().then(onRestart);}}/>)}
+  </div>;
 }
 
 /** One search surface for the button, Ctrl/⌘+K and touch (docs/specs/0002 §3). */
@@ -115,9 +96,10 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
   const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const q = useDebounced(text.trim(), DEBOUNCE_MS);
-  const { bootstrap } = useSession();
+  const { bootstrap, queryContext } = useSession();
+  const legacyGraph = (import.meta.env.MODE === "test" || import.meta.env.MODE === "mock") && queryContext.contractVersion !== "dashboard-read-1" && bootstrap.capability("human.graph.read").enabled;
   const capability = bootstrap.capability("search.read");
-  const humanGraph = bootstrap.capability("human.graph.read").enabled;
+  const [generation,setGeneration]=useState(0);
 
   useEffect(() => {
     const el = dialog.current;
@@ -166,7 +148,7 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
         ) : q.length < MIN_CHARS ? (
           <p className={styles.muted}>Type at least {MIN_CHARS} characters to search.</p>
         ) : (
-          humanGraph ? <HumanSearchResults q={q} onChoose={() => dialog.current?.close()} /> : <Results q={q} onChoose={() => dialog.current?.close()} />
+          legacyGraph ? <HumanSearchResults q={q} onChoose={() => dialog.current?.close()} /> : <Results q={q} generation={generation} onRestart={()=>setGeneration(n=>n+1)} onChoose={() => dialog.current?.close()} />
         )}
       </div>
     </dialog>

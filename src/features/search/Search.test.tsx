@@ -129,3 +129,37 @@ test("results are announced as a count, not read out in full", async () => {
   expect(tasks.closest("[aria-live]")).toBeNull();
   expect(within(dialog).getByRole("status")).toHaveTextContent(/\d+ results?/);
 });
+
+test('G4 continuation preserves group/query/scope and deduplicates replayed references',async()=>{
+ const {g4Handlers}=await import('../../test/g4');server.use(...g4Handlers());
+ const source=(await import('../../../contracts/pinned/dashboard-read/v1/fixtures/search-nonempty.json')).default;
+ const fixture={...source,scope:{kind:'all_authorized'}};
+ const requests:URLSearchParams[]=[];
+ server.use(http.get('/api/v1/search',({request})=>{
+  const p=new URL(request.url).searchParams;requests.push(p);
+  const group=fixture.data.groups[0]!;
+  return HttpResponse.json(p.has('cursor')?{...fixture,data:{...fixture.data,groups:[{...group,has_more:false,next_cursor:null,hits:[...group.hits,{...group.hits[0]!,ref:{...group.hits[0]!.ref,id:'another'},title:'Next task'}]}]}}:fixture);
+ }));
+ renderApp('/overview');const dialog=await openSearch();await userEvent.type(within(dialog).getByRole('searchbox'),'example');
+ await userEvent.click(await within(dialog).findByRole('button',{name:'More tasks'}));
+ expect(await within(dialog).findByRole('link',{name:/Next task/})).toBeVisible();
+ expect(within(dialog).getAllByRole('link',{name:/example task 1/})).toHaveLength(1);
+ const p=requests.find(p=>p.has('cursor'))!;expect(p.get('types')).toBe('task');expect(p.get('q')).toBe('example');expect(p.get('cursor')).toBe(fixture.data.groups[0]!.next_cursor);expect(p.get('scope')).toBeNull();
+ expect(within(dialog).getByRole('heading',{name:'Knowledge'})).toBeInTheDocument();
+});
+test('expired G4 cursor requires explicit restart; authorization failure clears results',async()=>{
+ const {g4Handlers}=await import('../../test/g4');server.use(...g4Handlers());
+ const source=(await import('../../../contracts/pinned/dashboard-read/v1/fixtures/search-nonempty.json')).default;
+ const fixture={...source,scope:{kind:'all_authorized'}};
+ let forbidden=false;let firstReads=0;
+ server.use(http.get('/api/v1/search',({request})=>{
+  if(new URL(request.url).searchParams.has('cursor'))return HttpResponse.json({}, {status:forbidden?403:410});
+  firstReads++;return HttpResponse.json(fixture);
+ }));
+ renderApp('/overview');let dialog=await openSearch();await userEvent.type(within(dialog).getByRole('searchbox'),'example');
+ await userEvent.click(await within(dialog).findByRole('button',{name:'More tasks'}));
+ const restart=await within(dialog).findByRole('button',{name:'Restart search'});expect(firstReads).toBe(1);
+ await userEvent.click(restart);await waitFor(()=>expect(firstReads).toBe(2));forbidden=true;
+ await userEvent.click(await within(dialog).findByRole('button',{name:'More tasks'}));
+ expect(await screen.findByRole('heading',{name:/access denied/i})).toBeVisible();expect(screen.queryByRole('dialog',{name:'Search'})).toBeNull();
+});

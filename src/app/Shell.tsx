@@ -3,7 +3,7 @@ import { SearchDialog } from "../features/search/SearchDialog";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { Ellipsis, Search } from "lucide-react";
 import { DESTINATION_ICON, Icon } from "../components/icons";
-import { ProviderUsageStrip, formatPercent, type ProviderUsageState } from "../components/ProviderUsageStrip/ProviderUsageStrip";
+import { ProviderUsageStrip, WindowSummary, type ProviderUsageState } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
 import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
@@ -95,12 +95,10 @@ function UsageSummary({ state }: { state: ProviderUsageState }) {
   if (state.status !== "ready") return <>{state.status === "loading" ? "Loading usage…" : "Usage unavailable"}</>;
   if (state.data.providers.length === 0) return <>No provider accounts reported</>;
   return <span className={styles.usageAccounts}>{state.data.providers.map(provider => {
-    const primary = provider.windows.find(window => window.id === provider.preferredWindowId) ?? provider.windows[0];
-    const amount = primary?.state === "known" && primary.usedPercent !== null ? `${formatPercent(primary.usedPercent)} used` : primary?.state === "unsupported" ? "Unsupported usage state" : "Usage unavailable";
-    const qualifiers = [primary?.quality === "estimated" && "estimated", primary?.coverage === "partial" && "partial", primary?.freshness === "stale" && "stale"].filter(Boolean);
-    const text = [amount, ...qualifiers].join(" · ");
-    return <span key={`${provider.providerId}:${provider.accountRef}`} className={styles.usageAccount} title={`${provider.accountLabel}: ${text}`}>
-      <span>{provider.accountLabel}</span><span data-stale={primary?.freshness === "stale" || undefined}>{text}</span>
+    const primary = provider.windows.find(window => window.id === provider.preferredWindowId);
+    return <span key={`${provider.providerId}:${provider.accountRef}`} className={styles.usageAccount}>
+      <span>{provider.providerId} · {provider.accountLabel}</span>
+      {primary ? <WindowSummary win={primary} serverTime={state.data.serverTime} compact /> : <span>{provider.windows.length ? "No preferred window reported" : "Usage unavailable"}</span>}
     </span>;
   })}</span>;
 }
@@ -145,7 +143,7 @@ export function Shell() {
       <a href="#content" className={styles.skip}>
         Skip to content
       </a>
-      <aside className={styles.rail}>
+      <aside className={styles.rail} aria-label="Application navigation">
         <p className={styles.brand}>
           <span className={styles.mark} aria-hidden="true">
             aq

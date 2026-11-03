@@ -7,7 +7,8 @@ import {
 import { ApiError, apiGet, isProtectedReadFailure } from "../api/client";
 import { adaptConfiguredProviders } from "../api/adapters/configuredProviders";
 import { queryKey } from "../api/queryKeys";
-import type { Envelope, ProviderUsage } from "../api/wire/proposed";
+import type { ProviderUsageEnvelope } from "../api/wire/overview";
+import { validateReadEnvelope } from "../api/adapters/envelope";
 import type { ProviderUsageState } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { useServerNow } from "../components/time/useServerNow";
 import { useSession } from "./session";
@@ -43,10 +44,11 @@ export function useProviderUsage(): ProviderUsageQuery {
   const query = useQuery({
     queryKey: queryKey(queryContext, "provider-usage", {}),
     queryFn: async ({ signal }) => {
-      const env = await apiGet<Envelope<ProviderUsage[]>>(
+      const env = await apiGet<ProviderUsageEnvelope>(
         "/api/v1/provider-usage",
         AbortSignal.any([signal, AbortSignal.timeout(QUOTA_TIMEOUT_MS)]),
       );
+      validateReadEnvelope(env, queryContext.contractVersion);
       return { result: adaptProviderUsage(env), receivedAt: performance.now() };
     },
     enabled: capability.enabled,
@@ -65,6 +67,7 @@ export function useProviderUsage(): ProviderUsageQuery {
   };
 
   if (!capability.enabled) return { state: configuredCapability.enabled ? configuredState() : { status: "disabled", reason: capability.reason }, unreachable };
+  if (query.isError && isProtectedReadFailure(query.error)) return { state: { status: "error" }, unreachable };
   if (query.data) {
     const current = now ? atServerTime(query.data.result, now) : query.data.result;
     // A failed refresh keeps the last values, but they are no longer current.

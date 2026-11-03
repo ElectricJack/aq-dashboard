@@ -1,5 +1,6 @@
-import type { Envelope, ProviderUsage, QuotaWindow } from "../wire/proposed";
-import { ContractError, isStale } from "./contract";
+import type { Envelope } from "../wire/proposed";
+import type { ProviderUsage, QuotaWindow } from "../wire/overview";
+import { ContractError, isRecord, isStale } from "./contract";
 
 export type QuotaState = "known" | "unknown" | "unavailable" | "unsupported";
 export type Freshness = "fresh" | "stale";
@@ -36,6 +37,10 @@ export type ProviderUsageResult = {
 const KNOWN_STATES = new Set<string>(["known", "unknown", "unavailable"]);
 
 function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
+  if (!isRecord(win) || typeof win.id !== 'string' || typeof win.label !== 'string' || !isRecord(win.observation) ||
+      typeof win.observation.observed_at !== 'string' || !Number.isFinite(Date.parse(win.observation.observed_at)) ||
+      typeof win.observation.fresh_until !== 'string' || !Number.isFinite(Date.parse(win.observation.fresh_until)) ||
+      (win.resets_at != null && !Number.isFinite(Date.parse(win.resets_at)))) throw new ContractError('Invalid quota window');
   let state: QuotaState = KNOWN_STATES.has(win.state) ? win.state : "unsupported";
   const pct = win.used_percent;
   const validPercent = typeof pct === "number" && Number.isFinite(pct) && pct >= 0 && pct <= 100;
@@ -43,8 +48,8 @@ function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
   return {
     id: win.id,
     label: win.label,
-    usedPercent: state === "known" ? pct : null,
-    resetsAt: win.resets_at,
+    usedPercent: state === "known" ? pct! : null,
+    resetsAt: win.resets_at ?? null,
     state,
     freshness: isStale(serverTime, win.observation.fresh_until) ? "stale" : "fresh",
     observedAt: win.observation.observed_at,
@@ -55,14 +60,15 @@ function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
 }
 
 export function adaptProviderUsage(envelope: Envelope<ProviderUsage[]>): ProviderUsageResult {
-  if (!Array.isArray(envelope.data)) throw new ContractError("provider usage data must be a list");
+  if (!isRecord(envelope) || !Array.isArray(envelope.data)) throw new ContractError("provider usage data must be a list");
   return {
     serverTime: envelope.server_time,
     coverage: envelope.coverage,
     providers: envelope.data.map((p) => {
+      if (!isRecord(p) || p.scope !== 'provider_account' || typeof p.provider_id !== 'string' || typeof p.account_ref !== 'string' || typeof p.account_label !== 'string' || !Array.isArray(p.windows)) throw new ContractError('Invalid provider account');
       const windows = p.windows.map((w) => adaptWindow(w, envelope.server_time));
       const preferred = windows.some((w) => w.id === p.preferred_window_id)
-        ? p.preferred_window_id
+        ? p.preferred_window_id ?? null
         : null;
       return {
         providerId: p.provider_id,

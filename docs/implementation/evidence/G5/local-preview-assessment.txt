@@ -1,0 +1,30 @@
+Follow-up to supervisor message msg-c0a5932b26ed4f69afefbbe8fa9d5583.
+No deployed G4 preview exists, confirmed by supervisor; local option assessed.
+All server source reads used git show at immutable a524c03e8b1ac137daddc3e5ea6f42a748f8c759.
+
+Read commands:
+git show <pin>:crates/aq-server/tests/dashboard_aggregation.rs
+git show <pin>:crates/aq-server/tests/dashboard_read.rs
+git show <pin>:crates/aq-server/tests/common/profiled.rs
+git show <pin>:crates/aq-server/src/dashboard_api/service.rs
+git show <pin>:crates/aq-server/src/main.rs
+git show <pin>:compose.dashboard.yaml
+
+Findings:
+Dashboard tests call Axum Router::oneshot (not a listening TCP preview).
+common/profiled.rs::fixture sets agent_access: None and a synthetic clock.
+The fixture's comments explicitly exclude public Graph/source owner qualification.
+service.rs enables human.overview.tasks.read only for mounted graph + owner + agent_access.
+The unchanged full live probe requires that capability and an actual nonempty recorded-task Graph project.
+serve requires a vault config and DATABASE_URL; the dashboard Compose file is only a bundle mount overlay.
+Docker is available (29.3.1); cargo is available. Missing tooling is not claimed.
+No standalone configured Graph preview or seeded Graph project is supplied by these fixtures.
+No server modifications, credentials, or fake complete-live claim were introduced.
+Disposition: supervisor option 2, publish implementation and close with live qualification UNMET.
+
+Final sync waiver:
+git fetch origin main
+exit 0: From https://github.com/ElectricJack/aq-dashboard, main -> FETCH_HEAD
+git rev-parse FETCH_HEAD
+f3f45f7245025a89cbf70d32e366f93c0de20e65 (same task base)
+origin/dev merge remains unavailable; supervisor expressly waived it for this fetch.

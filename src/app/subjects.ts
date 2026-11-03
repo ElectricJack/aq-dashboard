@@ -22,6 +22,9 @@ export function subjectPath(ref: EntityRef): string | null {
 }
 
 export const FACT_LABEL: Record<string, string> = {
+  process_failed: "Process failed",
+  settlement_accepted: "Settlement accepted",
+  settlement_rejected: "Settlement rejected",
   source_retained: "Source retained",
   result_submitted: "Result submitted",
   result_accepted: "Result accepted",
