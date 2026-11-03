@@ -1,0 +1,42 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs src/app/Shell.test.tsx src/features/overview/Overview.test.tsx src/features/work/Work.test.tsx src/features/results/ResultMediaUpload.test.tsx src/features/agents/TerminalTail.test.tsx src/features/overview/Contributions.test.tsx src/features/work/CreateTask.test.tsx src/features/playbooks/CurrentCatalog.test.tsx src/features/playbooks/LoadedDefinitions.test.tsx src/test/bundleManifest.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ src/test/bundleManifest.test.ts (0 test)
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/test/bundleManifest.test.ts [ src/test/bundleManifest.test.ts ]
+ReferenceError: window is not defined
+ ❯ src/test/setup.ts:9:1
+      7| // jsdom has no media-query engine. Keep the default desktop-independe…
+      8| // nonmatching state while supporting the listener API used by xterm.
+      9| if (typeof window.matchMedia !== "function") {
+       | ^
+     10|   window.matchMedia = (query: string): MediaQueryList => Object.assign…
+     11|     matches: false,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 9 passed (10)
+      Tests  127 passed (127)
+   Start at  15:32:20
+   Duration  31.78s (tests 69%, environment 16%, import 8%, transform 4%, setup 3%)
+
+    Isolate  10 workers spawned · ~1.13s startup each (spawn + environment, per file)
+             at least ~4.50s faster with isolate: false — reuses workers across files instead of one per file
+
+ ELIFECYCLE  Test failed. See above for more details.

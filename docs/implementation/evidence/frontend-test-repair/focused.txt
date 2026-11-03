@@ -1,0 +1,21 @@
+
+> aq-dashboard@0.0.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> vitest run src/features/agents/TerminalTail.test.tsx src/app/Shell.test.tsx src/features/overview/Contributions.test.tsx src/features/work/CreateTask.test.tsx src/features/playbooks/CurrentCatalog.test.tsx src/features/playbooks/LoadedDefinitions.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  6 passed (6)
+      Tests  82 passed (82)
+   Start at  15:23:45
+   Duration  27.53s (tests 71%, environment 16%, import 6%, transform 4%, setup 4%)
+
+    Isolate  6 workers spawned · ~2.82s startup each (spawn + environment, per file)
+             at least ~1.41s faster with isolate: false — reuses workers across files instead of one per file

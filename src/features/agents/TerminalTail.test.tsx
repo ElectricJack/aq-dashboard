@@ -47,10 +47,15 @@ function setup(options: (n: number) => PageOptions = () => ({})) {
   renderApp("/agents/sess-07");
   return { watches: () => watches };
 }
-async function start() { await userEvent.click(await screen.findByRole("button", { name: /Watch output for/ })); }
+async function transcript() { await userEvent.click(await screen.findByRole("button", { name: "Transcript" })); }
+async function start() {
+  if (!screen.queryByRole("button", { name: /Watch output for/ })) await transcript();
+  await userEvent.click(await screen.findByRole("button", { name: /Watch output for/ }));
+}
 
 test("registered terminal only watches on explicit action; renders escaped literal bytes and clears on stop", async () => {
   const q = setup();
+  await transcript();
   await screen.findByRole("button", { name: /Watch output for/ }); expect(q.watches()).toBe(0);
   await start();
   const output = await screen.findByText("hello <img src=x>\\u001b[2J");
