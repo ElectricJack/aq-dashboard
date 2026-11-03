@@ -41,7 +41,14 @@ function setup(options: { path?: string; history?: SupervisorMessage[]; enabled?
   return { ...renderApp(options.path ?? "/supervisor"), posts, stored, reads, discoveries: () => discoveries };
 }
 const composer = () => screen.findByRole("textbox", { name: "Message the global supervisor" });
-const ready = () => screen.findByText("Retained human message 1");
+async function ready() {
+  // Bootstrap mounts the workspace; discovery then enables history controls.
+  // Give each async stage its normal deadline instead of timing the entire
+  // initial request chain with the final history assertion's 1000 ms budget.
+  await composer();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Refresh history" })).toBeEnabled());
+  return screen.findByText("Retained human message 1");
+}
 async function send(text: string) { const input = await composer(); await userEvent.type(input, text); await userEvent.click(screen.getByRole("button", { name: "Send message" })); }
 
 test("granular history capability gates all mailbox requests independently of legacy runtime capability", async () => {
