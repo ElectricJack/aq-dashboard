@@ -27,8 +27,9 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
   };
   const close = () => { setDock(false); requestAnimationFrame(() => (returnFocus.current?.isConnected ? returnFocus.current : launcher.current)?.focus()); };
   return <div className={styles.surfaces} data-docked={dock && desktop && !full || undefined}>
-    <div className={styles.destination} hidden={full}>{children}</div>
-    {!full && !dock && <button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) setDock(true); else void navigate("/supervisor"); }}>Open supervisor</button>}
+    {/* In normal flow above the page, never floating over page content (gap SV-E). */}
+    {!full && !dock && <div className={styles.launcherBar}><button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) setDock(true); else void navigate("/supervisor"); }}>Open supervisor</button></div>}
+    <div className={styles.destination} data-supervisor-destination="" hidden={full}>{children}</div>
     <div className={styles.presentation} hidden={!full && !(dock && desktop)} data-mode={full ? "full" : "dock"}>
       {(opened || full) && <SupervisorConversation key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${queryContext.contractVersion}`} presentation={full ? "full" : "dock"} visible={full || dock && desktop} controls={full ? <>
         {desktop ? <button type="button" className={styles.presentationButton} onClick={() => { setOpened(true); setDock(true); void navigate(returnTo.current); }}>Dock chat</button> : <button type="button" className={styles.presentationButton} onClick={() => void navigate(returnTo.current)}>Back</button>}
