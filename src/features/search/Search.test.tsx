@@ -38,8 +38,8 @@ test("results are grouped by type and link to their subject", async () => {
   const dialog = await openSearch();
   await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
   const tasks = await within(dialog).findByRole("list", { name: "Tasks" });
-  const link = within(tasks).getByRole("link", { name: /^Approve recovery plan/ });
-  expect(link).toHaveAttribute("href", "/work/aq-103");
+  const link = within(tasks).getByRole("link", { name: /^Fixture: Approve recovery plan/ });
+  expect(link).toHaveAttribute("href", "/work/00000000-0000-0000-0000-000000000104");
 });
 
 test("search is scoped to the selected project", async () => {
@@ -79,8 +79,8 @@ test("choosing a result navigates and closes the dialog", async () => {
   const { router } = renderApp("/overview");
   const dialog = await openSearch();
   await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
-  await userEvent.click(await within(dialog).findByRole("link", { name: /^Approve recovery plan/ }));
-  await waitFor(() => expect(router.state.location.pathname).toBe("/work/aq-103"));
+  await userEvent.click(await within(dialog).findByRole("link", { name: /^Fixture: Approve recovery plan/ }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/work/00000000-0000-0000-0000-000000000104"));
   expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
 });
 

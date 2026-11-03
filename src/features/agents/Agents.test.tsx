@@ -19,7 +19,7 @@ async function roster() {
 test("roster rows show task, project, profile, observed state and controller", async () => {
   renderApp("/agents");
   const row = within(await roster()).getByRole("link", { name: "Worker 07" }).closest("li")!;
-  expect(row).toHaveTextContent("Replay reconciliation");
+  expect(row).toHaveTextContent("Fixture: Replay reconciliation");
   expect(row).toHaveTextContent("agent-queue");
   expect(row).toHaveTextContent("claude-opus-5-5 · claude-code");
   expect(row).toHaveTextContent("Running (reported)");
@@ -51,7 +51,7 @@ test("opening a session shows its metadata and an honest terminal placeholder", 
   await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
   expect(within(detail).getByRole("list", { name: "Profile revisions" })).toHaveTextContent("agent profile · revision 4");
   expect(within(detail).getByRole("list", { name: "Permissions" })).toHaveTextContent("run tests");
-  expect(within(detail).getByRole("link", { name: "Replay reconciliation" })).toHaveAttribute("href", "/work/aq-104?scope=project%3Aagent-queue");
+  expect(within(detail).getByRole("link", { name: "Fixture: Replay reconciliation" })).toHaveAttribute("href", "/work/00000000-0000-0000-0000-000000000105?scope=project%3Aagent-queue");
 });
 
 test("an unknown session is a neutral unavailable message", async () => {

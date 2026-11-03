@@ -25,10 +25,10 @@ const get = <T,>(path: string) => apiGet<Envelope<T>>(path);
 
 test("pinned Graph task payloads satisfy the served read adapters", async () => {
   const page=adaptGraphPage(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks`),fixtureProject.id,"task");
-  expect(page.data.items).toHaveLength(2);
+  expect(page.data.items).toHaveLength(10);
   const id=page.data.items[0]!.id;
   expect(adaptGraphDetail(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks/${id}`),fixtureProject.id,"task",id).data.id).toBe(id);
-  expect(adaptGraphNeighborhood(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks/${id}/graph`),fixtureProject.id,id).data.edges).toHaveLength(1);
+  expect(adaptGraphNeighborhood(await apiGet(`/api/human/projects/${fixtureProject.id}/tasks/${id}/graph`),fixtureProject.id,id).data.edges.map(e=>e.edge_type)).toEqual(expect.arrayContaining(["blocks","parent-child","references"]));
 });
 test("unknown Graph project is a neutral 404", async () => {
   await expect(apiGet("/api/human/projects/unknown/tasks")).rejects.toMatchObject({status:404});

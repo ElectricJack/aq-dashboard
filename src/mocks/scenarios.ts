@@ -12,6 +12,8 @@ export const SCENARIOS = [
   "partial",
   "empty",
   "reads-failed",
+  "large",
+  "actions-unavailable",
 ] as const;
 export type ScenarioName = (typeof SCENARIOS)[number];
 
@@ -24,9 +26,34 @@ export type Scenario = {
   providerUsage: MockResponse<Envelope<ProviderUsage[]>>;
   /** How D04 domain reads (overview, tasks, sessions, search) behave. */
   reads: "ok" | "partial" | "empty" | "failed";
+  /** Human-graph fixture size: the 10-task reference project, or 130 tasks for omitted counts. */
+  graph: "standard" | "large";
 };
 
-const baseBootstrap = (bootstrapFixture as Envelope<Bootstrap>).data;
+/** Mock-only write/project capabilities so fixture pages render their designed controls. */
+export const ACTION_CAPABILITIES = [
+  "projects.read",
+  "tasks.create",
+  "dashboard.actions",
+  "tasks.edit",
+  "tasks.cancel",
+  "tasks.retry",
+  "tasks.dependencies.add",
+  "tasks.dependencies.remove",
+] as const;
+const proposedBootstrap = (bootstrapFixture as Envelope<Bootstrap>).data;
+const withActions = (enabled: boolean): Bootstrap => ({
+  ...proposedBootstrap,
+  capabilities: [
+    ...proposedBootstrap.capabilities.filter((c) => !(ACTION_CAPABILITIES as readonly string[]).includes(c.name)),
+    ...ACTION_CAPABILITIES.map((name) =>
+      enabled || name === "projects.read"
+        ? { name, version: "1", enabled: true }
+        : { name, version: "1", enabled: false, reason: "Fixture scenario: actions are not offered" },
+    ),
+  ],
+});
+const baseBootstrap = withActions(true);
 const baseUsage = usageFixture as Envelope<ProviderUsage[]>;
 
 function mapWindows(
@@ -51,6 +78,7 @@ const defaults: Scenario = {
   bootstrap: baseBootstrap,
   providerUsage: { kind: "ok", body: baseUsage },
   reads: "ok",
+  graph: "standard",
 };
 
 const built: Record<ScenarioName, Scenario> = {
@@ -58,6 +86,8 @@ const built: Record<ScenarioName, Scenario> = {
   partial: { ...defaults, reads: "partial" },
   empty: { ...defaults, reads: "empty" },
   "reads-failed": { ...defaults, reads: "failed" },
+  large: { ...defaults, graph: "large" },
+  "actions-unavailable": { ...defaults, bootstrap: withActions(false) },
   stale: {
     ...defaults,
     providerUsage: {
