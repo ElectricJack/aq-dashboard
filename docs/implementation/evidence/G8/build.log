@@ -1,0 +1,37 @@
+
+> aq-dashboard@0.1.0 build /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> tsc -b && vite build && node scripts/check-bundle.mjs dist && node scripts/bundle-manifest.mjs dist
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2190 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                0.69 kB │ gzip:   0.34 kB
+dist/assets/decisions-CNL0RKDG.css             1.81 kB │ gzip:   0.64 kB
+dist/assets/work-kn6MU7q_.css                  2.39 kB │ gzip:   0.76 kB
+dist/assets/settings-uUF_IEiO.css              2.81 kB │ gzip:   0.82 kB
+dist/assets/playbooks-DBZLP_Cy.css             5.86 kB │ gzip:   1.41 kB
+dist/assets/overview-XZLyoEES.css             10.55 kB │ gzip:   2.13 kB
+dist/assets/QueryStatus-CORTbrQz.css          11.70 kB │ gzip:   2.51 kB
+dist/assets/results-BHSkDu6k.css              12.87 kB │ gzip:   2.54 kB
+dist/assets/agents-BJo6NgFB.css               12.92 kB │ gzip:   2.96 kB
+dist/assets/index-C1FMsjIA.css                14.19 kB │ gzip:   3.17 kB
+dist/assets/HumanNodeWorkspace-DDHedzvW.css   15.06 kB │ gzip:   3.08 kB
+dist/assets/supervisor-DH08FHo3.js             0.04 kB │ gzip:   0.06 kB
+dist/assets/knowledge-DB_tY0sU.js              0.41 kB │ gzip:   0.29 kB
+dist/assets/decisions-E8Y4m3JI.js             13.38 kB │ gzip:   4.66 kB
+dist/assets/work-Bs5F46qW.js                  15.72 kB │ gzip:   5.52 kB
+dist/assets/settings-BN54K-k-.js              18.75 kB │ gzip:   5.54 kB
+dist/assets/scope-dpDg4Goi.js                 22.41 kB │ gzip:   8.28 kB
+dist/assets/overview-Ciyx1sQs.js              26.67 kB │ gzip:   7.43 kB
+dist/assets/playbooks-2u6_ewaX.js             36.36 kB │ gzip:  10.17 kB
+dist/assets/HumanNodeWorkspace-5ixuMpKB.js    41.00 kB │ gzip:  12.97 kB
+dist/assets/results-CM3PSOPr.js               99.33 kB │ gzip:  24.34 kB
+dist/assets/QueryStatus-CiiBOCuo.js          121.04 kB │ gzip:  39.51 kB
+dist/assets/index-Ba9pr0uC.js                300.81 kB │ gzip:  94.10 kB
+dist/assets/agents-BMJWcMjy.js               397.74 kB │ gzip: 101.96 kB
+
+✓ built in 1.51s
+dist: no mock code or fixtures
+Dashboard manifest: 24 files, source 613f64597ec6afcdd64aa111cbb81d4c20f6e1a3

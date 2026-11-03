@@ -15,8 +15,8 @@ export async function supervisorRequest(method: "GET" | "POST", path: string, si
     while (true) { const { done, value } = await reader.read(); if (done) break; length += value.length; if (length > 262144) throw new ContractError("Global supervisor response exceeds byte bound"); chunks.push(value); }
     const bytes = new Uint8Array(length); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
     let raw: unknown; try { raw = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw new ContractError("Invalid global supervisor JSON"); }
-    if (response.status === 409 && !(method === "POST" && isRecord(raw) && raw.contract === "human-supervisor-conversation-1" && raw.state === "not_queued")) throw new ApiError("http", "AQ responded 409 without a retained receipt", { status: 409, effectUnknown: method === "POST" });
-    if (method === "POST" && response.status === 200 && !(isRecord(raw) && raw.contract === "human-supervisor-conversation-1" && raw.state === "queued")) throw new ContractError("Invalid supervisor admission disposition");
+    if (response.status === 409 && !(method === "POST" && isRecord(raw) && ((raw.contract === "human-supervisor-conversation-1" && raw.state === "not_queued") || (raw.api_version === "dashboard-actions-1" && isRecord(raw.data) && ["conflict", "rejected"].includes(String(raw.data.disposition)))))) throw new ApiError("http", "AQ responded 409 without a retained receipt", { status: 409, effectUnknown: method === "POST" });
+    if (method === "POST" && path.startsWith("/api/human/") && response.status === 200 && !(isRecord(raw) && raw.contract === "human-supervisor-conversation-1" && raw.state === "queued")) throw new ContractError("Invalid supervisor admission disposition");
     return raw;
   } finally { void reader.cancel().catch(() => undefined); }
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { SupervisorWorkspace } from "../features/supervisor/SupervisorWorkspace";
 import { SearchDialog } from "../features/search/SearchDialog";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { Ellipsis, Search } from "lucide-react";
@@ -212,7 +213,7 @@ export function Shell() {
       <main id="content" className={styles.main}>
         <BundleNotice />
         <TitleFocusContext value={lastTitlePath}>
-          <Outlet />
+          <SupervisorWorkspace><Outlet /></SupervisorWorkspace>
         </TitleFocusContext>
       </main>
       <PhoneNav search={search} />

@@ -1,0 +1,27 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/features/supervisor/supervisorAction.test.ts src/features/supervisor/SupervisorWorkCards.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+ ❯ src/features/supervisor/supervisorAction.test.ts (3 tests | 1 failed) 128ms
+   × consumes the unchanged G1b published Supervisor request and retained confirmation 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/supervisor/supervisorAction.test.ts > consumes the unchanged G1b published Supervisor request and retained confirmation
+ContractError: Contract violation: Supervisor action identity changed
+ ❯ supervisorAction src/features/supervisor/supervisorAction.ts:28:98
+
+ ❯ src/features/supervisor/supervisorAction.test.ts:35:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 4 passed (5)
+   Start at  09:41:56
+   Duration  1.51s (environment 57%, tests 17%, setup 12%, transform 9%, import 5%, worker 1%)
+
+ ELIFECYCLE  Test failed. See above for more details.

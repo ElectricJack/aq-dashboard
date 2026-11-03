@@ -42,3 +42,13 @@ test("history merging refuses changed or aliased records instead of replacing in
   expect(() => mergeSupervisorMessages([first], [{ ...first, body: "changed" }])).toThrow();
   expect(() => mergeSupervisorMessages([first], [{ ...supervisorMessage(2), cursor: first.cursor }])).toThrow();
 });
+
+test("renders F1b replies with composite cursors and permits delivery evidence to advance", async () => {
+  const human = supervisorMessage(1);
+  const body = "Actual supervisor reply";
+  const reply = { ...supervisorMessage(2, body), cursor: "1.1", author: { kind: "supervisor", actor_id: supervisorId(8), generation: 1, session_id: supervisorId(9) }, dispatch: { dispatch_id: supervisorId(10), host_operation_id: supervisorId(11), batch_digest: "a".repeat(64) } };
+  const history = supervisorHistory([human, reply] as never, { through_cursor: "1", has_more: true, next_cursor: "1.1", direction: "forward" });
+  await expect(adaptSupervisorHistory(history, discovery.conversation, { after: "0" })).resolves.toMatchObject({ next_cursor: "1.1" });
+  await expect(adaptSupervisorHistory(supervisorHistory([reply] as never, { through_cursor: "1" }), discovery.conversation, { before: "1.2" })).resolves.toMatchObject({ items: [reply] });
+  expect(mergeSupervisorMessages([human], [{ ...human, host_delivery: "delivered" } as never])[0]?.host_delivery).toBe("delivered");
+});

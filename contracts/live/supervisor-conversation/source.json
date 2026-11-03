@@ -1,0 +1,14 @@
+{
+  "repository": "aq-server",
+  "commit": "da3c5b98c0ec134bf2c1341489898975700c37ff",
+  "path": "protocol/human-supervisor-conversation/v1/schema.json",
+  "sha256": "a5db6bda8945d658ae75ad0d28a058b057434317a11d853c8082d5c478a6812e",
+  "note": "F1b mixed history, 16 items, opaque N/A.R cursors. Runtime remains the published foundation shape; bootstrap determines availability.",
+  "fixture_note": "mixed-history.fixture.json is a dashboard-authored, visibly labelled deterministic fixture derived from the pinned schema; it is not a live reply or an owner-supplied example.",
+  "f2_fixture": {
+    "repository": "aq-server",
+    "commit": "e4bf0413ccf308392781459ddec038f28921ca29",
+    "path": "protocol/dashboard-actions/v1/fixtures/request-task-graph-create.json",
+    "sha256": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d"
+  }
+}

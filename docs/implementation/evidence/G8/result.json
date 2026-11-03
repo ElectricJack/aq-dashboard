@@ -1,0 +1,114 @@
+{
+  "passed": true,
+  "provenance": "labelled local test double; not live supervisor qualification",
+  "origin": "http://127.0.0.1:4196",
+  "conversation_id": "00000000-0000-4000-8000-000000000001",
+  "operation_id": "43826c1a-efb3-4262-b8c4-fa70b80158ba",
+  "message_id": "81849931-d82c-46f9-9bd9-e34e87e2bf3a",
+  "reply_id": "5493d09b-0c0b-4aef-9bb3-5baf296cd4fb",
+  "reply_cursor": "3.1",
+  "dispatch": {
+    "dispatch_id": "8ff3c1b8-6da2-426c-96fd-c23b26b349d9",
+    "host_operation_id": "5b396c38-1e71-4bab-bff6-233893488865",
+    "batch_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "initial_rows": 4,
+  "single_action_send": true,
+  "actual_live_reply": false,
+  "references": [
+    "04-supervisor-chat.png",
+    "09-supervisor-full-desktop.png",
+    "12-supervisor-mobile.png"
+  ],
+  "served_bundle_digest": "sha256:916ebe7103ab12d006d38fb0f9780ef045df2fc8f182de5f09e840bf3103ea6c",
+  "served_assets_verified": 24,
+  "captures": [
+    "docs/implementation/evidence/G8/desktop-admitted.png",
+    "docs/implementation/evidence/G8/desktop-dock.png",
+    "docs/implementation/evidence/G8/desktop-full.png",
+    "docs/implementation/evidence/G8/phone.png",
+    "docs/implementation/evidence/G8/compact.png",
+    "docs/implementation/evidence/G8/keyboard.png",
+    "docs/implementation/evidence/G8/tablet.png",
+    "docs/implementation/evidence/G8/phone-empty.png",
+    "docs/implementation/evidence/G8/phone-unavailable.png"
+  ],
+  "measurements": [
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "name": "phone"
+      },
+      "send": {
+        "x": 286.703125,
+        "y": 711,
+        "width": 74.296875,
+        "height": 44
+      },
+      "navigation": {
+        "x": 0,
+        "y": 787,
+        "width": 390,
+        "height": 57
+      },
+      "required_reply_visibility_ratio": 1
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 740,
+        "name": "compact"
+      },
+      "send": {
+        "x": 216.703125,
+        "y": 607,
+        "width": 74.296875,
+        "height": 44
+      },
+      "navigation": {
+        "x": 0,
+        "y": 683,
+        "width": 320,
+        "height": 57
+      },
+      "required_reply_visibility_ratio": 1
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 530,
+        "name": "keyboard"
+      },
+      "send": {
+        "x": 286.703125,
+        "y": 397,
+        "width": 74.296875,
+        "height": 44
+      },
+      "navigation": {
+        "x": 0,
+        "y": 473,
+        "width": 390,
+        "height": 57
+      },
+      "required_reply_visibility_ratio": 0.5
+    },
+    {
+      "viewport": {
+        "width": 900,
+        "height": 1000,
+        "name": "tablet"
+      },
+      "send": {
+        "x": 707.703125,
+        "y": 907,
+        "width": 151.296875,
+        "height": 44
+      },
+      "navigation": null,
+      "required_reply_visibility_ratio": 1
+    }
+  ],
+  "page_errors": []
+}

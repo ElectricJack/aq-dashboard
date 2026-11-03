@@ -1,0 +1,31 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/api/adapters/supervisor.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+ ❯ src/api/adapters/supervisor.test.ts (7 tests | 1 failed) 28ms
+   × renders F1b replies with composite cursors and permits delivery evidence to advance 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/api/adapters/supervisor.test.ts > renders F1b replies with composite cursors and permits delivery evidence to advance
+AssertionError: promise rejected "ContractError: Contract violation: Invali…" instead of resolving
+ ❯ src/api/adapters/supervisor.test.ts:51:88
+
+
+Caused by: ContractError: Contract violation: Invalid global supervisor response
+ ❯ check src/api/adapters/supervisor.ts:11:55
+ ❯ adaptSupervisorHistory src/api/adapters/supervisor.ts:43:3
+ ❯ src/api/adapters/supervisor.test.ts:51:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  09:25:05
+   Duration  1.76s (environment 70%, setup 22%, transform 5%, tests 2%, worker 1%)
+
+ ELIFECYCLE  Test failed. See above for more details.

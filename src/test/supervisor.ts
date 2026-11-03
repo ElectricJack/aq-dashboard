@@ -18,3 +18,23 @@ export function supervisorReceipt(bytes: string, state: Receipt["state"] = "queu
   return { contract: supervisorDiscovery.contract, conversation: supervisorDiscovery.conversation, runtime: supervisorDiscovery.runtime, operation_id: request.operation_id, message_id: request.message_id, actor_id: supervisorActor,
     request_digest: textDigest(canonical), body_digest: textDigest(request.body), state, cursor: state === "queued" ? "1" : null, reason: state === "queued" ? null : "conversation_revision_changed", host_delivery: "not_attempted", agent_receipt: null };
 }
+
+/** Labelled G1b fixture; confirmation proves enqueue only. */
+export function supervisorActionReceipt(bytes: string, disposition = "confirmed") {
+  const request = JSON.parse(bytes);
+  return { api_version: "dashboard-actions-1", data: {
+    operation_id: request.operation_id, disposition, request_digest: textDigest(JSON.stringify(sortKeys({ request, scope: { kind: "all_authorized" } }))), scope: { kind: "all_authorized" },
+    created_at: "2026-11-03T00:00:00Z", updated_at: "2026-11-03T00:00:00Z",
+    subject_refs: [request.subject], receipt_refs: disposition === "confirmed" ? [{ type: "mailbox_operation", id: request.operation_id }] : [],
+    affected_entities: disposition === "confirmed" ? [{ type: "message", id: request.payload.message_id, revision: "1" }] : [], recovery: disposition === "pending" || disposition === "unknown" ? "lookup_original" : disposition === "confirmed" ? "none" : "refresh_and_review",
+  } };
+}
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeys);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, sortKeys(v)]));
+  return value;
+}
+export function supervisorReply(anchor = 1, reply = 1, body = "The supervisor replied to your message."): SupervisorMessage {
+  return { ...supervisorMessage(500 + reply, body), cursor: `${anchor}.${reply}`, author: { kind: "supervisor", actor_id: supervisorId(7), generation: 1, session_id: supervisorId(8) },
+    dispatch: { dispatch_id: supervisorId(9), host_operation_id: supervisorId(10), batch_digest: "a".repeat(64) } } as SupervisorMessage;
+}

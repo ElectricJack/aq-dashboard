@@ -1,0 +1,18 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/api/adapters/supervisor.test.ts src/api/adapters/supervisorLiveContract.test.ts src/api/supervisorClient.test.ts src/features/supervisor/SupervisorConversation.test.tsx src/features/supervisor/supervisorAction.test.ts src/features/supervisor/SupervisorWorkCards.test.tsx src/app/Shell.test.tsx src/features/overview/Overview.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  8 passed (8)
+      Tests  82 passed (82)
+   Start at  09:42:35
+   Duration  17.89s (tests 59%, environment 24%, import 8%, setup 5%, transform 4%)
+
+    Isolate  8 workers spawned · ~1.16s startup each (spawn + environment, per file)
+             at least ~3.47s faster with isolate: false — reuses workers across files instead of one per file

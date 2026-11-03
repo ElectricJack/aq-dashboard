@@ -1,0 +1,58 @@
+{
+  "contract": "human-supervisor-conversation-1",
+  "conversation": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "revision": "1",
+    "label": "Global supervisor"
+  },
+  "runtime": {
+    "state": "unavailable",
+    "binding": null,
+    "reason": "central_runtime_not_connected"
+  },
+  "direction": "backward",
+  "through_cursor": "1",
+  "items": [
+    {
+      "message_id": "00000000-0000-4000-8000-000000000030",
+      "thread_id": "00000000-0000-0000-0000-000000000001",
+      "conversation_id": "00000000-0000-0000-0000-000000000001",
+      "cursor": "1",
+      "author": {
+        "kind": "human",
+        "user_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "body": "[Fixture] Please inspect the current work.",
+      "body_digest": "sha256:330e366b74810ae5aec4b76fa1137dd4761409ee68d2a37ea502ee789ab9fb2e",
+      "created_at_ms": 1793511000000,
+      "logical_admission": "queued",
+      "host_delivery": "delivered",
+      "agent_receipt": null
+    },
+    {
+      "message_id": "00000000-0000-4000-8000-000000000031",
+      "thread_id": "00000000-0000-0000-0000-000000000001",
+      "conversation_id": "00000000-0000-0000-0000-000000000001",
+      "cursor": "1.1",
+      "author": {
+        "kind": "supervisor",
+        "actor_id": "00000000-0000-4000-8000-000000000007",
+        "generation": 1,
+        "session_id": "00000000-0000-4000-8000-000000000008"
+      },
+      "body": "[Fixture] I received your message.",
+      "body_digest": "sha256:8daf0c5a58097ff9141f37df1cac4b177c01b8eef13bd14b8bce7be1c805fbae",
+      "created_at_ms": 1793511000000,
+      "logical_admission": "queued",
+      "host_delivery": "not_attempted",
+      "agent_receipt": null,
+      "dispatch": {
+        "dispatch_id": "00000000-0000-4000-8000-000000000009",
+        "host_operation_id": "00000000-0000-4000-8000-000000000010",
+        "batch_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}

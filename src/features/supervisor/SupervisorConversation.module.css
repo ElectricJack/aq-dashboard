@@ -35,8 +35,47 @@
  .composer { padding: var(--space-3); }
  .composer textarea { block-size: 56px; min-block-size: 56px; }
  .runtime { line-height: 1.4; }
- .workspace:has(.composer:focus-within) .header p,
- .workspace:has(.composer:focus-within) .header button { display: none; }
+ .workspace:has(.composer:focus-within) .header p { display: none; }
  .workspace:has(.composer:focus-within) .runtime { font-size: 12px; }
  .workspace:has(.composer:focus-within) .history { min-block-size: 0; }
 }
+
+/* The shell owns this stable surface; changing presentation preserves the DOM. */
+.surfaces { min-inline-size: 0; position: relative; }
+.surfaces[data-docked] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 40%); gap: var(--space-4); align-items: start; }
+.destination, .presentation { min-inline-size: 0; }
+.destination { container: destination / inline-size; }
+.destination[hidden], .presentation[hidden] { display: none; }
+.presentation[data-mode=dock] { position: sticky; inset-block-start: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); padding: var(--space-3); }
+.launcher { position: fixed; inset-block-end: var(--space-5); inset-inline-end: var(--space-5); z-index: 15; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-accent); cursor: pointer; }
+.headerActions { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--space-2); }
+.presentationButton { padding: var(--space-2) var(--space-3); min-block-size: var(--touch-target); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); cursor: pointer; }
+.header h2 { margin: 0; font-size: 20px; }
+.history { border: 0; border-radius: 0; padding-inline: 0; }
+.messages { max-inline-size: 1000px; gap: var(--space-5); }
+.metadata { font-size: 12px; }
+.pending { max-inline-size: min(88%, 76ch); margin-inline-start: auto; }
+.pending .body { background: var(--color-accent); color: var(--color-accent-contrast); }
+.pending > p:last-child { font-size: 12px; color: var(--color-text-secondary); text-align: end; }
+.workspace[data-presentation=dock] { block-size: max(420px, calc(var(--conversation-available-height, 100dvh) - var(--space-7))); gap: var(--space-2); }
+.workspace[data-presentation=dock] .header { align-items: center; }
+.workspace[data-presentation=dock] .fullControl { display: none; }
+.workspace[data-presentation=dock] .compactControl { display: inline; }
+.workspace[data-presentation=dock] .headerActions { flex-wrap: nowrap; }
+.workspace[data-presentation=dock] .headerActions button { min-inline-size: var(--touch-target); padding-inline: var(--space-2); }
+.workspace[data-presentation=dock] .message { max-inline-size: 94%; }
+.workspace[data-presentation=dock] .metadata { font-size: 11px; }
+.workspace[data-presentation=dock] .composer { padding: var(--space-3); }
+@media (max-width: 1199px) { .launcher { display: none; } }
+@media (max-width: 767px) {
+  .header { align-items: center; }
+  .headerActions { flex-wrap: nowrap; }
+  .presentationButton { padding-inline: var(--space-2); }
+  .composer { padding-block-end: max(var(--space-3), env(safe-area-inset-bottom)); }
+  .timestamp { display: none; }
+  .metadata { line-height: 1.5; }
+}
+.workCard { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); overflow-wrap: anywhere; }
+.workCard h3, .workCard p { margin: 0; }
+.workCard p, .workCard label { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.workCard input, .workCard textarea { inline-size: 100%; min-inline-size: 0; color: var(--color-text); background: var(--color-canvas); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; padding: var(--space-2); }
