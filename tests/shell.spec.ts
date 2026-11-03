@@ -93,3 +93,54 @@ test("phone header scrolls away so it cannot obscure focused content", async ({ 
   const position = await page.getByRole("banner").evaluate((el) => getComputedStyle(el).position);
   expect(["static", "relative"]).toContain(position);
 });
+
+test.describe("single-row desktop header (gap SH-I)", () => {
+  test("1440x900: one row with labelled quota bars and a compact mock chip", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/overview");
+    const header = page.getByRole("banner");
+    await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(72);
+    const bars = header.locator("[role=progressbar], meter");
+    await expect(bars).toHaveCount(2);
+    await expect(bars.nth(0)).toHaveAccessibleName(/Claude.*42% used/);
+    await expect(bars.nth(1)).toHaveAccessibleName(/Codex.*85% used/);
+    await expect(header.getByText("anthropic ·")).toHaveCount(0);
+    await expect(header.getByText(/^Updated \d+s ago$/)).toBeVisible();
+    const chip = header.getByRole("note");
+    await expect(chip).toHaveText(/^Mock data/);
+    expect((await chip.boundingBox())!.height).toBeLessThanOrEqual(24);
+    expect(await hasPageHorizontalScroll(page)).toBe(false);
+    const results = await new AxeBuilder({ page })
+      .include("header")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+
+  for (const width of [1024, 768]) {
+    test(`${width}: header keeps at most two rows`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/overview");
+      await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+      expect((await page.getByRole("banner").boundingBox())!.height).toBeLessThanOrEqual(112);
+      expect(await hasPageHorizontalScroll(page)).toBe(false);
+    });
+  }
+
+  test("390x844: phone keeps per-provider summaries with the compact chip", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/overview");
+    const header = page.getByRole("banner");
+    await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+    await expect(header.getByRole("note")).toHaveText(/^Mock data/);
+    await expect(header.getByText("anthropic ·")).toHaveCount(0);
+    await expect(usageSummary(page).getByText(/updated 2s ago/)).toBeVisible();
+    expect(await hasPageHorizontalScroll(page)).toBe(false);
+    const results = await new AxeBuilder({ page })
+      .include("header")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+});
