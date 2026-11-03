@@ -161,14 +161,27 @@
   font-size: var(--font-size-meta);
 }
 
+/* Card: up to two title lines, then the state line (NODE_H in layout.ts fits both). */
 .humanNode {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  padding: var(--space-3);
   color: var(--color-text);
   text-decoration: none;
   overflow: hidden;
 }
-.humanNode strong { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; font-size: 14px; line-height: 1.2; }
-.humanNode span { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.humanNode strong {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.2;
+  min-block-size: calc(1em * 1.2);
+}
+.humanNode span { color: var(--color-text-secondary); font-size: var(--font-size-meta); line-height: 1.4; }
 .humanNode:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
 .humanNode[aria-current=page] { border-color:var(--color-accent); box-shadow:0 0 0 2px var(--color-canvas),0 0 0 4px var(--color-accent); }
 

@@ -4,7 +4,12 @@ import type { EdgeCategory, TaskGraphView } from "../../../api/adapters/inspecti
 export const MAX_NODES = 100;
 
 export const NODE_W = 220;
-export const NODE_H = 72;
+/**
+ * Card height: 2px borders + 12px padding top and bottom, a two-line 14px/1.2
+ * title (33.6px), a 2px row gap and a 14px/1.4 state line (19.6px) = 83.2px.
+ * Keep in step with `.humanNode` in TaskGraph.module.css.
+ */
+export const NODE_H = 88;
 const COL_GAP = 72;
 const ROW_GAP = 28;
 const PAD = 16;
