@@ -213,7 +213,7 @@ export type TaskGraph = {
 
 export type AttentionItem = {
   id: Id;
-  kind: "decision" | "blocked" | "failed" | "uncertain_operation";
+  kind: "decision" | "question" | "blocked" | "failed" | "uncertain_operation";
   title: string;
   project: ProjectRef;
   reason: string;

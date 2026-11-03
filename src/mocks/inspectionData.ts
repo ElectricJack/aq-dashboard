@@ -113,7 +113,7 @@ export function overview(projectId: string | null, empty = false): Overview {
     ? []
     : [
         { id: "att-1", kind: "decision" as const, title: "Approve worker recovery plan", project: project("agent-queue"), reason: "Review", impact: "Unblocks 4 tasks", since: at(18), subject: { type: "task", id: "00000000-0000-0000-0000-000000000104", revision: "3" }, action: { kind: "decision.respond", subject: { type: "decision", id: "dec-1", revision: "3" }, allowed: true, expected_versions: { decision: "3" } } },
-        { id: "att-2", kind: "decision" as const, title: "Choose retry policy", project: project("quilt-trader"), reason: "Question", impact: "Unblocks 2 tasks", since: at(9), subject: { type: "task", id: "qt-201", revision: "3" }, action: { kind: "decision.respond", subject: { type: "decision", id: "dec-2", revision: "1" }, allowed: true, expected_versions: { decision: "1" } } },
+        { id: "att-2", kind: "question" as const, title: "Choose retry policy", project: project("quilt-trader"), reason: "Question", impact: "Unblocks 2 tasks", since: at(9), subject: { type: "task", id: "qt-201", revision: "3" }, action: { kind: "decision.respond", subject: { type: "decision", id: "dec-2", revision: "1" }, allowed: true, expected_versions: { decision: "1" } } },
         { id: "att-3", kind: "failed" as const, title: "Resolve integration conflict", project: project("matter-engine"), reason: "Failure", impact: "Blocks delivery", since: at(6), subject: { type: "task", id: "me-301", revision: "3" }, action: null },
       ].filter((a) => inScope(a.project));
   return {
