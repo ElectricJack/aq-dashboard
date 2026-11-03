@@ -1,4 +1,7 @@
-.workspace { display: flex; flex-direction: column; gap: var(--space-3); min-inline-size: 0; block-size: max(320px, calc(var(--conversation-available-height, 100dvh) - var(--space-6))); }
+/* Full page: the shell hands main's remaining height down this flex column, so the page
+   never scrolls; the history is the only scroller and the composer stays in view. */
+.workspace { display: flex; flex-direction: column; gap: var(--space-3); min-inline-size: 0; }
+.workspace[data-presentation=full] { flex: 1; min-block-size: 0; }
 .compactControl { display: none; }
 .header { display: flex; justify-content: space-between; align-items: start; gap: var(--space-3); }
 .header h1 { margin: 0; font-size: 28px; }
@@ -23,7 +26,6 @@
 .composerActions button { background: var(--color-accent); color: #111426; }
 .recovery small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--color-text-secondary); }
 @media (max-width: 767px) {
- .workspace { block-size: max(220px, calc(var(--conversation-available-height, 100dvh) - var(--touch-target) - var(--space-6) - env(safe-area-inset-bottom))); }
  .fullControl { display: none; }
  .compactControl { display: inline; }
  .header { flex-wrap: nowrap; }
@@ -44,6 +46,7 @@
 .surfaces { min-inline-size: 0; position: relative; }
 .surfaces[data-docked] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 40%); gap: var(--space-4); align-items: start; }
 .destination, .presentation { min-inline-size: 0; }
+.surfaces:has(> .presentation[data-mode=full]), .presentation[data-mode=full] { display: flex; flex-direction: column; flex: 1; min-block-size: 0; }
 .destination { container: destination / inline-size; }
 .destination[hidden], .presentation[hidden] { display: none; }
 .presentation[data-mode=dock] { position: sticky; inset-block-start: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); padding: var(--space-3); }
