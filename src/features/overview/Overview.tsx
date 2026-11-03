@@ -161,7 +161,7 @@ export function Overview() {
           <h2 id="motion-heading">Work in motion</h2>
           <p className={styles.meta}>{query.isError ? "Project movement unavailable" : "Loading project movement…"}</p>
           {query.isError && <RecordedTasks />}
-          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p></section>
+          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p><Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link></section>
           </section>
         </div>
         <Infrastructure />
@@ -250,6 +250,7 @@ export function Overview() {
             })}
           </ul>
         )}
+        <Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link>
       </section>
       </section>
       </div><Infrastructure /></div>
