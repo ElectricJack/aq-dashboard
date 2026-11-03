@@ -37,15 +37,23 @@ PYTHONDONTWRITEBYTECODE=1 \
 | Native command | Result | Evidence |
 | --- | --- | --- |
 | `pnpm test -- src/test/bundleManifest.test.ts src/features/agents/SessionEvents.test.tsx` | 14/14 tests, 2/2 files | [focused.txt](evidence/ci-test-repair/focused.txt) |
+| Same focused command, 20 consecutive repetitions after merging current main | 20/20 runs passed; 14/14 tests and 2/2 files each run | [source hashes, tested HEAD and per-run summaries](evidence/ci-test-repair/focused-repetitions.json) |
 | `env GIT_AUTHOR_NAME= GIT_AUTHOR_EMAIL= GIT_COMMITTER_NAME= GIT_COMMITTER_EMAIL= GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 pnpm test -- src/test/bundleManifest.test.ts` | 3/3 tests | [no-git-identity.txt](evidence/ci-test-repair/no-git-identity.txt) |
 | `pnpm test`, consecutive repetitions with the unchanged two-worker cap | Runs 1–3: 698/698 tests in 75/75 files. Run 4: 696/698 tests; sequence stopped. | [source hashes and per-run summaries](evidence/ci-test-repair/repetitions.json), [run 4 output](evidence/ci-test-repair/full-suite-run-04.txt) |
 
-The requirement for **20 consecutive full-suite passes is unmet**. Run 4 fails
+**20 consecutive full-suite passes were not achieved**. Run 4 fails
 `Shell.test.tsx > redirects / to the Overview page` at its initial heading
 deadline, and `Work.test.tsx > Back from a task opened in the graph returns
 focus to its node` at the focus assertion. The assigned bundleManifest and
-SessionEvents suites pass all four full-suite runs. These other failures were
-reported to the supervisor for scope/acceptance direction; no additional tests
-were changed or skipped.
+SessionEvents suites pass all four full-suite runs. No additional tests were
+changed or skipped.
+
+Supervisor decision `msg-6b2e302e04294181be92700a6a3762a9` accepts 20 consecutive
+passes of the assigned files plus the three clean full-suite runs and the
+explicit limitation above. The supervisor filed the Shell/Work failures as a
+separate follow-up. This revised verification is complete. PR #7 remains open
+against main and unmerged for Jack; both related workers' fixes are included
+through the main merge. The final code was checked at
+`6aa81749f466191e50f15262a54326488239b331` before this evidence-only update.
 
 Delivered visual subset: none. No page changes or new visual acceptance claims.

@@ -1,0 +1,239 @@
+{
+  "command": [
+    "pnpm",
+    "test",
+    "--",
+    "src/test/bundleManifest.test.ts",
+    "src/features/agents/SessionEvents.test.tsx"
+  ],
+  "requested_repetitions": 20,
+  "maxWorkers": 2,
+  "source_sha256": {
+    "src/test/bundleManifest.test.ts": "d279267c55e9cca36aff6ca7048953be67dd2899baf54fe9ad1ca561e785f812",
+    "src/features/agents/SessionEvents.test.tsx": "2608f939a1108b14ba960cddfda6a3c9f5a13035153e220cb3516515f82d63e3",
+    "vite.config.ts": "ea0802d2899fa3c170bdbefd918c610215052359db12b91b7b83fd72f2705e68"
+  },
+  "runs": [
+    {
+      "repetition": 1,
+      "exit_code": 0,
+      "duration_seconds": 5.72,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-01.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.60s (tests 73%, environment 12%, import 6%, setup 5%, transform 4%)"
+      ]
+    },
+    {
+      "repetition": 2,
+      "exit_code": 0,
+      "duration_seconds": 5.09,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-02.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.13s (tests 74%, environment 11%, import 6%, setup 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 3,
+      "exit_code": 0,
+      "duration_seconds": 6.46,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-03.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.90s (tests 73%, environment 13%, setup 5%, import 5%, transform 4%)"
+      ]
+    },
+    {
+      "repetition": 4,
+      "exit_code": 0,
+      "duration_seconds": 7.03,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-04.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  5.98s (tests 78%, environment 9%, import 5%, setup 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 5,
+      "exit_code": 0,
+      "duration_seconds": 5.55,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-05.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.48s (tests 74%, environment 11%, import 6%, setup 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 6,
+      "exit_code": 0,
+      "duration_seconds": 6.04,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-06.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.90s (tests 73%, environment 11%, import 7%, setup 6%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 7,
+      "exit_code": 0,
+      "duration_seconds": 5.6,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-07.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.63s (tests 76%, environment 11%, setup 5%, import 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 8,
+      "exit_code": 0,
+      "duration_seconds": 4.91,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-08.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.04s (tests 74%, environment 12%, setup 6%, import 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 9,
+      "exit_code": 0,
+      "duration_seconds": 5.86,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-09.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  4.99s (tests 78%, environment 10%, import 5%, setup 4%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 10,
+      "exit_code": 0,
+      "duration_seconds": 10.0,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-10.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  8.32s (tests 75%, environment 10%, import 5%, transform 5%, setup 5%)"
+      ]
+    },
+    {
+      "repetition": 11,
+      "exit_code": 0,
+      "duration_seconds": 10.56,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-11.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  8.68s (tests 74%, environment 11%, import 6%, setup 6%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 12,
+      "exit_code": 0,
+      "duration_seconds": 13.05,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-12.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  10.64s (tests 76%, environment 11%, import 6%, setup 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 13,
+      "exit_code": 0,
+      "duration_seconds": 12.33,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-13.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  9.06s (tests 68%, environment 14%, setup 6%, transform 6%, import 5%)"
+      ]
+    },
+    {
+      "repetition": 14,
+      "exit_code": 0,
+      "duration_seconds": 10.15,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-14.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  8.19s (tests 74%, environment 10%, import 6%, transform 5%, setup 5%)"
+      ]
+    },
+    {
+      "repetition": 15,
+      "exit_code": 0,
+      "duration_seconds": 11.39,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-15.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  9.16s (tests 74%, environment 11%, import 6%, setup 6%, transform 4%)"
+      ]
+    },
+    {
+      "repetition": 16,
+      "exit_code": 0,
+      "duration_seconds": 9.83,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-16.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  7.68s (tests 71%, environment 12%, transform 6%, setup 6%, import 5%)"
+      ]
+    },
+    {
+      "repetition": 17,
+      "exit_code": 0,
+      "duration_seconds": 8.97,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-17.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  7.33s (tests 75%, environment 12%, import 5%, setup 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 18,
+      "exit_code": 0,
+      "duration_seconds": 8.36,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-18.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  6.93s (tests 76%, environment 12%, import 5%, setup 4%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 19,
+      "exit_code": 0,
+      "duration_seconds": 8.19,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-19.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  6.77s (tests 77%, environment 10%, import 5%, setup 5%, transform 3%)"
+      ]
+    },
+    {
+      "repetition": 20,
+      "exit_code": 0,
+      "duration_seconds": 8.15,
+      "log": "/tmp/quick-meadow-44-focused-repetitions/run-20.log",
+      "summary": [
+        "Test Files  2 passed (2)",
+        "Tests  14 passed (14)",
+        "Duration  6.46s (tests 76%, environment 10%, setup 5%, import 5%, transform 4%)"
+      ]
+    }
+  ],
+  "tested_head": "6aa81749f466191e50f15262a54326488239b331"
+}
