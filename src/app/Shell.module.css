@@ -467,6 +467,7 @@
  .connection { grid-row: 1; align-self: end; font-size: 11px; }
  .scopeRow { grid-template-columns: max-content minmax(0,1fr); padding-block-end: var(--space-3); }
  .connection { grid-column: 2 / -1; justify-self: end; }
+ .top:has(.mockBanner) .connection { grid-row: 2; }
  .usageAccount { flex-basis: 100%; }
  .shell[data-focused-session] .compactUsage { flex: 1; }
 }

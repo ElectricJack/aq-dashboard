@@ -1,0 +1,87 @@
+
+> aq-dashboard@0.1.0 test:e2e /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> playwright test --workers=2
+
+[WebServer] (node:2721351) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:2721439) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 35 tests using 2 workers
+
+(node:2721646) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2721648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:09:43 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:09:43 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   1 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /overview reflows and passes axe (2.4s)
+  ✓   2 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work reflows and passes axe (2.9s)
+[WebServer] 10:09:45 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:09:45 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   3 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work/aq-104 reflows and passes axe (2.2s)
+  ✓   4 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work?view=graph&root=aq-104 reflows and passes axe (2.5s)
+[WebServer] 10:09:47 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:09:48 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   5 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents reflows and passes axe (2.3s)
+[WebServer] 10:09:50 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   6 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents/sess-07 reflows and passes axe (2.9s)
+  ✓   7 [chromium] › tests/inspection.spec.ts:36:5 › phone-320 › Back from a task restores focus to its row (2.1s)
+[WebServer] 10:09:51 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:09:52 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   8 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /overview reflows and passes axe (2.9s)
+  ✓   9 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work reflows and passes axe (3.0s)
+[WebServer] 10:09:54 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:09:55 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  10 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work/aq-104 reflows and passes axe (3.5s)
+  ✓  11 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work?view=graph&root=aq-104 reflows and passes axe (3.0s)
+[WebServer] 10:09:57 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:09:58 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  12 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents reflows and passes axe (3.2s)
+  ✓  13 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents/sess-07 reflows and passes axe (3.1s)
+[WebServer] 10:10:01 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:01 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  15 [chromium] › tests/inspection.spec.ts:47:1 › desktop shows list and inspector side by side (1.9s)
+  ✓  14 [chromium] › tests/inspection.spec.ts:36:5 › desktop-1440 › Back from a task restores focus to its row (2.6s)
+[WebServer] 10:10:03 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:03 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  16 [chromium] › tests/inspection.spec.ts:54:1 › phone shows the task detail instead of the list (1.8s)
+[WebServer] 10:10:05 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  17 [chromium] › tests/inspection.spec.ts:61:1 › search is a real modal: focus stays inside and Escape returns it (2.7s)
+  ✓  18 [chromium] › tests/inspection.spec.ts:79:1 › graph nodes are keyboard reachable and selection keeps positions (2.1s)
+[WebServer] 10:10:06 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:07 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  19 [chromium] › tests/inspection.spec.ts:92:1 › phone: Graph opens from a task, a node opens its detail and Back returns to the graph (3.1s)
+[WebServer] 10:10:09 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  21 [chromium] › tests/shell.spec.ts:26:5 › phone-320 › shell renders without page-level horizontal scroll (1.7s)
+[WebServer] 10:10:11 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  22 [chromium] › tests/shell.spec.ts:41:5 › phone-320 › the right navigation is reachable (1.6s)
+[WebServer] 10:10:12 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  23 [chromium] › tests/shell.spec.ts:59:5 › phone-320 › has no automatically detectable WCAG A/AA violations (2.4s)
+[WebServer] 10:10:15 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  24 [chromium] › tests/shell.spec.ts:26:5 › phone-390 › shell renders without page-level horizontal scroll (1.3s)
+  ✓  20 [chromium] › tests/inspection.spec.ts:106:1 › returning to Work does not re-page the loaded list in the background (9.9s)
+[WebServer] 10:10:16 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  25 [chromium] › tests/shell.spec.ts:41:5 › phone-390 › the right navigation is reachable (1.6s)
+[WebServer] 10:10:17 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:18 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  27 [chromium] › tests/shell.spec.ts:26:5 › tablet-768 › shell renders without page-level horizontal scroll (1.7s)
+  ✓  26 [chromium] › tests/shell.spec.ts:59:5 › phone-390 › has no automatically detectable WCAG A/AA violations (2.9s)
+[WebServer] 10:10:20 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:20 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  28 [chromium] › tests/shell.spec.ts:41:5 › tablet-768 › the right navigation is reachable (1.7s)
+[WebServer] 10:10:21 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  29 [chromium] › tests/shell.spec.ts:59:5 › tablet-768 › has no automatically detectable WCAG A/AA violations (3.0s)
+  ✓  30 [chromium] › tests/shell.spec.ts:26:5 › desktop-1440 › shell renders without page-level horizontal scroll (2.2s)
+[WebServer] 10:10:23 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:24 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  31 [chromium] › tests/shell.spec.ts:41:5 › desktop-1440 › the right navigation is reachable (2.4s)
+[WebServer] 10:10:25 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  32 [chromium] › tests/shell.spec.ts:59:5 › desktop-1440 › has no automatically detectable WCAG A/AA violations (3.6s)
+  ✓  33 [chromium] › tests/shell.spec.ts:70:1 › unknown-usage scenario never renders a percentage (2.1s)
+[WebServer] 10:10:28 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:10:28 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  35 [chromium] › tests/shell.spec.ts:89:1 › phone header scrolls away so it cannot obscure focused content (2.1s)
+  ✓  34 [chromium] › tests/shell.spec.ts:84:1 › mock mode is labelled on screen (2.4s)
+
+  35 passed (49.0s)

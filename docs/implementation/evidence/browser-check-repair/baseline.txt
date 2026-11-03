@@ -1,0 +1,863 @@
+
+> aq-dashboard@0.1.0 test:e2e /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> playwright test --workers=2
+
+[WebServer] (node:2685666) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:2685736) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 35 tests using 2 workers
+
+(node:2685920) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2685919) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:03:11 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:03:11 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘   2 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /overview reflows and passes axe (8.2s)
+  ✘   1 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work reflows and passes axe (8.3s)
+(node:2686714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2686727) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:03:20 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:03:20 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘   3 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work/aq-104 reflows and passes axe (5.0s)
+  ✘   4 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work?view=graph&root=aq-104 reflows and passes axe (4.8s)
+(node:2687333) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2687340) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:03:28 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:03:28 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘   5 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents/sess-07 reflows and passes axe (7.9s)
+  ✘   6 [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents reflows and passes axe (8.0s)
+(node:2688023) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2688036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:03:38 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:03:38 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓   7 [chromium] › tests/inspection.spec.ts:36:5 › phone-320 › Back from a task restores focus to its row (4.0s)
+[WebServer] 10:03:42 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘   8 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /overview reflows and passes axe (7.3s)
+(node:2688738) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   9 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work reflows and passes axe (7.0s)
+(node:2688975) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:03:48 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:03:50 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  10 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work/aq-104 reflows and passes axe (6.2s)
+(node:2689406) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  11 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work?view=graph&root=aq-104 reflows and passes axe (5.1s)
+(node:2689568) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:03:56 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:03:58 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  12 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents reflows and passes axe (7.0s)
+(node:2690261) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  13 [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents/sess-07 reflows and passes axe (6.7s)
+(node:2690476) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:04:05 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:04:07 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  14 [chromium] › tests/inspection.spec.ts:36:5 › desktop-1440 › Back from a task restores focus to its row (4.2s)
+  ✓  15 [chromium] › tests/inspection.spec.ts:47:1 › desktop shows list and inspector side by side (3.9s)
+[WebServer] 10:04:09 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:04:10 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  16 [chromium] › tests/inspection.spec.ts:54:1 › phone shows the task detail instead of the list (3.7s)
+[WebServer] 10:04:14 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  17 [chromium] › tests/inspection.spec.ts:61:1 › search is a real modal: focus stays inside and Escape returns it (7.0s)
+  ✓  18 [chromium] › tests/inspection.spec.ts:79:1 › graph nodes are keyboard reachable and selection keeps positions (7.8s)
+[WebServer] 10:04:23 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:04:25 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  19 [chromium] › tests/inspection.spec.ts:92:1 › phone: Graph opens from a task, a node opens its detail and Back returns to the graph (14.6s)
+[WebServer] 10:04:33 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  21 [chromium] › tests/shell.spec.ts:22:5 › phone-320 › shell renders without page-level horizontal scroll (4.1s)
+(node:2693344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:04:37 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  22 [chromium] › tests/shell.spec.ts:29:5 › phone-320 › the right navigation is reachable (3.2s)
+  ✓  20 [chromium] › tests/inspection.spec.ts:106:1 › returning to Work does not re-page the loaded list in the background (20.5s)
+[WebServer] 10:04:40 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  23 [chromium] › tests/shell.spec.ts:47:5 › phone-320 › has no automatically detectable WCAG A/AA violations (2.2s)
+[WebServer] 10:04:41 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+(node:2693783) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  24 [chromium] › tests/shell.spec.ts:22:5 › phone-390 › shell renders without page-level horizontal scroll (2.0s)
+(node:2693841) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:04:43 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:04:44 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  25 [chromium] › tests/shell.spec.ts:29:5 › phone-390 › the right navigation is reachable (3.0s)
+  ✘  26 [chromium] › tests/shell.spec.ts:47:5 › phone-390 › has no automatically detectable WCAG A/AA violations (3.2s)
+(node:2694226) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:04:51 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  27 [chromium] › tests/shell.spec.ts:22:5 › tablet-768 › shell renders without page-level horizontal scroll (7.3s)
+[WebServer] 10:04:52 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+(node:2694490) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  28 [chromium] › tests/shell.spec.ts:29:5 › tablet-768 › the right navigation is reachable (5.9s)
+[WebServer] 10:04:56 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:04:56 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  30 [chromium] › tests/shell.spec.ts:22:5 › desktop-1440 › shell renders without page-level horizontal scroll (3.7s)
+  ✘  29 [chromium] › tests/shell.spec.ts:47:5 › tablet-768 › has no automatically detectable WCAG A/AA violations (4.0s)
+(node:2694799) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2694858) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:05:03 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:05:04 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  31 [chromium] › tests/shell.spec.ts:29:5 › desktop-1440 › the right navigation is reachable (5.3s)
+  ✘  32 [chromium] › tests/shell.spec.ts:47:5 › desktop-1440 › has no automatically detectable WCAG A/AA violations (5.2s)
+(node:2695699) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 10:05:07 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+[WebServer] 10:05:10 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✓  34 [chromium] › tests/shell.spec.ts:65:1 › mock mode is labelled on screen (3.0s)
+[WebServer] 10:05:12 PM [vite] (client) [console.warn] No `HydrateFallback` element provided to render during initial hydration
+  ✘  33 [chromium] › tests/shell.spec.ts:58:1 › unknown-usage scenario never renders a percentage (6.9s)
+  ✘  35 [chromium] › tests/shell.spec.ts:70:1 › phone header scrolls away so it cannot obscure focused content (2.0s)
+
+
+  1) [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /overview reflows and passes axe ─────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: ._compactUsage_9u8le_385 > summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-phone-320-overview-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-phone-320-overview-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-phone-320-overview-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work reflows and passes axe ─────────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-phone-320-work-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-phone-320-work-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-phone-320-work-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work/aq-104 reflows and passes axe ──
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-phone-320-work-aq-104-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-phone-320-work-aq-104-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-phone-320-work-aq-104-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work?view=graph&root=aq-104 reflows and passes axe 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-phone-320-work--2684b--104-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-phone-320-work--2684b--104-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-phone-320-work--2684b--104-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents reflows and passes axe ───────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-phone-320-agents-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-phone-320-agents-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-phone-320-agents-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents/sess-07 reflows and passes axe 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-phone-320-agents-sess-07-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-phone-320-agents-sess-07-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-phone-320-agents-sess-07-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /overview reflows and passes axe ──
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: ._compactUsage_9u8le_385 > summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-desktop-1440-overview-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-desktop-1440-overview-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-desktop-1440-overview-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work reflows and passes axe ──────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-desktop-1440-work-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-desktop-1440-work-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-desktop-1440-work-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work/aq-104 reflows and passes axe 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-desktop-1440-work-aq-104-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-desktop-1440-work-aq-104-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-desktop-1440-work-aq-104-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work?view=graph&root=aq-104 reflows and passes axe 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-desktop-1440-wo-b3326--104-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-desktop-1440-wo-b3326--104-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-desktop-1440-wo-b3326--104-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents reflows and passes axe ───
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-desktop-1440-agents-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-desktop-1440-agents-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-desktop-1440-agents-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents/sess-07 reflows and passes axe 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "label-content-name-mismatch: summary",
+    + ]
+
+      30 |           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      31 |           .analyze();
+    > 32 |         expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+         |                                                                                                      ^
+      33 |       });
+      34 |     }
+      35 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/inspection.spec.ts:32:102
+
+    Error Context: test-results/inspection-desktop-1440-ag-9e361-s-07-reflows-and-passes-axe-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/inspection-desktop-1440-ag-9e361-s-07-reflows-and-passes-axe-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/inspection-desktop-1440-ag-9e361-s-07-reflows-and-passes-axe-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [chromium] › tests/shell.spec.ts:22:5 › phone-320 › shell renders without page-level horizontal scroll 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka locator('summary').getByText('42% used')
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      23 |       await page.goto("/overview");
+      24 |       await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    > 25 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      26 |       expect(await hasPageHorizontalScroll(page)).toBe(false);
+      27 |     });
+      28 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:25:48
+
+    Error Context: test-results/shell-phone-320-shell-rend-3a94b-age-level-horizontal-scroll-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-phone-320-shell-rend-3a94b-age-level-horizontal-scroll-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-phone-320-shell-rend-3a94b-age-level-horizontal-scroll-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [chromium] › tests/shell.spec.ts:47:5 › phone-320 › has no automatically detectable WCAG A/AA violations 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      47 |     test("has no automatically detectable WCAG A/AA violations", async ({ page }) => {
+      48 |       await page.goto("/overview");
+    > 49 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      50 |       const results = await new AxeBuilder({ page })
+      51 |         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      52 |         .analyze();
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:49:48
+
+    Error Context: test-results/shell-phone-320-has-no-aut-2416a-ctable-WCAG-A-AA-violations-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-phone-320-has-no-aut-2416a-ctable-WCAG-A-AA-violations-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-phone-320-has-no-aut-2416a-ctable-WCAG-A-AA-violations-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [chromium] › tests/shell.spec.ts:22:5 › phone-390 › shell renders without page-level horizontal scroll 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      23 |       await page.goto("/overview");
+      24 |       await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    > 25 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      26 |       expect(await hasPageHorizontalScroll(page)).toBe(false);
+      27 |     });
+      28 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:25:48
+
+    Error Context: test-results/shell-phone-390-shell-rend-3c3d2-age-level-horizontal-scroll-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-phone-390-shell-rend-3c3d2-age-level-horizontal-scroll-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-phone-390-shell-rend-3c3d2-age-level-horizontal-scroll-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [chromium] › tests/shell.spec.ts:47:5 › phone-390 › has no automatically detectable WCAG A/AA violations 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      47 |     test("has no automatically detectable WCAG A/AA violations", async ({ page }) => {
+      48 |       await page.goto("/overview");
+    > 49 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      50 |       const results = await new AxeBuilder({ page })
+      51 |         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      52 |         .analyze();
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:49:48
+
+    Error Context: test-results/shell-phone-390-has-no-aut-80cb6-ctable-WCAG-A-AA-violations-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-phone-390-has-no-aut-80cb6-ctable-WCAG-A-AA-violations-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-phone-390-has-no-aut-80cb6-ctable-WCAG-A-AA-violations-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [chromium] › tests/shell.spec.ts:22:5 › tablet-768 › shell renders without page-level horizontal scroll 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      23 |       await page.goto("/overview");
+      24 |       await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    > 25 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      26 |       expect(await hasPageHorizontalScroll(page)).toBe(false);
+      27 |     });
+      28 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:25:48
+
+    Error Context: test-results/shell-tablet-768-shell-ren-e74da-age-level-horizontal-scroll-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-tablet-768-shell-ren-e74da-age-level-horizontal-scroll-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-tablet-768-shell-ren-e74da-age-level-horizontal-scroll-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [chromium] › tests/shell.spec.ts:47:5 › tablet-768 › has no automatically detectable WCAG A/AA violations 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      47 |     test("has no automatically detectable WCAG A/AA violations", async ({ page }) => {
+      48 |       await page.goto("/overview");
+    > 49 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      50 |       const results = await new AxeBuilder({ page })
+      51 |         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      52 |         .analyze();
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:49:48
+
+    Error Context: test-results/shell-tablet-768-has-no-au-37ca8-ctable-WCAG-A-AA-violations-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-tablet-768-has-no-au-37ca8-ctable-WCAG-A-AA-violations-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-tablet-768-has-no-au-37ca8-ctable-WCAG-A-AA-violations-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [chromium] › tests/shell.spec.ts:22:5 › desktop-1440 › shell renders without page-level horizontal scroll 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka locator('summary').getByText('42% used')
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      23 |       await page.goto("/overview");
+      24 |       await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    > 25 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      26 |       expect(await hasPageHorizontalScroll(page)).toBe(false);
+      27 |     });
+      28 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:25:48
+
+    Error Context: test-results/shell-desktop-1440-shell-r-2984e-age-level-horizontal-scroll-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-desktop-1440-shell-r-2984e-age-level-horizontal-scroll-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-desktop-1440-shell-r-2984e-age-level-horizontal-scroll-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [chromium] › tests/shell.spec.ts:47:5 › desktop-1440 › has no automatically detectable WCAG A/AA violations 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      47 |     test("has no automatically detectable WCAG A/AA violations", async ({ page }) => {
+      48 |       await page.goto("/overview");
+    > 49 |       await expect(page.getByText("42% used")).toBeVisible();
+         |                                                ^
+      50 |       const results = await new AxeBuilder({ page })
+      51 |         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      52 |         .analyze();
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:49:48
+
+    Error Context: test-results/shell-desktop-1440-has-no--f186b-ctable-WCAG-A-AA-violations-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-desktop-1440-has-no--f186b-ctable-WCAG-A-AA-violations-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-desktop-1440-has-no--f186b-ctable-WCAG-A-AA-violations-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [chromium] › tests/shell.spec.ts:58:1 › unknown-usage scenario never renders a percentage ────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('region', { name: /provider usage/i }).getByText('Usage unavailable').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('region', { name: /provider usage/i }).getByText('Usage unavailable').first() with timeout 5000ms
+      - waiting for getByRole('region', { name: /provider usage/i }).getByText('Usage unavailable').first()
+
+
+      59 |   await page.goto("/overview?scenario=unknown");
+      60 |   const strip = page.getByRole("region", { name: /provider usage/i });
+    > 61 |   await expect(strip.getByText("Usage unavailable").first()).toBeVisible();
+         |                                                              ^
+      62 |   await expect(strip).not.toContainText("%");
+      63 | });
+      64 |
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:61:62
+
+    Error Context: test-results/shell-unknown-usage-scenario-never-renders-a-percentage-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-unknown-usage-scenario-never-renders-a-percentage-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-unknown-usage-scenario-never-renders-a-percentage-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [chromium] › tests/shell.spec.ts:70:1 › phone header scrolls away so it cannot obscure focused content 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('42% used')
+    Expected: visible
+    Error: strict mode violation: getByText('42% used') resolved to 2 elements:
+        1) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').first()
+        2) <span data-level="normal" class="_percent_16hu7_69">42% used</span> aka getByText('% used').nth(2)
+
+    Call log:
+      - Expect "toBeVisible" getByText('42% used') with timeout 5000ms
+      - waiting for getByText('42% used')
+
+
+      71 |   await page.setViewportSize({ width: 320, height: 640 });
+      72 |   await page.goto("/overview");
+    > 73 |   await expect(page.getByText("42% used")).toBeVisible();
+         |                                            ^
+      74 |   const position = await page.getByRole("banner").evaluate((el) => getComputedStyle(el).position);
+      75 |   expect(["static", "relative"]).toContain(position);
+      76 | });
+        at /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0/tests/shell.spec.ts:73:44
+
+    Error Context: test-results/shell-phone-header-scrolls-ec60a-not-obscure-focused-content-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-phone-header-scrolls-ec60a-not-obscure-focused-content-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/shell-phone-header-scrolls-ec60a-not-obscure-focused-content-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22 failed
+    [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /overview reflows and passes axe ──────
+    [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work reflows and passes axe ──────────
+    [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work/aq-104 reflows and passes axe ───
+    [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /work?view=graph&root=aq-104 reflows and passes axe 
+    [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents reflows and passes axe ────────
+    [chromium] › tests/inspection.spec.ts:22:7 › phone-320 › /agents/sess-07 reflows and passes axe 
+    [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /overview reflows and passes axe ───
+    [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work reflows and passes axe ───────
+    [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work/aq-104 reflows and passes axe 
+    [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /work?view=graph&root=aq-104 reflows and passes axe 
+    [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents reflows and passes axe ─────
+    [chromium] › tests/inspection.spec.ts:22:7 › desktop-1440 › /agents/sess-07 reflows and passes axe 
+    [chromium] › tests/shell.spec.ts:22:5 › phone-320 › shell renders without page-level horizontal scroll 
+    [chromium] › tests/shell.spec.ts:47:5 › phone-320 › has no automatically detectable WCAG A/AA violations 
+    [chromium] › tests/shell.spec.ts:22:5 › phone-390 › shell renders without page-level horizontal scroll 
+    [chromium] › tests/shell.spec.ts:47:5 › phone-390 › has no automatically detectable WCAG A/AA violations 
+    [chromium] › tests/shell.spec.ts:22:5 › tablet-768 › shell renders without page-level horizontal scroll 
+    [chromium] › tests/shell.spec.ts:47:5 › tablet-768 › has no automatically detectable WCAG A/AA violations 
+    [chromium] › tests/shell.spec.ts:22:5 › desktop-1440 › shell renders without page-level horizontal scroll 
+    [chromium] › tests/shell.spec.ts:47:5 › desktop-1440 › has no automatically detectable WCAG A/AA violations 
+    [chromium] › tests/shell.spec.ts:58:1 › unknown-usage scenario never renders a percentage ──────
+    [chromium] › tests/shell.spec.ts:70:1 › phone header scrolls away so it cannot obscure focused content 
+  13 passed (2.2m)
+ ELIFECYCLE  Command failed with exit code 1.

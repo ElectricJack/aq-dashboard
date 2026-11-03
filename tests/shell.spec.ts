@@ -15,6 +15,10 @@ async function hasPageHorizontalScroll(page: Page) {
   );
 }
 
+function usageSummary(page: Page) {
+  return page.getByRole("banner").locator("summary");
+}
+
 for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
@@ -22,7 +26,15 @@ for (const vp of VIEWPORTS) {
     test("shell renders without page-level horizontal scroll", async ({ page }) => {
       await page.goto("/overview");
       await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
-      await expect(page.getByText("42% used")).toBeVisible();
+      await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+      await expect(usageSummary(page)).toHaveAccessibleName(/Provider usage \(account-wide\).*Claude.*42% used.*Codex.*85% used/);
+      const summaryBox = (await usageSummary(page).boundingBox())!;
+      const connectionBox = (await page.getByRole("banner").getByRole("status").boundingBox())!;
+      const overlaps = summaryBox.x < connectionBox.x + connectionBox.width &&
+        summaryBox.x + summaryBox.width > connectionBox.x &&
+        summaryBox.y < connectionBox.y + connectionBox.height &&
+        summaryBox.y + summaryBox.height > connectionBox.y;
+      expect(overlaps, "connection status must not obscure provider usage").toBe(false);
       expect(await hasPageHorizontalScroll(page)).toBe(false);
     });
 
@@ -46,7 +58,7 @@ for (const vp of VIEWPORTS) {
 
     test("has no automatically detectable WCAG A/AA violations", async ({ page }) => {
       await page.goto("/overview");
-      await expect(page.getByText("42% used")).toBeVisible();
+      await expect(usageSummary(page).getByText("42% used")).toBeVisible();
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
         .analyze();
@@ -57,9 +69,16 @@ for (const vp of VIEWPORTS) {
 
 test("unknown-usage scenario never renders a percentage", async ({ page }) => {
   await page.goto("/overview?scenario=unknown");
+  const summary = usageSummary(page);
+  await expect(summary.getByText("Usage unavailable").first()).toBeVisible();
+  await expect(summary).not.toContainText("%");
+  await summary.click();
   const strip = page.getByRole("region", { name: /provider usage/i });
   await expect(strip.getByText("Usage unavailable").first()).toBeVisible();
   await expect(strip).not.toContainText("%");
+  await page.getByRole("button", { name: "Close usage details" }).click();
+  await expect(strip).toBeHidden();
+  await expect(summary).toBeFocused();
 });
 
 test("mock mode is labelled on screen", async ({ page }) => {
@@ -70,7 +89,7 @@ test("mock mode is labelled on screen", async ({ page }) => {
 test("phone header scrolls away so it cannot obscure focused content", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto("/overview");
-  await expect(page.getByText("42% used")).toBeVisible();
+  await expect(usageSummary(page).getByText("42% used")).toBeVisible();
   const position = await page.getByRole("banner").evaluate((el) => getComputedStyle(el).position);
   expect(["static", "relative"]).toContain(position);
 });

@@ -271,7 +271,7 @@ test("keeps account quota amounts visible while window and freshness details dis
   const summary = banner.querySelector("summary")!;
   await waitFor(() => expect(summary).toHaveTextContent("42% used"));
   expect(summary).toHaveTextContent("Claude"); expect(summary).toHaveTextContent("Codex"); expect(summary).toHaveTextContent("85% used");
-  expect(summary).toHaveAttribute("aria-label", "Provider usage (account-wide)");
+  expect(summary).toHaveAccessibleName(/Provider usage \(account-wide\).*Claude.*42% used.*Codex.*85% used/);
   const details = summary.closest("details")!; expect(details).not.toHaveAttribute("open");
   await userEvent.click(summary);
   const region = within(banner).getByRole("region", { name: "Provider usage (account-wide)" });

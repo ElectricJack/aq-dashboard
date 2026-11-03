@@ -199,7 +199,7 @@ export function Shell() {
         <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
           if (event.key === "Escape") { event.preventDefault(); closeUsage(); }
         }}>
-          <summary ref={usageSummary} aria-label="Provider usage (account-wide)"><UsageSummary state={usage.state} /></summary>
+          <summary ref={usageSummary}><span className="visually-hidden">Provider usage (account-wide) </span><UsageSummary state={usage.state} /></summary>
           <div className={styles.usageReason}>
             <ProviderUsageStrip state={usage.state} />
             <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>

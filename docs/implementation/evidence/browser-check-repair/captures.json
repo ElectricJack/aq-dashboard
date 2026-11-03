@@ -1,0 +1,21 @@
+{
+  "label": "Deterministic fixture screenshots; not live API qualification",
+  "bundle_manifest_sha256": "3463c46a7b3c1216ba0d7d091a2fb6423cb9aaebf3a4381c64d6399e8e57f998",
+  "source": {
+    "revision": "62fd23792f2d6a51a03f355ab49a113dd18edec1",
+    "dirty": true,
+    "official": false
+  },
+  "captures": [
+    "overview-compiled-1440.png",
+    "work-detail-mock-1440.png",
+    "work-graph-mock-1440.png",
+    "overview-compiled-390.png",
+    "work-detail-mock-390.png",
+    "work-graph-mock-390.png",
+    "overview-compiled-320.png",
+    "work-detail-mock-320.png",
+    "work-graph-mock-320.png"
+  ],
+  "errors": []
+}
