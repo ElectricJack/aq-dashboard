@@ -16,6 +16,10 @@ async function taskList() {
 
 test("shows a bounded first page with its total and loads more on request", async () => {
   renderApp("/work");
+  // Bootstrap/session activation and page mount precede the first task read.
+  // Observe each stage before starting the list's normal assertion deadline.
+  await screen.findByRole("navigation", { name: "Primary" });
+  await screen.findByRole("heading", { level: 1, name: "Work" });
   const list = await taskList();
   expect(within(list).getAllByRole("listitem")).toHaveLength(25);
   expect(screen.getByText(/25 of 47 tasks/)).toBeInTheDocument();

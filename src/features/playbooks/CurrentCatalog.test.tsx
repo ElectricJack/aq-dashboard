@@ -15,7 +15,12 @@ function definitions() { capability(); server.use(http.get("/api/playbooks/inspe
 test("direct current Definitions reads neither runs, admissions nor historical startup metadata", async () => {
   definitions(); let unrelated = 0;
   server.use(http.get("/api/playbooks/inspection/runs", () => { unrelated++; return HttpResponse.json({}); }), http.get("/api/playbooks/inspection/admissions", () => { unrelated++; return HttpResponse.json({}); }), http.get("/api/playbooks/inspection/loaded-definitions", () => { unrelated++; return HttpResponse.json({}); }));
-  renderApp("/playbooks?view=definitions"); await screen.findByRole("list", { name: "Current playbook definitions" }); expect(unrelated).toBe(0); expect(screen.queryByText(/Runtime startup configuration/)).toBeNull();
+  renderApp("/playbooks?view=definitions");
+  // Bootstrap/session activation and page mount precede the first catalog read.
+  // Observe each stage before starting the list's normal assertion deadline.
+  await screen.findByRole("navigation", { name: "Primary" });
+  await screen.findByRole("heading", { level: 1, name: "Playbooks" });
+  await screen.findByRole("list", { name: "Current playbook definitions" }); expect(unrelated).toBe(0); expect(screen.queryByText(/Runtime startup configuration/)).toBeNull();
 });
 test("selection makes an exact stamped read, shows immutable pins, and restores roster focus", async () => {
   capability(); const requests: URLSearchParams[] = [];
