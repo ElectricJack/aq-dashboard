@@ -1,0 +1,27 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/features/agents src/features/playbooks src/features/results src/api/interactiveTerminalClient.test.ts src/api/adapters/terminalTail.test.ts src/api/terminalClient.test.ts
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  14 passed (14)
+      Tests  123 passed (123)
+   Start at  16:11:06
+   Duration  34.49s (tests 63%, environment 21%, import 8%, setup 5%, transform 3%)
+
+    Isolate  14 workers spawned · ~1.17s startup each (spawn + environment, per file)
+             at least ~7.05s faster with isolate: false — reuses workers across files instead of one per file
+

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -6,21 +6,28 @@ import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import { handlersFor } from "../../mocks/handlers";
 import { SERVER_TIME, SESSIONS } from "../../mocks/inspectionData";
 import { renderApp } from "../../test/renderApp";
+import { vi } from "vitest";
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const terminal = { terminal_id: id(1), epoch: 1, session: { kind: "remote", node_id: id(2), boot_id: id(3), attempt_id: id(4), assignment_generation: 1, session_id: id(5) } };
 const headers = { "aq-terminal-server-time-ms": "10000" };
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
-afterEach(() => server.resetHandlers());
+afterEach(() => { server.resetHandlers(); vi.useRealTimers(); });
 afterAll(() => server.close());
 async function frame(sequence: number, text: string) {
   const bytes = [...new TextEncoder().encode(text)];
   const hash = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   return { terminal, sequence, bytes, byte_length: bytes.length, digest: Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("") };
 }
-type PageOptions = { status?: number; notRetained?: boolean; gap?: boolean; disconnected?: boolean; text?: string; shortExpiry?: boolean };
-function setup(options: (n: number) => PageOptions = () => ({})) {
-  let subscription = "", expires = 25000, reads = 0, watches = 0;
+type PageOptions = { status?: number; notRetained?: boolean; gap?: boolean; disconnected?: boolean; text?: string };
+function holdFollowingReads(first: PageOptions, following: PageOptions) {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  return { release, options: async (n: number) => { if (n === 1) return first; await gate; return following; } };
+}
+function setup(options: (n: number) => PageOptions | Promise<PageOptions> = () => ({})) {
+  const expires = 25000;
+  let subscription = "", reads = 0, watches = 0;
   server.use(
     http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, capabilities: [...bootstrap.data.capabilities.filter(c => c.name !== "terminal.watch"), { name: "terminal.watch", version: "1", enabled: true }] } })),
     http.get("/api/v1/sessions/:id", () => HttpResponse.json({ api_version: "proposed-0", request_id: "tail-test", server_time: SERVER_TIME, scope: { kind: "all_authorized" }, coverage: { state: "complete" }, data: { ...SESSIONS[0], terminal: { type: "terminal", id: terminal.terminal_id } } })),
@@ -29,12 +36,11 @@ function setup(options: (n: number) => PageOptions = () => ({})) {
       const q = await request.json() as { kind: string; body: { operation_id: string; expires_at_ms: number } };
       expect(q.kind).toBe("watch"); expect(q.body.expires_at_ms).toBe(25000);
       watches++; subscription = q.body.operation_id;
-      if (options(0).shortExpiry) expires = 10500;
       return HttpResponse.json({ kind: "watch", body: { terminal, operation_id: subscription, subscription_id: subscription, session_revision: 1, expires_at_ms: expires } }, { headers });
     }),
     http.get("/api/v1/terminals/:id/tail", async ({ request }) => {
       const url = new URL(request.url); expect(url.searchParams.get("subscription_id")).toBe(subscription);
-      const o = options(++reads);
+      const o = await options(++reads);
       if (o.status) return HttpResponse.json({ error: "refused" }, { status: o.status });
       const after = Number(url.searchParams.get("after_sequence"));
       return HttpResponse.json({ terminal, subscription_id: subscription, session_revision: 1, expires_at_ms: expires, server_time_ms: 10000, last_observed_at_ms: 9999,
@@ -64,8 +70,10 @@ test("registered terminal only watches on explicit action; renders escaped liter
   expect(output).not.toHaveTextContent("hello"); expect(q.watches()).toBe(1);
 });
 test("reported gaps discard preceding text and distinguish disconnection", async () => {
-  setup(n => n > 1 ? { gap: true, disconnected: true, text: "after gap" } : { text: "before gap" });
+  const held = holdFollowingReads({ text: "before gap" }, { gap: true, disconnected: true, text: "after gap" });
+  setup(held.options);
   await start(); await screen.findByText("before gap");
+  held.release();
   await screen.findByText("after gap"); expect(screen.queryByText("before gap")).toBeNull();
   expect(screen.getByText(/Output gaps or sequence discontinuities/)).toBeInTheDocument();
   expect(screen.getByText(/Disconnected —/)).toBeInTheDocument();
@@ -76,13 +84,28 @@ test("not-retained output does not invent a snapshot or replay old bytes", async
   expect(screen.getByText("No output bytes available")).toBeInTheDocument();
 });
 test.each([401, 403, 404, 503])("a subsequent %s clears previously visible output", async status => {
-  setup(n => n > 1 ? { status } : { text: "private worker bytes" }); await start();
+  const held = holdFollowingReads({ text: "private worker bytes" }, { status });
+  setup(held.options); await start();
   await screen.findByText("private worker bytes");
+  held.release();
   await waitFor(() => expect(screen.queryByText("private worker bytes")).toBeNull());
   if (status === 401 || status === 403) expect(screen.getByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" })).toBeInTheDocument();
 });
 test("Watch expiry clears output without automatic renewal", async () => {
-  const q = setup(() => ({ shortExpiry: true, text: "temporary bytes" })); await start();
-  await screen.findByText("temporary bytes"); await screen.findByText("Watch expired — output cleared");
+  const q = setup(() => ({ text: "temporary bytes" })); await transcript();
+  // Exercise the real 15s deadline without racing a 500ms fixture expiry or
+  // spending 15s of wall time. Keep MSW and the actual Watch/tail path.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  const started = performance.now();
+  fireEvent.click(screen.getByRole("button", { name: /Watch output for/ }));
+  await vi.waitFor(async () => {
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("temporary bytes")).toBeInTheDocument();
+  });
+  await act(async () => { await vi.advanceTimersByTimeAsync(14_999 - (performance.now() - started)); });
+  expect(screen.getByText("temporary bytes")).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(screen.getByText("Watch expired — output cleared")).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
   expect(screen.queryByText("temporary bytes")).toBeNull(); expect(q.watches()).toBe(1);
 });

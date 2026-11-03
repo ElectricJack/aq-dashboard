@@ -1,0 +1,20 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/features/agents/TerminalTail.test.tsx src/features/playbooks/CurrentCatalog.test.tsx src/features/results/ResultMediaUpload.test.tsx --maxWorkers=1 --sequence.shuffle --sequence.seed=19
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+      Running tests with seed "19"
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  3 passed (3)
+      Tests  44 passed (44)
+   Start at  16:11:55
+   Duration  27.37s (tests 76%, environment 15%, import 5%, setup 2%, transform 2%)
+
+    Isolate  3 workers spawned · ~1.56s startup each (spawn + environment, per file)
+             at least ~3.11s faster with isolate: false — reuses workers across files instead of one per file
+
