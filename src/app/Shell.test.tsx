@@ -20,6 +20,9 @@ async function rail() {
 
 test("redirects / to the Overview page", async () => {
   const { router } = renderApp("/");
+  // Bootstrap mounts the shell before the index redirect renders its page.
+  await rail();
+  await waitFor(() => expect(router.state.location.pathname).toBe("/overview"));
   expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
   expect(router.state.location.pathname).toBe("/overview");
 });
@@ -199,6 +202,8 @@ test("removes protected views and caches when a refresh is unauthenticated", asy
 
 test("redirecting / keeps the scope", async () => {
   const { router } = renderApp("/?scope=project:alpha");
+  await rail();
+  await waitFor(() => expect(router.state.location.pathname).toBe("/overview"));
   await screen.findByRole("heading", { level: 1, name: "Overview" });
   expect(new URLSearchParams(router.state.location.search).get("scope")).toBe("project:alpha");
 });
