@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -157,8 +157,10 @@ test("Back from a task opened in the graph returns focus to its node", async () 
   const { router } = renderApp("/work?view=graph&root=aq-104");
   const region = await screen.findByRole("region", { name: /dependency graph/i });
   await userEvent.click(await within(region).findByRole("button", { name: /Implement safe recovery/ }));
-  await screen.findByRole("heading", { level: 2, name: "Implement safe recovery" });
-  await router.navigate(-1);
+  const heading = await screen.findByRole("heading", { level: 2, name: "Implement safe recovery" });
+  // Finish the forward navigation's focus effects before starting Back.
+  await waitFor(() => expect(heading).toHaveFocus());
+  await act(async () => { await router.navigate(-1); });
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /Implement safe recovery/ })).toHaveFocus(),
   );
