@@ -1,0 +1,14 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs src/features/results/Results.test.tsx -t 'uncertain existing-task linking|revising conflicted feedback'
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: Window's scrollTo() method
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 11 skipped (13)
+   Start at  18:51:48
+   Duration  6.51s (tests 40%, environment 35%, import 11%, setup 8%, transform 6%)

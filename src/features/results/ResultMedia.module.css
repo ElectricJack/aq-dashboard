@@ -14,3 +14,7 @@
 .expanded { display: grid; place-items: center; min-block-size: 200px; margin-block-start: var(--space-3); }
 .expanded img { display: block; max-inline-size: 100%; inline-size: auto; block-size: auto; max-block-size: 75dvh; object-fit: contain; }
 @media(max-width:600px) { .frame, .placeholder { min-block-size: 200px; padding: var(--space-2); } .selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .selector button { max-inline-size: 100%; } .dialog { padding: var(--space-3); } .dialog .expanded img { max-block-size: 65dvh; } }
+
+.annotatable { position:relative; display:inline-flex; max-inline-size:100%; }
+.frame .annotatable img { inline-size:auto; max-inline-size:100%; max-block-size:360px; }
+.annotation { position:absolute; border:2px solid var(--color-focus); background:#f3c57630; pointer-events:none; box-sizing:border-box; }

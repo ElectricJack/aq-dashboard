@@ -7,7 +7,8 @@ import { setupServer } from "msw/node";
 import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
-import { resultPage, resultRecord } from "../../test/results";
+import { resultRecord } from "../../test/results";
+import {resultFeedbackPage as resultPage,mediaResultDetail,feedbackEnvelope} from "../../test/resultsFeedback";
 import { fixtureArtifact, fixtureMedia, fixtureMediaBinding, fixtureMediaHeaders, fixturePng } from "../../test/resultMedia";
 import { resultMediaPath } from "../../api/resultMediaClient";
 import type { MediaArtifact } from "../../api/adapters/resultMedia";
@@ -27,8 +28,9 @@ function binary(artifact = fixtureArtifact(), bytes = fixturePng()) { return new
 function setup(items = [fixtureArtifact()], enabled = true) {
   let listings = 0; const reads: string[] = [];
   server.use(
+    http.get("/api/v1/results/:id/revisions/:revision/comments",()=>HttpResponse.json(feedbackEnvelope({items:[],next_cursor:null},binding.project_id))),
     http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, capabilities: [...bootstrap.data.capabilities.filter(cap => !["results.read", "results.media.read"].includes(cap.name)), { name: "results.read", version: "1", enabled: true }, { name: "results.media.read", version: "1", enabled }] } })),
-    http.get("/api/human/results", () => HttpResponse.json(resultPage())),
+    http.get("/api/v1/results", () => HttpResponse.json(resultPage())),
     http.get(base, () => { listings++; return HttpResponse.json(fixtureMedia(items)); }),
     http.get(`${base}/:artifact/content`, ({ request, params }) => { const variant = new URL(request.url).searchParams.get("variant")!; reads.push(variant); const artifact = items.find(item => item.receipt.artifact_id === params.artifact)!; return new HttpResponse(Uint8Array.from(fixturePng(Number(params.artifact?.toString().slice(-1)) === 2 ? 99 : 40)).buffer, { headers: fixtureMediaHeaders(artifact, variant as "preview" | "render") }); }),
   );
@@ -38,7 +40,7 @@ async function openImages() { await userEvent.click(await screen.findByRole("but
 test("media capability absence preserves useful metadata and makes no media request", async () => {
   const app = setup(undefined, false); await screen.findByText("Retained worker claim 1");
   expect(screen.queryByRole("button", { name: "View supplemental images" })).toBeNull(); expect(app.listings()).toBe(0); expect(created).toHaveLength(0);
-  await userEvent.click(screen.getByText("Report details and evidence references")); expect(screen.getByText("Source base")).toBeVisible();
+  await userEvent.click(screen.getByText("Result context and evidence")); expect(screen.getByText("Source base")).toBeVisible();
 });
 test("only selected preview reads initially; expansion is explicit and close revokes its URL", async () => {
   const app = setup(); await screen.findByText("Retained worker claim 1"); expect(app.listings()).toBe(0);
@@ -77,9 +79,9 @@ test.each([401, 403])("%s from render immediately removes all Blob URLs even wit
 });
 test("scope change revokes the old report image before another scope can render", async () => {
   const app = setup(); const gallery = await openImages(); const image = await within(gallery).findByRole("img"); const url = image.getAttribute("src")!;
-  server.use(http.get("/api/human/results", () => HttpResponse.json(resultPage([]))));
-  await act(() => app.router.navigate("/results?scope=project:other-project"));
-  await screen.findByText("No recorded result reports in this scope."); expect(screen.queryByRole("img")).toBeNull(); expect(revoked).toContain(url);
+  server.use(http.get("/api/v1/results", () => HttpResponse.json(resultPage([],null,binding.project_id))));
+  await act(() => app.router.navigate(`/results?scope=project:${binding.project_id}`));
+  await screen.findByText("No results in this scope and filter."); expect(screen.queryByRole("img")).toBeNull(); expect(revoked).toContain(url);
 });
 test("a browser decode failure revokes the verified URL rather than keeping a broken image", async () => {
   setup(); const gallery = await openImages(); const image = await within(gallery).findByRole("img"); const url = image.getAttribute("src")!;
@@ -87,13 +89,13 @@ test("a browser decode failure revokes the verified URL rather than keeping a br
 });
 test("visible image window retains no more than two selected previews", async () => {
   setup(); const rows = [resultRecord(1), resultRecord(2), resultRecord(3)];
-  server.use(http.get("/api/human/results", () => HttpResponse.json(resultPage(rows))));
+  server.use(http.get("/api/v1/results", () => HttpResponse.json(resultPage(rows))));
   for (const [index, row] of rows.entries()) {
     const reportBinding = resultMediaBinding(row, "recorded_legacy_native_only"), artifact = fixtureArtifact(index + 1, reportBinding);
     server.use(http.get(resultMediaPath(reportBinding), () => HttpResponse.json(fixtureMedia([artifact], reportBinding))), http.get(`${resultMediaPath(reportBinding)}/:artifact/content`, () => binary(artifact)));
   }
   await screen.findByText("Retained worker claim 3");
-  const cards = screen.getAllByRole("article");
+  const cards = screen.getAllByRole("article",{name:/^Result /});
   for (const card of cards) {
     await userEvent.click(within(card).getByRole("button", { name: "View supplemental images" })); await within(card).findByRole("img");
   }
@@ -109,7 +111,7 @@ test("an exact report/revision change fences a held response from the previous r
   server.use(http.get(`${base}/:artifact/content`, async () => { oldReads++; await held; return binary(); }));
   await openImages(); await waitFor(() => expect(oldReads).toBe(1));
   const row = { ...resultRecord(2), revision: "c".repeat(64) }, nextBinding = resultMediaBinding(row, "recorded_legacy_native_only"), nextArtifact = fixtureArtifact(2, nextBinding, fixturePng(99));
-  server.use(http.get(`/api/human/results/${row.report_id}/revisions/${row.revision}`, () => HttpResponse.json(resultPage([row]))),
+  server.use(http.get(`/api/v1/results/${row.report_id}/revisions/${row.revision}`, () => HttpResponse.json(feedbackEnvelope(mediaResultDetail(row)))),
     http.get(resultMediaPath(nextBinding), () => HttpResponse.json(fixtureMedia([nextArtifact], nextBinding))),
     http.get(`${resultMediaPath(nextBinding)}/:artifact/content`, () => binary(nextArtifact, fixturePng(99))));
   await act(() => app.router.navigate(`/results/${row.report_id}/revisions/${row.revision}`));
@@ -122,8 +124,8 @@ test.each(["removed", "revised"])("same-feed refresh %s report immediately close
   const app = setup(); const gallery = await openImages(); await within(gallery).findByRole("img");
   await userEvent.click(within(gallery).getByRole("button", { name: "Expand image" }));
   const modal = screen.getByRole("dialog", { name: "Expanded supplemental image" }); const render = await within(modal).findByRole("img"); const renderUrl = render.getAttribute("src")!;
-  server.use(http.get("/api/human/results", () => HttpResponse.json(resultPage(state === "removed" ? [] : [{ ...resultRecord(), revision: "c".repeat(64) }]))));
-  await act(() => app.queryClient.invalidateQueries({ predicate: query => query.queryKey[4] === "result-metadata" }));
+  server.use(http.get("/api/v1/results", () => HttpResponse.json(resultPage(state === "removed" ? [] : [{ ...resultRecord(), revision: "c".repeat(64) }]))));
+  await act(() => app.queryClient.invalidateQueries({ predicate: query => query.queryKey[4] === "result-feed" }));
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Expanded supplemental image" })).toBeNull());
   expect(revoked).toContain(renderUrl); expect(screen.queryByRole("img")).toBeNull();
 });

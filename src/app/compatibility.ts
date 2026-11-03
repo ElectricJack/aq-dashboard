@@ -11,6 +11,7 @@ export function capabilitiesForResource(resource: string): string[] {
     "overview-task-contributions": ["human.overview.tasks.read"], "overview-worker-heartbeats": ["workers.read"],
     "provider-usage": ["provider.quota"], "configured-provider-accounts": ["providers.configured.read"],
     "worker-nodes": ["workers.read"], "daemon-status": ["status.read"], search: ["search.read"],
+    "result-feedback-context": ["results.feedback"],
     "task-create-context": ["tasks.create"], "supervisor-operation": ["supervisor.message.enqueue"],
     "session-source-events": ["session.events.read"], "session-usage": ["session.usage.read"],
     "project-execution-bindings": ["projects.read"],

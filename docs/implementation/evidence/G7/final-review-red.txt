@@ -1,0 +1,288 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs src/features/results/Results.test.tsx -- -t 'uncertain existing-task linking|revising conflicted feedback'
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ ❯ src/features/results/Results.test.tsx (13 tests | 2 failed) 11053ms
+   × uncertain existing-task linking confirms through lookup without another link request 1802ms
+   × revising conflicted feedback refreshes thread and project guards while preserving pins 574ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/results/Results.test.tsx > uncertain existing-task linking confirms through lookup without another link request
+TestingLibraryElementError: Unable to find an element with the text: Existing task linked. Thread remains open.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<dialog
+  aria-label="Create feedback task"
+  class="draftDialog"
+  open=""
+>
+  <header
+    class="panelHeader"
+  >
+    <h2>
+      Create feedback task
+    </h2>
+    <button
+      class="control"
+      type="button"
+    >
+      Close draft
+    </button>
+  </header>
+  <p
+    class="meta"
+  >
+    Discussion stays separate from work. Creating or linking a task leaves the thread open.
+  </p>
+  <form>
+    <fieldset
+      class="fields"
+      disabled=""
+    >
+      <label>
+        Feedback comment
+        <select>
+          <option
+            value="00000000-0000-4000-8000-000000000020"
+          >
+            The caption wraps over the image.
+          </option>
+        </select>
+      </label>
+      <label>
+        Action
+        <select>
+          <option
+            value="create"
+          >
+            Create a new task
+          </option>
+          <option
+            value="link"
+          >
+            Link existing task
+          </option>
+        </select>
+      </label>
+      <label>
+        Existing task ID
+        <input
+          required=""
+          value="00000000-0000-4000-8000-000000000071"
+        />
+      </label>
+      <details>
+        <summary>
+          Exact pins
+        </summary>
+        <p
+          class="meta"
+        >
+          Result
+          00000000-0000-4000-8000-000000000002
+           · revision
+          aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        </p>
+        <p
+          class="meta"
+        >
+          Comment
+          00000000-0000-4000-8000-000000000020
+           · revision
+          1
+        </p>
+      </details>
+    </fieldset>
+  </form>
+  <section
+    aria-label="Operation status"
+  >
+    <p
+      role="status"
+    >
+      Operation confirmed.
+    </p>
+    <div
+      class="result-actions"
+    >
+      <button
+        class="control"
+        type="button"
+      >
+        Check status
+      </button>
+    </div>
+    <details>
+      <summary>
+        Operation reference
+      </summary>
+      <p>
+        8c7a157c-bfe6-4e19-bf66-81f7fd9c429d
+      </p>
+    </details>
+  </section>
+</dialog>
+
+Ignored nodes: comments, script, style
+<dialog
+  aria-label="Create feedback task"
+  class="draftDialog"
+  open=""
+>
+  <header
+    class="panelHeader"
+  >
+    <h2>
+      Create feedback task
+    </h2>
+    <button
+      class="control"
+      type="button"
+    >
+      Close draft
+    </button>
+  </header>
+  <p
+    class="meta"
+  >
+    Discussion stays separate from work. Creating or linking a task leaves the thread open.
+  </p>
+  <form>
+    <fieldset
+      class="fields"
+      disabled=""
+    >
+      <label>
+        Feedback comment
+        <select>
+          <option
+            value="00000000-0000-4000-8000-000000000020"
+          >
+            The caption wraps over the image.
+          </option>
+        </select>
+      </label>
+      <label>
+        Action
+        <select>
+          <option
+            value="create"
+          >
+            Create a new task
+          </option>
+          <option
+            value="link"
+          >
+            Link existing task
+          </option>
+        </select>
+      </label>
+      <label>
+        Existing task ID
+        <input
+          required=""
+          value="00000000-0000-4000-8000-000000000071"
+        />
+      </label>
+      <details>
+        <summary>
+          Exact pins
+        </summary>
+        <p
+          class="meta"
+        >
+          Result
+          00000000-0000-4000-8000-000000000002
+           · revision
+          aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        </p>
+        <p
+          class="meta"
+        >
+          Comment
+          00000000-0000-4000-8000-000000000020
+           · revision
+          1
+        </p>
+      </details>
+    </fieldset>
+  </form>
+  <section
+    aria-label="Operation status"
+  >
+    <p
+      role="status"
+    >
+      Operation confirmed.
+    </p>
+    <div
+      class="result-actions"
+    >
+      <button
+        class="control"
+        type="button"
+      >
+        Check status
+      </button>
+    </div>
+    <details>
+      <summary>
+        Operation reference
+      </summary>
+      <p>
+        8c7a157c-bfe6-4e19-bf66-81f7fd9c429d
+      </p>
+    </details>
+  </section>
+</dialog>
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/results/Results.test.tsx:82:630
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/results/Results.test.tsx > revising conflicted feedback refreshes thread and project guards while preserving pins
+AssertionError: expected { …(13) } to match object { expected_version: '2', …(4) }
+(8 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "comment_id": "00000000-0000-4000-8000-000000000020",
+    "comment_revision": "1",
+-   "expected_project_revision": "2",
+-   "expected_version": "2",
++   "expected_project_revision": "1",
++   "expected_version": "1",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  }
+
+ ❯ src/features/results/Results.test.tsx:87:858
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+   Start at  18:51:17
+   Duration  14.45s (tests 78%, environment 12%, import 4%, setup 3%, transform 3%)
+
+ ELIFECYCLE  Test failed. See above for more details.

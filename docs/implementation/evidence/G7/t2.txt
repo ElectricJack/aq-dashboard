@@ -1,0 +1,18 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- -t results_mobile_review_flow_completes
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  1 passed | 72 skipped (73)
+      Tests  1 passed | 681 skipped (682)
+   Start at  18:49:45
+   Duration  64.47s (environment 66%, setup 15%, import 14%, tests 3%, transform 2%, worker 1%)
+
+Environment  jsdom was created 73 times · 74.70s total, 66% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments

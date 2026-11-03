@@ -24,7 +24,8 @@ export function ResultMediaWindow({ keys, children }: { keys: string[]; children
     {children}{validExpanded && <ExpandedImage key={`${resultMediaKey(expanded.binding)}:${expanded.artifact.receipt_digest}`} selection={expanded} close={close} />}
   </MediaWindow.Provider>;
 }
-export function ResultMedia({ binding }: { binding: MediaBinding }) {
+export type ImageAnnotation={x:number;y:number;width:number;height:number;onPlace?(x:number,y:number):void};
+export function ResultMedia({ binding,onArtifact,annotation }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation }) {
   const { bootstrap, queryContext } = useSession(); const window = useContext(MediaWindow)!;
   const enabled = bootstrap.capability("results.media.read").enabled, key = resultMediaKey(binding), element = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -34,7 +35,7 @@ export function ResultMedia({ binding }: { binding: MediaBinding }) {
   }, [key, enabled, window.visible]);
   if (!enabled) return null;
   return <div ref={element} className={styles.surface} data-result-media>
-    {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} /> : <div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>}
+    {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} onArtifact={onArtifact} annotation={annotation} /> : <div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>}
   </div>;
 }
 function useMediaListing(binding: MediaBinding) {
@@ -42,16 +43,18 @@ function useMediaListing(binding: MediaBinding) {
   return useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), retry: false, gcTime: 0, staleTime: 0, refetchOnMount: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => { const started = performance.now(); const page = await adaptResultMedia(await resultMediaJson(binding, signal), binding); signal.throwIfAborted(); return { page, started }; } });
 }
-function MediaGallery({ binding }: { binding: MediaBinding }) {
+function MediaGallery({ binding,onArtifact,annotation }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation }) {
   const window = useContext(MediaWindow)!; const [selected, setSelected] = useState<string | null>(null);
   const query = useMediaListing(binding);
+  const chosen=query.data?.page.items.find(item=>item.receipt.artifact_id===selected)??query.data?.page.items[0];
+  useEffect(()=>{if(chosen)onArtifact?.(chosen);},[chosen,onArtifact]);
   if (query.isPending) return <p role="status">Loading supplemental images…</p>;
   if (query.isError) return <div><p role="status">Supplemental images unavailable.</p><ActionButton onClick={() => void query.refetch()}>Retry images</ActionButton></div>;
   const { page, started } = query.data;
   const artifact = page.items.find(item => item.receipt.artifact_id === selected) ?? page.items[0];
   if (!artifact) return <p className={styles.note}>No supplemental images are retained for this exact report.</p>;
   return <section aria-label="Human supplemental images" className={styles.gallery}>
-    <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} /></div>
+    <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} annotation={annotation} /></div>
     <div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>
     <div className={styles.caption}><strong>Image preview</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
     <p className={styles.note}>Uploaded by a human. Capture details are unverified.</p>
@@ -68,7 +71,7 @@ function MediaProvenance({ artifact }: { artifact: MediaArtifact }) {
 }
 const unavailable = { expired: "Image expired.", missing: "Image files are missing.", withheld: "Image withheld by its owner.", failed: "Image verification or storage failed." };
 /** No URL is minted until exact length/MIME/receipt/variant/SHA checks finish. */
-function VerifiedImage({ binding, artifact, variant, page, started }: { binding: MediaBinding; artifact: MediaArtifact; variant: "preview" | "render"; page: MediaPage; started: number }) {
+function VerifiedImage({ binding, artifact, variant, page, started,annotation }: { binding: MediaBinding; artifact: MediaArtifact; variant: "preview" | "render"; page: MediaPage; started: number;annotation?:ImageAnnotation }) {
   const { queryContext } = useSession();
   const owner = JSON.stringify([queryContext, binding, artifact.receipt.artifact_id, artifact.receipt_digest, variant, artifact.receipt.variants[variant]]);
   const [expired, setExpired] = useState(false), [broken, setBroken] = useState<string | null>(null), [image, setImage] = useState<{ owner: string; url: string } | null>(null);
@@ -86,7 +89,7 @@ function VerifiedImage({ binding, artifact, variant, page, started }: { binding:
   if (!allowed) return <p role="status">Image expired. Refresh images to inspect current retention.</p>;
   if (query.isError) return <p role="status">{query.error instanceof MediaUnavailableError ? { media_expired: "Image expired.", media_missing: "Image files are missing.", media_withheld: "Image withheld by its owner.", media_failed: "Image verification or storage failed." }[query.error.code] : "Image unavailable. No previous image is shown."}</p>;
   if (broken === owner) return <p role="status">Image could not be displayed.</p>;
-  return image?.owner === owner ? <img src={image.url} alt={`Human supplemental ${artifact.receipt.input.filename}`} width={artifact.receipt.variants[variant].width} height={artifact.receipt.variants[variant].height} onError={() => setBroken(owner)} /> : <p role="status">Verifying image…</p>;
+  return image?.owner === owner ? <div className={styles.annotatable} onPointerDown={event=>{if(!annotation?.onPlace)return;const rect=event.currentTarget.getBoundingClientRect();annotation.onPlace(Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width)),Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height)));}}><img src={image.url} alt={`Human supplemental ${artifact.receipt.input.filename}`} width={artifact.receipt.variants[variant].width} height={artifact.receipt.variants[variant].height} onError={() => setBroken(owner)} />{annotation&&<span aria-label="Pinned image region" className={styles.annotation} style={{left:`${annotation.x*100}%`,top:`${annotation.y*100}%`,width:`${annotation.width*100}%`,height:`${annotation.height*100}%`}}/>}</div> : <p role="status">Verifying image…</p>;
 }
 function ExpandedImage({ selection, close }: { selection: Selection; close(): void }) {
   const dialog = useRef<HTMLDialogElement>(null);

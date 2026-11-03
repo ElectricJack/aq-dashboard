@@ -16,6 +16,8 @@
     "projects.read",
     "provider.quota",
     "providers.configured.read",
+    "results.comment",
+    "results.feedback",
     "results.media.read",
     "results.media.upload",
     "results.read",

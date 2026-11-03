@@ -7,7 +7,8 @@ import { setupServer } from "msw/node";
 import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
-import { resultPage, resultRecord } from "../../test/results";
+import { resultRecord } from "../../test/results";
+import {resultFeedbackPage as resultPage,mediaResultDetail,feedbackEnvelope} from "../../test/resultsFeedback";
 import { uploadActor, uploadFile, uploadFixture, uploadReference } from "../../test/resultMediaUpload";
 import { fixtureHash, fixtureMedia, fixtureMediaBinding, fixturePng } from "../../test/resultMedia";
 import { resultMediaPath } from "../../api/resultMediaClient";
@@ -20,8 +21,9 @@ afterEach(() => { server.resetHandlers(); vi.unstubAllGlobals(); vi.restoreAllMo
 function setup(options: { path?: string; enabled?: boolean; status?: UploadStatus; failCreate?: boolean } = {}) {
   const writes: { method: string; body: string | Uint8Array }[] = []; let intent: FrozenUpload | undefined, current = options.status, lookups = 0, listings = 0;
   server.use(
+    http.get("/api/v1/results/:id/revisions/:revision/comments",()=>HttpResponse.json(feedbackEnvelope({items:[],next_cursor:null},binding.project_id))),
     http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, principal: { ...bootstrap.data.principal, id: uploadActor }, capabilities: [...bootstrap.data.capabilities.filter(c => !["results.read", "results.media.read", "results.media.upload"].includes(c.name)), { name: "results.read", version: "1", enabled: true }, { name: "results.media.read", version: "1", enabled: true }, { name: "results.media.upload", version: "1", enabled: options.enabled ?? true }] } })),
-    http.get(report, () => HttpResponse.json(resultPage())), http.get("/api/human/results", () => HttpResponse.json(resultPage())),
+    http.get(report.replace("/api/human/","/api/v1/"), () => HttpResponse.json(feedbackEnvelope(mediaResultDetail()))), http.get("/api/v1/results", () => HttpResponse.json(resultPage())),
     http.get(media, () => { listings++; return HttpResponse.json(fixtureMedia([])); }),
     http.post(`${media}-uploads`, async ({ request }) => {
       const raw = await request.text(); writes.push({ method: "POST", body: raw }); const body = JSON.parse(raw);
