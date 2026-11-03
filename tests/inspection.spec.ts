@@ -109,12 +109,12 @@ test("phone: Graph opens from a task, a node opens its detail and Back returns t
 test("returning to Work retains the served list without proposed task requests", async ({ page }) => {
   await page.goto(`/work?${scope}`);
   const list = page.getByRole("list", { name: "Tasks" });
-  await expect(list.getByRole("listitem")).toHaveCount(2);
+  await expect(list.getByRole("listitem")).toHaveCount(10);
   await page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { name: "Agents" }).click();
   await expect(page.getByRole("heading", { name: "Agents", level:1 })).toBeVisible();
   let proposedRequests = 0;
   page.on("request", r => { if (new URL(r.url()).pathname === "/api/v1/tasks") proposedRequests++; });
   await page.goBack();
-  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(2);
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(10);
   expect(proposedRequests).toBe(0);
 });

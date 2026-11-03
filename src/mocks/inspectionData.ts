@@ -8,8 +8,6 @@ import type {
   ReadinessState,
   SearchResults,
   SessionDetail,
-  TaskDetail,
-  TaskGraph,
   TaskState,
   TaskSummary,
 } from "../api/wire/proposed";
@@ -38,14 +36,14 @@ type Seed = {
   minutesAgo: number;
 };
 
+/** Ids and titles match the labelled human-graph fixture (src/mocks/humanGraph.ts). */
 const RECOVERY: Seed[] = [
-  { id: "aq-101", title: "Define lease contract", project: "agent-queue", state: "completed", readiness: "done", explanation: "Accepted at revision 2", minutesAgo: 240 },
-  { id: "aq-102", title: "Recovery test fixtures", project: "agent-queue", state: "completed", readiness: "done", explanation: "Accepted at revision 1", minutesAgo: 200 },
-  { id: "aq-103", title: "Approve recovery plan", project: "agent-queue", state: "active", readiness: "needs_decision", explanation: "Waiting for your review of revision 3", blocker: { kind: "decision", explanation: "Approval of revision 3 required" }, minutesAgo: 18 },
-  { id: "aq-104", title: "Replay reconciliation", project: "agent-queue", state: "active", readiness: "running", explanation: "Attempt 27 is running on worker-07", session: "sess-07", agent: "Worker 07", minutesAgo: 1 },
-  { id: "aq-105", title: "Implement safe recovery", project: "agent-queue", state: "active", readiness: "waiting", explanation: "Blocked by Approve recovery plan", blocker: { kind: "dependency", explanation: "Waiting on review of Approve recovery plan" }, minutesAgo: 18 },
-  { id: "aq-106", title: "Validate crash recovery", project: "agent-queue", state: "active", readiness: "waiting", explanation: "Blocked by Implement safe recovery", blocker: { kind: "dependency", explanation: "Waiting on Implement safe recovery" }, minutesAgo: 17 },
-  { id: "aq-107", title: "Cross-node recovery", project: "agent-queue", state: "active", readiness: "waiting", explanation: "Blocked by Validate crash recovery", blocker: { kind: "dependency", explanation: "Waiting on validation" }, minutesAgo: 17 },
+  { id: "00000000-0000-0000-0000-000000000102", title: "Fixture: Define lease contract", project: "agent-queue", state: "completed", readiness: "done", explanation: "Accepted at revision 2", minutesAgo: 240 },
+  { id: "00000000-0000-0000-0000-000000000103", title: "Fixture: Recovery test fixtures", project: "agent-queue", state: "completed", readiness: "done", explanation: "Accepted at revision 1", minutesAgo: 200 },
+  { id: "00000000-0000-0000-0000-000000000104", title: "Fixture: Approve recovery plan", project: "agent-queue", state: "active", readiness: "needs_decision", explanation: "Waiting for your review of revision 3", blocker: { kind: "decision", explanation: "Approval of revision 3 required" }, minutesAgo: 18 },
+  { id: "00000000-0000-0000-0000-000000000105", title: "Fixture: Replay reconciliation", project: "agent-queue", state: "active", readiness: "running", explanation: "Attempt 27 is running on worker-07", session: "sess-07", agent: "Worker 07", minutesAgo: 1 },
+  { id: "00000000-0000-0000-0000-000000000106", title: "Fixture: Implement safe recovery", project: "agent-queue", state: "active", readiness: "waiting", explanation: "Blocked by Approve recovery plan", blocker: { kind: "dependency", explanation: "Waiting on review of Approve recovery plan" }, minutesAgo: 18 },
+  { id: "00000000-0000-0000-0000-000000000107", title: "Fixture: Validate crash recovery", project: "agent-queue", state: "active", readiness: "waiting", explanation: "Blocked by Implement safe recovery", blocker: { kind: "dependency", explanation: "Waiting on Implement safe recovery" }, minutesAgo: 17 },
 ];
 
 const EXTRA: Seed[] = [
@@ -107,64 +105,6 @@ function summary(s: Seed): TaskSummary {
 
 export const TASKS: TaskSummary[] = SEEDS.map(summary);
 
-const RECOVERY_EDGES: TaskGraph["edges"] = [
-  { from: "aq-101", to: "aq-103", type: "blocks" },
-  { from: "aq-101", to: "aq-104", type: "blocks" },
-  { from: "aq-102", to: "aq-104", type: "blocks" },
-  { from: "aq-103", to: "aq-105", type: "blocks" },
-  { from: "aq-104", to: "aq-106", type: "references" },
-  { from: "aq-105", to: "aq-106", type: "blocks" },
-  { from: "aq-106", to: "aq-107", type: "blocks" },
-];
-
-export function taskDetail(id: string): TaskDetail | null {
-  const t = TASKS.find((x) => x.id === id);
-  if (!t) return null;
-  const deps = RECOVERY_EDGES.filter((e) => e.to === id && e.type === "blocks").map((e) => {
-    const dep = TASKS.find((x) => x.id === e.from)!;
-    const satisfied = dep.readiness.state === "done";
-    return {
-      task: { type: "task", id: dep.id, revision: dep.revision, title: dep.title },
-      satisfied,
-      explanation: satisfied ? "Accepted result satisfies this dependency" : `Waiting on ${dep.title}`,
-    };
-  });
-  const done = t.readiness.state === "done";
-  return {
-    ...t,
-    description: `${t.title}. Sample description supplied by the mock harness.`,
-    acceptance: { revision: "2", criteria: ["Behaviour is covered by tests", "Evidence is attached to the result"] },
-    dependencies: deps,
-    attempts: t.execution.session_id
-      ? [{ id: `att-${id}`, number: 27, started_at: at(14), ended_at: null, outcome: "running", session_id: t.execution.session_id }]
-      : done
-        ? [{ id: `att-${id}`, number: 1, started_at: at(300), ended_at: at(260), outcome: "succeeded", session_id: null }]
-        : [],
-    facts: [
-      { kind: "source_retained", state: done ? "confirmed" : "not_yet", at: done ? at(260) : null, receipt: done ? { type: "receipt", id: `src-${id}` } : null },
-      { kind: "result_submitted", state: done ? "confirmed" : "not_yet", at: done ? at(259) : null, receipt: null },
-      { kind: "result_accepted", state: done ? "confirmed" : "not_yet", at: done ? at(250) : null, receipt: null },
-      { kind: "merged", state: "unknown", at: null, receipt: null },
-    ],
-    actions: [],
-  };
-}
-
-export function taskGraph(id: string): TaskGraph | null {
-  if (!TASKS.some((t) => t.id === id)) return null;
-  const inCluster = RECOVERY.some((r) => r.id === id);
-  const ids = inCluster ? RECOVERY.map((r) => r.id) : [id];
-  return {
-    root_id: id,
-    nodes: ids.map((nid) => {
-      const t = TASKS.find((x) => x.id === nid)!;
-      return { id: t.id, revision: t.revision, title: t.title, state: t.state, readiness: t.readiness };
-    }),
-    edges: inCluster ? RECOVERY_EDGES : [],
-    omitted: inCluster ? { nodes: 3, edges: 4, reason: "Completed history outside the neighbourhood" } : { nodes: 0, edges: 0 },
-  };
-}
-
 export function overview(projectId: string | null, empty = false): Overview {
   const inScope = (p: ProjectRef) => !projectId || p.id === projectId;
   const tasks = TASKS.filter((t) => inScope(t.project));
@@ -172,7 +112,7 @@ export function overview(projectId: string | null, empty = false): Overview {
   const attention: Overview["attention"] = empty
     ? []
     : [
-        { id: "att-1", kind: "decision" as const, title: "Approve worker recovery plan", project: project("agent-queue"), reason: "Review", impact: "Unblocks 4 tasks", since: at(18), subject: { type: "task", id: "aq-103", revision: "3" }, action: { kind: "decision.respond", subject: { type: "decision", id: "dec-1", revision: "3" }, allowed: true, expected_versions: { decision: "3" } } },
+        { id: "att-1", kind: "decision" as const, title: "Approve worker recovery plan", project: project("agent-queue"), reason: "Review", impact: "Unblocks 4 tasks", since: at(18), subject: { type: "task", id: "00000000-0000-0000-0000-000000000104", revision: "3" }, action: { kind: "decision.respond", subject: { type: "decision", id: "dec-1", revision: "3" }, allowed: true, expected_versions: { decision: "3" } } },
         { id: "att-2", kind: "question" as const, title: "Choose retry policy", project: project("quilt-trader"), reason: "Question", impact: "Unblocks 2 tasks", since: at(9), subject: { type: "task", id: "qt-201", revision: "3" }, action: { kind: "decision.respond", subject: { type: "decision", id: "dec-2", revision: "1" }, allowed: true, expected_versions: { decision: "1" } } },
         { id: "att-3", kind: "failed" as const, title: "Resolve integration conflict", project: project("matter-engine"), reason: "Failure", impact: "Blocks delivery", since: at(6), subject: { type: "task", id: "me-301", revision: "3" }, action: null },
       ].filter((a) => inScope(a.project));
@@ -196,7 +136,7 @@ export function overview(projectId: string | null, empty = false): Overview {
       last_progress_at: at(1 + i),
     })),
     recent_outcomes: [
-      { subject: { type: "task", id: "aq-101", revision: "3", title: "Session recovery tests passed" }, project: project("agent-queue"), outcome: "result_accepted" as const, at: at(3) },
+      { subject: { type: "task", id: "00000000-0000-0000-0000-000000000102", revision: "3", title: "Session recovery tests passed" }, project: project("agent-queue"), outcome: "result_accepted" as const, at: at(3) },
       { subject: { type: "task", id: "me-302", revision: "3", title: "Renderer fix" }, project: project("matter-engine"), outcome: "merged" as const, at: at(8) },
     ].filter((r) => inScope(r.project)),
   };
