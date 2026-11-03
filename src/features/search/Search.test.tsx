@@ -4,8 +4,13 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
+import bootstrap from "../../../contracts/proposed/bootstrap.json";
 
-const server = setupServer(...handlersFor("default"));
+// The shared default mock enables human.graph.read for Work and Knowledge, which
+// routes test/mock Search to the legacy project-graph results. These cases cover
+// the production /api/v1/search surface, so their bootstrap omits that capability.
+const productionSearch = () => http.get("/api/v1/bootstrap", () => HttpResponse.json(bootstrap));
+const server = setupServer(productionSearch(), ...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -95,6 +100,7 @@ test("short queries do not search", async () => {
 
 test("a failed search shows an error, not 'no matches'", async () => {
   server.use(...handlersFor("reads-failed"));
+  server.use(productionSearch());
   renderApp("/overview");
   await screen.findByRole("button", { name: "Search" });
   const dialog = await openSearch();
