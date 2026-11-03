@@ -19,6 +19,9 @@ test("direct Definitions navigation does not read engine runs or admissions", as
     http.get("/api/playbooks/inspection/runs", () => { engineReads++; return HttpResponse.json({}); }),
     http.get("/api/playbooks/inspection/admissions", () => { engineReads++; return HttpResponse.json({}); }));
   renderApp("/playbooks?view=definitions");
+  // Bootstrap and the page mount precede the loaded-definitions read.
+  await screen.findByRole("navigation", { name: "Primary" });
+  await screen.findByRole("heading", { level: 1, name: "Playbooks" });
   await screen.findByRole("list", { name: "Loaded playbook definitions" });
   expect(metadataReads).toBe(1); expect(engineReads).toBe(0);
 });

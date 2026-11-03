@@ -22,9 +22,14 @@ passed 697/698 with an unrelated initial list timeout in
 `LoadedDefinitions.test.tsx:22`. Both changed suites passed in both full runs.
 See the [source hashes and results](evidence/navigation-test-stability/initial-repetitions.json)
 and [failure log](evidence/navigation-test-stability/loaded-definitions-failure.txt).
-Twenty consecutive full passes have **not** been established. The supervisor
-was asked to decide whether the additional test belongs in this task before
-further qualification.
+The supervisor authorized a narrow fix in the failing direct-navigation test
+(message `msg-ec5796dfd3f34533a6154bac23ce7c8b`). It now observes the primary
+navigation and Playbooks heading before awaiting the loaded definitions list;
+the existing metadata/engine read-count assertions are unchanged. All three
+affected suites passed 50/50 tests before the fresh qualification attempt.
+Twenty consecutive full passes have **not** yet been established. The restarted
+attempt must stop if another unrelated flake occurs; the supervisor owns filing
+any follow-up, and the close must explicitly state the whole-suite limit.
 
 Checks run through the existing foreground AQ bridge:
 
@@ -52,4 +57,6 @@ No default-branch publication is performed by this worker.
 
 After merging, the same focused command passed 44/44 tests again
 ([output](evidence/navigation-test-stability/postmerge-focused.txt)).
-`git diff --check` passed. Qualification remains blocked as described above.
+`git diff --check` passed. The restarted qualification uses main `079b9ee` plus
+the Shell, Work and LoadedDefinitions readiness changes, with logs in
+`/tmp/agile-current-11/restarted-repetitions/`.
