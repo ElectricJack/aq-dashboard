@@ -48,3 +48,10 @@ test("failed scenario returns a 503 error envelope for provider usage", () => {
 test("unknown scenario names fall back to default", () => {
   expect(scenario("nonsense")).toBe(scenario("default"));
 });
+
+test("projects-unlisted scenario disables the project list with a reason", () => {
+  expect(adaptBootstrap(scenario("projects-unlisted").bootstrap).capability("projects.read")).toEqual({
+    enabled: false,
+    reason: "Project listing is not offered by this AQ server",
+  });
+});
