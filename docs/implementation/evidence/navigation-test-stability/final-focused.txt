@@ -1,0 +1,19 @@
+
+> aq-dashboard@0.1.0 test /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+> node scripts/test.mjs -- src/app/Shell.test.tsx src/features/work/Work.test.tsx src/features/playbooks/LoadedDefinitions.test.tsx
+
+
+ RUN  v5.0.5 /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-0
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  3 passed (3)
+      Tests  50 passed (50)
+   Start at  23:13:54
+   Duration  9.84s (tests 61%, environment 17%, import 13%, transform 5%, setup 4%)
+
+    Isolate  3 workers spawned · ~1.06s startup each (spawn + environment, per file)
+             at least ~531ms faster with isolate: false — reuses workers across files instead of one per file
+

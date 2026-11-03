@@ -99,12 +99,25 @@ test.each([401, 403])("authorization refusal %i clears prior reports even while 
 });
 test("late reports from a different session never appear after navigation", async () => {
   let release!: () => void;
+  let firstRequested = false, nextRequested = false;
   const gate = new Promise<void>(resolve => { release = resolve; });
+  // Prepare fixture body digests before starting the response/render awaits.
+  const [firstSnapshot, nextSnapshot] = await Promise.all([
+    eventsFixture(), eventsFixture({ binding: usageBinding(2), gap: true }),
+  ]);
   server.use(http.get("/api/observations/sessions/:attempt/events", async ({ params }) => {
-    if (params.attempt === usageBinding().attempt_id) { await gate; return HttpResponse.json(await eventsFixture()); }
-    return HttpResponse.json(await eventsFixture({ binding: usageBinding(2), gap: true }));
+    if (params.attempt === usageBinding().attempt_id) { firstRequested = true; await gate; return HttpResponse.json(firstSnapshot); }
+    nextRequested = true;
+    return HttpResponse.json(nextSnapshot);
   }));
-  const app = setup(); await load(); await act(() => app.router.navigate(`/agents/${usageBinding(2).session.session_id}`));
-  await screen.findByRole("region", { name: "Events worker 72" }); const region = await load(); await within(region).findByText("Source gap · truncated");
+  const app = setup(); await load();
+  // Start with a real in-flight old read, then observe the new session and read
+  // separately so navigation and source rendering retain their own deadlines.
+  await waitFor(() => expect(firstRequested).toBe(true));
+  await act(async () => { await app.router.navigate(`/agents/${usageBinding(2).session.session_id}`); });
+  await screen.findByRole("region", { name: "Events worker 72" });
+  const region = await load();
+  await waitFor(() => expect(nextRequested).toBe(true));
+  await within(region).findByText("Source gap · truncated");
   await act(async () => { release(); await gate; }); expect(screen.queryByText("Tool started · fixture-tool")).toBeNull();
 });
