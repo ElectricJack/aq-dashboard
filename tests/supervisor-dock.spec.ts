@@ -62,4 +62,20 @@ test.describe("phone-390", () => {
       .analyze();
     expect(results.violations.map(v => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
+
+  // agile-flare-51: the hidden dock presentation must not render a box under phone pages.
+  for (const [name, path, heading] of [
+    ["settings", "/settings", "Settings"],
+    ["knowledge-doc", "/knowledge/00000000-0000-0000-0000-000000000005?scope=project:00000000-0000-0000-0000-000000000001", "Fixture: execution ownership"],
+  ] as const) {
+    test(`hidden dock presentation renders no box on ${name}`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.locator("#content").getByRole("heading", { name: heading }).first()).toBeVisible();
+      const hidden = page.locator("[data-mode=dock][hidden]");
+      await expect(hidden).toHaveCount(1);
+      expect(await hidden.evaluate(el => getComputedStyle(el).display)).toBe("none");
+      expect(await hidden.boundingBox()).toBeNull();
+      if (shots) await page.screenshot({ path: `${shots}/hidden-dock-${name}-m.png`, fullPage: true });
+    });
+  }
 });

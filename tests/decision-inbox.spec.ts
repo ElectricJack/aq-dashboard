@@ -1,7 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-/** DC-L: reference 03 inbox (segmented Open | Resolved, rows) and phone list-then-detail. Mock mode fixture. */
+/** DC-L: reference 03 inbox (segmented Open | Resolved, rows) and phone list-then-detail. Mock mode fixture.
+ * Mock mode also serves the DC-N labelled decision fixtures (src/mocks/decisionFixtures.ts): three open
+ * reviews (current, superseded, another project) and recorded resolved reviews. */
 const EVIDENCE = process.env.DCL_EVIDENCE_DIR;
 const DECISION = "00000000-0000-4000-8000-000000000001";
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}/;
@@ -12,16 +14,16 @@ test.describe("desktop-1440", () => {
   test("inbox tabs show the selected state, rows are readable and the page passes axe", async ({ page }) => {
     await page.goto("/decisions");
     const inbox = page.getByRole("list", { name: /inbox/i });
-    await expect(inbox.getByRole("listitem")).toHaveCount(1);
-    await expect(page.getByText("1 shown · sampled from your reviews")).toBeVisible();
+    await expect(inbox.getByRole("listitem")).toHaveCount(3);
+    await expect(page.getByText("3 shown · sampled from your reviews")).toBeVisible();
     const tabs = page.getByRole("group", { name: "Review state" });
     const open = tabs.getByRole("button", { name: /^Open/ });
     const resolved = tabs.getByRole("button", { name: /Resolved/ });
     await expect(open).toHaveAttribute("aria-pressed", "true");
-    await expect(open).toHaveText("Open1");
+    await expect(open).toHaveText("Open3");
     await expect(page.getByRole("button", { name: "Refresh reviews" })).toBeVisible();
 
-    const row = inbox.getByRole("link");
+    const row = inbox.locator(`a[href^="/decisions/${DECISION}"]`);
     await expect(row).toContainText("Review task 00000000");
     await expect(row).toContainText("· Review");
     await expect(row).toContainText(/Expires in \d+[smhd]/);
@@ -35,7 +37,8 @@ test.describe("desktop-1440", () => {
     await resolved.click();
     await expect(resolved).toHaveAttribute("aria-pressed", "true");
     await expect(open).toHaveAttribute("aria-pressed", "false");
-    await expect(page.getByText("No resolved reviews")).toBeVisible();
+    await expect(resolved).toHaveText(/^Resolved\d+$/);
+    await expect(inbox.getByRole("listitem").first()).toBeVisible();
     const bg = (el: Element) => getComputedStyle(el).backgroundColor;
     expect(await resolved.evaluate(bg)).not.toBe(await open.evaluate(bg));
     if (EVIDENCE) await page.screenshot({ path: `${EVIDENCE}/decisions-resolved-desktop-1440.png` });
@@ -44,7 +47,7 @@ test.describe("desktop-1440", () => {
 
   test("selected row carries the attention border", async ({ page }) => {
     await page.goto(`/decisions/${DECISION}`);
-    const row = page.getByRole("list", { name: /inbox/i }).getByRole("link");
+    const row = page.getByRole("list", { name: /inbox/i }).locator(`a[href^="/decisions/${DECISION}"]`);
     await expect(row).toHaveAttribute("aria-current", "page");
     const border = await row.evaluate(el => getComputedStyle(el).borderInlineStartColor);
     const attention = await page.evaluate(() => {
@@ -72,7 +75,7 @@ test.describe("phone-390", () => {
     await expect(page.getByRole("list", { name: /inbox/i })).not.toBeVisible();
     const back = page.getByRole("link", { name: "All decisions" });
     await expect(back).toBeVisible();
-    const evidence = page.getByRole("heading", { name: "Review criteria" });
+    const evidence = page.getByRole("heading", { name: "Acceptance criteria" });
     expect((await back.boundingBox())!.y).toBeLessThan((await evidence.boundingBox())!.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     if (EVIDENCE) await page.screenshot({ path: `${EVIDENCE}/decisions-selected-phone-390.png` });

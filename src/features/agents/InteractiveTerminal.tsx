@@ -10,7 +10,7 @@ import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, is
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
 import { ActionButton } from '../../components/layout/Workspace';
-import { TerminalTail } from './TerminalTail';
+import type { OutputFeed } from './TerminalTail';
 import styles from './InteractiveTerminal.module.css';
 
 /** Phone key bar keys, in the spec's order: Esc, Tab, Ctrl (separate), arrows, Enter. */
@@ -18,11 +18,12 @@ const KEYS = [['Esc', 'Esc', '\x1b'], ['Tab', 'Tab', '\t'], ['←', 'Left arrow'
 
 /** Port of agent-queue2 InteractiveTerminal/TerminalPane; the renderer and gestures
  * are unchanged in principle, while authority comes exclusively from v2 receipts. */
-export function InteractiveTerminal({ terminalId, name }: { terminalId: string; name: string }) {
+export function InteractiveTerminal({ terminalId, name, feed }: { terminalId: string; name: string; feed?: OutputFeed }) {
   const { queryContext: c } = useSession();
-  return <TerminalPane key={`${terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} terminalId={terminalId} name={name} />;
+  return <TerminalPane key={`${terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} terminalId={terminalId} name={name} feed={feed} />;
 }
-function TerminalPane({ terminalId, name }: { terminalId: string; name: string }) {
+/** `feed` republishes this pane's active Watch output for the Transcript drawer (no second watch). */
+function TerminalPane({ terminalId, name, feed }: { terminalId: string; name: string; feed?: OutputFeed }) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
   const allowControl = bootstrap.capability('terminal.control').enabled;
@@ -31,7 +32,7 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
   const uncertain = useRef(false);
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
   const [state, setState] = useState<TerminalState>({ message: 'Not connected', connected: false, controlling: false, canControl: false, paused: false });
-  const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true), [transcript, setTranscript] = useState(false);
+  const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true);
   // Sticky on-screen Ctrl: the ref is read by xterm's onData, the state renders aria-pressed.
   const [ctrl, setCtrlState] = useState(false), ctrlArmed = useRef(false);
   const setCtrl = useCallback((on: boolean) => { ctrlArmed.current = on; setCtrlState(on); }, []);
@@ -41,7 +42,7 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
   const keys = useRef<HTMLDivElement>(null);
   const [keyFade, setKeyFade] = useState({ start: false, end: false });
   useEffect(() => {
-    if (!host.current || !watching || transcript) return;
+    if (!host.current || !watching) return;
     const term = new Terminal({ ...terminalOptions(fontSizeRef.current), cols: 80, rows: 24 }); terminal.current = term;
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
     const guarded = [...guardUntrustedOutput(term), ...guardObservedTerminalQueries(term)];
@@ -55,9 +56,9 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
     const job = crypto.randomUUID();
     const transport = connectInteractiveTerminal({ terminalId, allowControl, initiallyPaused: uncertain.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
-      write: bytes => new Promise<void>(resolve => { term.write(bytes, resolve); }),
-      reset: () => term.reset(),
-      state: next => { uncertain.current ||= next.paused; term.options.disableStdin = !next.controlling; setState(next); },
+      write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
+      reset: () => { feed?.restart(); term.reset(); },
+      state: next => { uncertain.current ||= next.paused; term.options.disableStdin = !next.controlling; feed?.status(next.message, next.connected); setState(next); },
     }); connection.current = transport;
     const data = term.onData(value => {
       if (isObservedFocusReport(value)) return;
@@ -93,11 +94,11 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
     window.visualViewport?.addEventListener('resize', viewportLayout); window.visualViewport?.addEventListener('scroll', viewportLayout);
     return () => {
       relayout.current = () => {}; setPanColumns(null);
-      transport.close(); connection.current = null; cancelAnimationFrame(animation); observer.disconnect(); touch();
+      transport.close(); connection.current = null; feed?.end(); cancelAnimationFrame(animation); observer.disconnect(); touch();
       window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
-  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, transcript, setCtrl]);
+  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl]);
   useEffect(() => {
     if (state.controlling && terminal.current) connection.current?.resize(terminal.current.cols, terminal.current.rows);
     if (!state.controlling) setCtrl(false);
@@ -116,7 +117,7 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
     const bar = keys.current; if (!bar) return;
     const observer = new ResizeObserver(updateKeyFade); observer.observe(bar); updateKeyFade();
     return () => observer.disconnect();
-  }, [updateKeyFade, transcript]);
+  }, [updateKeyFade]);
   function focusTerminal() { if (canFocusTerminal()) terminal.current?.focus(); }
   function send(value: string) {
     if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
@@ -124,17 +125,13 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
   }
   return <section className={styles.pane} aria-label="Interactive agent terminal" data-interactive-terminal>
     <div className={styles.toolbar}>
-      <div className={styles.tabs} aria-label="Output view">
-        <button type="button" aria-pressed={!transcript} onClick={() => setTranscript(false)}>Terminal</button>
-        <button type="button" aria-pressed={transcript} onClick={() => setTranscript(true)}>Transcript</button>
-      </div>
-      {!transcript && <div className={styles.actions}>
+      <div className={styles.actions}>
         {state.controlling ? <ActionButton onClick={() => void connection.current?.release()}>Release control</ActionButton>
           : <ActionButton disabled={!state.canControl || state.paused} onClick={() => void connection.current?.takeControl()}>Take control</ActionButton>}
         <ActionButton onClick={() => { setWatching(true); setAttempt(n => n + 1); }} disabled={state.paused}>Reconnect</ActionButton>
-      </div>}
+      </div>
     </div>
-    {transcript ? <TerminalTail terminalId={terminalId} /> : <>
+    <>
       <div className={styles.frame} ref={frame}><div className={styles.host} ref={host} /></div>
       <div className={styles.view}>
         {panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>}
@@ -144,16 +141,20 @@ function TerminalPane({ terminalId, name }: { terminalId: string; name: string }
           <button type="button" aria-label="A+ Increase text size" disabled={fontSize >= TERMINAL_FONT_SIZE_MAX} onClick={() => setFontSize(size => clampTerminalFontSize(size + TERMINAL_FONT_SIZE_STEP))}>A+</button>
         </div>
       </div>
-      <div className={styles.status}><span role="status">{state.message}</span><span title="This is a rendering of the available byte stream. Earlier output may be missing.">Resident output · incomplete</span></div>
+      {/* Reference 11: a phone viewer sees no key bar. While watching, the status, Take control and
+          Disconnect share one row and the inert keys are hidden, so the terminal keeps its height. */}
+      <div className={styles.dock} data-watching={!state.controlling || undefined}>
+      <div className={styles.status}><span role="status">{state.message}</span><span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">Resident output · incomplete</span></div>
       <div className={styles.keys} ref={keys} role="group" aria-label="Terminal keyboard" data-fade-start={keyFade.start || undefined} data-fade-end={keyFade.end || undefined} onScroll={updateKeyFade}>
         <button className={styles.phoneControl} type="button" disabled={!state.controlling && (!state.canControl || state.paused)} onClick={() => { if (state.controlling) void connection.current?.release(); else void connection.current?.takeControl(); }}>{state.controlling ? "Release" : "Take control"}</button>
-        <button type="button" ref={typeButton} disabled={!state.controlling} onClick={() => terminal.current?.focus()}>Type</button>
-        {KEYS.slice(0, 2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
-        <button type="button" className={styles.modifier} disabled={!state.controlling} aria-pressed={ctrl} onClick={() => { setCtrl(!ctrlArmed.current); focusTerminal(); }}>Ctrl</button>
-        {KEYS.slice(2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
+        <button type="button" className={styles.key} ref={typeButton} disabled={!state.controlling} onClick={() => terminal.current?.focus()}>Type</button>
+        {KEYS.slice(0, 2).map(([label, name, bytes]) => <button type="button" className={styles.key} key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
+        <button type="button" className={`${styles.key} ${styles.modifier}`} disabled={!state.controlling} aria-pressed={ctrl} onClick={() => { setCtrl(!ctrlArmed.current); focusTerminal(); }}>Ctrl</button>
+        {KEYS.slice(2).map(([label, name, bytes]) => <button type="button" className={styles.key} key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
         <button type="button" onClick={() => { void connection.current?.release(); setWatching(false); setState({ message: 'Disconnected', controlling: false, connected: false, canControl: false, paused: state.paused }); }}>Disconnect</button>
       </div>
+      </div>
       <p id="terminal-input-help" className={styles.help}>Take control to type. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
-    </>}
+    </>
   </section>;
 }
