@@ -10,10 +10,12 @@ import {
   CirclePlay,
   CircleSlash,
   CircleX,
+  Clock,
   Database,
   FileText,
   House,
   List,
+  ListChecks,
   ListTodo,
   LoaderCircle,
   MessageSquare,
@@ -21,6 +23,7 @@ import {
   OctagonAlert,
   RefreshCw,
   Settings,
+  Shield,
   TriangleAlert,
   Users,
   Workflow,
@@ -79,3 +82,32 @@ export const COUNT_ICON = {
   needs_you: CircleAlert,
   recovering: RefreshCw,
 } as const;
+
+/** Knowledge category icons (reference 07). Unknown categories fall back to a book. */
+export const KNOWLEDGE_CATEGORY_ICON: Record<string, LucideIcon> = {
+  decision: FileText,
+  procedure: ListChecks,
+  policy: Shield,
+  incident: TriangleAlert,
+  reference: BookOpen,
+  fact: Database,
+};
+export function knowledgeCategoryIcon(category: string | null): LucideIcon {
+  return (category && KNOWLEDGE_CATEGORY_ICON[category.toLowerCase()]) || BookOpen;
+}
+
+/** Playbook run status glyphs (reference 06 Recent runs). Unknown states fall back to a help circle. */
+export const RUN_STATUS_ICON: Record<string, LucideIcon> = {
+  admitted: CircleDashed,
+  running: CirclePlay,
+  waiting: Clock,
+  finishing: LoaderCircle,
+  cancelling: CirclePause,
+  blocked: TriangleAlert,
+  completed: CircleCheck,
+  failed: CircleX,
+  cancelled: CircleSlash,
+};
+export function runStatusIcon(status: string): LucideIcon {
+  return RUN_STATUS_ICON[status] ?? CircleHelp;
+}

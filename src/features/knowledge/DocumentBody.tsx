@@ -1,10 +1,16 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import styles from "./HumanNodeWorkspace.module.css";
 
-/** Bounded document formatting; HTML, links and unsupported inline syntax stay literal. */
-export function DocumentBody({ body }: { body: string }) {
+export type DocumentOutlineEntry = { id: string; text: string; level: number };
+
+const slug = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "section";
+
+/** Bounded parse shared by the rendered body and its section outline. */
+function parseDocument(body: string, idPrefix?: string) {
   const lines = body.slice(0, 262144).replace(/\r\n?/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
+  const outline: DocumentOutlineEntry[] = [];
+  const used = new Map<string, number>();
   const maxLines = Math.min(lines.length, 1024);
   let i = 0;
   for (; i < maxLines && blocks.length < 512;) {
@@ -18,8 +24,17 @@ export function DocumentBody({ body }: { body: string }) {
     }
     const heading = /^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/.exec(line);
     if (heading) {
-      const Heading = `h${Math.min(6, heading[1]!.length + 2)}` as "h3" | "h4" | "h5" | "h6";
-      blocks.push(<Heading key={i++}>{heading[2]}</Heading>); continue;
+      const level = heading[1]!.length, text = heading[2]!;
+      const Heading = `h${Math.min(6, level + 2)}` as "h3" | "h4" | "h5" | "h6";
+      let id: string | undefined;
+      if (idPrefix) {
+        const base = `${idPrefix}-${slug(text)}`, seen = (used.get(base) ?? 0) + 1;
+        used.set(base, seen);
+        id = seen > 1 ? `${base}-${seen}` : base;
+        // Section navigation lists the top three markdown levels only.
+        if (level <= 3 && outline.length < 24) outline.push({ id, text, level });
+      }
+      blocks.push(<Heading key={i++} id={id} tabIndex={id ? -1 : undefined}>{text}</Heading>); continue;
     }
     const list = /^\s*(?:([-+*])|\d+\.)\s+(.+)$/.exec(line);
     if (list) {
@@ -37,5 +52,17 @@ export function DocumentBody({ body }: { body: string }) {
     blocks.push(<p key={start}>{paragraph.join("\n")}</p>);
   }
   if (i < lines.length) blocks.push(<p key="truncated" role="status">Document preview truncated at its rendering limit.</p>);
+  return { blocks, outline };
+}
+
+/** Headings rendered by `<DocumentBody idPrefix>`; ids match the rendered heading ids. */
+export function documentOutline(body: string, idPrefix: string) {
+  return parseDocument(body, idPrefix).outline;
+}
+
+/** Bounded document formatting; HTML, links and unsupported inline syntax stay literal.
+ * With `idPrefix`, headings get stable ids so a section outline can jump to them. */
+export function DocumentBody({ body, idPrefix }: { body: string; idPrefix?: string }) {
+  const { blocks } = useMemo(() => parseDocument(body, idPrefix), [body, idPrefix]);
   return <div className={styles.documentBody} data-document-body>{blocks.length ? blocks : <p>No body recorded.</p>}</div>;
 }
