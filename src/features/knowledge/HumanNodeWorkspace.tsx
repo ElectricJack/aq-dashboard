@@ -21,10 +21,10 @@ const lifecycleOf=(n:GraphNode):Lifecycle=>n.deleted?"deleted":n.retired?"retire
 const LIFECYCLE_LABEL:Record<Lifecycle,string>={active:"Active",retired:"Retired",deleted:"Deleted"};
 const categoryLabel=(value:string|null)=>value?value.replace(/[_-]+/g," ").replace(/^./,c=>c.toUpperCase()):"Uncategorized";
 const updated=(n:GraphNode)=>Date.parse(n.updated_at);
-/** Short calendar date ("Oct 28"); the exact instant stays in the title. */
+/** Short UTC calendar date ("Oct 28"), matching the document header; the exact instant stays in the title. */
 function shortDate(value:string) {
   const date=new Date(value),now=new Date();
-  return date.toLocaleDateString(undefined,{month:"short",day:"numeric",...(date.getFullYear()!==now.getFullYear()?{year:"numeric"}:{})});
+  return date.toLocaleDateString(undefined,{month:"short",day:"numeric",timeZone:"UTC",...(date.getUTCFullYear()!==now.getUTCFullYear()?{year:"numeric"}:{})});
 }
 function FilterSelect({icon,label,value,onChange,children}:{icon:LucideIcon;label:string;value:string;onChange:(value:string)=>void;children:ReactNode}) {
   return <label className={styles.filter}><span className="visually-hidden">{label}</span><Icon icon={icon} size={18} className={styles.filterIcon}/><select value={value} onChange={e=>onChange(e.target.value)}>{children}</select></label>;

@@ -63,7 +63,7 @@ for (const vp of VIEWPORTS) {
       const updated = page.locator("time[datetime='2026-11-01T00:00:00Z']").first();
       await expect(updated).toHaveText("Nov 1");
       await expect(updated).toHaveAttribute("title", "2026-11-01T00:00:00Z");
-      await expect(page.getByText("Decision", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("Decision", { exact: true }).filter({ visible: true }).first()).toBeVisible();
       // Arrival focus is for screen readers; it draws no ring.
       await expect(title).toBeFocused();
       expect(await title.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none");

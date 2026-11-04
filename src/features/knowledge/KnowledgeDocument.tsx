@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BookOpen, ExternalLink, ShieldCheck, FileText } from "lucide-react";
 import { type GraphEnvelope, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
 import { scopeSearch } from "../../app/scope";
-import { DocumentBody } from "./DocumentBody";
+import { DocumentBody, documentOutline, type DocumentOutlineEntry } from "./DocumentBody";
 import { DocumentActions } from "./KnowledgeActions";
 import styles from "./HumanNodeWorkspace.module.css";
 
@@ -76,15 +76,33 @@ function DocumentTabs({ tab, setTab, sources }: { tab: TabKey; setTab: (t: TabKe
     </div>
   </div>;
 }
+/** Phone/tablet section navigation; hidden at desktop width where the document fits its pane. */
+function SectionOutline({ outline }: { outline: DocumentOutlineEntry[] }) {
+  const labelId = useId();
+  const jump = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
+    const heading = document.getElementById(id);
+    if (!heading) return;
+    event.preventDefault();
+    heading.scrollIntoView({ block: "start" });
+    heading.focus({ preventScroll: true });
+  };
+  return <nav className={styles.sectionOutline} aria-labelledby={labelId}>
+    <span id={labelId}>On this page</span>
+    <ul>{outline.map(entry => <li key={entry.id}><a href={`#${entry.id}`} data-level={entry.level} onClick={event => jump(event, entry.id)}>{entry.text}</a></li>)}</ul>
+  </nav>;
+}
 export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnvelope<GraphNode>; pinned?: string; notice?: ReactNode }) {
   const n = record.data, [params, setParams] = useSearchParams();
   const [tab, setTab] = useState<TabKey>("content"), [revision, setRevision] = useState(pinned ?? "");
   const listParams = new URLSearchParams(params); listParams.delete("revision");
   const year = new Date(record.observed_at).getUTCFullYear();
   const recorded = [n.last_verified_by && `Recorded by ${n.last_verified_by}`, n.last_verified_at && <When key="at" iso={n.last_verified_at} year={year} />, (n.last_verified_by || n.last_verified_at) && `applies to revision ${n.content_revision}`].filter(Boolean);
-  return <Panel title={n.title} actions={<DocumentActions record={record} pinned={pinned} />} className={`${styles.detail} ${styles.knowledgeDocument}`}>
+  const outline = useMemo(() => documentOutline(n.body, "doc"), [n.body]);
+  // The back link precedes the document so phones read it as a page with a visible exit.
+  return <>
+  <Link className={`${styles.back} ${styles.documentBack}`} to={{ pathname: "/knowledge", search: `?${listParams}` }}>All records</Link>
+  <Panel title={n.title} actions={<DocumentActions record={record} pinned={pinned} />} className={`${styles.detail} ${styles.knowledgeDocument}`}>
     {notice}
-    <Link className={styles.back} to={{ pathname: "/knowledge", search: `?${listParams}` }}>All records</Link>
     <div className={styles.documentIdentity}>
       <span><BookOpen size={16} aria-hidden />{categoryLabel(n.content_type)}</span>
       <span data-tone={n.retired ? "retired" : "active"}>{n.deleted ? "Deleted" : n.retired ? "Retired" : "Active"}</span>
@@ -95,7 +113,8 @@ export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnv
     <DocumentTabs tab={tab} setTab={setTab} sources={n.provenance.length} />
     <div id={`doc-panel-${tab}`} role="tabpanel" aria-labelledby={`doc-tab-${tab}`} className={styles.documentPanel}>
     {tab === "content" && <>
-      <DocumentBody body={n.body} />
+      {outline.length > 1 && <SectionOutline outline={outline} />}
+      <DocumentBody body={n.body} idPrefix="doc" />
       <section className={styles.documentVerification} aria-label="Verification assertion"><ShieldCheck size={22} aria-hidden /><div>
         <h3>Verification</h3>
         <p>{nodeLabel(n.verification)}</p>
@@ -113,5 +132,6 @@ export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnv
     </div>
     <details className={styles.recordDisclosure}><summary>Record details</summary><RecordFacts node={n} />{n.successor_id && <Link to={{ pathname: `/knowledge/${encodeURIComponent(n.successor_id)}`, search: scopeSearch({ kind: "project", project_id: record.project.id }) }}>Open successor record</Link>}</details>
     <p className={styles.footer}>{pinned ? `Viewing pinned revision ${n.content_revision} · Return to current from History` : `Current revision ${n.content_revision} · Older revisions remain available`}</p>
-  </Panel>;
+  </Panel>
+  </>;
 }
