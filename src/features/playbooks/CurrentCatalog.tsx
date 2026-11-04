@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { playbookCatalogJson } from "../../api/playbookCatalogClient";
 import { artifactDigest } from "../../api/adapters/loadedDefinitions";
@@ -49,14 +49,17 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
   const row = detail.data?.items[0], heading = useRef<HTMLHeadingElement>(null), previous = useRef<string | null>(null), buttons = useRef(new Map<string, HTMLButtonElement>()), rosterSummary = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (row && !detail.isError) heading.current?.focus(); else if (!selected && previous.current) (buttons.current.get(previous.current) ?? rosterSummary.current)?.focus(); previous.current = selected; }, [selected, row, detail.isError]);
   function select(key: string | null) { setParams(old => { const next = new URLSearchParams(old); if (key) next.set(parameter, key); else next.delete(parameter); return next; }); }
+  // The same back control as a run: a link to the unselected list, shown on phone detail pages.
+  const listSearch = (() => { const next = new URLSearchParams(params); next.delete(parameter); return next.toString(); })();
+  const back = (onClick?: () => void) => <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listSearch }} onClick={onClick}>All {kind}</Link>;
   const title = kind === "definitions" ? "Definitions" : "Activations", singular = kind === "definitions" ? "definition" : "activation";
   if (!capability.enabled) return <Panel title={title}><p role="status">{capability.reason}</p></Panel>;
   if (!pages.data || pages.isError || invalid || knownConflict) return <Panel title={title}>
-    {selected && <ActionButton className={styles.mobileBack} onClick={() => { select(null); refresh(); }}>All {kind}</ActionButton>}
+    {selected && back(refresh)}
     <QueryStatus status={pages.isError || invalid || knownConflict ? "error" : "pending"} error={invalid ?? knownConflict ?? pages.error} label={`current playbook ${kind}`} onRetry={refresh} />
   </Panel>;
   return <div className={styles.workspace} data-focused={Boolean(selected)}>
-    {selected && <ActionButton className={styles.mobileBack} onClick={() => select(null)}>All {kind}</ActionButton>}
+    {selected && back()}
     <Panel title={title} description={stamp?.namespace.name} className={styles.roster}>
       <p ref={rosterSummary} tabIndex={-1} className={styles.meta}>Current namespace metadata · observed <Age at={stamp!.observedAt} now={now} /></p>
       {rows.length === 0 && <p>No {kind} represented in this namespace.</p>}

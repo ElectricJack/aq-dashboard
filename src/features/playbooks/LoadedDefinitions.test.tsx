@@ -44,7 +44,7 @@ test("definition selection has exact pins, startup provenance and no installed/a
   expect(within(detail).getByText(`sha256:${"d".repeat(64)}`)).toBeInTheDocument();
   expect(within(detail).getByText("This startup configuration does not report current installation or activation.")).toBeInTheDocument();
   expect(reads).toBe(1); expect(screen.queryByRole("button", { name: "Activate" })).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "All definitions" }));
+  await userEvent.click(screen.getByRole("link", { name: "All definitions" }));
   await waitFor(() => expect(within(list).getByRole("button", { name: "Inspect definition coding-policy" })).toHaveFocus());
 });
 test("exact definition deep link renders literal text and truncated purpose explicitly", async () => {

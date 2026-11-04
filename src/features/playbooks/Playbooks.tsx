@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
@@ -6,6 +6,7 @@ import { scopedKey } from "../../api/queryKeys";
 import { Calendar, ChevronRight, RefreshCw } from "lucide-react";
 import { adaptAdmissions, adaptRunDetail, adaptRuns, mergeRunPages, statusLabel, type Run } from "../../api/adapters/playbooks";
 import { useSession } from "../../app/session";
+import { PageTitle } from "../../app/DestinationPage";
 import { scopeSearch, useScope } from "../../app/scope";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layout/Workspace";
@@ -19,6 +20,8 @@ import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
 const MAX_PAGES = 4;
+const TABS = [["runs", "Runs"], ["definitions", "Definitions"], ["activations", "Activations"], ["admissions", "Admissions"]] as const;
+type Tab = typeof TABS[number][0];
 function url(path: string, project: string | null, after?: string | null) {
   const q = new URLSearchParams({ limit: "25" }); if (project) q.set("project_id", project); if (after) q.set("after", after);
   return `${BASE}${path}?${q}`;
@@ -37,7 +40,7 @@ export function Playbooks() {
   const project = scope.kind === "project" ? scope.project_id : null;
   const { bootstrap, queryContext } = useSession();
   const [params, setParams] = useSearchParams(); const navigate = useNavigate();
-  const tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : params.get("view") === "activations" ? "activations" : "runs";
+  const tab: Tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : params.get("view") === "activations" ? "activations" : "runs";
   const [filter, setFilter] = useState("all"); const [range, setRange] = useState("24h");
   const runs = useInfiniteQuery({ queryKey: scopedKey(queryContext, scope, "playbook-runs", {}), initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => adaptRuns(await apiGet<unknown>(url("/runs", project, pageParam), signal), project, pageParam),
@@ -51,15 +54,22 @@ export function Playbooks() {
   const filtering = filter !== "all" || windowMs !== null;
   const runsNow = useObservedNow(observedAt, runs.dataUpdatedAt);
   const admissionsNow = useObservedNow(admissions.data?.observedAt, admissions.dataUpdatedAt);
-  function selectTab(next: string) { const p = new URLSearchParams(params); p.delete("definition"); p.delete("activation"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions" || next === "activations") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
-  return <div className={styles.page}>
-    <p className={styles.intro}>Inspect policy and follow each execution.</p>
-    <Toolbar aria-label="Playbook views">
-      <div className={styles.tabs}>
-        <ActionButton aria-pressed={tab === "runs"} onClick={() => selectTab("runs")}>Runs</ActionButton>
-        <ActionButton aria-pressed={tab === "definitions"} onClick={() => selectTab("definitions")}>Definitions</ActionButton>
-        <ActionButton aria-pressed={tab === "activations"} onClick={() => selectTab("activations")}>Activations</ActionButton>
-        <ActionButton aria-pressed={tab === "admissions"} onClick={() => selectTab("admissions")}>Admissions</ActionButton>
+  // Phone detail pages (run, definition or activation) hide the view toolbar; the back control leads out.
+  const detail = tab === "runs" ? Boolean(runId) : tab === "definitions" ? params.has("definition") : tab === "activations" ? params.has("activation") : false;
+  const tabRefs = useRef(new Map<Tab, HTMLButtonElement>()), moved = useRef(false);
+  useEffect(() => { if (moved.current) { moved.current = false; tabRefs.current.get(tab)?.focus(); } }, [tab]);
+  function selectTab(next: Tab) { const p = new URLSearchParams(params); p.delete("definition"); p.delete("activation"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions" || next === "activations") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
+  function tabKey(event: KeyboardEvent) {
+    const index = TABS.findIndex(([id]) => id === tab), last = TABS.length - 1;
+    const target = event.key === "ArrowRight" ? (index === last ? 0 : index + 1) : event.key === "ArrowLeft" ? (index === 0 ? last : index - 1) : event.key === "Home" ? 0 : event.key === "End" ? last : null;
+    if (target === null) return;
+    event.preventDefault(); moved.current = true; selectTab(TABS[target]![0]);
+  }
+  return <div className={styles.page} data-detail={detail}>
+    <header className={styles.header}><PageTitle>Playbooks</PageTitle><p className={styles.subtitle}>Inspect policy and follow each execution.</p></header>
+    <Toolbar className={styles.viewBar}>
+      <div className={styles.tabs} role="tablist" aria-label="Playbook views" onKeyDown={tabKey}>
+        {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} ref={element => { if (element) tabRefs.current.set(id, element); else tabRefs.current.delete(id); }} onClick={() => selectTab(id)}>{label}</button>)}
       </div>
       {tab === "runs" && <div className={styles.filters}>
         <label className={styles.filter}><span className="visually-hidden">Run state</span><select value={filter} onChange={e => setFilter(e.target.value)}>

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { apiGet } from "../../api/client";
 import { adaptLoadedDefinitions, LOADED_DEFINITIONS_CAPABILITY } from "../../api/adapters/loadedDefinitions";
 import { scopedKey } from "../../api/queryKeys";
@@ -29,7 +29,7 @@ export function LoadedDefinitions() {
   if (!capability.enabled) return <Panel title="Loaded definitions"><p role="status">{capability.reason}</p></Panel>;
   if (!query.data || query.isError) return <Panel title="Loaded definitions"><QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="loaded playbook definitions" onRetry={() => void query.refetch()} /></Panel>;
   return <div className={styles.workspace} data-focused={Boolean(item)}>
-    {item && <ActionButton className={styles.mobileBack} onClick={() => select(null)}>All definitions</ActionButton>}
+    {selected && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: (() => { const next = new URLSearchParams(params); next.delete("definition"); return next.toString(); })() }}>All definitions</Link>}
     <Panel title="Loaded definitions" description={query.data.namespace.name} className={styles.roster}>
       <p className={styles.meta}>Runtime startup configuration · captured <Age at={query.data.capturedAt} now={now} /></p>
       <ul className={styles.runs} aria-label="Loaded playbook definitions">{query.data.items.map(row => <li key={row.artifact}>
