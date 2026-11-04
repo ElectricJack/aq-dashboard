@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useSession } from "../../app/session";
 import { SupervisorConversation } from "./SupervisorConversation";
@@ -13,6 +13,8 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
   const [desktop, setDesktop] = useState(() => window.innerWidth >= 1200);
   const returnTo = useRef("/overview");
   const returnFocus = useRef<HTMLElement | null>(null), launcher = useRef<HTMLButtonElement>(null);
+  const surfaces = useRef<HTMLDivElement>(null);
+  const docked = dock && desktop && !full;
   useEffect(() => { if (full) setOpened(true); }, [full]);
   useEffect(() => {
     const resize = () => setDesktop(window.innerWidth >= 1200);
@@ -21,12 +23,26 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (dock && !desktop && !full) { setDock(false); void navigate("/supervisor"); }
   }, [dock, desktop, full, navigate]);
+  // The dock is an edge pane under the sticky header. The content area starts
+  // at the header bottom, so its document offset is the dock's sticky top.
+  useLayoutEffect(() => {
+    const element = surfaces.current, main = element?.closest("main") ?? element?.parentElement;
+    if (!docked || !element || !main) return;
+    const measure = () => {
+      const value = `${Math.max(0, Math.round(main.getBoundingClientRect().top + window.scrollY))}px`;
+      if (element.style.getPropertyValue("--dock-top") !== value) element.style.setProperty("--dock-top", value);
+    };
+    measure(); window.addEventListener("resize", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    if (main.previousElementSibling) observer?.observe(main.previousElementSibling);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", measure); };
+  }, [docked]);
   const remember = (focus = true) => {
     if (!full) returnTo.current = location.pathname + location.search + location.hash;
     if (focus) returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   };
   const close = () => { setDock(false); requestAnimationFrame(() => (returnFocus.current?.isConnected ? returnFocus.current : launcher.current)?.focus()); };
-  return <div className={styles.surfaces} data-docked={dock && desktop && !full || undefined}>
+  return <div ref={surfaces} className={styles.surfaces} data-docked={docked || undefined}>
     {/* In normal flow above the page, never floating over page content (gap SV-E). */}
     {!full && !dock && <div className={styles.launcherBar}><button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) setDock(true); else void navigate("/supervisor"); }}>Open supervisor</button></div>}
     <div className={styles.destination} data-supervisor-destination="" hidden={full}>{children}</div>
