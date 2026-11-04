@@ -21,7 +21,7 @@ function fixture(count: number) {
   const conversation = { id: conv, revision: "1", label: "Global supervisor" };
   const runtime = { state: "unavailable", binding: null, reason: "central_runtime_not_connected" };
   return {
-    discovery: { contract: "human-supervisor-conversation-1", conversation, runtime, limits: { body_bytes: 16384, context_refs: 0, attachments: 0, history_page: 16 } },
+    discovery: { contract: "human-supervisor-conversation-1", conversation, runtime, limits: { body_bytes: 16384, context_refs: 16, attachments: 4, history_page: 16 } },
     history: { contract: "human-supervisor-conversation-1", conversation, runtime, direction: "backward", through_cursor: String(Math.ceil(count / 2)), items, next_cursor: null, has_more: false },
   };
 }

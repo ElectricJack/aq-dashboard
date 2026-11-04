@@ -7,9 +7,12 @@ import { queryKey } from "../../api/queryKeys";
 import { PageTitle } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
 import { useScope } from "../../app/scope";
-import { ActionButton, DetailList, Panel, Toolbar } from "../../components/layout/Workspace";
+import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
+import { Icon } from "../../components/icons";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { ChevronLeft } from "lucide-react";
 import { DecisionContext } from "./DecisionContext";
+import { DecisionInbox, type InboxState } from "./DecisionInbox";
 import styles from "./Decisions.module.css";
 const ROOT = "/api/reviews/decisions";
 const short = (id: string) => id.slice(0, 8);
@@ -28,20 +31,20 @@ export function Component() {
   });
   const rows = inbox.data?.pages.flatMap(p => p.items);
   const unique = rows ? [...new Map(rows.map(r => [r.decisionId, r])).values()] : [];
-  return <><div className={styles.heading}><PageTitle>Decisions</PageTitle><span className={styles.muted}>Revision-bound human reviews</span></div>
+  const last = inbox.data?.pages.at(-1);
+  const setState = (s: InboxState) => setParams(old => { const next = new URLSearchParams(old); next.set("state", s); return next; });
+  const back = new URLSearchParams({ ...(project && { scope: `project:${project}` }), state }).toString();
+  return <><div className={styles.heading}><PageTitle>Decisions</PageTitle>{permission.enabled && inbox.data && !inbox.isError && <p className={styles.subtitle}>{unique.length} shown · sampled from your reviews</p>}</div>
     {!permission.enabled ? <p role="status">{permission.reason}</p> : <>
-      <Toolbar aria-label="Decision filters">{(["open", "closed"] as const).map(s => <ActionButton key={s} aria-pressed={s === state} onClick={() => setParams(old => { const next = new URLSearchParams(old); next.set("state", s); return next; })}>{s === "open" ? "Open" : "Resolved"}</ActionButton>)}<ActionButton onClick={() => void inbox.refetch()} disabled={inbox.isFetching}>Refresh</ActionButton></Toolbar>
-      <p className={styles.muted}>Showing sampled reviews available to your current owner account. No total or task impact is inferred.</p>
-      <div className={styles.layout}>
-        <Panel title="Review inbox">
-          {!inbox.data || inbox.isError ? <QueryStatus status={inbox.isError ? "error" : "pending"} error={inbox.error} label="review inbox" onRetry={() => void inbox.refetch()} /> : <>
-            {unique.length === 0 && <p>No available reviews in this page.</p>}
-            <ul className={styles.inbox}>{unique.map(r => <li key={r.decisionId}><Link className={styles.row} aria-current={decisionId === r.decisionId ? "page" : undefined} to={{ pathname: `/decisions/${r.decisionId}`, search: new URLSearchParams({ ...(project && { scope: `project:${project}` }), state }).toString() }}><strong>Review task {short(r.taskId)}</strong><span className={styles.muted}>Project {short(r.projectId)} · Revision {r.revision}</span><span>{r.state === "pending" ? "Awaiting decision" : r.state}</span>{!r.current && <span className={styles.muted}>Result has a newer report</span>}</Link></li>)}</ul>
-            {inbox.hasNextPage && <ActionButton disabled={inbox.isFetchingNextPage} onClick={() => void inbox.fetchNextPage()}>Load more reviews</ActionButton>}
-            {inbox.data.pages.length === 4 && inbox.data.pages[3]?.cursor && <p>Page limit reached. Refresh to begin again.</p>}
-          </>}
-        </Panel>
-        {decisionId ? <Selected key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`} id={decisionId} project={project} /> : <Panel title="Choose a review"><p>Select an available decision to inspect its exact result and evidence.</p></Panel>}
+      <div className={[styles.layout, decisionId && styles.selected].filter(Boolean).join(" ")}>
+        <DecisionInbox className={styles.inboxPane} state={state} onState={setState} rows={inbox.data && !inbox.isError ? unique : undefined} error={inbox.isError ? inbox.error : undefined}
+          serverTime={last?.serverTime} updatedAt={inbox.dataUpdatedAt} selected={decisionId} project={project} fetching={inbox.isFetching} onRefresh={() => void inbox.refetch()}
+          more={{ available: inbox.hasNextPage, loading: inbox.isFetchingNextPage, load: () => void inbox.fetchNextPage(), limitReached: inbox.data?.pages.length === 4 && !!inbox.data.pages[3]?.cursor }} />
+        {decisionId && <Link className={styles.back} to={{ pathname: "/decisions", search: back }}><Icon icon={ChevronLeft} size={18} />All decisions</Link>}
+        {decisionId ? <Selected key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`} id={decisionId} project={project} /> : <>
+          <Panel title="Choose a review" className={styles.placeholder}><p className={styles.muted}>Select a review to inspect its exact result and evidence.</p></Panel>
+          <Panel title="Decision context" className={`${styles.context} ${styles.placeholder}`}><p className={styles.muted}>Project, task and evidence for the selected review appear here.</p></Panel>
+        </>}
       </div>
     </>}
   </>;
