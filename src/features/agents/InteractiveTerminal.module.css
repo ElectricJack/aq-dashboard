@@ -1,25 +1,56 @@
-.pane { min-inline-size: 0; background: #0d1117; color: #d1d5db; }
-.toolbar, .actions, .tabs, .status, .keys { display: flex; align-items: center; gap: 8px; }
-.toolbar { justify-content: space-between; padding: 8px 12px; flex-wrap: wrap; border-block-end: 1px solid #ffffff12; }
-.tabs button, .keys button { font: inherit; color: inherit; background: transparent; border: 1px solid #ffffff20; border-radius: 6px; padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
-.tabs button[aria-pressed=true] { color: #b9b2ff; background: #8474ed20; }
-.keys button:disabled { opacity: .4; cursor: default; }
-.frame { block-size: clamp(340px, 55dvh, 780px); min-block-size: 180px; padding: 12px; overflow: auto; }
+/* The terminal surface keeps the xterm theme background (terminalSetup TERMINAL_BACKGROUND); chrome uses shared tokens. */
+.pane { min-inline-size: 0; background: #0d1117; color: var(--color-text); }
+.toolbar, .controls, .state, .segments, .footer, .keys, .actionBar { display: flex; align-items: center; gap: var(--space-2); }
+.toolbar { justify-content: space-between; flex-wrap: wrap; padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--color-border); }
+.controls { flex-wrap: wrap; justify-content: flex-end; margin-inline-start: auto; min-inline-size: 0; }
+.state { flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+.lease { color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.segments { gap: 0; padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); }
+.segments button { font: inherit; font-size: var(--font-size-meta); color: var(--color-text-secondary); background: transparent; border: 0; border-radius: calc(var(--radius-control) - 2px); padding: var(--space-1) var(--space-4); min-block-size: 36px; cursor: pointer; }
+.segments button[aria-checked=true] { color: var(--color-text); background: var(--color-raised); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.segments button:focus-visible, .mode select:focus-visible, .keys button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+.mode select { font: inherit; font-size: var(--font-size-meta); color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); min-block-size: var(--touch-target); padding-inline: var(--space-3) var(--space-5); }
+.controls .primaryOutline { color: var(--color-accent); border-color: var(--color-accent); }
+.actionBar .primary { color: var(--color-accent-contrast); background: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
+
+.frame { block-size: clamp(340px, 55dvh, 780px); min-block-size: 180px; padding: var(--space-3); overflow: auto; }
 .host { block-size: 100%; min-inline-size: 0; }
 .host :global(.xterm) { min-inline-size: 80ch; block-size: 100%; }
 .host :global(.xterm-viewport) { background: #0d1117 !important; }
-.status { flex-wrap: wrap; justify-content: space-between; padding: 6px 12px; font-size: 12px; color: #a9b0bf; border-block-start: 1px solid #ffffff12; }
-.keys { padding: 6px 12px; overflow-x: auto; }
-.keys button { flex-shrink: 0; }
-.phoneControl { display: none; }
-.help { margin: 0; padding: 4px 12px 8px; font-size: 11px; color: #8f98a9; }
+
+.footer { flex-wrap: wrap; gap: var(--space-1) var(--space-5); padding: var(--space-2) var(--space-3); font-size: var(--font-size-meta); color: var(--color-text-secondary); border-block-start: 1px solid var(--color-border); }
+.connection { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text); }
+.dot { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--color-error); }
+.connection[data-phase=connected] .dot { background: var(--color-success); }
+.connection[data-phase=connecting] .dot { background: var(--color-attention); }
+.provenance { margin-inline-start: auto; }
+
+.keys { padding: var(--space-2) var(--space-3); overflow-x: auto; }
+.keys button { flex-shrink: 0; font: inherit; font-size: var(--font-size-meta); color: inherit; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
+.keys button:disabled { opacity: .45; cursor: default; }
+.help { margin: 0; padding: 0 var(--space-3) var(--space-2); font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+
+.dock { display: grid; gap: var(--space-2); }
+.more { position: absolute; inset-inline-end: 0; inset-block-end: calc(100% + var(--space-2)); display: grid; gap: var(--space-2); min-inline-size: 180px; padding: var(--space-2); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); box-shadow: var(--shadow-overlay); }
+
 @media (max-width: 767px) {
-  .toolbar { padding: 4px 8px; gap: 4px; }
-  .toolbar button, .keys button { min-block-size: 44px; }
-  .actions { display: none; }
-  .phoneControl { display: block; }
-  .frame { block-size: max(220px, calc(100dvh - 460px)); padding: 8px; }
-  .status { padding: 4px 8px; gap: 2px; font-size: 11px; }
-  .keys { padding: 4px 8px; gap: 4px; }
+  .toolbar { padding: var(--space-2); }
+  .controls { margin-inline-start: 0; justify-content: space-between; inline-size: 100%; flex-wrap: nowrap; }
+  .state { flex: 1 1 0; min-inline-size: 0; }
+  .frame { block-size: max(220px, calc(100dvh - 460px)); padding: var(--space-2); }
+  .footer { padding: var(--space-2); gap: var(--space-1) var(--space-3); }
+  .provenance { display: none; }
+  .keys { padding: var(--space-2); gap: var(--space-1); }
+  .keys button { min-block-size: var(--touch-target); }
   .help { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Pinned phone action bar: segmented view switch over Take control · Message · More. */
+  .dock { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 20; padding: var(--space-2) var(--gutter-mobile) max(var(--space-2), env(safe-area-inset-bottom)); background: var(--color-panel); border-block-start: 1px solid var(--color-border); }
+  .dock .segments { inline-size: 100%; }
+  .dock .segments button { flex: 1; min-block-size: var(--touch-target); }
+  .actionBar { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) var(--touch-target); }
+  .actionBar > button { min-block-size: var(--touch-target); padding-inline: var(--space-2); }
+  /* Shell coordination: reserve the dock's height below the focused-session page so its last row can scroll clear. */
+  :global(main):has(.dock) { padding-block-end: calc(2 * var(--touch-target) + 3 * var(--space-2) + max(var(--space-2), env(safe-area-inset-bottom)) + var(--space-4)) !important; }
 }
