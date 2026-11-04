@@ -13,9 +13,9 @@ import styles from "./DecisionContext.module.css";
 
 /** `00000000…0003`: enough of an id to recognise it, with the full value kept for copy and title. */
 export const shortId = (id: string) => (id.length > 13 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id);
-const shortDigest = (digest: string) => digest.slice(0, 12);
+export const shortDigest = (digest: string) => digest.slice(0, 12);
 
-function CopyValue({ value, label }: { value: string; label: string }) {
+export function CopyValue({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (!copied) return; const t = setTimeout(() => setCopied(false), 1500); return () => clearTimeout(t); }, [copied]);
   return <button type="button" className={styles.copy} aria-label={copied ? `${label} copied` : `Copy ${label}`} title={copied ? "Copied" : `Copy ${label}`}
@@ -24,7 +24,7 @@ function CopyValue({ value, label }: { value: string; label: string }) {
   </button>;
 }
 
-function ShortId({ id, label }: { id: string; label: string }) {
+export function ShortId({ id, label }: { id: string; label: string }) {
   return <span className={styles.idValue}><code title={id}>{shortId(id)}</code><CopyValue value={id} label={label} /></span>;
 }
 

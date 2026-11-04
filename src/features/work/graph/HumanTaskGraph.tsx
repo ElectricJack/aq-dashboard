@@ -18,8 +18,14 @@ export function graphListTarget(search: string): To { return { pathname: "/work"
 
 /** Full-viewport phone graph view. A modal dialog keeps the shell (and bottom nav) inert and covered until Back. */
 export function PhoneGraphView({ backTo, children }: { backTo: To; children: ReactNode }) {
-  const dialog = useRef<HTMLDialogElement>(null), navigate = useNavigate(), heading = useId();
-  useEffect(() => { const element = dialog.current; if (element && !element.open) element.showModal(); return () => { if (element?.open) element.close(); }; }, []);
+  const dialog = useRef<HTMLDialogElement>(null), kept = useRef<HTMLElement | null>(null), navigate = useNavigate(), heading = useId();
+  // showModal() moves focus to the first control (Back). When the dialog is reopened (StrictMode
+  // re-runs effects), keep focus where the workspace put it inside the view, e.g. the restored node.
+  useEffect(() => {
+    const element = dialog.current;
+    if (element && !element.open) { element.showModal(); if (kept.current && element.contains(kept.current)) kept.current.focus(); }
+    return () => { const active = document.activeElement; kept.current = element && active instanceof HTMLElement && element.contains(active) ? active : null; if (element?.open) element.close(); };
+  }, []);
   return <dialog ref={dialog} className={styles.phoneView} aria-labelledby={heading} onCancel={e => { e.preventDefault(); void navigate(backTo); }}>
     <section className={styles.phoneRegion} aria-labelledby={heading}>
       <header className={styles.phoneHeader}><Link to={backTo} className={styles.phoneBack}><ArrowLeft size={18} aria-hidden />Back to list</Link><h2 id={heading}>Dependency graph</h2></header>

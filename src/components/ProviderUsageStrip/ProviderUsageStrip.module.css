@@ -245,3 +245,32 @@
     display: none;
   }
 }
+
+/* AG-A focus mode (phone): the focused session keeps the quota to one line per provider,
+   "Name ▬ 42% used"; window, reset and age stay announced and remain in the usage disclosure. */
+@media (max-width: 767px) {
+  :global([data-focused-session]) .summaryEntry {
+    grid-template-columns: auto auto;
+    grid-template-areas: "name figure";
+    column-gap: var(--space-2);
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+
+  /* The bar returns so a stale window still reads as stale at a glance. */
+  :global([data-focused-session]) .summaryEntry .bar {
+    position: static;
+    inline-size: 40px;
+    block-size: 6px;
+    clip-path: none;
+  }
+
+  :global([data-focused-session]) .summaryEntry > .meta {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

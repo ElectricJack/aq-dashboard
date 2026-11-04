@@ -99,9 +99,106 @@
 @media(max-width:1199px) { .workspace[data-kind=task][data-detail=true] .filters { display:flex; } .workspace[data-kind=task][data-detail=true] .filters .search,.workspace[data-kind=task][data-detail=true] .filters > label { display:none; } }
 
 @media(max-width:1199px) {
-  .workspace[data-kind=knowledge][data-detail=true] > .subtitle { display:none; }
+  .pageHeader[data-detail=true] > .subtitle { display:none; }
   .documentTabs { flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; justify-content:start; scrollbar-width:thin; }
   .documentTabs button { flex:none; }
+}
+
+/* Knowledge library (reference 07): icon filters, view toggle, list header and rows. */
+.workspace[data-kind=knowledge] .filters { padding:0; border:0; background:transparent; gap:var(--space-3); }
+.workspace[data-kind=knowledge] .search { position:relative; flex:1 1 200px; }
+.filter { position:relative; display:inline-flex; align-items:center; min-inline-size:0; }
+.filterIcon { position:absolute; inset-inline-start:var(--space-3); top:50%; translate:0 -50%; color:var(--color-text-secondary); pointer-events:none; }
+.workspace[data-kind=knowledge] .search input { padding-inline-start:40px; background:var(--color-panel); }
+.workspace[data-kind=knowledge] .filters select { padding-inline-start:38px; background:var(--color-panel); cursor:pointer; }
+.segmented { display:inline-flex; margin-inline-start:auto; border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-panel); overflow:hidden; }
+.segmented button { display:inline-flex; align-items:center; gap:var(--space-2); min-block-size:var(--touch-target); padding:var(--space-2) var(--space-4); border:0; background:transparent; color:var(--color-text); font:inherit; cursor:pointer; }
+.segmented button + button { border-inline-start:1px solid var(--color-border); }
+.segmented button[aria-pressed=true] { color:var(--color-accent); background:color-mix(in srgb,var(--color-accent) 14%,transparent); box-shadow:inset 0 0 0 1px var(--color-accent); border-radius:var(--radius-control); }
+.segmented button:disabled { color:var(--color-text-secondary); cursor:not-allowed; }
+.segmented button:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
+.listPanel > div:first-child { align-items:center; }
+.listPanel > div:first-child h2 { font-size:18px; font-weight:600; }
+.listActions { display:flex; align-items:center; gap:var(--space-1); }
+.listActions select { min-block-size:var(--touch-target); padding:var(--space-2); border:0; border-radius:var(--radius-control); background:transparent; color:var(--color-text-secondary); font:inherit; font-size:var(--font-size-meta); cursor:pointer; }
+.listActions select:focus-visible { outline:3px solid var(--color-focus); }
+.iconButton { inline-size:var(--touch-target); padding:0; background:transparent; border-color:transparent; color:var(--color-text-secondary); }
+.workspace[data-kind=knowledge] .records li { border-block-end:1px solid var(--color-border); }
+.workspace[data-kind=knowledge] .record { grid-template-columns:28px minmax(0,1fr) auto; gap:var(--space-4); padding:var(--space-4) var(--space-3); border:1px solid transparent; border-radius:var(--radius-control); }
+.workspace[data-kind=knowledge] .records li[data-selected=true] .record { background:color-mix(in srgb,var(--color-accent) 10%,var(--color-raised)); border-color:color-mix(in srgb,var(--color-accent) 55%,transparent); border-inline-start-width:3px; border-inline-start-color:var(--color-accent); }
+.workspace[data-kind=knowledge] .record:hover { background:var(--color-raised); }
+.categoryIcon { color:var(--color-text); }
+.categoryIcon[data-category=incident] { color:var(--color-error); }
+.recordText { min-inline-size:0; }
+.recordText strong { font-weight:600; }
+.chips { display:flex; flex-wrap:wrap; gap:var(--space-1) var(--space-4); margin-block-start:var(--space-1); }
+.dot { display:inline-flex; align-items:center; gap:6px; color:var(--color-text-secondary); font-size:var(--font-size-meta); }
+.dot::before { content:""; inline-size:8px; block-size:8px; border-radius:50%; background:var(--color-text-secondary); flex:none; }
+.dot[data-tone=category]::before { background:var(--color-accent); }
+.dot[data-tone=active]::before,.dot[data-tone=verified]::before { background:var(--color-success); }
+.dot[data-tone=retired]::before,.dot[data-tone=disputed]::before { background:var(--color-attention); }
+.dot[data-tone=deleted]::before { background:var(--color-error); }
+.workspace[data-kind=knowledge] .revision { display:grid; justify-items:end; gap:var(--space-1); white-space:nowrap; }
+.revisionNumber { color:var(--color-text); font-size:var(--font-size-body); }
+@media(min-width:1200px) {
+  .workspace[data-kind=knowledge] .panes { align-items:stretch; }
+  .workspace[data-kind=knowledge] .listPane { display:flex; flex-direction:column; }
+  .workspace[data-kind=knowledge] .listPane > section { flex:1; }
+}
+@media(max-width:600px) {
+  .workspace[data-kind=knowledge] .filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--space-2); }
+  /* List-then-detail: an open document replaces the library filters (the grid above would otherwise win the cascade). */
+  .workspace[data-kind=knowledge][data-detail=true]:not([data-view=graph]) .filters { display:none; }
+  .workspace[data-kind=knowledge] .search { grid-column:1 / -1; }
+  .workspace[data-kind=knowledge] .filters > .filter,.workspace[data-kind=knowledge] .filters select { inline-size:100%; }
+  .workspace[data-kind=knowledge] .filters select { font-size:var(--font-size-meta); padding-inline:34px var(--space-2); }
+  .workspace[data-kind=knowledge] .filterIcon { inset-inline-start:var(--space-2); }
+  .workspace[data-kind=knowledge] .search .filterIcon { inset-inline-start:var(--space-3); }
+  .segmented { margin-inline-start:0; inline-size:100%; }
+  .segmented button { flex:1; justify-content:center; padding-inline:var(--space-2); font-size:var(--font-size-meta); }
+  .segmented svg { display:none; }
+  .listPanel > div:first-child { gap:var(--space-2); }
+  .listPanel > div:first-child h2 { font-size:16px; }
+  .listActions { margin-inline-start:calc(-1 * var(--space-2)); }
+  .workspace[data-kind=knowledge] .record { padding:var(--space-3) var(--space-2); gap:var(--space-3); }
+}
+/* Knowledge page header: title row with one right-aligned action slot, then the subtitle. */
+.pageHeader { display:grid; gap:var(--space-1); margin-block-end:var(--space-4); }
+.pageHeading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); flex-wrap:wrap; min-inline-size:0; }
+.pageHeading h1 { margin:0; }
+.headerAction > div { margin-block:0; }
+.pageHeading .headerAction > div > div > button,.pageHeading .unavailable { background:var(--color-accent); color:var(--color-accent-contrast); border-color:transparent; font-weight:600; }
+.unavailable[aria-disabled=true] { cursor:default; opacity:.6; }
+.tipAnchor { position:relative; display:inline-flex; }
+.tooltip { position:absolute; inset-block-start:calc(100% + var(--space-2)); inset-inline-end:0; z-index:5; inline-size:max-content; max-inline-size:min(280px,calc(100vw - 32px)); padding:var(--space-2) var(--space-3); background:var(--color-raised); color:var(--color-text); border:1px solid var(--color-border); border-radius:var(--radius-control); box-shadow:var(--shadow-overlay); font-size:var(--font-size-meta); font-weight:400; }
+/* Document header: H2 left, one action slot right; the focus ring only appears for keyboard focus. */
+.knowledgeDocument h2:focus { outline:none; }
+.knowledgeDocument h2:focus-visible { outline:3px solid var(--color-focus); outline-offset:3px; }
+.documentActions { display:flex; flex-wrap:wrap; align-items:start; gap:var(--space-2); }
+.actionsMenu { position:relative; }
+.actionsList { position:absolute; inset-block-start:calc(100% + var(--space-2)); inset-inline-end:0; z-index:5; inline-size:max-content; max-inline-size:min(320px,calc(100vw - 32px)); margin:0; padding:var(--space-2); list-style:none; background:var(--color-raised); border:1px solid var(--color-border); border-radius:var(--radius-panel); box-shadow:var(--shadow-overlay); }
+.actionsList li { display:grid; gap:2px; padding:var(--space-2) var(--space-3); color:var(--color-text-secondary); }
+.actionsList .meta { margin:0; }
+.actionName { color:var(--color-text); }
+/* On phones the action slot wraps under the title, so the menu opens from its left edge. */
+@media(max-width:600px) { .actionsList { inset-inline-end:auto; inset-inline-start:0; } }
+/* KN-E: phone document page. The back link sits above the document and section navigation
+   jumps to DocumentBody headings; desktop keeps the 07-knowledge-v2 pane unchanged. */
+.documentBack { justify-self:start; }
+.sectionOutline { display:none; }
+.documentBody [id] { scroll-margin-block:var(--space-4) calc(var(--touch-target) + var(--space-6) + env(safe-area-inset-bottom)); }
+.documentBody [id]:focus { outline:none; }
+.documentBody [id]:focus-visible { outline:2px solid var(--color-accent); outline-offset:2px; }
+@media(max-width:1199px) {
+  .sectionOutline { display:grid; gap:var(--space-2); margin-block:0 var(--space-4); }
+  .sectionOutline > span { color:var(--color-text-secondary); font-size:var(--font-size-meta); }
+  .sectionOutline ul { display:flex; gap:var(--space-2); margin:0; padding:0 0 var(--space-1); list-style:none; overflow-x:auto; scrollbar-width:thin; }
+  .sectionOutline li { flex:none; }
+  .sectionOutline a { display:inline-flex; align-items:center; min-block-size:var(--touch-target); padding:0 var(--space-3); border:1px solid var(--color-border); border-radius:18px; background:var(--color-raised); color:var(--color-text); text-decoration:none; font-size:14px; white-space:nowrap; }
+  .sectionOutline a:hover { border-color:var(--color-accent); }
+}
+@media(max-width:600px) {
+  .detail.knowledgeDocument { padding:0; border:0; border-radius:0; background:transparent; }
 }
 
 /* Work on phone (WK-F): list-first density. Title row comes from Work; drop the subtitle; two-row toolbar. */
