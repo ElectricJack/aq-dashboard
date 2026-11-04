@@ -112,7 +112,30 @@
 
 /* The selected session gets the workspace; metadata is an explicit disclosure. */
 .workspaceHeading { justify-content: space-between; }
-.focusLabel { margin-inline-end: auto; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+/* Focus / Split view / Expand (reference 08): separate outlined controls, the active one accented. */
+.viewControl { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-1) var(--space-3); margin-inline-start: auto; }
+.viewButtons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.viewButtons button[aria-pressed="true"] { color: var(--color-text); border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 14%, var(--color-raised)); }
+.splitReason { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.expandedLabel { font-size: var(--font-size-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-inline-size: 0; }
+.kbd { padding: 0 var(--space-1); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-secondary); font: inherit; font-size: 12px; }
+/* Split: at most two panes side by side, each sized for at least 80 columns. */
+.panes { display: grid; min-inline-size: 0; min-block-size: 0; }
+.panes[data-split] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--color-border); }
+.paneSlot { display: flex; flex-direction: column; min-inline-size: 0; min-block-size: 0; background: #0b0e11; }
+.paneSlot > :last-child { flex: 1 1 auto; min-block-size: 0; }
+.paneCaption { display: flex; align-items: center; gap: var(--space-2); min-block-size: var(--touch-target); padding: var(--space-1) var(--space-4); background: var(--color-panel); border-block-end: 1px solid var(--color-border); font-size: var(--font-size-meta); }
+.paneCaption strong, .paneCaption > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paneCaption > span { color: var(--color-text-secondary); }
+.paneCaption label { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-secondary); }
+.paneCaption select { min-block-size: 36px; padding: 0 var(--space-2); color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; }
+/* Expand: the workspace covers the page chrome (breadcrumb, tabs, rail) until Exit or Esc. */
+.detail[data-expanded] { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 0; box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); background: var(--color-canvas); overflow: hidden; }
+.detail[data-expanded] .back, .detail[data-expanded] > .meta, .detail[data-expanded] .switcher { display: none; }
+.detail[data-expanded] .title { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.detail[data-expanded] .workspaceHeading { flex: 0 0 auto; flex-wrap: nowrap; padding: var(--space-2) var(--space-4); background: var(--color-panel); border-block-end: 1px solid var(--color-border); }
+.detail[data-expanded] .outputWorkspace { flex: 1 1 auto; min-block-size: 0; grid-template-rows: auto minmax(0, 1fr) auto auto; border: none; border-radius: 0; }
 .switcher { display: flex; align-items: center; gap: var(--space-2); min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; padding-block: var(--space-1); }
 .sessionTab { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-2); max-inline-size: 28ch; min-block-size: var(--touch-target); overflow: hidden; white-space: nowrap; padding: var(--space-2) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control) var(--radius-control) 0 0; background: var(--color-panel); color: var(--color-text-secondary); text-decoration: none; }
 .sessionTab[aria-current="page"] { border-color: var(--color-accent); color: var(--color-text); background: var(--color-raised); box-shadow: inset 0 2px var(--color-accent); }
@@ -136,7 +159,17 @@
 .drawerBody h3 { margin-block: var(--space-5) var(--space-3); }
 .drawerBody dl { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
 .drawerBody dd + dt { margin-block-start: var(--space-2); }
-@media (max-width: 767px) { .focusLabel { display: none; } .workspaceHeading { gap: var(--space-2); } .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); }
+@media (max-width: 767px) { .workspaceHeading { gap: var(--space-2); }
+  /* Phone (reference 11): icon-only view controls on the back row; the reason sits on one small line below. */
+  .detail .workspaceHeading { flex-wrap: nowrap; align-items: flex-start; }
+  .viewControl { flex: 1 1 auto; min-inline-size: 0; }
+  .viewButtons { flex-wrap: nowrap; }
+  .viewButtons button { inline-size: var(--touch-target); padding: 0; }
+  .viewText { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .splitReason { flex-basis: 100%; text-align: end; font-size: 12px; }
+  .back { align-self: center; }
+  .exitLong, .kbd { display: none; }
+  .detail[data-expanded] .workspaceHeading { padding: var(--space-2) var(--space-3); } .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); }
   .sessionActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--space-3); }
   .messageSlot { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); }
   .drawer, .drawer[data-wide] { inset: auto 0 0 0; inline-size: 100%; block-size: auto; max-block-size: 85dvh; border: 1px solid var(--color-border); border-block-end: none; border-radius: var(--radius-panel) var(--radius-panel) 0 0; }

@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { FileText, MessageSquare, PanelRight, X } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Columns2, Expand, FileText, MessageSquare, Monitor, PanelRight, X } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router";
 import {
   adaptSession,
@@ -17,13 +17,17 @@ import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
-import { InteractiveTerminal } from "./InteractiveTerminal";
+import { columnsForPane, InteractiveTerminal, MIN_PANE_COLUMNS } from "./InteractiveTerminal";
 import { createOutputFeed, TerminalTail } from "./TerminalTail";
 import { Icon } from "../../components/icons";
 import { SessionUsage } from "./SessionUsage";
 import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
+
+function providerText(s: SessionView) {
+  return `${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`;
+}
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
@@ -114,11 +118,16 @@ function Roster({ search }: { search: string }) {
   );
 }
 
-function SessionSwitcher({ selected, search }: { selected: SessionView; search: string }) {
+/** The switcher's roster read; the split view's second pane picks from the same cached pages. */
+function useSessionRoster() {
   const [scope] = useScope();
   const query = usePagedRead<SessionSummary, SessionView>({ resource: "sessions", path: "/api/v1/sessions", scope,
     params: { limit: 25 }, adapt: adaptSession, pollMs: ROSTER_POLL_MS });
-  const sessions = query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [];
+  return { query, sessions: query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [] };
+}
+
+function SessionSwitcher({ selected, search }: { selected: SessionView; search: string }) {
+  const { query, sessions } = useSessionRoster();
   return <nav className={styles.switcher} aria-label="Session switcher">
     {sessions.length === 0 && <span className={styles.sessionTab} aria-label={selected.label} aria-current="page">{compactSessionLabel(selected)}</span>}
     {sessions.map(s => <Link key={s.id} title={s.label} aria-label={s.label} className={styles.sessionTab} aria-current={s.id === selected.id ? "page" : undefined}
@@ -130,6 +139,41 @@ function SessionSwitcher({ selected, search }: { selected: SessionView; search: 
 }
 
 type DrawerKind = "details" | "transcript";
+
+/** Workspace view (spec §6). Split is explicit and at most two panes; Expand hides page chrome. */
+export type WorkspaceView = { layout: "focus" | "split"; expanded: boolean; secondId: string | null };
+type ViewChange = (change: Partial<WorkspaceView>) => void;
+/** Divider between split panes (`.panes[data-split]` gap). */
+const SPLIT_GAP_PX = 1;
+
+/** Per-pane columns a split of the measured workspace would give; null until measured. */
+function useSplitColumns(present: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState<number | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!present || !el) return;
+    const observer = new ResizeObserver(() => setColumns(columnsForPane((el.getBoundingClientRect().width - SPLIT_GAP_PX) / 2)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [present]);
+  return [ref, columns] as const;
+}
+
+function ViewControl({ split, expanded, splitReason, onChange, expandId }: {
+  split: boolean; expanded: boolean; splitReason: string | null; onChange: ViewChange; expandId: string;
+}) {
+  const reasonId = useId();
+  return <div className={styles.viewControl}>
+    <div role="group" aria-label="Workspace view" className={styles.viewButtons}>
+      <ActionButton aria-pressed={!split} onClick={() => onChange({ layout: "focus" })}><Icon icon={Monitor} size={18} /><span className={styles.viewText}>Focus</span></ActionButton>
+      <ActionButton aria-pressed={split} disabled={splitReason !== null} aria-describedby={splitReason ? reasonId : undefined}
+        onClick={() => onChange({ layout: "split" })}><Icon icon={Columns2} size={18} /><span className={styles.viewText}>Split view</span></ActionButton>
+      <ActionButton id={expandId} aria-pressed={expanded} onClick={() => onChange({ expanded: !expanded })}><Icon icon={Expand} size={18} /><span className={styles.viewText}>Expand</span></ActionButton>
+    </div>
+    {splitReason && <span id={reasonId} className={styles.splitReason}>{splitReason}</span>}
+  </div>;
+}
 
 /** On-demand drawer: right side over the workspace on desktop, bottom sheet on phone.
  * Modal while open (focus contained, Esc closes); focus returns to the opener. */
@@ -157,7 +201,7 @@ function SessionDrawer({ id, title, open, wide, onClose, returnFocus, children }
   </dialog>;
 }
 
-function SessionPage({ sessionId, search }: { sessionId: string; search: string }) {
+function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: string; search: string; view: WorkspaceView; onViewChange: ViewChange }) {
   const [scope] = useScope();
   const { bootstrap } = useSession();
   const terminal = bootstrap.capability("terminal.watch");
@@ -186,6 +230,52 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
     if (navigated && loaded === sessionId) heading.current?.focus();
   }, [navigated, loaded, sessionId]);
 
+  const { sessions: roster } = useSessionRoster();
+  const watchable = !!query.data?.view.terminal && terminal.enabled;
+  const [panes, paneColumns] = useSplitColumns(watchable);
+  const others = roster.filter(o => o.id !== sessionId && o.terminal);
+  const second = others.find(o => o.id === view.secondId) ?? others[0] ?? null;
+  const splitReason = !watchable ? "Terminal not available"
+    : !second ? "No second session with a terminal"
+    : paneColumns === null || paneColumns < MIN_PANE_COLUMNS
+      ? `Needs at least ${2 * MIN_PANE_COLUMNS} columns${paneColumns === null ? "" : ` (${2 * paneColumns} fit)`}` : null;
+  // The chosen layout is kept; it applies only while both panes fit (never shrink the font).
+  const split = view.layout === "split" && splitReason === null && second !== null;
+  const expanded = view.expanded && !!query.data;
+  const page = useRef<HTMLElement>(null);
+  const expandId = useId(), exitId = useId();
+  useEffect(() => {
+    if (!expanded) return;
+    const exit = () => { document.getElementById(expandId)?.focus(); onViewChange({ expanded: false }); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target instanceof Element ? e.target : null;
+      // Dialogs own their Esc; a controlled terminal receives Esc as input (Ctrl+M leaves it).
+      if (target?.closest("dialog") || target?.closest("[data-controlling] .xterm")) return;
+      e.preventDefault();
+      exit();
+    };
+    // The overlay covers the shell; keep focus from landing on obscured controls behind it.
+    const onFocus = (e: FocusEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target && page.current && !page.current.contains(target) && !target.closest("dialog")) document.getElementById(exitId)?.focus();
+    };
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      root.style.overflow = overflow;
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocus);
+    };
+  }, [expanded, onViewChange, expandId, exitId]);
+  const changeView = (change: Partial<WorkspaceView>) => {
+    if (change.expanded === false) document.getElementById(expandId)?.focus();
+    onViewChange(change);
+  };
+
   if (!query.data) {
     return (
       <div className={styles.detail}>
@@ -203,10 +293,13 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   const headingId = `session-${s.id}-heading`;
 
   return (
-    <section className={styles.detail} aria-labelledby={headingId}>
+    <section ref={page} className={styles.detail} aria-labelledby={headingId} data-expanded={expanded || undefined}>
       <Toolbar className={styles.workspaceHeading}>
         <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
-        <span className={styles.focusLabel}>Focused workspace</span>
+        {expanded && <strong className={styles.expandedLabel}>{compactSessionLabel(s)}</strong>}
+        <ViewControl split={split} expanded={expanded} splitReason={splitReason} onChange={changeView} expandId={expandId} />
+        {expanded && <ActionButton id={exitId} className={styles.exit} aria-keyshortcuts="Escape" onClick={() => changeView({ expanded: false })}>
+          <Icon icon={X} size={18} />Exit<span className={styles.exitLong}> expanded view</span><kbd className={styles.kbd} aria-hidden="true">Esc</kbd></ActionButton>}
       </Toolbar>
       <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
         <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
@@ -223,11 +316,27 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
       <SessionSwitcher selected={s} search={search} />
       <div className={styles.outputWorkspace}>
-        <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong></Toolbar>
-      {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} feed={feed} /> : <div className={styles.terminal} role="note">
-        <strong>Terminal is not available</strong>
-        <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
-      </div>}
+        {!split && <Toolbar className={styles.outputHeading}><strong>{providerText(s)}</strong></Toolbar>}
+      <div ref={panes} className={styles.panes} data-split={split || undefined}>
+        <div className={styles.paneSlot}>
+          {split && <div className={styles.paneCaption}><strong>{s.label}</strong><span>{providerText(s)}</span></div>}
+          {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} feed={feed} fill={expanded}
+            label={split ? `Interactive agent terminal, ${s.label}` : undefined} /> : <div className={styles.terminal} role="note">
+            <strong>Terminal is not available</strong>
+            <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
+          </div>}
+        </div>
+        {split && second?.terminal && <div className={styles.paneSlot}>
+          <div className={styles.paneCaption}>
+            <label>Second pane <select value={second.id} onChange={e => onViewChange({ secondId: e.target.value })}>
+              {others.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select></label>
+            <span>{providerText(second)}</span>
+          </div>
+          <InteractiveTerminal key={second.terminal.id} terminalId={second.terminal.id} name={second.label} fill={expanded}
+            label={`Interactive agent terminal, ${second.label}`} />
+        </div>}
+      </div>
 
       <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
       <Toolbar className={styles.sessionActions} role="group" aria-label="Session actions">
@@ -300,6 +409,9 @@ export function Agents() {
   const search = scopeSearch(scope);
   const container = useRef<HTMLDivElement>(null);
   const lastSelected = useRef<string | null>(null);
+  // View state outlives the per-session page so switching sessions keeps the layout.
+  const [view, setView] = useState<WorkspaceView>({ layout: "focus", expanded: false, secondId: null });
+  const changeView = useCallback<ViewChange>(change => setView(v => ({ ...v, ...change })), []);
   // Back from a session returns focus to the roster row that opened it.
   useEffect(() => {
     if (sessionId) {
@@ -312,7 +424,7 @@ export function Agents() {
   return (
     <div ref={container}>
       {sessionId ? (
-        <SessionPage key={sessionId} sessionId={sessionId} search={search} />
+        <SessionPage key={sessionId} sessionId={sessionId} search={search} view={view} onViewChange={changeView} />
       ) : (
         <Roster search={search} />
       )}
