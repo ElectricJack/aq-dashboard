@@ -1,4 +1,3 @@
-import { RecordActions } from "../actions/RecordActions";
 import { useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BookOpen, ShieldCheck, FileText } from "lucide-react";
@@ -6,7 +5,17 @@ import { type GraphEnvelope, type GraphNode, nodeLabel } from "../../api/adapter
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
 import { scopeSearch } from "../../app/scope";
 import { DocumentBody } from "./DocumentBody";
+import { DocumentActions } from "./KnowledgeActions";
 import styles from "./HumanNodeWorkspace.module.css";
+
+const categoryLabel = (value: string | null | undefined) => value ? value.replace(/[_-]+/g, " ").replace(/^./, c => c.toUpperCase()) : "Uncategorized";
+/** Short UTC date ("Nov 1"); the year is added when it differs from the server observation. */
+export function shortDate(iso: string, observed?: string) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const sameYear = observed ? new Date(observed).getUTCFullYear() === at.getUTCFullYear() : true;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" }).format(at);
+}
 
 export function RecordFacts({ node: n }: { node: GraphNode }) {
   return <DetailList><dt>Author</dt><dd>{n.created_by}</dd><dt>Created</dt><dd>{n.created_at}</dd><dt>Updated</dt><dd>{n.updated_at}</dd><dt>Record version</dt><dd>{n.version}</dd><dt>Content revision</dt><dd>{n.content_revision}</dd><dt>Verification</dt><dd>{nodeLabel(n.verification)}</dd><dt>Valid from</dt><dd>{n.valid_from ?? "Not specified"}</dd><dt>Valid until</dt><dd>{n.valid_until ?? "Not specified"}</dd>{n.retirement_reason && <><dt>Retirement reason</dt><dd>{n.retirement_reason}</dd></>}</DetailList>;
@@ -22,17 +31,16 @@ export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnv
   const n = record.data, [params, setParams] = useSearchParams();
   const [tab, setTab] = useState("content"), [revision, setRevision] = useState(pinned ?? "");
   const listParams = new URLSearchParams(params); listParams.delete("revision");
-  return <Panel title={n.title} className={`${styles.detail} ${styles.knowledgeDocument}`}>
+  return <Panel title={n.title} actions={<DocumentActions record={record} pinned={pinned} />} className={`${styles.detail} ${styles.knowledgeDocument}`}>
     {notice}
     <Link className={styles.back} to={{ pathname: "/knowledge", search: `?${listParams}` }}>All records</Link>
     <div className={styles.documentIdentity}>
-      <span><BookOpen size={16} aria-hidden />{n.content_type ?? "Uncategorized"}</span>
+      <span><BookOpen size={16} aria-hidden />{categoryLabel(n.content_type)}</span>
       <span data-tone={n.retired ? "retired" : "active"}>{n.deleted ? "Deleted" : n.retired ? "Retired" : "Active"}</span>
       <span data-tone={n.verification ?? "unknown"}><ShieldCheck size={16} aria-hidden />{nodeLabel(n.verification)}</span>
       <span className={styles.meta}>{pinned ? "Pinned" : "Current"} revision {n.content_revision}</span>
     </div>
-    <p className={styles.meta}>Project: {record.project.name} · Updated <time dateTime={n.updated_at}>{n.updated_at}</time></p>
-    <RecordActions record={record} pinned={pinned} />
+    <p className={styles.meta}>Project: {record.project.name} · Updated <time dateTime={n.updated_at} title={n.updated_at}>{shortDate(n.updated_at, record.observed_at)}</time></p>
     <nav className={styles.documentTabs} aria-label="Document sections">
       {[ ["content", "Content"], ["sources", `Sources (${n.provenance.length})`], ["history", "History"] ].map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key!)}>{label}</button>)}
       <button type="button" disabled title="Relationship browsing is not offered by this read contract">Relationships</button>

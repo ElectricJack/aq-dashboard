@@ -82,7 +82,28 @@
 @media(max-width:1199px) { .workspace[data-kind=task][data-detail=true] .filters { display:flex; } .workspace[data-kind=task][data-detail=true] .filters .search,.workspace[data-kind=task][data-detail=true] .filters > label { display:none; } }
 
 @media(max-width:1199px) {
-  .workspace[data-kind=knowledge][data-detail=true] > .subtitle { display:none; }
+  .pageHeader[data-detail=true] > .subtitle { display:none; }
   .documentTabs { flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; justify-content:start; scrollbar-width:thin; }
   .documentTabs button { flex:none; }
 }
+
+/* Knowledge page header: title row with one right-aligned action slot, then the subtitle. */
+.pageHeader { display:grid; gap:var(--space-1); margin-block-end:var(--space-4); }
+.pageHeading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); flex-wrap:wrap; min-inline-size:0; }
+.pageHeading h1 { margin:0; }
+.headerAction > div { margin-block:0; }
+.pageHeading .headerAction > div > div > button,.pageHeading .unavailable { background:var(--color-accent); color:var(--color-accent-contrast); border-color:transparent; font-weight:600; }
+.unavailable[aria-disabled=true] { cursor:default; opacity:.6; }
+.tipAnchor { position:relative; display:inline-flex; }
+.tooltip { position:absolute; inset-block-start:calc(100% + var(--space-2)); inset-inline-end:0; z-index:5; inline-size:max-content; max-inline-size:min(280px,calc(100vw - 32px)); padding:var(--space-2) var(--space-3); background:var(--color-raised); color:var(--color-text); border:1px solid var(--color-border); border-radius:var(--radius-control); box-shadow:var(--shadow-overlay); font-size:var(--font-size-meta); font-weight:400; }
+/* Document header: H2 left, one action slot right; the focus ring only appears for keyboard focus. */
+.knowledgeDocument h2:focus { outline:none; }
+.knowledgeDocument h2:focus-visible { outline:3px solid var(--color-focus); outline-offset:3px; }
+.documentActions { display:flex; flex-wrap:wrap; align-items:start; gap:var(--space-2); }
+.actionsMenu { position:relative; }
+.actionsList { position:absolute; inset-block-start:calc(100% + var(--space-2)); inset-inline-end:0; z-index:5; inline-size:max-content; max-inline-size:min(320px,calc(100vw - 32px)); margin:0; padding:var(--space-2); list-style:none; background:var(--color-raised); border:1px solid var(--color-border); border-radius:var(--radius-panel); box-shadow:var(--shadow-overlay); }
+.actionsList li { display:grid; gap:2px; padding:var(--space-2) var(--space-3); color:var(--color-text-secondary); }
+.actionsList .meta { margin:0; }
+.actionName { color:var(--color-text); }
+/* On phones the action slot wraps under the title, so the menu opens from its left edge. */
+@media(max-width:600px) { .actionsList { inset-inline-end:auto; inset-inline-start:0; } }
