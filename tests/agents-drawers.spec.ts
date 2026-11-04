@@ -4,9 +4,12 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // AG-C: Details and Transcript open on demand over the focused workspace
 // (right drawer on desktop, bottom sheet on phone) while the terminal stays
 // mounted; Message is an honest unavailable slot. Labelled mock fixtures only.
+// On phone a live terminal carries the reference 11 dock (AG-D): Terminal | Transcript
+// switch over Take control · Message · More, with Session details under More. It replaces
+// the Session actions row there, so the phone entry points are the dock's controls.
 const VIEWPORTS = [
-  { name: "desktop-1440", width: 1440, height: 900 },
-  { name: "phone-390", width: 390, height: 844 },
+  { name: "desktop-1440", width: 1440, height: 900, phone: false },
+  { name: "phone-390", width: 390, height: 844, phone: true },
 ];
 const SHOTS = process.env.FIXTURE_SHOTS;
 
@@ -36,15 +39,18 @@ for (const vp of VIEWPORTS) {
       const terminal = page.getByRole("region", { name: "Interactive agent terminal" });
       await expect(terminal.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
       const actions = page.getByRole("group", { name: "Session actions" });
-      const message = actions.getByRole("button", { name: "Message" });
+      const message = (vp.phone ? terminal : actions).getByRole("button", { name: "Message" });
       await expect(message).toBeDisabled();
-      await expect(actions.getByText("Messaging unavailable on this AQ server")).toBeVisible();
+      if (vp.phone) await expect(message).toHaveAccessibleDescription("Messaging unavailable on this AQ server");
+      else await expect(actions.getByText("Messaging unavailable on this AQ server")).toBeVisible();
       await noOverflow(page);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-focus-${vp.name}.png` });
       await axe(page);
 
-      const detailsButton = actions.getByRole("button", { name: "Session details" });
+      const more = terminal.getByRole("button", { name: "More terminal actions" });
+      const detailsButton = vp.phone ? more : actions.getByRole("button", { name: "Session details" });
       await detailsButton.click();
+      if (vp.phone) await terminal.getByRole("button", { name: "Session details" }).click();
       const details = page.getByRole("dialog", { name: "Session details" });
       await expect(details).toBeVisible();
       await expect(details.getByRole("list", { name: "Permissions" })).toBeVisible();
@@ -63,8 +69,10 @@ for (const vp of VIEWPORTS) {
       await expect(details).toBeHidden();
       await expect(detailsButton).toBeFocused();
 
-      const transcriptButton = actions.getByRole("button", { name: "Transcript" });
-      await transcriptButton.click();
+      const transcriptButton = vp.phone
+        ? terminal.getByRole("radiogroup", { name: "Output view" }).getByRole("radio", { name: "Terminal" })
+        : actions.getByRole("button", { name: "Transcript" });
+      await (vp.phone ? terminal.getByRole("radio", { name: "Transcript" }) : transcriptButton).click();
       const transcript = page.getByRole("dialog", { name: "Transcript" });
       await expect(transcript).toBeVisible();
       await withinViewport(page, transcript);

@@ -1,50 +1,80 @@
-.pane { display: flex; flex-direction: column; min-block-size: 0; min-inline-size: 0; background: #0d1117; color: #d1d5db; }
-.toolbar, .actions, .status, .keys, .view, .textSize { display: flex; align-items: center; gap: 8px; }
-.toolbar { justify-content: flex-end; padding: 8px 12px; flex-wrap: wrap; border-block-end: 1px solid #ffffff12; }
-.keys button, .textSize button { font: inherit; color: inherit; background: transparent; border: 1px solid #ffffff20; border-radius: 6px; padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
-.keys button:disabled, .textSize button:disabled { opacity: .4; cursor: default; }
-/* The frame takes whatever height the viewport-fit workspace leaves; rows above and below keep their size. */
-.toolbar, .view, .dock, .status, .keys, .help { flex: none; }
-.dock { display: contents; }
-.frame { flex: 1 1 0; block-size: auto; min-block-size: 180px; padding: 12px; overflow: auto; }
+/* The terminal surface keeps the xterm theme background (terminalSetup TERMINAL_BACKGROUND); chrome uses shared tokens. */
+.pane { display: flex; flex-direction: column; min-block-size: 0; min-inline-size: 0; background: #0d1117; color: var(--color-text); }
+.toolbar, .controls, .state, .segments, .footer, .keys, .actionBar, .view, .textSize { display: flex; align-items: center; gap: var(--space-2); }
+.toolbar { justify-content: space-between; flex-wrap: wrap; padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--color-border); }
+.controls { flex-wrap: wrap; justify-content: flex-end; margin-inline-start: auto; min-inline-size: 0; }
+.state { flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+.lease { color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.segments { gap: 0; padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); }
+.segments button { font: inherit; font-size: var(--font-size-meta); color: var(--color-text-secondary); background: transparent; border: 0; border-radius: calc(var(--radius-control) - 2px); padding: var(--space-1) var(--space-4); min-block-size: 36px; cursor: pointer; }
+.segments button[aria-checked=true] { color: var(--color-text); background: var(--color-raised); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.segments button:focus-visible, .mode select:focus-visible, .keys button:focus-visible, .textSize button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+.mode select { font: inherit; font-size: var(--font-size-meta); color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); min-block-size: var(--touch-target); padding-inline: var(--space-3) var(--space-5); }
+.controls .primaryOutline { color: var(--color-accent); border-color: var(--color-accent); }
+.actionBar .primary { color: var(--color-accent-contrast); background: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
+
+/* AG-A viewport fit: the frame takes whatever height the workspace leaves; rows above and below keep their size. */
+.toolbar, .view, .footer, .keys, .help, .dock { flex: none; }
+.frame { flex: 1 1 0; block-size: auto; min-block-size: 180px; padding: var(--space-3); overflow: auto; }
 .host { block-size: 100%; min-inline-size: 0; }
 .host :global(.xterm) { min-inline-size: 80ch; block-size: 100%; }
 .host :global(.xterm-viewport) { background: #0d1117 !important; }
-.view { justify-content: space-between; padding: 4px 12px; font-size: 14px; color: #a9b0bf; border-block-start: 1px solid #ffffff12; }
+
+.footer { flex-wrap: wrap; gap: var(--space-1) var(--space-5); padding: var(--space-2) var(--space-3); font-size: var(--font-size-meta); color: var(--color-text-secondary); border-block-start: 1px solid var(--color-border); }
+.connection { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text); }
+.dot { inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--color-error); }
+.connection[data-phase=connected] .dot { background: var(--color-success); }
+.connection[data-phase=connecting] .dot { background: var(--color-attention); }
+.provenance { margin-inline-start: auto; }
+.facts { display: contents; }
+
+.view { justify-content: space-between; padding: var(--space-1) var(--space-3); font-size: var(--font-size-meta); color: var(--color-text-secondary); border-block-start: 1px solid var(--color-border); }
 .pan { white-space: nowrap; }
-.textSize { gap: 4px; margin-inline-start: auto; }
-.textSize button { min-inline-size: 44px; padding: 4px 8px; }
+.textSize { gap: var(--space-1); flex: none; }
+.textSize button { font: inherit; font-size: var(--font-size-meta); color: inherit; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-control); min-inline-size: 44px; padding: 4px 8px; min-block-size: 36px; cursor: pointer; }
+.textSize button:disabled { opacity: .45; cursor: default; }
 .size { min-inline-size: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
-.status { flex-wrap: wrap; justify-content: space-between; padding: 6px 12px; font-size: 12px; color: #a9b0bf; border-block-start: 1px solid #ffffff12; }
-.keys { padding: 6px 12px; overflow-x: auto; scrollbar-width: none; --fade-start: #000; --fade-end: #000; mask-image: linear-gradient(to right, var(--fade-start), #000 32px, #000 calc(100% - 32px), var(--fade-end)); }
+
+.keys { padding: var(--space-2) var(--space-3); overflow-x: auto; scrollbar-width: none; --fade-start: #000; --fade-end: #000; mask-image: linear-gradient(to right, var(--fade-start), #000 32px, #000 calc(100% - 32px), var(--fade-end)); }
 .keys::-webkit-scrollbar { display: none; }
 /* Fade only the edge that hides keys, so a clipped bar always signals that it scrolls. */
 .keys[data-fade-start] { --fade-start: transparent; }
 .keys[data-fade-end] { --fade-end: transparent; }
-.keys button { flex-shrink: 0; }
+.keys button { flex-shrink: 0; font: inherit; font-size: var(--font-size-meta); color: inherit; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
+.keys button:disabled { opacity: .45; cursor: default; }
 /* The sticky Ctrl modifier is visibly armed until the next key consumes it. */
-.keys .modifier[aria-pressed=true] { color: #0d1117; background: #b9b2ff; border-color: #b9b2ff; font-weight: 600; }
-.phoneControl { display: none; }
-.help { margin: 0; padding: 4px 12px 8px; font-size: 11px; color: #8f98a9; }
+.keys .modifier[aria-pressed=true] { color: var(--color-accent-contrast); background: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
+.help { margin: 0; padding: 0 var(--space-3) var(--space-2); font-size: var(--font-size-meta); color: var(--color-text-secondary); }
+
+.dock { display: grid; gap: var(--space-2); }
+.more { position: absolute; inset-inline-end: 0; inset-block-end: calc(100% + var(--space-2)); display: grid; gap: var(--space-2); min-inline-size: 180px; padding: var(--space-2); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); box-shadow: var(--shadow-overlay); }
+
 @media (min-width: 768px) {
-  /* Desktop keeps browser zoom for text size; the row only appears when the grid pans. */
+  /* Desktop keeps browser zoom for text size. */
   .textSize { display: none; }
-  .view:not(:has(.pan)) { display: none; }
 }
 @media (max-width: 767px) {
-  /* Phone control lives in the key bar; the desktop action row would be empty. */
-  .toolbar { display: none; }
-  .keys button, .textSize button { min-block-size: 44px; }
-  .phoneControl { display: block; }
-  .frame { min-block-size: 220px; padding: 4px; }
-  .view { padding: 0 8px; gap: 4px; }
-  .status { padding: 4px 8px; gap: 2px; font-size: 11px; }
-  /* Provenance stays in the desktop status row and the Transcript drawer. */
-  .provenance { display: none; }
-  .dock[data-watching] { display: flex; align-items: center; gap: 4px; padding: 0 8px; border-block-start: 1px solid #ffffff12; }
-  .dock[data-watching] .status { flex: 1 1 auto; min-inline-size: 0; padding: 0; border: none; }
-  .dock[data-watching] .keys { flex: none; padding: 0; overflow: visible; mask-image: none; }
-  .dock[data-watching] .key { display: none; }
-  .keys { padding: 4px 8px; gap: 4px; }
+  .toolbar { padding: var(--space-1) var(--space-2); }
+  .controls { margin-inline-start: 0; justify-content: space-between; inline-size: 100%; flex-wrap: nowrap; }
+  .state { flex: 1 1 0; min-inline-size: 0; }
+  /* A lease line takes its own row so text size and mode keep theirs. */
+  .controls[data-lease] { flex-wrap: wrap; row-gap: var(--space-1); }
+  .controls[data-lease] .state { flex-basis: 100%; }
+  .frame { min-block-size: 220px; padding: var(--space-1); }
+  .footer { padding: var(--space-1) var(--space-2); gap: 0 var(--space-3); }
+  /* One line on phone: observation, central state and last activity stay in Session details. */
+  .provenance, .facts { display: none; }
+  .footer > span { white-space: nowrap; }
+  .keys { padding: var(--space-2); gap: var(--space-1); }
+  .keys button, .textSize button { min-block-size: var(--touch-target); }
   .help { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Phone action bar (reference 11): segmented view switch over Take control · Message · More.
+     It is the workspace's last row; the AG-A viewport-fit column keeps it on screen without fixed positioning. */
+  .dock { padding: var(--space-2); background: var(--color-panel); border-block-start: 1px solid var(--color-border); }
+  .dock .segments { inline-size: 100%; }
+  .dock .segments button { flex: 1; min-block-size: var(--touch-target); }
+  .actionBar { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) var(--touch-target); }
+  .actionBar > button { min-block-size: var(--touch-target); padding-inline: var(--space-2); }
 }

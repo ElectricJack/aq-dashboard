@@ -19,9 +19,9 @@ function validDraft(value:unknown):value is TaskDraft{return isRecord(value)&&ty
 export function CreateTaskAction(){
  const {bootstrap,queryContext}=useSession();const [scope]=useScope();const capability=bootstrap.capability("tasks.create");
  const identity=`${queryContext.principalId}:${queryContext.authorizationRevision}`;const [revoked,setRevoked]=useState<string|null>(null);
- const project=scope.kind==="project"&&validGraphId(scope.project_id)?scope.project_id:undefined;
+ const project=scope.kind==="project"&&validGraphId(scope.project_id)?scope.project_id:undefined;const hintId=useId();
  if(revoked===identity)return <div className={styles.action}><p role="alert" className={styles.warning}>Access changed. Reload after signing in to check the operation.</p><ActionButton onClick={()=>window.location.reload()}>Reload access</ActionButton></div>;
- if(!capability.enabled||!project)return <div className={styles.action}><ActionButton disabled title={!capability.enabled?capability.reason:"Choose a project first"}><Plus size={18} aria-hidden/>Create task</ActionButton><span className={styles.hint}>{!capability.enabled?capability.reason:"Choose a project first"}</span></div>;
+ if(!capability.enabled||!project)return <div className={styles.action}><ActionButton disabled title={!capability.enabled?capability.reason:"Choose a project first"} aria-describedby={hintId}><Plus size={18} aria-hidden/>Create task</ActionButton><span id={hintId} className={styles.hint}>{!capability.enabled?capability.reason:"Choose a project first"}</span></div>;
  return <Composer key={`${identity}:${project}`} project={project} onAccessRevoked={()=>setRevoked(identity)}/>;
 }
 function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>void}){
