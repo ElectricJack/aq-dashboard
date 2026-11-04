@@ -3,7 +3,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // AG-F: Focus / Split view / Expand on the focused Agents workspace (spec §6).
 // Split is offered only while each pane fits >= 80 terminal columns at the
-// readable font size; Expand hides the page chrome and Esc restores it.
+// readable font size; Expand hides the page chrome and Esc restores it. Phone (reference 11) offers
+// Expand only; sessions stay one at a time behind the name's ▾.
 // Labelled mock fixtures only.
 const VIEWPORTS = [
   { name: "desktop-1440", width: 1440, height: 900 },
@@ -46,15 +47,23 @@ for (const vp of VIEWPORTS) {
       const focus = view.getByRole("button", { name: "Focus" });
       const split = view.getByRole("button", { name: "Split view" });
       const expand = view.getByRole("button", { name: "Expand" });
-      const back = page.getByRole("link", { name: "All sessions" });
+      const back = page.getByRole("link", { name: "Back to Agents" });
       const switcher = page.getByRole("navigation", { name: "Session switcher" });
-      await expect(focus).toHaveAttribute("aria-pressed", "true");
+      const desktop = vp.width >= 768;
       await expect(expand).toHaveAttribute("aria-pressed", "false");
+      await expect(expand).toHaveAccessibleName("Expand workspace");
 
-      // In the page layout neither viewport fits two 80-column panes: Split explains why.
-      await expect(split).toBeDisabled();
-      await expect(split).toHaveAccessibleDescription(/^Needs at least 160 columns \(\d+ fit\)$/);
-      await expect(page.getByText(/^Needs at least 160 columns/)).toBeVisible();
+      if (desktop) {
+        await expect(focus).toHaveAttribute("aria-pressed", "true");
+        await expect(switcher).toBeVisible();
+        // In the page layout two 80-column panes do not fit: Split explains why.
+        await expect(split).toBeDisabled();
+        await expect(split).toHaveAccessibleDescription(/^Needs at least 160 columns \(\d+ fit\)$/);
+        await expect(page.getByText(/^Needs at least 160 columns/)).toBeVisible();
+      } else {
+        await expect(view.getByRole("button")).toHaveCount(1);
+        await expect(page.getByText(/^Needs at least 160 columns/)).toHaveCount(0);
+      }
       await expect(terminals).toHaveCount(1);
       await noOverflow(page);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-focus-${vp.name}.png` });
@@ -83,8 +92,7 @@ for (const vp of VIEWPORTS) {
         await fitsEighty(second);
         await expect(page.getByRole("combobox", { name: "Second pane" })).toBeVisible();
       } else {
-        await expect(split).toBeDisabled();
-        await expect(split).toHaveAccessibleDescription(/^Needs at least 160 columns/);
+        await expect(view.getByRole("button")).toHaveCount(1);
       }
       await noOverflow(page);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-expanded-${vp.name}.png` });
@@ -95,11 +103,13 @@ for (const vp of VIEWPORTS) {
       await expect(expand).toHaveAttribute("aria-pressed", "false");
       await expect(expand).toBeFocused();
       await expect(back).toBeVisible();
-      await expect(switcher).toBeVisible();
       await expect(exit).toBeHidden();
       await expect(terminals).toHaveCount(1);
-      await expect(focus).toHaveAttribute("aria-pressed", "true");
-      await expect(split).toBeDisabled();
+      if (desktop) {
+        await expect(switcher).toBeVisible();
+        await expect(focus).toHaveAttribute("aria-pressed", "true");
+        await expect(split).toBeDisabled();
+      }
       await noOverflow(page);
 
       // The visible Exit control restores it too.

@@ -8,6 +8,7 @@ import { renderApp } from "../test/renderApp";
 import { supervisorActor, supervisorDiscovery, supervisorHistory } from "../test/supervisor";
 import { graphEnvelope, graphProject } from "../test/humanGraph";
 import liveBootstrap from "../../contracts/live/fixtures/bootstrap.json";
+import liveOverview from "../../contracts/live/fixtures/overview.json";
 import liveProjects from "../../contracts/live/fixtures/projects.json";
 import { vi } from "vitest";
 import { webcrypto } from "node:crypto";
@@ -93,8 +94,9 @@ test("missing required contracts disable API features while keeping navigation a
 
 test.each(["missing", "version"])("a %s required capability refuses only its feature with an upgrade path", async kind => {
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...liveBootstrap, data: { ...liveBootstrap.data, capabilities: liveBootstrap.data.capabilities.filter(cap => cap.name !== "sessions.read").concat(kind === "version" ? [{ name: "sessions.read", version: "99", enabled: true }] : []) } })),
-    // The shell still reads projects; answer in the live contract so only the refused feature changes.
-    http.get("/api/v1/projects", () => HttpResponse.json(liveProjects)));
+    // The shell still reads projects and the overview badge; answer in the live contract so only the refused feature changes.
+    http.get("/api/v1/projects", () => HttpResponse.json(liveProjects)),
+    http.get("/api/v1/overview", () => HttpResponse.json(liveOverview)));
   renderApp("/agents");
   expect(await screen.findByRole("heading", { name: "Agents is not available" })).toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
