@@ -43,9 +43,10 @@ function KnowledgeRow({node}:{node:GraphNode}) {
   </>;
 }
 
-function withoutRevision(search:string) { const params=new URLSearchParams(search);params.delete("revision");const value=params.toString();return value?`?${value}`:""; }
-const pathFor=(kind:GraphNode["kind"],id?:string)=>`/${kind === "task" ? "work" : "knowledge"}${id?`/${encodeURIComponent(id)}`:""}`;
-function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
+export function withoutRevision(search:string) { const params=new URLSearchParams(search);params.delete("revision");const value=params.toString();return value?`?${value}`:""; }
+export const pathFor=(kind:GraphNode["kind"],id?:string)=>`/${kind === "task" ? "work" : "knowledge"}${id?`/${encodeURIComponent(id)}`:""}`;
+/** Shared with Work (src/features/work/WorkWorkspace.tsx): honest project-scope choice. */
+export function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
   const [params] = useSearchParams();
   const capability=useProjectsCapability();
   const projects=useProjects();
