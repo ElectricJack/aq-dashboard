@@ -26,7 +26,7 @@ test("selection makes an exact stamped read, shows immutable pins, and restores 
   capability(); const requests: URLSearchParams[] = [];
   server.use(http.get("/api/playbooks/inspection/catalog/definitions", ({ request }) => { requests.push(new URL(request.url).searchParams); return HttpResponse.json(definitionCatalog()); }));
   const { router } = renderApp("/playbooks?view=definitions"); const list = await screen.findByRole("list", { name: "Current playbook definitions" });
-  const select = within(list).getByRole("button", { name: "Inspect definition contract-fixture" }); await userEvent.click(select);
+  const select = within(list).getByRole("button", { name: /^contract-fixture/ }); await userEvent.click(select);
   const detail = await screen.findByRole("region", { name: "Definition contract-fixture" }); expect(within(detail).getByText("Namespace artifact")).toBeInTheDocument();
   expect(requests).toHaveLength(2); expect(requests[1]?.get("exact")).toBe(catalogDefinition().key); expect(requests[1]?.get("incarnation")).toBe("2"); expect(requests[1]?.get("metadata_revision")).toBe("5"); expect(router.state.location.search).toContain("definition=sha256");
   expect(screen.queryByRole("button", { name: /^Activate$/ })).toBeNull(); await userEvent.click(screen.getByRole("button", { name: "All definitions" })); await waitFor(() => expect(select).toHaveFocus());

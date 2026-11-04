@@ -3,7 +3,7 @@ import type { Discovery, History, Receipt, SupervisorMessage } from "../api/adap
 export const supervisorId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 export const supervisorActor = supervisorId(4);
 export const supervisorDiscovery: Discovery = { contract: "human-supervisor-conversation-1", conversation: { id: supervisorId(1), revision: "1", label: "Global supervisor" },
-  runtime: { state: "unavailable", binding: null, reason: "central_runtime_not_connected" }, limits: { body_bytes: 16384, context_refs: 0, attachments: 0, history_page: 16 } };
+  runtime: { state: "unavailable", binding: null, reason: "central_runtime_not_connected" }, limits: { body_bytes: 16384, context_refs: 16, attachments: 4, history_page: 16 } };
 export const textDigest = (body: string) => `sha256:${createHash("sha256").update(body).digest("hex")}`;
 export function supervisorMessage(cursor = 1, body = `Retained human message ${cursor}`): SupervisorMessage {
   return { message_id: supervisorId(100 + cursor), thread_id: supervisorId(1), conversation_id: supervisorId(1), cursor: String(cursor), author: { kind: "human", user_id: supervisorActor },
@@ -15,7 +15,7 @@ export function supervisorHistory(items: SupervisorMessage[] = [], options: Part
 export function supervisorReceipt(bytes: string, state: Receipt["state"] = "queued"): Receipt {
   const request = JSON.parse(bytes) as { operation_id: string; message_id: string; body: string };
   const canonical = JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(bytes)).sort(([a], [b]) => a.localeCompare(b))));
-  return { contract: supervisorDiscovery.contract, conversation: supervisorDiscovery.conversation, runtime: supervisorDiscovery.runtime, operation_id: request.operation_id, message_id: request.message_id, actor_id: supervisorActor,
+  return { contract: supervisorDiscovery.contract, conversation: supervisorDiscovery.conversation, runtime: { state: "unavailable", binding: null, reason: "central_runtime_not_connected" }, operation_id: request.operation_id, message_id: request.message_id, actor_id: supervisorActor,
     request_digest: textDigest(canonical), body_digest: textDigest(request.body), state, cursor: state === "queued" ? "1" : null, reason: state === "queued" ? null : "conversation_revision_changed", host_delivery: "not_attempted", agent_receipt: null };
 }
 

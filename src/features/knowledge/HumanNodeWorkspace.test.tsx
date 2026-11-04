@@ -20,8 +20,13 @@ function handlers(kind:"task"|"knowledge"="knowledge") {
 test("knowledge opens real-contract content, source descriptors and exact record version",async()=>{
  enable();const n=handlers();renderApp(`/knowledge/${n.id}${scope}`);
  expect(await screen.findByText(/Each attempt has one current execution authority/)).toBeInTheDocument();
- await userEvent.click(screen.getByRole("button",{name:"Sources (1)"}));expect(screen.getByRole("list",{name:"Recorded sources"})).toHaveTextContent("https://example.org/architecture");
- await userEvent.click(screen.getByRole("button",{name:"History"}));await userEvent.click(screen.getByText("Record details",{exact:true}));expect(screen.getByText("9007199254740993")).toBeVisible();
+ expect(screen.getByRole("region",{name:"Linked work"})).toHaveTextContent("not offered by this read contract");
+ expect(screen.getByText(/applies to revision 4/)).toBeInTheDocument();expect(screen.getByText("Current revision 4 · Older revisions remain available")).toBeInTheDocument();
+ const sources=screen.getByRole("tab",{name:/Sources/});expect(sources).toHaveTextContent("Sources1");expect(sources).toHaveAttribute("aria-selected","false");
+ await userEvent.click(sources);expect(sources).toHaveAttribute("aria-selected","true");expect(screen.getByRole("tabpanel")).toHaveAccessibleName(/Sources/);
+ expect(within(screen.getByRole("list",{name:"Recorded sources"})).getByRole("link",{name:/example\.org\/architecture/})).toHaveAttribute("href","https://example.org/architecture");
+ expect(screen.getByText(/"kind"/)).not.toBeVisible();
+ await userEvent.keyboard("{ArrowRight}");expect(screen.getByRole("tab",{name:"History"})).toHaveFocus();expect(screen.getByRole("tab",{name:/Relationships/})).toHaveAttribute("aria-disabled","true");await userEvent.click(screen.getByText("Record details",{exact:true}));expect(screen.getByText("9007199254740993")).toBeVisible();
 });
 test("all-project scope prompts a bounded choice and does not query Graph",async()=>{
  enable();let calls=0;server.use(http.get("/api/human/projects/:project/knowledge",()=>{calls++;return HttpResponse.json({});}));renderApp("/knowledge");
@@ -35,7 +40,7 @@ test("filters only loaded records and retains task state without claiming readin
 test("exact historical revision uses the original string and labels the pinned response",async()=>{
  enable();const n=handlers();let sent:string|null=null;
  server.use(http.get(`/api/human/projects/${graphProject}/knowledge/${n.id}`,({request})=>{sent=new URL(request.url).searchParams.get("revision");return HttpResponse.json(graphEnvelope({...n,content_revision:sent??"4"}));}));
- renderApp(`/knowledge/${n.id}${scope}`);await screen.findByText(/Each attempt has/);await userEvent.click(screen.getByRole("button",{name:"History"}));await userEvent.type(screen.getByLabelText("Exact content revision"),"9007199254740993");await userEvent.click(screen.getByRole("button",{name:"View revision"}));
+ renderApp(`/knowledge/${n.id}${scope}`);await screen.findByText(/Each attempt has/);await userEvent.click(screen.getByRole("tab",{name:"History"}));await userEvent.type(screen.getByLabelText("Exact content revision"),"9007199254740993");await userEvent.click(screen.getByRole("button",{name:"View revision"}));
  expect(await screen.findByText("Pinned revision 9007199254740993")).toBeInTheDocument();expect(sent).toBe("9007199254740993");
 });
 test("failed Graph read is an error and never an empty successful library",async()=>{
