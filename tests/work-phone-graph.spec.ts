@@ -76,7 +76,9 @@ test.describe("desktop 1440x900", () => {
   test("list and inline graph keep the desktop workspace", async ({ page }) => {
     await page.goto(LIST);
     await expect(page.getByRole("list", { name: "Tasks" }).locator("li").first()).toBeInViewport();
-    await expect(page.getByText("Inspect project tasks and their recorded dependencies.")).toBeVisible();
+    // Desktop keeps the WK-D header (reference 02): title, List | Graph and the state chips inline, no phone graph view.
+    await expect(page.getByRole("navigation", { name: "Work view" }).getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("group", { name: "Task state" })).toBeVisible();
     await evidence(page, "work-list-desktop");
     await expectAxeClean(page);
 
