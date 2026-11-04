@@ -6,6 +6,7 @@ import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
+import { withDecisionFixtures } from "./decisionFixtures";
 import { PLAYBOOK_CAPABILITIES, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
@@ -71,7 +72,7 @@ const FIXTURE_TERMINALS = new Map(FIXTURE_SESSIONS.flatMap((x) => (x.terminal ? 
 export function handlersFor(name: string | null | undefined, { fixtures = false }: { fixtures?: boolean } = {}) {
   const s = scenario(name);
   const sessions = fixtures ? FIXTURE_SESSIONS : SESSIONS;
-  const bootstrap = fixtures ? withFixtureCapabilities(s.bootstrap, s.media) : s.bootstrap;
+  const bootstrap = fixtures ? withDecisionFixtures(withFixtureCapabilities(s.bootstrap, s.media)) : s.bootstrap;
   const playbookNames: readonly string[] = fixtures ? PLAYBOOK_CAPABILITIES : [];
   const playbookCaps = fixtures ? playbookCapabilities(playbookMode(name)) : [];
   const coverage: Coverage =
@@ -85,7 +86,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
   };
 
   return [
-    ...decisionHandlers(),
+    ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...humanGraphHandlers(s.reads, s.graph),
     ...(fixtures ? playbookHandlers(playbookMode(name)) : []),

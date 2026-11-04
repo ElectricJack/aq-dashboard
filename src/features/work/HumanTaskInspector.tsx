@@ -63,8 +63,9 @@ export function HumanTaskInspector({ record, search, notice, className }: { reco
 }
 
 /** A task that cannot be read keeps the inspector's frame and an exit back to the task list. */
-export function TaskInspectorUnavailable({ search, className, status }: { search: string; className?: string; status: ReactNode }) {
-  return <Panel title="Task" className={classes(styles.inspector, className)}>
+export function TaskInspectorUnavailable({ search, className, status, busy }: { search: string; className?: string; status: ReactNode; busy?: boolean }) {
+  // While loading, `aria-busy` also keeps selection focus waiting for the task heading itself.
+  return <Panel title="Task" className={classes(styles.inspector, className)} aria-busy={busy || undefined}>
     {status}
     <BackToTasks search={search} always />
   </Panel>;

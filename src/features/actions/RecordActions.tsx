@@ -13,13 +13,14 @@ import styles from "./RecordActions.module.css";
 type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;edge:string;successor:string;verdict:string;url:string;confirm:boolean};
 function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",edge:"",successor:"",verdict:"verified",url:"",confirm:false};}
 type Variant="default"|"compact";
-export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;variant?:Variant}) {
+/** `kinds` narrows the offered actions (for example to those a compact header can show); it never adds kinds. */
+export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant}) {
   const {queryContext}=useSession();
   return <Actions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${props.record.project.id}:${props.author?"author":props.record.data?.id}`} {...props}/>;
 }
-function Actions({record,author=false,pinned,variant="default"}:{record:ActionContext;author?:boolean;pinned?:string;variant?:Variant}) {
+function Actions({record,author=false,pinned,kinds:only,variant="default"}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient();
-  const kinds:ActionKind[]=author?["knowledge.author"]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"]:["knowledge.correct","knowledge.verify","knowledge.retire"];
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:["knowledge.correct","knowledge.verify","knowledge.retire"] as ActionKind[]).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);

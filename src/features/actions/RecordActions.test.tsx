@@ -39,7 +39,9 @@ function operation(id:string, disposition="confirmed", extra={}) {
 // Work's compact inspector shows one primary action; the rest live in the "More actions" menu.
 async function launch(label:string,task:boolean){
  if(task){await screen.findByRole("button",{name:"More actions"});const direct=screen.queryByRole("button",{name:label});if(direct)return userEvent.click(direct);await userEvent.click(screen.getByRole("button",{name:"More actions"}));return userEvent.click(within(screen.getByRole("menu")).getByRole("menuitem",{name:label}));}
- await userEvent.click(await screen.findByRole("button",{name:label}));
+ // Knowledge keeps a disabled "Add record" placeholder while project records load; wait for the offered action.
+ const control=await waitFor(()=>{const b=screen.getByRole("button",{name:label});expect(b).not.toHaveAttribute("aria-disabled","true");return b;});
+ await userEvent.click(control);
 }
 async function open(kind:string,label:string,labels?:string[]){
  const {node,...state}=setup(kind,undefined,labels);
@@ -116,7 +118,10 @@ test("knowledge_correct_conflict_offers_reload",async()=>{
 
 test("server action refusal reason stays visible",async()=>{
  const {node}=setup("knowledge.correct","knowledge.correct");renderApp(`/knowledge/${node.id}?scope=project:${graphProject}`);
- const control=await screen.findByRole("button",{name:"Correct record"});expect(control).toBeDisabled();expect(screen.getByText("Administrator required for verified records")).toBeVisible();
+ // Knowledge lists refused actions in the document "Actions" menu with their reasons; offered ones stay as buttons.
+ expect(await screen.findByRole("button",{name:"Verify record"})).toBeEnabled();expect(screen.queryByRole("button",{name:"Correct record"})).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"Actions"}));
+ const menu=screen.getByRole("list",{name:"Record actions"});expect(within(menu).getByText("Correct record")).toBeVisible();expect(within(menu).getByText("Administrator required for verified records")).toBeVisible();
 });
 
 test("work inspector shows one shared reason when task actions are not offered",async()=>{
