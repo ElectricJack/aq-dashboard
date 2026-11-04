@@ -22,7 +22,7 @@ test("discovery opens exact run and shows pins, timeline and pending operation",
   expect(router.state.location.pathname).toBe("/playbooks/runs/run-0000000000000001");
   expect(within(detail).getByText(`sha256:${"a".repeat(64)}`)).toBeInTheDocument();
   expect(within(detail).getByRole("list", { name: "Execution timeline" })).toHaveTextContent("9007199254740993");
-  expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("effect pending")).toBeInTheDocument();
+  expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("Operation")).toBeInTheDocument();
 });
 test("empty and failed discovery remain distinct and failure retries explicitly", async () => {
   enabled(); let reads = 0; server.use(http.get("/api/playbooks/inspection/runs", () => ++reads === 1 ? HttpResponse.json({}, { status: 503 }) : HttpResponse.json(playbookPage([]))));

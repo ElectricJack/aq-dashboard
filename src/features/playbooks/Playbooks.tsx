@@ -11,6 +11,7 @@ import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layou
 import { CATALOG_CAPABILITY } from "../../api/adapters/playbookCatalog";
 import { CurrentCatalog } from "./CurrentCatalog";
 import { LoadedDefinitions } from "./LoadedDefinitions";
+import { ChildWorkflows, WaitingOn } from "./RunRelations";
 import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
@@ -64,7 +65,7 @@ export function Playbooks() {
           {runs.data.pages[0] && <p className={styles.meta}>Observed {timestamp(runs.data.pages[0].observedAt)} · key order</p>}
         </>}
       </Panel>
-      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
+      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} loaded={rows} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
     </div> : <Panel title="Admissions" description="Retained requests and their engine admission status.">
       {!admissions.data || admissions.isError ? <QueryStatus status={admissions.isError ? "error" : "pending"} error={admissions.error} label="playbook admissions" onRetry={() => void admissions.refetch()} /> : <>
         {admissions.data.items.length === 0 ? <p>No admissions recorded.</p> : <ul className={styles.admissions} aria-label="Playbook admissions">{admissions.data.items.map(a => <li key={a.requestId}><strong>{a.status.replaceAll("_", " ")}</strong> · {a.requestId}<p className={styles.meta}>{timestamp(a.createdAt)}</p>{a.runId ? <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(a.runId)}`, search }}>Inspect admitted run</Link> : <span>Engine run not confirmed</span>}</li>)}</ul>}
@@ -73,7 +74,7 @@ export function Playbooks() {
     </Panel>}
   </div>;
 }
-function RunInspector({ id, project }: { id: string; project: string | null }) {
+function RunInspector({ id, project, loaded }: { id: string; project: string | null; loaded: readonly Run[] }) {
   const { queryContext } = useSession(); const [scope] = useScope(); const search = scopeSearch(scope);
   const [after, setAfter] = useState<string | null>(null);
   const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after), retry: false });
@@ -93,10 +94,8 @@ function RunInspector({ id, project }: { id: string; project: string | null }) {
       <Toolbar>{after && <ActionButton onClick={() => setAfter(null)}>First receipts</ActionButton>}{receipts.next && <ActionButton onClick={() => setAfter(receipts.next)}>Next receipts</ActionButton>}</Toolbar>
     </Panel>
     <div className={styles.lower}>
-      <Panel title="Waiting on"><p>{r.pendingKind ? `${r.pendingKind.replaceAll("_", " ")} pending` : "No pending wait recorded"}</p>{r.reason && <p>{r.reason}</p>}
-        {effects.items.length > 0 && <ul className={styles.effects}>{effects.items.map(e => <li key={e.id}><strong>{e.command}</strong><span>{e.step} · {e.status.replaceAll("_", " ")}</span>{e.cancelRequested && <span>Cancellation requested</span>}</li>)}</ul>}{effects.next && <p>Additional operations are not shown in this bounded view.</p>}
-      </Panel>
-      <Panel title="Child workflows"><ul className={styles.children}>{r.children.map(child => <li key={child}><Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(child)}`, search }}>{child}</Link></li>)}</ul>{r.children.length === 0 && <p>No child workflows recorded.</p>}{r.parent && <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.parent)}`, search }}>Parent workflow</Link>}</Panel>
+      <WaitingOn run={r} effects={effects} />
+      <ChildWorkflows run={r} loaded={loaded} search={search} />
     </div>
     <p className={styles.meta}>Observed {timestamp(query.data.observedAt)}. Run, operations and receipt pages are separate observations.</p>
   </section>;
