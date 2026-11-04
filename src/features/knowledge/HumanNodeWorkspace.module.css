@@ -103,3 +103,15 @@
   .documentTabs { flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; justify-content:start; scrollbar-width:thin; }
   .documentTabs button { flex:none; }
 }
+
+/* Work on phone (WK-F): list-first density. Title row comes from Work; drop the subtitle; two-row toolbar. */
+.phoneGraphStatus { padding:var(--space-4) var(--gutter-mobile); }
+@media(max-width:767px) {
+  .workspace[data-kind=task] { gap:var(--space-3); }
+  .workspace[data-kind=task] > .subtitle { display:none; }
+  .workspace[data-kind=task] .filters { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--space-2); padding:0; border:0; background:transparent; }
+  .workspace[data-kind=task] .filters .search { grid-column:1 / -1; }
+  .workspace[data-kind=task] .filters > label,.workspace[data-kind=task] .filters select { inline-size:100%; min-inline-size:0; }
+  .workspace[data-kind=task] .views { flex-wrap:nowrap; }
+}
+@media(max-width:359px) { .workspace[data-kind=task] .filters > label { grid-column:1 / -1; } }
