@@ -33,11 +33,11 @@ for (const vp of VIEWPORTS) {
       await page.screenshot({ path: `${evidence}/playbooks-${vp.name}.png` });
     });
 
-    test("waiting run shows pinned execution, receipts, decision wait and child", async ({ page }) => {
+    test("waiting run shows its pin strip, receipts, decision wait and child", async ({ page }) => {
       await page.goto(`/playbooks/runs/${waiting}`);
       await expect(page.getByRole("heading", { name: /Recorded execution/ })).toBeVisible({ timeout: 30_000 });
       const inspector = page.getByRole("region", { name: `Run ${waiting}` });
-      await expect(inspector.getByRole("heading", { name: "Pinned execution" })).toBeAttached();
+      await expect(inspector.getByText(/This run:\s*worker-recovery/)).toBeVisible();
       await expect(inspector.getByText(/^sha256:a81c9e/).first()).toBeAttached();
       await expect(inspector.getByRole("list", { name: "Execution timeline" }).getByRole("listitem")).toHaveCount(3);
       await expect(inspector.getByText("Human decision")).toBeAttached();
