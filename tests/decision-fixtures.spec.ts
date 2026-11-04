@@ -16,7 +16,8 @@ async function axeClean(page: Page) {
   const results = await new AxeBuilder({ page }).include("main").analyze();
   expect(results.violations).toEqual([]);
 }
-const inbox = (page: Page) => page.getByRole("region", { name: "Review inbox" });
+// DC-L's inbox column: the "Review inbox" list plus its empty and error states.
+const inbox = (page: Page) => page.getByRole("region", { name: "Decision inbox" });
 const shot = (page: Page, name: string, vp: string) =>
   EVIDENCE ? page.screenshot({ path: `${EVIDENCE}/${name}-${vp}.png`, fullPage: true }) : Promise.resolve();
 
@@ -28,7 +29,7 @@ for (const vp of VIEWPORTS) {
       await page.goto("/decisions?state=open");
       await expect(inbox(page).getByRole("link").first()).toBeVisible();
       expect(await inbox(page).getByRole("link").count()).toBeGreaterThanOrEqual(3);
-      await expect(inbox(page).getByText("Result has a newer report")).toHaveCount(1);
+      await expect(inbox(page).getByText("Newer report exists")).toHaveCount(1);
       await shot(page, "decisions-open", vp.name);
       await axeClean(page);
     });
@@ -61,7 +62,10 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("button", { name: "Approve revision 1" })).toHaveCount(0);
       await shot(page, "decisions-recorded", vp.name);
       await axeClean(page);
-      // The answered review leaves Open and appears under Resolved.
+      // The answered review leaves Open and appears under Resolved. On phone the
+      // detail replaces the inbox (DC-L list-then-detail), so go back to it first.
+      const back = page.getByRole("link", { name: "All decisions" });
+      if (await back.isVisible()) await back.click();
       await page.getByRole("button", { name: "Resolved" }).click();
       await expect(inbox(page).locator(`a[href^="/decisions/${CURRENT}"]`)).toBeVisible();
     });
@@ -79,14 +83,14 @@ for (const vp of VIEWPORTS) {
     test("reads-failed shows the inbox error, not an empty inbox", async ({ page }) => {
       await page.goto("/decisions?state=open&scenario=reads-failed");
       await expect(inbox(page).getByRole("alert")).toContainText("Couldn't load review inbox");
-      await expect(page.getByText(/No available reviews/)).toHaveCount(0);
+      await expect(page.getByText(/No open reviews/)).toHaveCount(0);
       await shot(page, "decisions-failed", vp.name);
       await axeClean(page);
     });
 
     test("empty scenario shows the empty inbox", async ({ page }) => {
       await page.goto("/decisions?state=open&scenario=empty");
-      await expect(inbox(page).getByText(/No available reviews/)).toBeVisible();
+      await expect(inbox(page).getByText("No open reviews")).toBeVisible();
       await expect(inbox(page).getByRole("link")).toHaveCount(0);
     });
   });
