@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView, type TotalView } from "../../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
-import { ArrowRight, CircleCheck, TriangleAlert } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, CircleHelp, TriangleAlert, type LucideIcon } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -29,6 +29,46 @@ const ACTION_LABEL: Record<AttentionView["kind"], string> = {
   uncertain_operation: "Reconcile",
   unsupported: "Open",
 };
+
+type ConstraintTone = "attention" | "error" | "success" | "unknown";
+
+/**
+ * Server constraint kinds are open strings; only recognised kinds get a status
+ * tone. Anything else stays neutral so the page never implies a status the
+ * server did not report. A null constraint is "Not reported", not "None".
+ */
+const CONSTRAINT_TONE: Record<string, ConstraintTone> = {
+  decision: "attention",
+  question: "attention",
+  review: "attention",
+  approval: "attention",
+  waiting: "attention",
+  needs_decision: "attention",
+  failure: "error",
+  failed: "error",
+  blocked: "error",
+  conflict: "error",
+  error: "error",
+  none: "success",
+  clear: "success",
+};
+
+const CONSTRAINT_ICON: Record<ConstraintTone, LucideIcon> = {
+  attention: CircleAlert,
+  error: CircleAlert,
+  success: CircleCheck,
+  unknown: CircleHelp,
+};
+
+function ConstraintStatus({ constraint }: { constraint: OverviewView["inMotion"][number]["nextConstraint"] }) {
+  const tone: ConstraintTone = constraint ? CONSTRAINT_TONE[constraint.kind] ?? "unknown" : "unknown";
+  return (
+    <span className={styles.constraint} data-tone={tone}>
+      <Icon icon={CONSTRAINT_ICON[tone]} size={20} className={styles.constraintIcon} />
+      <span>{constraint ? constraint.explanation : "Not reported"}</span>
+    </span>
+  );
+}
 
 function AttentionRow({ item, serverTime, search }: { item: AttentionView; serverTime: string; search: string }) {
   const [inspect, setInspect] = useState(false);
@@ -205,7 +245,7 @@ export function Overview() {
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
         {<div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
-          <table aria-labelledby="motion-heading" className={styles.table}>
+          <table aria-labelledby="motion-heading" className={`${styles.table} ${styles.motionTable}`}>
             <thead>
               <tr>
                 <th scope="col">Project</th>
@@ -216,13 +256,13 @@ export function Overview() {
             </thead>
             <tbody>
               {view.inMotion.map((m) => (
-                <tr key={m.project.id}>
-                  <th scope="row">{m.project.label}</th>
-                  <td>
+                <tr key={m.project.id} className={styles.motionRow}>
+                  <th scope="row" className={styles.motionProject}>{m.project.label}</th>
+                  <td className={styles.motionNow}>
                     <CountLabel total={m.running} /> running
                   </td>
-                  <td>{m.nextConstraint ? m.nextConstraint.explanation : "Not reported"}</td>
-                  <td>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
+                  <td className={styles.motionConstraint}><ConstraintStatus constraint={m.nextConstraint} /></td>
+                  <td className={styles.motionProgress}>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
                 </tr>
               ))}
             </tbody>
