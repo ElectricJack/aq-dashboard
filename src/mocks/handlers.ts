@@ -6,6 +6,7 @@ import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
+import { withDecisionFixtures } from "./decisionFixtures";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
   return {
@@ -70,7 +71,7 @@ const FIXTURE_TERMINALS = new Map(FIXTURE_SESSIONS.flatMap((x) => (x.terminal ? 
 export function handlersFor(name: string | null | undefined, { fixtures = false }: { fixtures?: boolean } = {}) {
   const s = scenario(name);
   const sessions = fixtures ? FIXTURE_SESSIONS : SESSIONS;
-  const bootstrap = fixtures ? withFixtureCapabilities(s.bootstrap, s.media) : s.bootstrap;
+  const bootstrap = fixtures ? withDecisionFixtures(withFixtureCapabilities(s.bootstrap, s.media)) : s.bootstrap;
   const coverage: Coverage =
     s.reads === "partial"
       ? { state: "partial", omitted_count: 1, reason: "One project's read model did not respond" }
@@ -82,7 +83,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
   };
 
   return [
-    ...decisionHandlers(),
+    ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...humanGraphHandlers(s.reads, s.graph),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
