@@ -46,7 +46,8 @@ function usePendingBadge(scope: Scope, enabled: boolean): Badge | null {
   const shown = total.value > 99 ? "99+" : String(total.value);
   return {
     text: approximate ? `~${shown}` : shown,
-    label: `${approximate ? "about " : ""}${total.value} pending`,
+    // The name must contain the visible badge text (WCAG 2.5.3): "~3" reads as "3 pending, approximate".
+    label: `${shown} pending${approximate ? ", approximate" : ""}`,
   };
 }
 
