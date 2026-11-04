@@ -1,9 +1,9 @@
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useId,useRef,useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {Link,useSearchParams} from "react-router";
 import {apiGet,ApiError} from "../../api/client";
 import {queryKey} from "../../api/queryKeys";
-import {adaptGraphPage,validGraphId} from "../../api/adapters/humanGraph";
+import {adaptGraphPage,nodeLabel,validGraphId,type GraphNode} from "../../api/adapters/humanGraph";
 import {graphPath} from "../../api/humanGraphReads";
 import {validateResultPayload,type ResultComment,type ResultDetail} from "../../api/adapters/resultsFeedback";
 import type {FeedbackTaskStatus} from "../../api/wire/resultsFeedback";
@@ -62,12 +62,14 @@ export function FeedbackDraft({detail,comments,initial,open=true,onClose,onRefre
   }catch{setError("Could not refresh the original comment and project guards. Keep this operation reference and reopen the exact revision.");throw new Error("Feedback guards unavailable");}
  }
  const pins=detail.assessment.artifacts;
+ const formId=useId();
  return <dialog ref={dialog} className={styles.draftDialog} aria-label="Create feedback task" onCancel={e=>{e.preventDefault();onClose();}}>
   <header className={styles.panelHeader}><h2>Create feedback task</h2><ActionButton onClick={onClose}>Close draft</ActionButton></header>
+  <div className={styles.draftBody}>
   <p className={styles.meta}>Discussion stays separate from work. Creating or linking a task leaves the thread open.</p>
   {!comments.length&&<p>Post a comment first to pin this feedback to an exact discussion.</p>}
   {error&&<p role="alert">{error}</p>}
-  <form onSubmit={e=>void submit(e)}><fieldset disabled={!enabled||!!operation.id} className={styles.fields}>
+  <form id={formId} onSubmit={e=>void submit(e)}><fieldset disabled={!enabled||!!operation.id} className={styles.fields}>
    <label>Feedback comment<select value={commentId} onChange={e=>{setCommentId(e.target.value);setDescription(comments.find(c=>c.id===e.target.value)?.body??"");}}>{comments.map(c=><option key={c.id} value={c.id}>{c.body.slice(0,90)}</option>)}</select></label>
    <label>Action<select value={mode} onChange={e=>setMode(e.target.value as typeof mode)}><option value="create">Create a new task</option><option value="link">Link existing task</option></select></label>
    {mode==="create"?<>
@@ -76,15 +78,48 @@ export function FeedbackDraft({detail,comments,initial,open=true,onClose,onRefre
     <label>Acceptance criteria<textarea required rows={3} value={criteria} onChange={e=>setCriteria(e.target.value)}/></label>
     <label>Project<select value={project} onChange={e=>setProject(e.target.value)}>{[...new Map([{id:detail.result.project_id,label:detail.result.project_id},...(projects.data?.view??[])].map(p=>[p.id,p])).values()].map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
     <label>Parent task (optional)<input value={parent} onChange={e=>setParent(e.target.value)} placeholder="Task ID"/></label>
-   </>:<label>Existing task ID<input required value={existing} onChange={e=>setExisting(e.target.value)}/></label>}
+   </>:<TaskPicker project={detail.result.project_id} value={existing} onChange={setExisting}/>}
    <details><summary>Exact pins</summary><p className={styles.meta}>Result {detail.result.id} · revision {detail.revision.revision}</p>{comment&&<p className={styles.meta}>Comment {comment.id} · revision {comment.revision}</p>}{pins.map(a=><label key={a.artifact_id}><input type="checkbox" checked={artifacts.includes(a.artifact_id)} onChange={e=>setArtifacts(old=>e.target.checked?[...old,a.artifact_id]:old.filter(id=>id!==a.artifact_id))}/>{a.artifact_id} · {a.digest}</label>)}</details>
   </fieldset>
-  {!operation.id&&<ActionButton type="submit" className={styles.primary} disabled={!enabled||!comment||mode==="create"&&(!context.data||context.isFetching||context.isError)}>{mode==="create"?"Create linked task":"Link existing task"}</ActionButton>}
   {mode==="create"&&context.isError&&<p>Project revision unavailable. <ActionButton onClick={()=>void context.refetch()}>Refresh project</ActionButton></p>}
   </form>
   <OperationStatus operation={operation} recover={mode==="create"} onCheck={value=>{if(mode==="link"&&value.disposition==="confirmed")setLinked(existing);else if(mode==="create")void verify();}} onRevise={refreshGuards}/>
   {operation.id&&mode==="create"&&<p className={styles.meta}><Link to={{pathname:`/results/${detail.result.id}/revisions/${detail.revision.revision}`,search:`${scopeSearch({kind:"project",project_id:detail.result.project_id})}&feedback_operation=${operation.id}&feedback_result=${detail.result.id}&feedback_revision=${detail.revision.revision}`}}>Retained operation</Link></p>}
   {linked&&<ActionButton onClick={()=>{operation.reset();setLinked(null);setError(null);initialId.current=undefined;setParams(old=>{const next=new URLSearchParams(old);for(const key of ["feedback_operation","feedback_result","feedback_revision"])next.delete(key);return next;},{replace:true});void context.refetch();}}>Start another feedback task</ActionButton>}
   {linked&&<section role="status"><p>{mode==="create"?"Feedback task created and linked. Thread remains open.":"Existing task linked. Thread remains open."}</p><Link to={{pathname:`/work/${linked}`,search:scopeSearch({kind:"project",project_id:project})}}>Open feedback task</Link></section>}
+  </div>
+  <footer className={styles.draftFooter}>
+   <ActionButton onClick={onClose}>Cancel</ActionButton>
+   {!operation.id&&<ActionButton type="submit" form={formId} className={styles.primary} disabled={!enabled||!comment||(mode==="create"?!context.data||context.isFetching||context.isError:!validGraphId(existing))}>{mode==="create"?"Create linked task":"Link existing task"}</ActionButton>}
+  </footer>
  </dialog>;
+}
+/** Searches the result's project for a task to link; a pasted task id is accepted as typed. */
+function TaskPicker({project,value,onChange}:{project:string;value:string;onChange(id:string):void}){
+ const {queryContext}=useSession(),id=useId(),[open,setOpen]=useState(false),[active,setActive]=useState(-1),[picked,setPicked]=useState<GraphNode|null>(null);
+ const [query,setQuery]=useState(value);useEffect(()=>{const t=setTimeout(()=>setQuery(value.trim()),250);return()=>clearTimeout(t);},[value]);
+ const pasted=validGraphId(value.trim());
+ const search=useQuery({queryKey:queryKey(queryContext,"result-feedback-task-search",{project,q:query}),enabled:open&&!pasted&&validGraphId(project),retry:false,refetchOnWindowFocus:false,
+  queryFn:async({signal})=>{const params=new URLSearchParams({limit:"8"});if(query)params.set("q",query);return adaptGraphPage(await apiGet<unknown>(`${graphPath(project,"task")}?${params}`,signal),project,"task").data.items.filter(n=>!n.deleted);}});
+ const options=open&&!pasted?search.data??[]:[],expanded=options.length>0;
+ const choose=(node:GraphNode)=>{setPicked(node);onChange(node.id);setOpen(false);setActive(-1);};
+ const status=pasted?(picked?.id===value.trim()?`Selected: ${picked.title}`:"Task ID will be linked as entered."):!open?null:search.isError?"Task search unavailable. Paste a task ID.":search.isPending||search.isFetching?"Searching tasks…":options.length?`${options.length} matching task${options.length===1?"":"s"}`:"No matching tasks. Paste a task ID.";
+ return <div className={styles.taskPicker}>
+  <label htmlFor={`${id}-input`}>Existing task ID</label>
+  <input id={`${id}-input`} required role="combobox" autoComplete="off" spellCheck={false} aria-autocomplete="list" aria-expanded={expanded} aria-controls={`${id}-list`} aria-describedby={`${id}-hint ${id}-status`} aria-activedescendant={expanded&&active>=0?`${id}-opt-${active}`:undefined}
+   value={value} placeholder="Search tasks or paste an ID" onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)}
+   onChange={e=>{onChange(e.target.value);setOpen(true);setActive(-1);}}
+   onKeyDown={e=>{
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();setOpen(true);if(options.length)setActive(i=>e.key==="ArrowDown"?(i+1)%options.length:(i<=0?options.length-1:i-1));}
+    else if(e.key==="Enter"&&expanded&&active>=0){e.preventDefault();choose(options[active]!);}
+    else if(e.key==="Escape"&&open){e.preventDefault();e.stopPropagation();setOpen(false);setActive(-1);}
+   }}/>
+  <p id={`${id}-hint`} className={styles.meta}>Search by title or paste a task ID.</p>
+  <ul id={`${id}-list`} role="listbox" aria-label="Matching tasks" className={styles.taskOptions} hidden={!expanded}>
+   {options.map((node,i)=><li key={node.id} id={`${id}-opt-${i}`} role="option" aria-selected={i===active} className={styles.taskOption} onMouseDown={e=>e.preventDefault()} onClick={()=>choose(node)}>
+    <span>{node.title}</span><span className={styles.meta}>{node.id.slice(0,8)}… · {nodeLabel(node.task_state)}</span>
+   </li>)}
+  </ul>
+  <p id={`${id}-status`} className={styles.meta} role="status">{status}</p>
+ </div>;
 }
