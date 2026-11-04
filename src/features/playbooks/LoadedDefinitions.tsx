@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { apiGet } from "../../api/client";
 import { adaptLoadedDefinitions, LOADED_DEFINITIONS_CAPABILITY } from "../../api/adapters/loadedDefinitions";
-import { timestamp } from "../../api/adapters/playbooks";
 import { scopedKey } from "../../api/queryKeys";
 import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
+import { Age, useObservedNow } from "./Age";
 import styles from "./Playbooks.module.css";
 
 export function LoadedDefinitions() {
@@ -18,6 +18,7 @@ export function LoadedDefinitions() {
   const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-loaded-definitions", {}), enabled: capability.enabled, retry: false, refetchOnWindowFocus: false,
     queryFn: async ({ signal }) => adaptLoadedDefinitions(await apiGet<unknown>(`/api/playbooks/inspection/loaded-definitions${project ? `?project_id=${encodeURIComponent(project)}` : ""}`, signal), project) });
   const heading = useRef<HTMLHeadingElement>(null), previous = useRef<string | null>(null), buttons = useRef(new Map<string, HTMLButtonElement>());
+  const now = useObservedNow(query.data?.observedAt, query.dataUpdatedAt);
   const item = query.data?.items.find(row => row.artifact === selected);
   useEffect(() => {
     if (item) heading.current?.focus();
@@ -30,7 +31,7 @@ export function LoadedDefinitions() {
   return <div className={styles.workspace} data-focused={Boolean(item)}>
     {item && <ActionButton className={styles.mobileBack} onClick={() => select(null)}>All definitions</ActionButton>}
     <Panel title="Loaded definitions" description={query.data.namespace.name} className={styles.roster}>
-      <p className={styles.meta}>Runtime startup configuration · captured {timestamp(query.data.capturedAt)}</p>
+      <p className={styles.meta}>Runtime startup configuration · captured <Age at={query.data.capturedAt} now={now} /></p>
       <ul className={styles.runs} aria-label="Loaded playbook definitions">{query.data.items.map(row => <li key={row.artifact}>
         <button ref={element => { if (element) buttons.current.set(row.artifact, element); else buttons.current.delete(row.artifact); }} className={styles.definitionLink} data-selected={row.artifact === selected} onClick={() => select(row.artifact)} aria-label={`Inspect definition ${row.name}`}>
           <strong>{row.name}</strong><span>{row.entries.length} {row.entries.length === 1 ? "entry" : "entries"}</span><small>{row.artifact}</small>
