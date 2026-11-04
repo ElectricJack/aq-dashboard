@@ -23,7 +23,7 @@ test("renders actual-shaped inbox, exact criteria, source and evidence panes", a
 });
 test("empty page and unavailable read are distinct", async () => {
   setup(); server.use(http.get("/api/reviews/decisions", () => HttpResponse.json({ ...decisionPage(), items: [] })));
-  renderApp("/decisions"); await screen.findByText("No available reviews in this page.");
+  renderApp("/decisions"); await screen.findByText("No open reviews"); expect(screen.getByText("0 shown · sampled from your reviews")).toBeInTheDocument();
 });
 test("unknown response retries exact frozen answer bytes and preserves note", async () => {
   setup(true, true); const sent: unknown[] = [];
