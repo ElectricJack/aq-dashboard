@@ -52,8 +52,9 @@
 .destination, .presentation { min-inline-size: 0; }
 .surfaces:has(> .presentation[data-mode=full]), .presentation[data-mode=full] { display: flex; flex-direction: column; flex: 1; min-block-size: 0; }
 .destination { container: destination / inline-size; }
-.destination[hidden], .presentation[hidden] { display: none; }
 .presentation[data-mode=dock] { position: sticky; inset-block-start: var(--dock-top, 0px); box-sizing: border-box; block-size: calc(100dvh - var(--dock-top, 0px)); display: flex; flex-direction: column; border-inline-start: 1px solid var(--color-border); background: var(--color-canvas); padding: var(--space-3) var(--space-4) var(--space-4); }
+/* After every presentation display rule: [hidden] must win at equal specificity. */
+.destination[hidden], .presentation[hidden] { display: none; }
 .launcherBar { display: flex; justify-content: end; margin-block-end: var(--space-3); }
 .launcher { min-block-size: var(--touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-accent); cursor: pointer; }
 .headerActions { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--space-2); }
