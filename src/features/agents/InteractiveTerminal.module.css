@@ -1,24 +1,41 @@
 .pane { min-inline-size: 0; background: #0d1117; color: #d1d5db; }
-.toolbar, .actions, .tabs, .status, .keys { display: flex; align-items: center; gap: 8px; }
+.toolbar, .actions, .tabs, .status, .keys, .view, .textSize { display: flex; align-items: center; gap: 8px; }
 .toolbar { justify-content: space-between; padding: 8px 12px; flex-wrap: wrap; border-block-end: 1px solid #ffffff12; }
-.tabs button, .keys button { font: inherit; color: inherit; background: transparent; border: 1px solid #ffffff20; border-radius: 6px; padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
+.tabs button, .keys button, .textSize button { font: inherit; color: inherit; background: transparent; border: 1px solid #ffffff20; border-radius: 6px; padding: 6px 10px; min-block-size: 36px; cursor: pointer; }
 .tabs button[aria-pressed=true] { color: #b9b2ff; background: #8474ed20; }
-.keys button:disabled { opacity: .4; cursor: default; }
+.keys button:disabled, .textSize button:disabled { opacity: .4; cursor: default; }
 .frame { block-size: clamp(340px, 55dvh, 780px); min-block-size: 180px; padding: 12px; overflow: auto; }
 .host { block-size: 100%; min-inline-size: 0; }
 .host :global(.xterm) { min-inline-size: 80ch; block-size: 100%; }
 .host :global(.xterm-viewport) { background: #0d1117 !important; }
+.view { justify-content: space-between; padding: 4px 12px; font-size: 14px; color: #a9b0bf; border-block-start: 1px solid #ffffff12; }
+.pan { white-space: nowrap; }
+.textSize { gap: 4px; margin-inline-start: auto; }
+.textSize button { min-inline-size: 44px; padding: 4px 8px; }
+.size { min-inline-size: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
 .status { flex-wrap: wrap; justify-content: space-between; padding: 6px 12px; font-size: 12px; color: #a9b0bf; border-block-start: 1px solid #ffffff12; }
-.keys { padding: 6px 12px; overflow-x: auto; }
+.keys { padding: 6px 12px; overflow-x: auto; scrollbar-width: none; --fade-start: #000; --fade-end: #000; mask-image: linear-gradient(to right, var(--fade-start), #000 32px, #000 calc(100% - 32px), var(--fade-end)); }
+.keys::-webkit-scrollbar { display: none; }
+/* Fade only the edge that hides keys, so a clipped bar always signals that it scrolls. */
+.keys[data-fade-start] { --fade-start: transparent; }
+.keys[data-fade-end] { --fade-end: transparent; }
 .keys button { flex-shrink: 0; }
+/* The sticky Ctrl modifier is visibly armed until the next key consumes it. */
+.keys .modifier[aria-pressed=true] { color: #0d1117; background: #b9b2ff; border-color: #b9b2ff; font-weight: 600; }
 .phoneControl { display: none; }
 .help { margin: 0; padding: 4px 12px 8px; font-size: 11px; color: #8f98a9; }
+@media (min-width: 768px) {
+  /* Desktop keeps browser zoom for text size; the row only appears when the grid pans. */
+  .textSize { display: none; }
+  .view:not(:has(.pan)) { display: none; }
+}
 @media (max-width: 767px) {
   .toolbar { padding: 4px 8px; gap: 4px; }
-  .toolbar button, .keys button { min-block-size: 44px; }
+  .toolbar button, .keys button, .textSize button { min-block-size: 44px; }
   .actions { display: none; }
   .phoneControl { display: block; }
   .frame { block-size: max(220px, calc(100dvh - 460px)); padding: 8px; }
+  .view { padding: 2px 8px; gap: 4px; }
   .status { padding: 4px 8px; gap: 2px; font-size: 11px; }
   .keys { padding: 4px 8px; gap: 4px; }
   .help { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
