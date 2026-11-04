@@ -18,7 +18,7 @@
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-2) var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -26,32 +26,34 @@
   color: var(--color-text-secondary);
 }
 
-.legend li::before {
-  content: "";
-  display: inline-block;
-  inline-size: 24px;
-  margin-inline-end: var(--space-2);
-  vertical-align: middle;
-  border-block-start: 2px solid var(--color-accent);
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.legend li[data-category="hierarchy"]::before {
-  border-block-start-style: dashed;
-  border-color: var(--color-text-secondary);
-}
-
-.legend li[data-category="informational"]::before {
-  border-block-start-style: dotted;
-  border-color: var(--color-border);
-}
+.legend svg line { stroke: var(--color-accent); stroke-width: 2; }
+.legend svg path { fill: var(--color-accent); }
+.legend li[data-category="hierarchy"] svg line { stroke: var(--color-text-secondary); stroke-dasharray: 5 3; }
+.legend li[data-category="hierarchy"] svg path { fill: var(--color-text-secondary); }
+.legend li[data-category="informational"] svg line { stroke: var(--color-text-secondary); stroke-dasharray: 2 3; }
+.legend li[data-category="informational"] svg path { fill: var(--color-text-secondary); }
 
 .canvas {
   overflow: auto;
   max-block-size: 70dvh;
+  border-radius: var(--radius-control);
 }
 
+.canvas:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+.sizer { position: relative; }
+
 .stage {
-  position: relative;
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  transform-origin: 0 0;
 }
 
 .edges {
@@ -71,13 +73,14 @@
 }
 
 .edges path[data-category="informational"] {
-  stroke: #5b6878;
+  stroke: var(--color-text-secondary);
   stroke-dasharray: 2 4;
 }
 
-.arrow {
-  fill: var(--color-accent);
-}
+/* Arrowheads mark the dependent end (prerequisite → dependent); colours follow the edge category. */
+.edges marker path { stroke: none; fill: var(--color-accent); }
+.edges marker[data-category="hierarchy"] path,
+.edges marker[data-category="informational"] path { fill: var(--color-text-secondary); }
 
 .node {
   position: absolute;
@@ -161,6 +164,8 @@
   font-size: var(--font-size-meta);
 }
 
+.relations a { color: var(--color-accent); }
+
 /* Card: up to two title lines, then the state line (NODE_H in layout.ts fits both). */
 .humanNode {
   grid-template-columns: minmax(0, 1fr);
@@ -186,5 +191,29 @@
 .humanNode[aria-current=page] { border-color:var(--color-accent); box-shadow:0 0 0 2px var(--color-canvas),0 0 0 4px var(--color-accent); }
 
 .humanGraph { padding:0; border:0; background:transparent; }
-.panHint { color:var(--color-text-secondary); font-size:12px; line-height:1.3; }
-@media(max-width:600px) { .humanGraph { gap:var(--space-2); } .humanGraph h3 { margin-block:var(--space-2); } }
+.graphRegion { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.summaryRow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2) var(--space-4); }
+.expand { color: var(--color-accent); font-size: var(--font-size-meta); }
+.footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding-block-start: var(--space-2); border-block-start: 1px solid var(--color-border); }
+.keepInView { color: var(--color-text-secondary); font-size: var(--font-size-meta); padding-inline-start: var(--space-4); border-inline-start: 1px solid var(--color-border); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+.zoom { display: inline-flex; align-items: center; gap: var(--space-1); }
+.zoomLevel { min-inline-size: 4.5ch; text-align: center; font-size: var(--font-size-meta); font-variant-numeric: tabular-nums; }
+
+/* Full screen: the native Fullscreen API element, or the in-page fallback over the app. */
+.graphRegion:fullscreen,
+.graphRegion[data-fullscreen="page"] {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right)) max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+  background: var(--color-canvas);
+}
+.graphRegion[data-fullscreen="page"] { position: fixed; inset: 0; z-index: 200; }
+.graphRegion:fullscreen .canvas,
+.graphRegion[data-fullscreen="page"] .canvas { max-block-size: none; }
+@media(max-width:600px) {
+  .humanGraph { gap:var(--space-2); } .humanGraph h3 { margin-block:var(--space-2); }
+  .keepInView { display: none; }
+  .controls { margin-inline-start: 0; flex-wrap: nowrap; }
+  /* Keep the control row on one line at phone width; the button keeps its accessible name. */
+  .fitLabel { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
