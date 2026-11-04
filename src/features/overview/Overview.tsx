@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { adaptOverview, type AttentionView, type OverviewView } from "../../api/adapters/inspection";
+import { adaptOverview, type AttentionView, type OverviewView, type TotalView } from "../../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
 import { ArrowRight, CircleCheck, TriangleAlert } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
@@ -14,6 +14,8 @@ import styles from "./Overview.module.css";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
 import { useSession } from "../../app/session";
+import { PageTitle } from "../../app/DestinationPage";
+import { CreateTaskAction } from "../work/CreateTask";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
 const OVERVIEW_POLL_MS = 10_000;
@@ -62,6 +64,38 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   );
 }
 
+/** Plain-language attention count: estimated counts say "About", unknown never reads as zero. */
+function attentionSentence(total: TotalView): string {
+  if (total.value === null) return "The number of decisions that need you is unknown.";
+  const n = total.value;
+  if (n === 0) return total.accuracy === "estimated" ? "Few or no decisions need you." : "No decisions need you.";
+  const phrase = `${n} ${n === 1 ? "decision needs" : "decisions need"} you.`;
+  return total.accuracy === "estimated" ? `About ${phrase}` : phrase;
+}
+
+function motionSentence(projects: number, complete: boolean): string {
+  if (projects > 0) return `Work is moving in ${projects} ${projects === 1 ? "project" : "projects"}.`;
+  return complete ? "No work is in motion." : "Project movement is not reported.";
+}
+
+/** Title and summary on the left, the primary Create task action on the right (reference 01). */
+function OverviewHeader({ children }: { children: ReactNode }) {
+  const { bootstrap } = useSession();
+  return (
+    <div className={styles.header}>
+      <div className={styles.titleBlock}>
+        <PageTitle>Overview</PageTitle>
+        <p className={styles.summary} data-testid="overview-summary">{children}</p>
+      </div>
+      {bootstrap.capability("tasks.create").enabled && (
+        <div className={styles.headerAction}>
+          <CreateTaskAction />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Attention({ view, serverTime, complete, search }: {
   view: OverviewView;
   serverTime: string;
@@ -107,9 +141,16 @@ export function Overview() {
     pollMs: OVERVIEW_POLL_MS,
   });
 
-  if (!query.data && !query.isError) return <QueryStatus status="pending" label="the overview" error={null} onRetry={()=>void query.refetch()} />;
+  if (!query.data && !query.isError) return (
+    <div className={styles.layout}>
+      <OverviewHeader>Checking what needs you…</OverviewHeader>
+      <QueryStatus status="pending" label="the overview" error={null} onRetry={()=>void query.refetch()} />
+    </div>
+  );
   if (!query.data) {
     return (
+      <div className={styles.layout}>
+      <OverviewHeader>The overview summary is unavailable.</OverviewHeader>
       <div className={styles.columns}>
         <div className={styles.primary}>
           <section className={styles.panel} aria-labelledby="attention-heading">
@@ -125,6 +166,7 @@ export function Overview() {
         </div>
         <Infrastructure />
       </div>
+      </div>
     );
   }
 
@@ -132,7 +174,7 @@ export function Overview() {
   const complete = coverage.state === "complete" && !query.isError && view.sources.every(source => source.coverage.state === "complete");
   return (
     <div className={styles.layout}>
-      <p className={styles.summary}>Attention: <CountLabel total={view.counts.needs_you} /> need you. {view.inMotion.length} project {view.inMotion.length === 1 ? "summary" : "summaries"} reported.</p>
+      <OverviewHeader>{attentionSentence(view.counts.needs_you)} {motionSentence(view.inMotion.length, complete)}</OverviewHeader>
       {query.isError && (
         <p className={styles.warning} role="status">
           Refresh failed. Showing the last successful read, which may be out of date.
