@@ -61,14 +61,14 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       const fitted = await scaleOf(page);
       if (evidence) await page.screenshot({ path: `${evidence}/work-graph-fit-${vp.name}.png` });
 
-      await page.getByRole("button", { name: "Full screen" }).click();
+      await page.getByRole("button", { name: "Full screen", exact: true }).click();
       await expect(page.getByRole("button", { name: "Exit full screen" })).toBeVisible();
       // Full screen refits to the larger canvas; leaving restores the previous zoom.
       await expect.poll(() => scaleOf(page)).toBeGreaterThanOrEqual(fitted);
       for (const node of await canvas.getByRole("link").all()) await expect(node).toBeInViewport();
       if (evidence) await page.screenshot({ path: `${evidence}/work-graph-fullscreen-${vp.name}.png` });
       await page.getByRole("button", { name: "Exit full screen" }).click();
-      await expect(page.getByRole("button", { name: "Full screen" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Full screen", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
       await expect.poll(() => scaleOf(page)).toBeCloseTo(fitted);
     });

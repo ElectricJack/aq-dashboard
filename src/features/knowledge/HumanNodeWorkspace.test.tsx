@@ -63,7 +63,7 @@ test("task graph renders actual typed relationships with truncation and links",a
  enable();const n=handlers("task"),other={...graphNode("task",11),title:"Verify recovery"};
  server.use(http.get(`/api/human/projects/${graphProject}/tasks/${n.id}/graph`,()=>HttpResponse.json(graphEnvelope({root_id:n.id,nodes:[n,other],edges:[{id:"00000000-0000-4000-8000-000000000050",source:n.id,target:other.id,edge_type:"blocks",description:"must precede",version:"1",source_revision:"4",target_revision:"4"}],truncated:true}))));
  renderApp(`/work/${n.id}${scope}&view=graph`);
- const graph=await screen.findByRole("region",{name:"Dependency graph"});expect(await within(graph).findByText(/Some relationships omitted/)).toBeInTheDocument();expect(within(graph).getByRole("link",{name:/Verify recovery/})).toHaveAttribute("href",`/work/${other.id}?scope=project%3A${graphProject}`);expect(graph).toHaveTextContent("blocks");
+ const graph=await screen.findByRole("region",{name:"Dependency graph"});expect(await within(graph).findByText(/More relationships exist on the server/)).toBeInTheDocument();expect(within(within(graph).getByRole("region",{name:"Scrollable task graph"})).getByRole("link",{name:/Verify recovery/})).toHaveAttribute("href",`/work/${other.id}?scope=project%3A${graphProject}`);expect(graph).toHaveTextContent("must finish before");
 });
 test("search uses project-scoped task and knowledge contracts without proposed search fallback",async()=>{
  enable();const task=handlers("task"),knowledge=handlers();let q:string|null=null;

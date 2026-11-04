@@ -98,12 +98,14 @@ test("phone: Graph opens from a task, a node opens its detail and Back returns t
   await page.getByRole("button", { name: "Graph" }).click();
   const graph = page.getByRole("region", { name: "Dependency graph" });
   await expect(graph).toBeVisible();
-  await graph.getByRole("link", { name: /Fixture: verify recovery/ }).click();
+  // The graph node itself (the Recorded relationships list repeats the same links as text).
+  const node = graph.getByRole("region", { name: "Scrollable task graph" }).getByRole("link", { name: /Fixture: verify recovery/ });
+  await node.click();
   await expect(page.getByRole("heading", { level: 2, name: "Fixture: verify recovery" })).toBeVisible();
   await expect(graph).toBeHidden();
   await page.goBack();
   await expect(page.getByRole("region", { name: "Dependency graph" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Fixture: verify recovery/ })).toBeFocused();
+  await expect(node).toBeFocused();
 });
 
 test("returning to Work retains the served list without proposed task requests", async ({ page }) => {
