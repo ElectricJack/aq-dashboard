@@ -24,7 +24,7 @@ for (const vp of VIEWPORTS) {
     test("recent runs list labelled fixture runs in every state", async ({ page }) => {
       await page.goto("/playbooks");
       const runs = page.getByRole("list", { name: "Playbook runs" });
-      await expect(page.getByRole("link", { name: /worker-recovery/i })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("link", { name: /worker.recovery/i })).toBeVisible({ timeout: 30_000 });
       await expect(runs.getByRole("listitem")).toHaveCount(6);
       for (const state of [/Completed/, /Running/, /Needs attention/, /Waiting/]) await expect(runs.getByText(state).first()).toBeAttached();
       await expect(page.getByText(/Fixture: project coding policy/)).toBeVisible();
@@ -39,7 +39,7 @@ for (const vp of VIEWPORTS) {
       const inspector = page.getByRole("region", { name: `Run ${waiting}` });
       await expect(inspector.getByRole("heading", { name: "Pinned execution" })).toBeAttached();
       await expect(inspector.getByText(/^sha256:a81c9e/).first()).toBeAttached();
-      await expect(inspector.getByRole("list", { name: "Execution timeline" }).getByRole("listitem")).toHaveCount(4);
+      await expect(inspector.getByRole("list", { name: "Execution timeline" }).getByRole("listitem")).toHaveCount(3);
       await expect(inspector.getByText("Human decision")).toBeAttached();
       await expect(inspector.getByRole("link", { name: "run-285" })).toBeAttached();
       await expectNoHorizontalOverflow(page);
@@ -66,7 +66,7 @@ test("empty, failed and unavailable scenarios switch playbook reads", async ({ p
   await expect(page.getByText("No runs recorded in this configured namespace.")).toBeVisible({ timeout: 30_000 });
   await page.goto("/playbooks?scenario=failed");
   await expect(page.getByText("Couldn't load playbook runs.", { exact: false })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("link", { name: /worker-recovery/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /worker.recovery/i })).toHaveCount(0);
   await page.goto("/playbooks?scenario=unavailable");
   await expect(page.getByText(/Playbooks is not available/)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/playbook runtime is not configured/)).toBeVisible();

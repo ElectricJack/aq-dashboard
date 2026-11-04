@@ -17,18 +17,18 @@ const project = base.result.project_id;
 const NOW_MS = Date.parse("2026-10-31T12:00:00.000Z");
 const ARTIFACT = { artifact_id: id(40), digest: `sha256:${"d".repeat(64)}` };
 
-function detail(n: number, summary: string, agoMs: number): Detail {
+function detail(n: number, summary: string, agoMs: number, unresolvedReview = false): Detail {
   const report = id(n), revision = n.toString(16).padStart(2, "0").repeat(32);
   return {
     result: { ...base.result, id: report, current_revision: revision },
     revision: { ...structuredClone(base.revision), report_id: report, revision, artifacts: [ARTIFACT], summary: `Fixture · ${summary}`, submitted_at_ms: NOW_MS - agoMs },
-    assessment: { ...structuredClone(base.assessment), result_revision: revision, artifacts: [ARTIFACT] },
+    assessment: { ...structuredClone(base.assessment), result_revision: revision, artifacts: [ARTIFACT], unresolved_review: unresolvedReview },
   };
 }
 
 /** Newest first, as the feed contract requires. */
 export const FIXTURE_RESULTS: Detail[] = [
-  detail(30, "Replay reconciliation now merges duplicate ledger entries", 10 * 60_000),
+  detail(30, "Replay reconciliation now merges duplicate ledger entries", 10 * 60_000, true),
   detail(31, "Mobile navigation keeps focus after route change", 60 * 60_000),
   detail(32, "Capacity panel reports central disk usage", 150 * 60_000),
 ];
@@ -41,7 +41,8 @@ const fixtureComments = (d: Detail): CommentProjection[] => [
     anchor: { kind: "image_region", ...ARTIFACT, x: 0.1, y: 0.2, width: 0.4, height: 0.25 }, history: [] },
 ];
 
-const envelope = <T,>(data: T, scoped = false) => ({ ...compat.read, data, scope: scoped ? { kind: "project" as const, project_id: project } : { kind: "all_authorized" as const } });
+/** Fixture server time is the same anchor, so card ages read 10m / 1h / 2h. */
+const envelope = <T,>(data: T, scoped = false) => ({ ...compat.read, server_time: new Date(NOW_MS).toISOString(), data, scope: scoped ? { kind: "project" as const, project_id: project } : { kind: "all_authorized" as const } });
 const operation = (operationId: string) => ({
   ...action,
   scope: { kind: "project", project_id: project },

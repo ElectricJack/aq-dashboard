@@ -1,16 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { playbookCatalogJson } from "../../api/playbookCatalogClient";
 import { artifactDigest } from "../../api/adapters/loadedDefinitions";
 import { adaptCatalog, CATALOG_CAPABILITY, mergeCatalogPages, sameCatalog, type CatalogActivation, type CatalogDefinition, type CatalogKind, type CatalogStamp, type CatalogRequest } from "../../api/adapters/playbookCatalog";
-import { timestamp } from "../../api/adapters/playbooks";
 import { scopedKey } from "../../api/queryKeys";
 import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
+import { Age, useObservedNow } from "./Age";
 import styles from "./Playbooks.module.css";
 
 class ExactCatalogConflict extends ApiError {
@@ -43,21 +43,25 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
       void queryClient.cancelQueries({ predicate }); queryClient.removeQueries({ predicate }); setEpoch(value => value + 1);
     }
   }, [capability.enabled, queryClient]);
+  const now = useObservedNow(stamp?.observedAt, pages.dataUpdatedAt);
   const knownConflict = stamp && refused.current && sameCatalog(stamp, refused.current.stamp) ? refused.current : null;
   function refresh() { refused.current = null; setEpoch(value => value + 1); }
   const row = detail.data?.items[0], heading = useRef<HTMLHeadingElement>(null), previous = useRef<string | null>(null), buttons = useRef(new Map<string, HTMLButtonElement>()), rosterSummary = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (row && !detail.isError) heading.current?.focus(); else if (!selected && previous.current) (buttons.current.get(previous.current) ?? rosterSummary.current)?.focus(); previous.current = selected; }, [selected, row, detail.isError]);
   function select(key: string | null) { setParams(old => { const next = new URLSearchParams(old); if (key) next.set(parameter, key); else next.delete(parameter); return next; }); }
+  // The same back control as a run: a link to the unselected list, shown on phone detail pages.
+  const listSearch = (() => { const next = new URLSearchParams(params); next.delete(parameter); return next.toString(); })();
+  const back = (onClick?: () => void) => <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listSearch }} onClick={onClick}>All {kind}</Link>;
   const title = kind === "definitions" ? "Definitions" : "Activations", singular = kind === "definitions" ? "definition" : "activation";
   if (!capability.enabled) return <Panel title={title}><p role="status">{capability.reason}</p></Panel>;
   if (!pages.data || pages.isError || invalid || knownConflict) return <Panel title={title}>
-    {selected && <ActionButton className={styles.mobileBack} onClick={() => { select(null); refresh(); }}>All {kind}</ActionButton>}
+    {selected && back(refresh)}
     <QueryStatus status={pages.isError || invalid || knownConflict ? "error" : "pending"} error={invalid ?? knownConflict ?? pages.error} label={`current playbook ${kind}`} onRetry={refresh} />
   </Panel>;
   return <div className={styles.workspace} data-focused={Boolean(selected)}>
-    {selected && <ActionButton className={styles.mobileBack} onClick={() => select(null)}>All {kind}</ActionButton>}
+    {selected && back()}
     <Panel title={title} description={stamp?.namespace.name} className={styles.roster}>
-      <p ref={rosterSummary} tabIndex={-1} className={styles.meta}>Current namespace metadata · observed {timestamp(stamp!.observedAt)}</p>
+      <p ref={rosterSummary} tabIndex={-1} className={styles.meta}>Current namespace metadata · observed <Age at={stamp!.observedAt} now={now} /></p>
       {rows.length === 0 && <p>No {kind} represented in this namespace.</p>}
       <ul className={styles.runs} aria-label={`Current playbook ${kind}`}>{rows.map(item => <li key={item.key}>
         <button ref={element => { if (element) buttons.current.set(item.key, element); else buttons.current.delete(item.key); }} className={styles.definitionLink} data-selected={item.key === selected} onClick={() => select(item.key)}>

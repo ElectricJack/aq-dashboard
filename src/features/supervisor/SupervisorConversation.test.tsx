@@ -12,7 +12,7 @@ import { compareSupervisorCursors, type SupervisorMessage } from "../../api/adap
 import * as supervisorAdapters from "../../api/adapters/supervisor";
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
-beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("matchMedia", () => ({ matches: true })); });
+beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("matchMedia", (query: string) => Object.assign(new EventTarget(), { matches: query === "(pointer: fine)", media: query, onchange: null, addListener() {}, removeListener() {} })); });
 afterEach(() => { server.resetHandlers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(() => server.close());
 const base = `/api/human/conversations/${discovery.conversation.id}`;

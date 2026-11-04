@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import { handlersFor } from "../../mocks/handlers";
-import { playbookPage, runDetail, runRecord } from "../../test/playbooks";
+import { PLAYBOOK_TIME, playbookPage, runDetail, runRecord } from "../../test/playbooks";
 import { renderApp } from "../../test/renderApp";
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
@@ -21,8 +21,20 @@ test("discovery opens exact run and shows pins, timeline and pending operation",
   const detail = await screen.findByRole("region", { name: "Run run-0000000000000001" });
   expect(router.state.location.pathname).toBe("/playbooks/runs/run-0000000000000001");
   expect(within(detail).getByText(`sha256:${"a".repeat(64)}`)).toBeInTheDocument();
-  expect(within(detail).getByRole("list", { name: "Execution timeline" })).toHaveTextContent("9007199254740993");
+  const timeline = within(detail).getByRole("list", { name: "Execution timeline" });
+  expect(within(timeline).getAllByRole("listitem").map(li => li.textContent)).toEqual(["InspectCompleted", "Request reviewWaiting"]);
+  expect(within(timeline).getByText("Request review").closest("li")).toHaveAttribute("aria-current", "step");
+  expect(within(detail).getByRole("tab", { name: "Execution" })).toHaveAttribute("aria-selected", "true");
   expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("Operation")).toBeInTheDocument();
+  await userEvent.click(within(detail).getByRole("tab", { name: "Events" }));
+  const table = within(detail).getByRole("table", { name: "Recent evidence" });
+  expect(within(table).getAllByRole("row")).toHaveLength(3);
+  expect(within(table).getByRole("link", { name: "Receipt 9007199254740993" })).toHaveAttribute("href", "#receipt-9007199254740993");
+  expect(within(table).getByText(/Operation accepted · Request review/)).toBeInTheDocument();
+  expect(within(detail).getByText(/^Observed \d+s ago$/)).toBeInTheDocument();
+  expect(within(detail).getByRole("tab", { name: "Inputs & outputs" })).toHaveAttribute("aria-disabled", "true");
+  await userEvent.click(within(detail).getByRole("tab", { name: "Definition" }));
+  expect(within(detail).getByRole("link", { name: "Open in Definitions" })).toHaveAttribute("href", `/playbooks?view=definitions&definition=sha256%3A${"a".repeat(64)}`);
 });
 test("empty and failed discovery remain distinct and failure retries explicitly", async () => {
   enabled(); let reads = 0; server.use(http.get("/api/playbooks/inspection/runs", () => ++reads === 1 ? HttpResponse.json({}, { status: 503 }) : HttpResponse.json(playbookPage([]))));
@@ -37,12 +49,13 @@ test("next run page uses exact cursor and keeps bounded rows", async () => {
 });
 test("admissions show pending without inventing an engine run", async () => {
   responses(); server.use(http.get("/api/playbooks/inspection/admissions", () => HttpResponse.json({ ...playbookPage([{ request_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", status: "pending", created_at_ms: 1, run_id: null, activation_revision: null, catalog_revision: null }]), revision: null })));
-  renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("button", { name: "Admissions" }));
+  renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("tab", { name: "Admissions" }));
   await screen.findByText("Engine run not confirmed"); expect(screen.queryByRole("link", { name: "Inspect admitted run" })).toBeNull();
 });
 test("loaded state filter describes only loaded rows", async () => {
   responses(); renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" });
-  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Loaded run states" }), "completed"); await screen.findByText("No loaded runs match this state.");
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Run state" }), "completed"); await screen.findByText("No loaded runs match these filters.");
+  expect(screen.getByText("Filtering loaded runs")).toBeInTheDocument();
   expect(screen.queryByText("No runs recorded in this configured namespace.")).toBeNull();
 });
 test("run labels render as literal text and forbidden reads clear the protected page", async () => {
@@ -53,4 +66,17 @@ test("run labels render as literal text and forbidden reads clear the protected 
   server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json({}, { status: 403 })));
   await queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("playbook-runs") });
   await screen.findByRole("heading", { name: "Access denied" }); expect(screen.queryByText(badLabel)).toBeNull();
+});
+test("run rows show a short id, relative age and a loaded-rows time range", async () => {
+  enabled(); const old = { ...runRecord("run-0000000000000002", "completed"), admitted_at_ms: PLAYBOOK_TIME - 2 * 86_400_000 };
+  server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json(playbookPage([runRecord(), old]))));
+  renderApp("/playbooks"); const list = await screen.findByRole("list", { name: "Playbook runs" });
+  const row = within(list).getByRole("link", { name: /run-0000000000000001/ });
+  expect(row).toHaveTextContent(/Main\s*run-1\s*run-0000000000000001 · 5s ago/);
+  expect(within(row).getByText("5s ago")).toHaveAttribute("dateTime", new Date(PLAYBOOK_TIME - 5000).toISOString());
+  expect(within(list).getAllByRole("link")).toHaveLength(1);
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Time range" }), "all");
+  expect(within(list).getAllByRole("link")).toHaveLength(2); expect(screen.queryByText("Filtering loaded runs")).toBeNull();
+  expect(screen.getByRole("button", { name: "Refresh runs" })).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
 });
