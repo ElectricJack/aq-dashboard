@@ -45,8 +45,10 @@ async function ready() {
   // Bootstrap mounts the workspace; discovery then enables history controls.
   // Give each async stage its normal deadline instead of timing the entire
   // initial request chain with the final history assertion's 1000 ms budget.
+  // The dock has no Refresh control, so wait for the loaded history there.
   await composer();
-  await waitFor(() => expect(screen.getByRole("button", { name: "Refresh history" })).toBeEnabled());
+  if (screen.queryByRole("button", { name: "Refresh history" })) await waitFor(() => expect(screen.getByRole("button", { name: "Refresh history" })).toBeEnabled());
+  else await waitFor(() => expect(screen.queryByText("Loading conversation history…")).toBeNull());
   return screen.findByText("Retained human message 1");
 }
 async function send(text: string) { const input = await composer(); await userEvent.type(input, text); await userEvent.click(screen.getByRole("button", { name: "Send message" })); }
@@ -228,4 +230,19 @@ test("dock does not mistake another workspace's operation for a supervisor send"
   await userEvent.click(await screen.findByRole("button", { name: "Open supervisor" })); await ready();
   await userEvent.type(await composer(), "Independent supervisor draft");
   expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled(); expect(app.posts).toHaveLength(0);
+});
+
+test("dock header shows only expand and close, with short metadata carrying the full delivery text", async () => {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  setup({ path: "/overview" });
+  await userEvent.click(await screen.findByRole("button", { name: "Open supervisor" })); await ready();
+  const dock = screen.getByRole("region", { name: "Global supervisor conversation" });
+  const header = within(dock).getByRole("heading", { name: "Global supervisor" }).closest("header")!;
+  expect(within(header).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Expand conversation", "Close chat"]);
+  const metadata = within(dock).getByText("Retained human message 1").nextElementSibling!;
+  expect(metadata).toHaveTextContent(/^You · .+ · Queued · Delivery not attempted$/);
+  const status = within(metadata as HTMLElement).getByText("Queued", { exact: false });
+  expect(status).toHaveAttribute("tabindex", "0");
+  await userEvent.click(within(header).getByRole("button", { name: "Expand conversation" }));
+  expect(await screen.findByRole("button", { name: "Refresh history" })).toBeInTheDocument();
 });

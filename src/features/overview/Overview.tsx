@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { adaptOverview, type AttentionView, type OverviewView } from "../../api/adapters/inspection";
+import { adaptOverview, type AttentionView, type OverviewView, type TotalView } from "../../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
-import { ArrowRight, CircleCheck, TriangleAlert } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, CircleHelp, TriangleAlert, type LucideIcon } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -14,6 +14,8 @@ import styles from "./Overview.module.css";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
 import { useSession } from "../../app/session";
+import { PageTitle } from "../../app/DestinationPage";
+import { CreateTaskAction } from "../work/CreateTask";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
 const OVERVIEW_POLL_MS = 10_000;
@@ -27,6 +29,46 @@ const ACTION_LABEL: Record<AttentionView["kind"], string> = {
   uncertain_operation: "Reconcile",
   unsupported: "Open",
 };
+
+type ConstraintTone = "attention" | "error" | "success" | "unknown";
+
+/**
+ * Server constraint kinds are open strings; only recognised kinds get a status
+ * tone. Anything else stays neutral so the page never implies a status the
+ * server did not report. A null constraint is "Not reported", not "None".
+ */
+const CONSTRAINT_TONE: Record<string, ConstraintTone> = {
+  decision: "attention",
+  question: "attention",
+  review: "attention",
+  approval: "attention",
+  waiting: "attention",
+  needs_decision: "attention",
+  failure: "error",
+  failed: "error",
+  blocked: "error",
+  conflict: "error",
+  error: "error",
+  none: "success",
+  clear: "success",
+};
+
+const CONSTRAINT_ICON: Record<ConstraintTone, LucideIcon> = {
+  attention: CircleAlert,
+  error: CircleAlert,
+  success: CircleCheck,
+  unknown: CircleHelp,
+};
+
+function ConstraintStatus({ constraint }: { constraint: OverviewView["inMotion"][number]["nextConstraint"] }) {
+  const tone: ConstraintTone = constraint ? CONSTRAINT_TONE[constraint.kind] ?? "unknown" : "unknown";
+  return (
+    <span className={styles.constraint} data-tone={tone}>
+      <Icon icon={CONSTRAINT_ICON[tone]} size={20} className={styles.constraintIcon} />
+      <span>{constraint ? constraint.explanation : "Not reported"}</span>
+    </span>
+  );
+}
 
 function AttentionRow({ item, serverTime, search }: { item: AttentionView; serverTime: string; search: string }) {
   const [inspect, setInspect] = useState(false);
@@ -59,6 +101,38 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
       )}
       {inspect && <dl className={styles.referenceDetails}><dt>Subject</dt><dd>{item.subject.type} · {item.subject.id}</dd><dt>Revision</dt><dd>{item.subject.revision ?? "Unknown"}</dd><dt>Observation</dt><dd>{item.reason}</dd></dl>}
     </li>
+  );
+}
+
+/** Plain-language attention count: estimated counts say "About", unknown never reads as zero. */
+function attentionSentence(total: TotalView): string {
+  if (total.value === null) return "The number of decisions that need you is unknown.";
+  const n = total.value;
+  if (n === 0) return total.accuracy === "estimated" ? "Few or no decisions need you." : "No decisions need you.";
+  const phrase = `${n} ${n === 1 ? "decision needs" : "decisions need"} you.`;
+  return total.accuracy === "estimated" ? `About ${phrase}` : phrase;
+}
+
+function motionSentence(projects: number, complete: boolean): string {
+  if (projects > 0) return `Work is moving in ${projects} ${projects === 1 ? "project" : "projects"}.`;
+  return complete ? "No work is in motion." : "Project movement is not reported.";
+}
+
+/** Title and summary on the left, the primary Create task action on the right (reference 01). */
+function OverviewHeader({ children }: { children: ReactNode }) {
+  const { bootstrap } = useSession();
+  return (
+    <div className={styles.header}>
+      <div className={styles.titleBlock}>
+        <PageTitle>Overview</PageTitle>
+        <p className={styles.summary} data-testid="overview-summary">{children}</p>
+      </div>
+      {bootstrap.capability("tasks.create").enabled && (
+        <div className={styles.headerAction}>
+          <CreateTaskAction />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -107,9 +181,16 @@ export function Overview() {
     pollMs: OVERVIEW_POLL_MS,
   });
 
-  if (!query.data && !query.isError) return <QueryStatus status="pending" label="the overview" error={null} onRetry={()=>void query.refetch()} />;
+  if (!query.data && !query.isError) return (
+    <div className={styles.layout}>
+      <OverviewHeader>Checking what needs you…</OverviewHeader>
+      <QueryStatus status="pending" label="the overview" error={null} onRetry={()=>void query.refetch()} />
+    </div>
+  );
   if (!query.data) {
     return (
+      <div className={styles.layout}>
+      <OverviewHeader>The overview summary is unavailable.</OverviewHeader>
       <div className={styles.columns}>
         <div className={styles.primary}>
           <section className={styles.panel} aria-labelledby="attention-heading">
@@ -120,10 +201,11 @@ export function Overview() {
           <h2 id="motion-heading">Work in motion</h2>
           <p className={styles.meta}>{query.isError ? "Project movement unavailable" : "Loading project movement…"}</p>
           {query.isError && <RecordedTasks />}
-          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p></section>
+          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p><Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link></section>
           </section>
         </div>
         <Infrastructure />
+      </div>
       </div>
     );
   }
@@ -132,7 +214,7 @@ export function Overview() {
   const complete = coverage.state === "complete" && !query.isError && view.sources.every(source => source.coverage.state === "complete");
   return (
     <div className={styles.layout}>
-      <p className={styles.summary}>Attention: <CountLabel total={view.counts.needs_you} /> need you. {view.inMotion.length} project {view.inMotion.length === 1 ? "summary" : "summaries"} reported.</p>
+      <OverviewHeader>{attentionSentence(view.counts.needs_you)} {motionSentence(view.inMotion.length, complete)}</OverviewHeader>
       {query.isError && (
         <p className={styles.warning} role="status">
           Refresh failed. Showing the last successful read, which may be out of date.
@@ -163,7 +245,7 @@ export function Overview() {
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
         {<div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
-          <table aria-labelledby="motion-heading" className={styles.table}>
+          <table aria-labelledby="motion-heading" className={`${styles.table} ${styles.motionTable}`}>
             <thead>
               <tr>
                 <th scope="col">Project</th>
@@ -174,13 +256,13 @@ export function Overview() {
             </thead>
             <tbody>
               {view.inMotion.map((m) => (
-                <tr key={m.project.id}>
-                  <th scope="row">{m.project.label}</th>
-                  <td>
+                <tr key={m.project.id} className={styles.motionRow}>
+                  <th scope="row" className={styles.motionProject}>{m.project.label}</th>
+                  <td className={styles.motionNow}>
                     <CountLabel total={m.running} /> running
                   </td>
-                  <td>{m.nextConstraint ? m.nextConstraint.explanation : "Not reported"}</td>
-                  <td>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
+                  <td className={styles.motionConstraint}><ConstraintStatus constraint={m.nextConstraint} /></td>
+                  <td className={styles.motionProgress}>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
                 </tr>
               ))}
             </tbody>
@@ -208,6 +290,7 @@ export function Overview() {
             })}
           </ul>
         )}
+        <Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link>
       </section>
       </section>
       </div><Infrastructure /></div>

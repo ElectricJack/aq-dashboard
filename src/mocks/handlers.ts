@@ -1,7 +1,9 @@
 import { http, HttpResponse } from "msw";
 import type { Bootstrap, Coverage, Envelope, ErrorEnvelope, Page, Scope } from "../api/wire/proposed";
 import { overview, search, SERVER_TIME, SESSIONS } from "./inspectionData";
-import { scenario } from "./scenarios";
+import { scenario, withFixtureCapabilities } from "./scenarios";
+import { fixtureTerminalId, terminalHandlers } from "./terminal";
+import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
 
@@ -56,9 +58,19 @@ function paginate<T>(items: T[], url: URL, snapshot: string): Page<T> {
   };
 }
 
-/** MSW handlers serving PROPOSED fixtures for one scenario. */
-export function handlersFor(name: string | null | undefined) {
+/** Session terminal refs re-pointed at labelled fixture terminals (UUID ids, as the wire requires). */
+const FIXTURE_SESSIONS = SESSIONS.map((x, i) => (x.terminal ? { ...x, terminal: { ...x.terminal, id: fixtureTerminalId(i) } } : x));
+const FIXTURE_TERMINALS = new Map(FIXTURE_SESSIONS.flatMap((x) => (x.terminal ? [[x.terminal.id, x.label] as const] : [])));
+
+/**
+ * MSW handlers serving PROPOSED fixtures for one scenario. `fixtures` adds the
+ * labelled terminal and Results fixtures and their capabilities; the mock app
+ * turns it on, unit tests keep the default contract bootstrap.
+ */
+export function handlersFor(name: string | null | undefined, { fixtures = false }: { fixtures?: boolean } = {}) {
   const s = scenario(name);
+  const sessions = fixtures ? FIXTURE_SESSIONS : SESSIONS;
+  const bootstrap = fixtures ? withFixtureCapabilities(s.bootstrap, s.media) : s.bootstrap;
   const coverage: Coverage =
     s.reads === "partial"
       ? { state: "partial", omitted_count: 1, reason: "One project's read model did not respond" }
@@ -71,10 +83,12 @@ export function handlersFor(name: string | null | undefined) {
 
   return [
     ...decisionHandlers(),
+    ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...humanGraphHandlers(s.reads, s.graph),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
-    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...s.bootstrap,capabilities:[...s.bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true}]}))),
+    // Grant the human-graph reads and, unless the scenario declares otherwise, the fixture project list.
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
     http.get("/api/v1/provider-usage", () =>
       s.providerUsage.kind === "ok"
         ? HttpResponse.json(s.providerUsage.body)
@@ -88,11 +102,11 @@ export function handlersFor(name: string | null | undefined) {
       const url = new URL(request.url);
       const scope = scopeOf(url);
       const project = projectOf(scope);
-      const items = s.reads === "empty" ? [] : SESSIONS.filter((x) => !project || x.project.id === project);
+      const items = s.reads === "empty" ? [] : sessions.filter((x) => !project || x.project.id === project);
       return read(() => paginate(items, url, "snap-sessions-1"), scope);
     }),
     http.get("/api/v1/sessions/:id", ({ params }) =>
-      read(() => SESSIONS.find((x) => x.id === String(params.id)) ?? null),
+      read(() => sessions.find((x) => x.id === String(params.id)) ?? null),
     ),
     http.get("/api/v1/search", ({ request }) => {
       const url = new URL(request.url);

@@ -1,0 +1,24 @@
+.context { display: flex; flex-direction: column; }
+.facts { margin: 0; padding-block-end: var(--space-4); border-block-end: 1px solid var(--color-border); }
+.facts > div { display: grid; grid-template-columns: minmax(72px, max-content) minmax(0, 1fr); gap: var(--space-4); align-items: center; padding-block: var(--space-2); border-block-end: 1px solid var(--color-border); }
+.facts > div:last-child { border-block-end: 0; }
+.facts dt { color: var(--color-text-secondary); }
+.facts dd { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin: 0; min-inline-size: 0; }
+.name { overflow-wrap: anywhere; }
+.link { color: var(--color-accent); overflow-wrap: anywhere; }
+.idValue, .digest { display: inline-flex; align-items: center; gap: var(--space-1); min-inline-size: 0; }
+.idValue code, .digest code, .link code { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
+.digest code { color: var(--color-text-secondary); }
+.copy { display: inline-flex; align-items: center; justify-content: center; flex: none; inline-size: 32px; block-size: 32px; padding: 0; color: var(--color-text-secondary); background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); cursor: pointer; }
+.copy:hover { color: var(--color-text); border-color: var(--color-border); }
+.copy:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+@media (pointer: coarse) { .copy { inline-size: var(--touch-target); block-size: var(--touch-target); } }
+.section { margin: var(--space-5) 0 var(--space-3); font-size: 18px; }
+.evidence { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.card { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.cardIcon { flex: none; margin-block-start: 2px; color: var(--color-text-secondary); }
+.cardBody { display: flex; flex-direction: column; gap: 2px; min-inline-size: 0; }
+.cardLabel { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.muted { display: block; color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.next { margin: 0; color: var(--color-text-secondary); }
+.checked { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-5) 0 0; padding-block-start: var(--space-4); border-block-start: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: var(--font-size-meta); }

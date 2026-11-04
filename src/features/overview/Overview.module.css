@@ -225,7 +225,11 @@
 .scopeDisclosure[open] { flex-basis: 100%; }
 
 /* G5 follows reference 01: attention first, dense movement/outcomes, secondary facts. */
-.summary { margin: calc(-1 * var(--space-3)) 0 0; color: var(--color-text-secondary); font-size: 18px; }
+/* OV-A header: title + summary on the left, primary Create task on the right. No negative margins. */
+.header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3) var(--space-5); min-inline-size: 0; }
+.titleBlock { display: grid; gap: var(--space-2); min-inline-size: 0; flex: 1 1 20rem; }
+.summary { margin: 0; color: var(--color-text-secondary); font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+.headerAction { flex: none; max-inline-size: 100%; }
 .referenceDetails { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: var(--space-2); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
 .referenceDetails dd { margin: 0; }
 .sourceList { display: grid; gap: var(--space-3); padding-inline-start: var(--space-5); }
@@ -295,4 +299,45 @@
 @media (max-width: 767px) {
  .rowTitle, .rowSecondary { white-space: normal; overflow-wrap: anywhere; }
  .attentionRow > .impact { grid-column: 2; justify-self: start; }
+}
+
+/* OV-D: compact Capacity so Pinned sessions starts above the 1440x900 fold. */
+.capacityPanel { gap: var(--space-2); }
+.capacityPanel p { margin: 0; }
+.capacityPanel .infrastructureSection { display: grid; gap: var(--space-1); padding-block-start: var(--space-3); }
+.capacityPanel .capacityValue { font-size: 24px; }
+.moreCapacity { border-block-start: 1px solid var(--color-border); padding-block-start: var(--space-2); }
+.moreCapacity > summary { cursor: pointer; min-block-size: var(--touch-target); line-height: var(--touch-target); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.moreCapacity > .infrastructureSection { margin-block-start: var(--space-2); }
+.footerLink { justify-self: end; }
+/* OV-C: Work in motion follows reference 01: status icon + toned label; phone rows stack as two-line cards. */
+.motionProject, .motionNow, .motionProgress { white-space: nowrap; }
+.motionProject { font-weight: 600; }
+.motionNow, .motionProgress { font-variant-numeric: tabular-nums; }
+.constraint { display: inline-flex; align-items: center; vertical-align: middle; gap: var(--space-2); color: var(--color-text-secondary); }
+.constraint[data-tone="attention"] { color: var(--color-attention); }
+.constraint[data-tone="error"] { color: var(--color-error); }
+.constraint[data-tone="success"] { color: var(--color-success); }
+/* Filled disc with a panel-coloured glyph, as in the reference; decorative beside the visible label. */
+.constraint:not([data-tone="unknown"]) .constraintIcon { fill: currentColor; stroke: var(--color-panel); }
+.constraintIcon { flex: none; }
+@media (max-width: 767px) {
+ .motionTable, .motionTable tbody { display: block; }
+ .motionTable { position: relative; }
+ /* Column headers stay available to assistive technology; the clipped box is full width so it never overflows. */
+ .motionTable thead { position: absolute; inset-inline: 0; inset-block-start: 0; clip-path: inset(50%); pointer-events: none; }
+ .motionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "project now" "constraint progress";
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding-block: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+ }
+ .motionTable .motionRow > th, .motionTable .motionRow > td { padding: 0; border: 0; }
+ .motionProject { grid-area: project; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--font-size-body); }
+ .motionNow { grid-area: now; justify-self: end; }
+ .motionConstraint { grid-area: constraint; min-inline-size: 0; }
+ .motionProgress { grid-area: progress; justify-self: end; color: var(--color-text-secondary); }
 }
