@@ -301,6 +301,15 @@
  .attentionRow > .impact { grid-column: 2; justify-self: start; }
 }
 
+/* OV-D: compact Capacity so Pinned sessions starts above the 1440x900 fold. */
+.capacityPanel { gap: var(--space-2); }
+.capacityPanel p { margin: 0; }
+.capacityPanel .infrastructureSection { display: grid; gap: var(--space-1); padding-block-start: var(--space-3); }
+.capacityPanel .capacityValue { font-size: 24px; }
+.moreCapacity { border-block-start: 1px solid var(--color-border); padding-block-start: var(--space-2); }
+.moreCapacity > summary { cursor: pointer; min-block-size: var(--touch-target); line-height: var(--touch-target); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.moreCapacity > .infrastructureSection { margin-block-start: var(--space-2); }
+.footerLink { justify-self: end; }
 /* OV-C: Work in motion follows reference 01: status icon + toned label; phone rows stack as two-line cards. */
 .motionProject, .motionNow, .motionProgress { white-space: nowrap; }
 .motionProject { font-weight: 600; }
