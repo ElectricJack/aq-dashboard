@@ -111,6 +111,8 @@ test("native lifecycle is visible in roster and peek while live state and termin
   await userEvent.click(within(row).getByRole("link"));
   await waitFor(() => expect(router.state.location.pathname).toBe(`/agents/${SESSIONS[0]!.id}`));
   const detail = await screen.findByRole("region", { name: SESSIONS[0]!.label });
+  await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
+  expect(within(detail).getByRole("dialog", { name: "Session details" })).toBeInTheDocument();
   expect(detail).toHaveTextContent("Start recorded 2m ago");
   expect(detail).toHaveTextContent("Stop recorded 1m ago");
   expect(within(detail).getByText(/historical evidence/)).toBeInTheDocument();
@@ -133,6 +135,8 @@ test("focused workspace switches real sessions and keeps metadata behind explici
   const detail = await screen.findByRole("region", { name: "Worker 07" });
   expect(within(detail).getByRole("button", { name: "Session details" })).toHaveAttribute("aria-expanded", "false");
   expect(within(detail).queryByRole("list", { name: "Permissions" })).not.toBeInTheDocument();
+  expect(within(detail).getByRole("button", { name: "Message" })).toBeDisabled();
+  expect(within(detail).getByRole("button", { name: "Message" })).toHaveAccessibleDescription("Messaging unavailable on this AQ server");
   const switcher = await screen.findByRole("navigation", { name: "Session switcher" });
   await waitFor(() => expect(within(switcher).getByRole("link", { name: "Worker 07" })).toHaveAttribute("aria-current", "page"));
   await userEvent.click(within(switcher).getByRole("link", { name: "Worker 12" }));

@@ -50,7 +50,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   const graphRoot = validGraphId(root) ? root! : id ?? filtered[0]?.id;
   const unavailable = query.isError || !!mergeError;
   // A failed or pending read has no count; never present it as "0 loaded" (spec 0002 §10).
-  const listTitle = unavailable ? "Tasks unavailable" : !query.data ? "Tasks" : `${filtered.length} tasks loaded`;
+  const listTitle = unavailable ? "Tasks unavailable" : !query.data ? "Tasks" : `${filtered.length} ${filtered.length===1?"task":"tasks"} loaded`;
   const update = (key: string, value: string) => setParams(p => {
     const n = new URLSearchParams(p);
     if (value) n.set(key, value); else n.delete(key);
