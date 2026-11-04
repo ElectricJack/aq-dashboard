@@ -1,9 +1,9 @@
-import { RecordActions } from "../actions/RecordActions";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { BookOpen, Circle, List, ListChecks, Network, RefreshCw, Search as SearchIcon, Shield, Tag, Workflow, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useScope } from "../../app/scope";
+import { PageTitle } from "../../app/DestinationPage";
 import { useProjects, useProjectsCapability } from "../../app/useProjects";
 import { useGraphList, useGraphDetail } from "../../api/humanGraphReads";
 import { mergeGraphPages, validGraphId, GRAPH_MAX_PAGES, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
@@ -11,6 +11,7 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
 import { HumanTaskGraph } from "../work/graph/HumanTaskGraph";
 import { KnowledgeDocument } from "./KnowledgeDocument";
+import { AddRecordAction } from "./KnowledgeActions";
 import { HumanTaskInspector } from "../work/HumanTaskInspector";
 import { Icon, knowledgeCategoryIcon } from "../../components/icons";
 import styles from "./HumanNodeWorkspace.module.css";
@@ -54,11 +55,27 @@ function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
       projects.data.view.length ? <ul className={styles.projectList}>{projects.data.view.map(p=><li key={p.id}><Link to={{pathname:pathFor(kind,id),search:(()=>{const next=new URLSearchParams(params);next.set("scope",`project:${p.id}`);return `?${next}`;})()}}>{p.label}</Link></li>)}</ul> : <p>No projects are available to this account.</p>}
   </Panel>;
 }
+/**
+ * Knowledge page header (reference 07): H1 with "Add record" on the same row and one subtitle.
+ * The action slot stays in place in every state; the project name belongs to scope and document meta.
+ */
+function KnowledgeHeader({detail}:{detail:boolean}) {
+  const [scope]=useScope();const [params]=useSearchParams();
+  const project=scope.kind==="project" && validGraphId(scope.project_id) ? scope.project_id : "";
+  // Same query key as the library list, so this shares its cache and adds no request.
+  const list=useGraphList(project,"knowledge",(params.get("q")??"").slice(0,256));
+  const pending=!project?"Choose a project first":list.isError?"Project records are unavailable":"Loading project records";
+  return <header className={styles.pageHeader} data-detail={detail}>
+    <div className={styles.pageHeading}><PageTitle>Knowledge</PageTitle><AddRecordAction project={list.data?.pages[0]?.project} pendingReason={pending}/></div>
+    <p className={styles.subtitle}>Find the decisions, procedures, and evidence behind the work.</p>
+  </header>;
+}
 export function HumanNodeWorkspace({kind}:{kind:GraphNode["kind"]}) {
   const [scope]=useScope();const route=useParams();const id=kind === "task" ? route.taskId : route.nodeId;
-  if(scope.kind !== "project")return <ProjectChoice kind={kind} id={id}/>;
-  if(!validGraphId(scope.project_id) || (id && !validGraphId(id)))return <p role="status">This item does not exist or is not available to you.</p>;
-  return <ProjectWorkspace key={`${scope.project_id}:${kind}`} project={scope.project_id} kind={kind} id={id}/>;
+  const body=scope.kind !== "project" ? <ProjectChoice kind={kind} id={id}/> :
+    !validGraphId(scope.project_id) || (id && !validGraphId(id)) ? <p role="status">This item does not exist or is not available to you.</p> :
+    <ProjectWorkspace key={`${scope.project_id}:${kind}`} project={scope.project_id} kind={kind} id={id}/>;
+  return kind==="knowledge" ? <><KnowledgeHeader detail={!!id}/>{body}</> : body;
 }
 function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind"];id?:string}) {
   const [params,setParams]=useSearchParams();
@@ -68,9 +85,12 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const query=useGraphList(project,kind,q);let rows:GraphNode[]=[],mergeError:unknown;
   try{rows=mergeGraphPages(query.data?.pages??[]);}catch(e){mergeError=e;}
   const search=params.toString()?`?${params}`:"";const graph=kind === "task" && params.get("view")==="graph";
-  const workspace=useRef<HTMLDivElement>(null),previous=useRef<{id?:string;graph:boolean}>({graph:false});
+  const workspace=useRef<HTMLDivElement>(null),previous=useRef<{id?:string;graph:boolean}>({graph:false}),mounted=useRef(false);
   useEffect(()=>{
     const before=previous.current;previous.current={id,graph};
+    // A deep link focuses the heading for screen readers without drawing a focus ring on arrival.
+    // (A StrictMode re-run repeats the same selection, so it is still an arrival.)
+    const arrival=!mounted.current || (before.id===id && before.graph===graph);mounted.current=true;
     const element=workspace.current;if(!element)return;
     // Selection focuses its heading; Back restores the previously selected row/node.
     const restore=(!id || graph)?before.id:undefined;
@@ -78,7 +98,7 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
       const target=id&&!graph?element.querySelector<HTMLElement>(`.${styles.detail} h2`):restore?[...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a=>new URL(a.href).pathname===pathFor(kind,restore)):undefined;
       if(!target)return false;
       if(target.tagName==="H2")target.tabIndex=-1;
-      target.focus();return true;
+      target.focus(arrival?{focusVisible:false} as FocusOptions:undefined);return true;
     };
     if(focus())return;
     const observer=new MutationObserver(()=>{if(focus())observer.disconnect();});
@@ -95,8 +115,7 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const listTitle=query.isError || mergeError ? `${kind==="task"?"Tasks":"Records"} unavailable` : !query.data ? (kind==="task"?"Tasks":"Records") : `${filtered.length} ${noun} loaded`;
   const update=(key:string,value:string)=>setParams(p=>{const n=new URLSearchParams(p);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);return n;});
   return <div ref={workspace} className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
-    <p className={styles.subtitle}>{kind==="knowledge"?"Find the decisions, procedures, and evidence behind the work.":"Inspect project tasks and their recorded dependencies."}{projectName && <span> · {projectName}</span>}</p>
-    {kind==="knowledge" && query.data?.pages[0] && <RecordActions record={{project:query.data.pages[0].project}} author />}
+    {kind==="task" && <p className={styles.subtitle}>Inspect project tasks and their recorded dependencies.{projectName && <span> · {projectName}</span>}</p>}
     <Toolbar className={styles.filters}>
       <form onSubmit={e=>{e.preventDefault();update("q",draft.trim());}} className={styles.search}>
         <label className="visually-hidden" htmlFor={`find-${kind}`}>Search {kind==="task"?"tasks":"knowledge"}</label>

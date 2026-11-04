@@ -1,4 +1,3 @@
-import { RecordActions } from "../actions/RecordActions";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BookOpen, ExternalLink, ShieldCheck, FileText } from "lucide-react";
@@ -6,8 +5,10 @@ import { type GraphEnvelope, type GraphNode, nodeLabel } from "../../api/adapter
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
 import { scopeSearch } from "../../app/scope";
 import { DocumentBody } from "./DocumentBody";
+import { DocumentActions } from "./KnowledgeActions";
 import styles from "./HumanNodeWorkspace.module.css";
 
+const categoryLabel = (value: string | null | undefined) => value ? value.replace(/[_-]+/g, " ").replace(/^./, c => c.toUpperCase()) : "Uncategorized";
 export function RecordFacts({ node: n }: { node: GraphNode }) {
   return <DetailList><dt>Author</dt><dd>{n.created_by}</dd><dt>Created</dt><dd>{n.created_at}</dd><dt>Updated</dt><dd>{n.updated_at}</dd><dt>Record version</dt><dd>{n.version}</dd><dt>Content revision</dt><dd>{n.content_revision}</dd><dt>Verification</dt><dd>{nodeLabel(n.verification)}</dd><dt>Valid from</dt><dd>{n.valid_from ?? "Not specified"}</dd><dt>Valid until</dt><dd>{n.valid_until ?? "Not specified"}</dd>{n.retirement_reason && <><dt>Retirement reason</dt><dd>{n.retirement_reason}</dd></>}</DetailList>;
 }
@@ -17,7 +18,7 @@ const shortDate = (iso: string, year?: number) => {
   const sameYear = year !== undefined && d.getUTCFullYear() === year;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" });
 };
-const When = ({ iso, year }: { iso: string; year?: number }) => <time dateTime={iso}>{shortDate(iso, year)}</time>;
+const When = ({ iso, year }: { iso: string; year?: number }) => <time dateTime={iso} title={iso}>{shortDate(iso, year)}</time>;
 const str = (v: unknown) => typeof v === "string" && v.length > 0 ? v : undefined;
 const short = (v: unknown) => str(v)?.slice(0, 7);
 const httpUrl = (v: unknown) => { const raw = str(v); if (!raw) return undefined; try { const u = new URL(raw); return u.protocol === "https:" || u.protocol === "http:" ? u : undefined; } catch { return undefined; } };
@@ -81,17 +82,16 @@ export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnv
   const listParams = new URLSearchParams(params); listParams.delete("revision");
   const year = new Date(record.observed_at).getUTCFullYear();
   const recorded = [n.last_verified_by && `Recorded by ${n.last_verified_by}`, n.last_verified_at && <When key="at" iso={n.last_verified_at} year={year} />, (n.last_verified_by || n.last_verified_at) && `applies to revision ${n.content_revision}`].filter(Boolean);
-  return <Panel title={n.title} className={`${styles.detail} ${styles.knowledgeDocument}`}>
+  return <Panel title={n.title} actions={<DocumentActions record={record} pinned={pinned} />} className={`${styles.detail} ${styles.knowledgeDocument}`}>
     {notice}
     <Link className={styles.back} to={{ pathname: "/knowledge", search: `?${listParams}` }}>All records</Link>
     <div className={styles.documentIdentity}>
-      <span><BookOpen size={16} aria-hidden />{n.content_type ?? "Uncategorized"}</span>
+      <span><BookOpen size={16} aria-hidden />{categoryLabel(n.content_type)}</span>
       <span data-tone={n.retired ? "retired" : "active"}>{n.deleted ? "Deleted" : n.retired ? "Retired" : "Active"}</span>
       <span data-tone={n.verification ?? "unknown"}><ShieldCheck size={16} aria-hidden />{nodeLabel(n.verification)}</span>
       <span className={styles.meta}>{pinned ? "Pinned" : "Current"} revision {n.content_revision}</span>
     </div>
     <p className={styles.meta}>Project: {record.project.name} · Updated <When iso={n.updated_at} year={year} /></p>
-    <RecordActions record={record} pinned={pinned} />
     <DocumentTabs tab={tab} setTab={setTab} sources={n.provenance.length} />
     <div id={`doc-panel-${tab}`} role="tabpanel" aria-labelledby={`doc-tab-${tab}`} className={styles.documentPanel}>
     {tab === "content" && <>

@@ -39,7 +39,9 @@ function operation(id:string, disposition="confirmed", extra={}) {
 async function open(kind:string,label:string,labels?:string[]){
  const {node,...state}=setup(kind,undefined,labels);
  renderApp(`/${kind.startsWith("task.")?"work":"knowledge"}/${node.id}?scope=project:${graphProject}`);
- await userEvent.click(await screen.findByRole("button",{name:label}));
+ // Knowledge keeps a disabled "Add record" placeholder while project records load; wait for the offered action.
+ const control=await waitFor(()=>{const b=screen.getByRole("button",{name:label});expect(b).not.toHaveAttribute("aria-disabled","true");return b;});
+ await userEvent.click(control);
  const dialog=screen.getByRole("dialog",{name:label});
  if(["task.edit","knowledge.author","knowledge.correct"].includes(kind)){
   const title=within(dialog).getByLabelText("Title"); await userEvent.clear(title);await userEvent.type(title,"A revised title");
@@ -111,7 +113,10 @@ test("knowledge_correct_conflict_offers_reload",async()=>{
 
 test("server action refusal reason stays visible",async()=>{
  const {node}=setup("knowledge.correct","knowledge.correct");renderApp(`/knowledge/${node.id}?scope=project:${graphProject}`);
- const control=await screen.findByRole("button",{name:"Correct record"});expect(control).toBeDisabled();expect(screen.getByText("Administrator required for verified records")).toBeVisible();
+ // Knowledge lists refused actions in the document "Actions" menu with their reasons; offered ones stay as buttons.
+ expect(await screen.findByRole("button",{name:"Verify record"})).toBeEnabled();expect(screen.queryByRole("button",{name:"Correct record"})).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"Actions"}));
+ const menu=screen.getByRole("list",{name:"Record actions"});expect(within(menu).getByText("Correct record")).toBeVisible();expect(within(menu).getByText("Administrator required for verified records")).toBeVisible();
 });
 
 test("pending cancellation is an intent and polls without optimistic task lifecycle changes",async()=>{
