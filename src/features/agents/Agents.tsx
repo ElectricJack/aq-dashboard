@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { ChevronDown, FileText, MessageSquare, PanelRight, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, FileText, Maximize2, MessageSquare, Minimize2, PanelRight, Plus, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import {
   adaptSession,
@@ -25,6 +25,7 @@ import { SessionUsage } from "./SessionUsage";
 import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
+import { useMediaQuery } from "../../components/useMediaQuery";
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
@@ -137,7 +138,12 @@ function tabStatus(s: SessionView): string {
 
 type FocusState = { focusTab?: string } | null;
 
-function SessionSwitcher({ selected, search }: { selected: SessionView; search: string }) {
+type SwitcherProps = {
+  selected: SessionView; search: string; id: string; hidden: boolean;
+  /** Phone: no tab row; the header's ▾ shows the Sessions listbox directly and `onDismiss` hides it again. */
+  inline: boolean; onDismiss: (restoreFocus: boolean) => void;
+};
+function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: SwitcherProps) {
   const [scope] = useScope();
   const navigate = useNavigate();
   const location = useLocation();
@@ -181,26 +187,39 @@ function SessionSwitcher({ selected, search }: { selected: SessionView; search: 
   const listboxId = useId();
   function openMenu(trigger: HTMLButtonElement) {
     opener.current = trigger;
-    setActive(Math.max(0, sessions.findIndex(s => s.id === selected.id)));
+    setActive(selectedIndex);
     setMenuOpen(true);
   }
   function closeMenu(restoreFocus: boolean) {
+    if (inline) { onDismiss(restoreFocus); return; }
     setMenuOpen(false);
     if (restoreFocus) opener.current?.focus();
   }
-  useEffect(() => { if (menuOpen) listbox.current?.focus(); }, [menuOpen]);
+  const shown = inline ? !hidden : menuOpen;
+  const selectedIndex = Math.max(0, sessions.findIndex(s => s.id === selected.id));
   useEffect(() => {
-    if (!menuOpen) return;
-    const outside = (e: PointerEvent) => { if (!nav.current?.contains(e.target as Node)) setMenuOpen(false); };
+    if (!shown) return;
+    if (inline) setActive(selectedIndex);
+    listbox.current?.focus();
+  }, [shown, inline, selectedIndex]);
+  const dismiss = useRef(closeMenu);
+  dismiss.current = closeMenu;
+  useEffect(() => {
+    if (!shown) return;
+    // The header's ▾ (aria-controls this nav) toggles it itself.
+    const outside = (e: PointerEvent) => {
+      const target = e.target as Element;
+      if (!nav.current?.contains(target) && !target.closest?.(`[aria-controls="${id}"]`)) dismiss.current(false);
+    };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [menuOpen]);
+  }, [shown, id]);
   useEffect(() => {
-    if (menuOpen) document.getElementById(`${listboxId}-${active}`)?.scrollIntoView?.({ block: "nearest" });
-  }, [menuOpen, active, listboxId]);
+    if (shown) document.getElementById(`${listboxId}-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [shown, active, listboxId]);
   function choose(s: SessionView) {
     if (s.id === selected.id) { closeMenu(true); return; }
-    setMenuOpen(false);
+    closeMenu(false);
     go(s.id);
   }
   function onListKey(e: KeyboardEvent<HTMLUListElement>) {
@@ -213,9 +232,9 @@ function SessionSwitcher({ selected, search }: { selected: SessionView; search: 
   const toggle = (e: MouseEvent<HTMLButtonElement>) => menuOpen && opener.current === e.currentTarget ? closeMenu(false) : openMenu(e.currentTarget);
   const menuProps = { "aria-haspopup": "listbox" as const, "aria-expanded": menuOpen, "aria-controls": listboxId, onClick: toggle };
 
-  return <nav ref={nav} className={styles.switcher} aria-label="Session switcher"
-    onBlur={e => { if (menuOpen && !nav.current?.contains(e.relatedTarget as Node | null)) setMenuOpen(false); }}>
-    <ActionButton {...menuProps} className={styles.sessionsButton}>
+  return <nav ref={nav} id={id} hidden={hidden} data-inline={inline || undefined} className={styles.switcher} aria-label="Session switcher"
+    onBlur={e => { if (!inline && menuOpen && !nav.current?.contains(e.relatedTarget as Node | null)) setMenuOpen(false); }}>
+    {!inline && <><ActionButton {...menuProps} className={styles.sessionsButton}>
       <span className={styles.fullLabel}>Sessions {total && <span className={styles.sessionCount}><CountLabel total={total} /></span>}</span>
       <span className={styles.compactLabel}><span className="visually-hidden">Switch session, current </span>{compactSessionLabel(selected)}</span>
       <ChevronDown size={16} aria-hidden="true" />
@@ -236,11 +255,11 @@ function SessionSwitcher({ selected, search }: { selected: SessionView; search: 
         </div>;
       })}
       <ActionButton {...menuProps} className={styles.addTab} aria-label="Open another session"><Plus size={18} aria-hidden="true" /></ActionButton>
-    </div>
-    <div className={styles.sessionMenu} hidden={!menuOpen}>
+    </div></>}
+    <div className={styles.sessionMenu} hidden={!shown}>
       {sessions.length > 0
         ? <ul ref={listbox} id={listboxId} role="listbox" aria-label="Sessions" tabIndex={0} className={styles.sessionOptions}
-            aria-activedescendant={menuOpen ? `${listboxId}-${active}` : undefined} onKeyDown={onListKey}>
+            aria-activedescendant={shown ? `${listboxId}-${active}` : undefined} onKeyDown={onListKey}>
             {sessions.map((s, i) => <li key={s.id} id={`${listboxId}-${i}`} role="option" aria-selected={s.id === selected.id}
               data-active={i === active || undefined} className={styles.sessionOption} onClick={() => choose(s)} onPointerMove={() => setActive(i)}>
               <span className={styles.sessionDot} data-state={s.observation.state} aria-hidden="true" />
@@ -290,6 +309,19 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   const { bootstrap } = useSession();
   const terminal = bootstrap.capability("terminal.watch");
   const taskView = bootstrap.capability("tasks.read");
+  const phone = useMediaQuery("(max-width: 767px)");
+  // Desktop keeps the session tabs open; the phone header collapses them behind the name's ▾.
+  const [switcherChoice, setSwitcherChoice] = useState<boolean | null>(null);
+  const switcherOpen = switcherChoice ?? !phone;
+  const switcherToggle = useRef<HTMLButtonElement>(null);
+  const workspace = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const sync = () => setExpanded(document.fullscreenElement != null && document.fullscreenElement === workspace.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const canExpand = typeof document !== "undefined" && document.fullscreenEnabled === true;
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const [feed] = useState(createOutputFeed);
@@ -332,35 +364,49 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   }
   const { view: s, serverTime } = query.data;
   const headingId = `session-${s.id}-heading`;
+  const switcherId = `session-${s.id}-switcher`;
+  const taskLink = s.task && taskView.enabled
+    ? <Link className={styles.taskLink} aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
+    : <span className={styles.taskLink}>{s.task?.title ?? "No task"}</span>;
+
+  const switcher = <SessionSwitcher selected={s} search={search} id={switcherId} hidden={!switcherOpen} inline={phone}
+    onDismiss={restoreFocus => { setSwitcherChoice(false); if (restoreFocus) switcherToggle.current?.focus(); }} />;
 
   return (
-    <section className={styles.detail} aria-labelledby={headingId}>
-      <Toolbar className={styles.workspaceHeading}>
-        <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
-        <span className={styles.focusLabel}>Focused workspace</span>
-      </Toolbar>
-      <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
-        <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
-      </h2>
-      <p className={styles.meta}>
-        {s.task && taskView.enabled ? (
-          <Link aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
-        ) : (
-          s.task?.title ?? "No task"
-        )}{" "}
-        · {s.project.label}<span className={styles.observationSummary}> · {OBSERVATION_LABEL[s.observation.state]} · <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} /></span>
-      </p>
+    <section ref={workspace} className={styles.detail} aria-labelledby={headingId} data-viewport-fit="">
+      <div className={styles.focusHeader}>
+        <Link to={{ pathname: "/agents", search }} className={styles.crumb} aria-label="Back to Agents">
+          <ChevronLeft className={styles.backIcon} size={20} aria-hidden="true" />Agents
+        </Link>
+        <span className={styles.crumbSeparator} aria-hidden="true">/</span>
+        <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
+          <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
+        </h2>
+        <button ref={switcherToggle} type="button" className={styles.iconControl} aria-label="Sessions" aria-expanded={switcherOpen} aria-controls={switcherId} onClick={() => setSwitcherChoice(!switcherOpen)}>
+          <ChevronDown size={18} aria-hidden="true" />
+        </button>
+        {!phone && taskLink && <><span className={styles.crumbSeparator} aria-hidden="true">·</span>{taskLink}</>}
+        <button type="button" className={`${styles.iconControl} ${styles.expand}`} aria-label={expanded ? "Exit expanded workspace" : "Expand workspace"} aria-pressed={expanded} disabled={!canExpand}
+          onClick={() => { if (expanded) void document.exitFullscreen?.(); else void workspace.current?.requestFullscreen?.(); }}>
+          {expanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
+        </button>
+        {/* Phone: the listbox drops from the header row as an overlay. */}
+        {phone && switcher}
+      </div>
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
 
-      <SessionSwitcher selected={s} search={search} />
+      {!phone && switcher}
       <div className={styles.outputWorkspace}>
-        <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong></Toolbar>
+        <Toolbar className={styles.outputHeading}>
+          <strong title={`${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`}>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong>
+          {phone && taskLink}
+        </Toolbar>
       {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} feed={feed} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>}
 
-      <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
+      <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
       <Toolbar className={styles.sessionActions} role="group" aria-label="Session actions">
         {/* Durable Message needs a server capability; no composer is shown until one exists. */}
         <span className={styles.messageSlot}>

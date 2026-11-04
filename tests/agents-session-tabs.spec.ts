@@ -71,29 +71,40 @@ test.describe("desktop-1440", () => {
 test.describe("phone-390", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("tabs collapse into the session dropdown with no clipped labels", async ({ page }) => {
+  // Reference 11: the name's ▾ in the focus header (AG-A) is the session dropdown;
+  // there is no tab row and no second dropdown inside the switcher.
+  test("the name's dropdown opens the Sessions listbox with no clipped labels", async ({ page }) => {
     await page.goto("/agents/sess-07");
     const nav = switcher(page);
-    const dropdown = nav.getByRole("button", { name: "Switch session, current Worker 07" });
-    await expect(dropdown).toBeVisible();
-    await expect(tabLinks(page).first()).toBeHidden();
-    await expect(page.getByRole("listbox", { name: "Sessions" })).toBeHidden();
+    const dropdown = page.getByRole("button", { name: "Sessions", exact: true });
+    await expect(dropdown).toHaveAttribute("aria-expanded", "false");
+    await expect(nav).toBeHidden();
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-tabs-phone-390.png` });
+
+    await dropdown.click();
+    const listbox = page.getByRole("listbox", { name: "Sessions" });
+    await expect(listbox).toBeFocused();
+    await expect(listbox.getByRole("option")).toHaveCount(8);
+    await expect(listbox.getByRole("option", { name: /Worker 07/ })).toHaveAttribute("aria-selected", "true");
+    await expect(tabLinks(page)).toHaveCount(0);
     const clipped = await nav.evaluate((el) =>
       [...el.querySelectorAll<HTMLElement>("a, button, span:not(.visually-hidden)")].filter((n) => n.checkVisibility() && n.scrollWidth > n.clientWidth).map((n) => n.textContent));
     expect(clipped).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-tabs-phone-390.png` });
-    await axe(page);
-
-    await dropdown.click();
-    const listbox = page.getByRole("listbox", { name: "Sessions" });
-    await expect(listbox.getByRole("option")).toHaveCount(8);
-    const box = await page.locator("[role=listbox]").evaluate((el) => el.parentElement!.getBoundingClientRect().right);
-    expect(box).toBeLessThanOrEqual(390);
+    const box = (await nav.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-sessions-listbox-phone-390.png` });
     await axe(page);
+
+    await page.keyboard.press("Escape");
+    await expect(nav).toBeHidden();
+    await expect(dropdown).toBeFocused();
+
+    await dropdown.click();
     await listbox.getByRole("option", { name: /Worker 12/ }).click();
     await expect(page).toHaveURL(/\/agents\/sess-12$/);
-    await expect(nav.getByRole("button", { name: "Switch session, current Worker 12" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Worker 12" })).toBeAttached();
+    await expect(nav).toBeHidden();
+    await expect(dropdown).toHaveAttribute("aria-expanded", "false");
   });
 });
