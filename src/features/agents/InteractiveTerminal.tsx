@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
 import { connectInteractiveTerminal, type TerminalState } from '../../api/interactiveTerminalClient';
-import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
+import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_FAMILY, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
 import { ActionButton } from '../../components/layout/Workspace';
@@ -14,6 +14,29 @@ import { useMediaQuery } from '../../components/useMediaQuery';
 import { formatAge } from '../../components/time/relative';
 import type { OutputFeed } from './TerminalTail';
 import styles from './InteractiveTerminal.module.css';
+
+/** Spec §6: a split pane must fit at least this many columns at the readable font size. */
+export const MIN_PANE_COLUMNS = 80;
+/** Horizontal space a pane spends outside its character grid: `.frame` padding (2 × 12px)
+ * plus the xterm viewport scrollbar FitAddon reserves when scrollback is enabled. */
+const SCROLLBAR_PX = 14;
+const PANE_CHROME_PX = 24 + SCROLLBAR_PX;
+const cellWidths = new Map<number, number>();
+/** Cell width xterm measures for the terminal font (it measures 'W' on a canvas; letter spacing is 0). */
+export function terminalCellWidth(fontSize = TERMINAL_FONT_SIZE): number {
+  const cached = cellWidths.get(fontSize);
+  if (cached) return cached;
+  const context = document.createElement('canvas').getContext('2d');
+  if (!context) return fontSize * 0.6;
+  context.font = `${fontSize}px ${TERMINAL_FONT_FAMILY}`;
+  const width = context.measureText('W'.repeat(32)).width / 32;
+  if (width > 0) cellWidths.set(fontSize, width);
+  return width > 0 ? width : fontSize * 0.6;
+}
+/** Columns an InteractiveTerminal pane of `paneWidth` CSS pixels fits without shrinking the font. */
+export function columnsForPane(paneWidth: number): number {
+  return Math.max(0, Math.floor((paneWidth - PANE_CHROME_PX) / terminalCellWidth()));
+}
 
 /** Phone key bar keys, in the spec's order: Esc, Tab, Ctrl (separate), arrows, Enter. */
 const KEYS = [['Esc', 'Esc', '\x1b'], ['Tab', 'Tab', '\t'], ['←', 'Left arrow', '\x1b[D'], ['↑', 'Up arrow', '\x1b[A'], ['↓', 'Down arrow', '\x1b[B'], ['→', 'Right arrow', '\x1b[C'], ['Enter', 'Enter', '\r']] as const;
@@ -33,20 +56,23 @@ export interface TerminalPaneProps {
   messageReason?: string;
   /** Session facts appended to the one-row status footer. */
   facts?: ReactNode;
+  /** Names the region when several panes share a page (split view). */
+  label?: string;
 }
 export function InteractiveTerminal(props: TerminalPaneProps) {
   const { queryContext: c } = useSession();
   return <TerminalPane key={`${props.terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} {...props} />;
 }
-function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Messaging unavailable on this AQ server', facts }: TerminalPaneProps) {
+/** The pane reports `data-cols` (rendered) and `data-fit-cols` (what its width fits, before the 80-column floor). */
+function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Messaging unavailable on this AQ server', facts, label = 'Interactive agent terminal' }: TerminalPaneProps) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
   const allowControl = bootstrap.capability('terminal.control').enabled;
   const phone = useMediaQuery('(max-width: 767px)');
-  const ids = useId(), menuId = `${ids}-more`, messageNoteId = `${ids}-message-note`;
+  const ids = useId(), helpId = `${ids}-help`, menuId = `${ids}-more`, messageNoteId = `${ids}-message-note`;
   const actions = useRef<HTMLDivElement>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const host = useRef<HTMLDivElement>(null), frame = useRef<HTMLDivElement>(null), typeButton = useRef<HTMLButtonElement>(null);
+  const host = useRef<HTMLDivElement>(null), frame = useRef<HTMLDivElement>(null), pane = useRef<HTMLElement>(null), typeButton = useRef<HTMLButtonElement>(null);
   const terminal = useRef<Terminal | null>(null);
   const uncertain = useRef(false);
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
@@ -64,9 +90,11 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     if (!host.current || !watching) return;
     const term = new Terminal({ ...terminalOptions(fontSizeRef.current), cols: 80, rows: 24 }); terminal.current = term;
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
+    // Below 80 columns the frame scrolls instead of the font shrinking; size the floor in terminal cells, not page `ch`.
+    if (term.element) term.element.style.minInlineSize = `${Math.ceil(MIN_PANE_COLUMNS * terminalCellWidth(fontSizeRef.current)) + SCROLLBAR_PX}px`;
     const guarded = [...guardUntrustedOutput(term), ...guardObservedTerminalQueries(term)];
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
-    term.textarea?.setAttribute('aria-describedby', 'terminal-input-help');
+    term.textarea?.setAttribute('aria-describedby', helpId);
     term.attachCustomKeyEventHandler(event => {
       if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'm') { typeButton.current?.focus(); return false; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && term.hasSelection()) return false;
@@ -97,18 +125,23 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         if (!host.current || !frame.current) return;
         const viewport = window.visualViewport;
         // Phone: fit the frame above the pane's footer, key bar and action bar (all below it in the pane).
-        const box = frame.current.getBoundingClientRect(), pane = frame.current.closest('section')?.getBoundingClientRect();
-        const below = (pane ? pane.bottom - box.bottom : 170) + 8;
+        // Measure the rows after the frame, not the pane: a stretched (expanded) pane's spare space is not "below".
+        const box = frame.current.getBoundingClientRect();
+        let after = frame.current.nextElementSibling, bottom = box.bottom;
+        for (; after; after = after.nextElementSibling) bottom = Math.max(bottom, after.getBoundingClientRect().bottom);
+        const below = (pane.current ? bottom - box.bottom : 170) + 8;
         frame.current.style.maxHeight = viewport && viewport.width < 768 ? `${Math.max(180, viewport.height + viewport.offsetTop - box.top - below)}px` : '';
         const dimensions = fit.proposeDimensions();
         if (dimensions) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
+        if (pane.current) { pane.current.dataset.cols = String(term.cols); pane.current.dataset.fitCols = dimensions ? String(dimensions.cols) : ''; }
         // A text-size change re-sends the controller's size even when the grid is unchanged.
         if (force) { force = false; transport.resize(term.cols, term.rows); }
         measurePan();
       });
     };
     relayout.current = layout;
-    const observer = new ResizeObserver(() => layout()); observer.observe(host.current); layout();
+    // The pane too: Expand moves and grows it without resizing the capped host.
+    const observer = new ResizeObserver(() => layout()); observer.observe(host.current); if (pane.current) observer.observe(pane.current); layout();
     const screen = host.current.querySelector('.xterm-screen'); if (screen) observer.observe(screen);
     void document.fonts?.ready.then(() => layout());
     const touch = attachTouchScroll(host.current, { lineHeight: () => fontSizeRef.current * TERMINAL_LINE_HEIGHT, scroll: lines => term.scrollLines(lines), onTap: () => { if (canFocusTerminal()) term.focus(); } });
@@ -120,7 +153,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
-  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl]);
+  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
   useEffect(() => {
     if (state.controlling && terminal.current) connection.current?.resize(terminal.current.cols, terminal.current.rows);
     if (!state.controlling) setCtrl(false);
@@ -128,7 +161,11 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   useEffect(() => {
     if (fontSizeRef.current === fontSize) return;
     fontSizeRef.current = fontSize;
-    if (terminal.current) { terminal.current.options.fontSize = fontSize; relayout.current(true); }
+    if (terminal.current) {
+      terminal.current.options.fontSize = fontSize;
+      if (terminal.current.element) terminal.current.element.style.minInlineSize = `${Math.ceil(MIN_PANE_COLUMNS * terminalCellWidth(fontSize)) + SCROLLBAR_PX}px`;
+      relayout.current(true);
+    }
   }, [fontSize]);
   // Phone watch mode (reference 11) has no key bar: every key is inert until control, and Disconnect is under More.
   const keyBar = !phone || state.controlling;
@@ -167,7 +204,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-haspopup]') ?? undefined;
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
-  return <section className={styles.pane} aria-label="Interactive agent terminal" data-interactive-terminal>
+  return <section ref={pane} className={styles.pane} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
     <div className={styles.toolbar}>
       <div className={styles.controls} data-lease={leaseText ? true : undefined}>
         <span className={styles.state}>
@@ -210,7 +247,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         {KEYS.slice(2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
         <button type="button" onClick={disconnect}>Disconnect</button>
       </div>}
-      <p id="terminal-input-help" className={styles.help}>Take control to type. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
+      <p id={helpId} className={styles.help}>Take control to type. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
     </>
     {phone && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}

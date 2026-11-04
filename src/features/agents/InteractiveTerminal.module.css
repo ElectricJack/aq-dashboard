@@ -19,7 +19,7 @@
 .toolbar, .view, .footer, .keys, .help, .dock { flex: none; }
 .frame { flex: 1 1 0; block-size: auto; min-block-size: 180px; padding: var(--space-3); overflow: auto; }
 .host { block-size: 100%; min-inline-size: 0; }
-.host :global(.xterm) { min-inline-size: 80ch; block-size: 100%; }
+.host :global(.xterm) { block-size: 100%; }
 .host :global(.xterm-viewport) { background: #0d1117 !important; }
 
 .footer { flex-wrap: wrap; gap: var(--space-1) var(--space-5); padding: var(--space-2) var(--space-3); font-size: var(--font-size-meta); color: var(--color-text-secondary); border-block-start: 1px solid var(--color-border); }

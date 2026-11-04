@@ -45,8 +45,8 @@ test("phone 390x844: Back, name and expand in one row; terminal holds at least h
   const sessions = page.getByRole("button", { name: "Sessions" });
   await expect(sessions).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("navigation", { name: "Session switcher" })).toBeHidden();
-  // The provider heading stays on one line.
-  const provider = page.locator("[data-interactive-terminal]").locator("xpath=preceding-sibling::*[1]").locator("strong");
+  // The provider heading (above the pane grid, AG-F) stays on one line.
+  const provider = page.locator("[data-interactive-terminal]").locator("xpath=../../preceding-sibling::*[1]").locator("strong");
   expect((await provider.boundingBox())!.height).toBeLessThan(24);
   const screen = (await page.locator(".xterm-screen").boundingBox())!;
   expect(screen.height).toBeGreaterThanOrEqual(0.5 * 844);
