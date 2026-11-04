@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { SupervisorWorkspace } from "../features/supervisor/SupervisorWorkspace";
 import { SearchDialog } from "../features/search/SearchDialog";
-import { NavLink, Outlet, useLocation } from "react-router";
-import { ChevronDown, Ellipsis, Search } from "lucide-react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { ChevronDown, Ellipsis, LayoutGrid, Search } from "lucide-react";
+import { adaptOverview, type OverviewView } from "../api/adapters/inspection";
+import type { Overview as OverviewWire } from "../api/wire/overview";
+import type { Scope } from "../api/wire/proposed";
+import { useMediaQuery } from "../components/useMediaQuery";
 import { DESTINATION_ICON, Icon } from "../components/icons";
 import { ProviderUsageStrip, ProviderUsageSummary } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
@@ -14,17 +18,83 @@ import { BundleNotice } from "./BundleNotice";
 import styles from "./Shell.module.css";
 import { useProjects } from "./useProjects";
 import { useProviderUsage } from "./useProviderUsage";
+import { useRead } from "./useRead";
 
-function DestinationLink({ dest, search }: { dest: Destination; search: string }) {
+/** Matches the phone breakpoint in Shell.module.css. */
+const PHONE_QUERY = "(max-width: 767px)";
+const BADGE_POLL_MS = 30_000;
+
+/**
+ * Pending count for the Decisions destination, from the scoped overview's
+ * needs-you total (shared query with the Overview page). Null when unknown or
+ * zero so the shell never shows an invented or empty badge.
+ */
+type Badge = { text: string; label: string };
+function usePendingBadge(scope: Scope, enabled: boolean): Badge | null {
+  const read = useRead<OverviewWire, OverviewView>({
+    enabled,
+    resource: "overview",
+    path: "/api/v1/overview",
+    scope,
+    adapt: adaptOverview,
+    pollMs: BADGE_POLL_MS,
+  });
+  if (!enabled || !read.data || read.isError) return null;
+  const total = read.data.view.counts.needs_you;
+  if (total.value === null || total.value <= 0) return null;
+  const approximate = total.accuracy !== "exact" || read.data.coverage.state !== "complete";
+  const shown = total.value > 99 ? "99+" : String(total.value);
+  return {
+    text: approximate ? `~${shown}` : shown,
+    label: `${approximate ? "about " : ""}${total.value} pending`,
+  };
+}
+
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const first = (w: string | undefined) => (w ? Array.from(w)[0]!.toUpperCase() : "");
+  return words.length > 1 ? first(words[0]) + first(words.at(-1)) : first(words[0]);
+}
+
+function Avatar({ name }: { name: string }) {
   return (
-    <NavLink to={{ pathname: `/${dest.id}`, search }} className={styles.navLink}>
+    <span className={styles.avatar} aria-hidden="true">
+      {initials(name)}
+    </span>
+  );
+}
+
+function subscribeOnline(notify: () => void) {
+  window.addEventListener("online", notify);
+  window.addEventListener("offline", notify);
+  return () => {
+    window.removeEventListener("online", notify);
+    window.removeEventListener("offline", notify);
+  };
+}
+const browserOnline = () => typeof navigator === "undefined" || navigator.onLine !== false;
+
+function DestinationLink({ dest, search, badge }: { dest: Destination; search: string; badge?: Badge | null }) {
+  return (
+    <NavLink
+      to={{ pathname: `/${dest.id}`, search }}
+      className={styles.navLink}
+      aria-label={badge ? `${dest.label}, ${badge.label}` : undefined}
+    >
       <Icon icon={DESTINATION_ICON[dest.id]} />
       <span>{dest.label}</span>
+      {/* A real space keeps the visible text "Decisions 3" inside the accessible name (WCAG 2.5.3). */}
+      {badge && " "}
+      {badge && (
+        <span className={styles.badge} aria-hidden="true">
+          {badge.text}
+        </span>
+      )}
     </NavLink>
   );
 }
 
-function PhoneNav({ search }: { search: string }) {
+function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
   const moreButton = useRef<HTMLButtonElement>(null);
@@ -68,7 +138,7 @@ function PhoneNav({ search }: { search: string }) {
         <ul id={listId} className={styles.moreList} aria-label="More destinations">
           {more.map((d) => (
             <li key={d.id}>
-              <DestinationLink dest={d} search={search} />
+              <DestinationLink dest={d} search={search} badge={d.id === "decisions" ? badge : null} />
             </li>
           ))}
         </ul>
@@ -77,11 +147,22 @@ function PhoneNav({ search }: { search: string }) {
   );
 }
 
+/** Bootstrap keeps polling while AQ is unreachable, so that state is a reconnect attempt. */
 const CONNECTION_TEXT = {
   connected: "Connected",
-  unreachable: "Disconnected",
+  reconnecting: "Reconnecting",
+  offline: "Offline",
   signed_out: "Sign-in expired",
 } as const;
+type ConnectionState = keyof typeof CONNECTION_TEXT;
+
+function ConnectionStatus({ state, className }: { state: ConnectionState; className?: string }) {
+  return (
+    <span className={className} data-state={state} role="status">
+      {CONNECTION_TEXT[state]}
+    </span>
+  );
+}
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
@@ -114,8 +195,14 @@ export function Shell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [canSearch]);
   const compactUsage = usage.state.status !== "ready" && !(usage.state.status === "configured" && usage.state.data.accounts.length > 0);
-  const status = connection === "connected" && usage.unreachable ? "unreachable" : connection;
+  const online = useSyncExternalStore(subscribeOnline, browserOnline, () => true);
+  const reachable = connection === "connected" && !usage.unreachable;
+  const status: ConnectionState = connection === "signed_out" ? "signed_out" : !online ? "offline" : reachable ? "connected" : "reconnecting";
+  const phone = useMediaQuery(PHONE_QUERY);
+  const badge = usePendingBadge(scope, bootstrap.capability("dashboard.overview").enabled);
+  const name = bootstrap.principal.displayName;
   const search = scopeSearch(scope);
+  const scopePicker = <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} />;
   const isMock = import.meta.env.MODE === "mock";
 
   return (
@@ -131,10 +218,17 @@ export function Shell() {
           Agent Q
         </p>
         <nav aria-label="Primary" className={styles.railNav}>
+          {!phone && (
+            <div className={styles.railScope}>
+              <Icon icon={LayoutGrid} size={18} className={styles.railScopeIcon} />
+              {scopePicker}
+              <Icon icon={ChevronDown} size={16} className={styles.railScopeChevron} />
+            </div>
+          )}
           <ul>
             {DESTINATIONS.filter((d) => d.id !== "settings").map((d) => (
               <li key={d.id}>
-                <DestinationLink dest={d} search={search} />
+                <DestinationLink dest={d} search={search} badge={d.id === "decisions" ? badge : null} />
               </li>
             ))}
           </ul>
@@ -144,8 +238,12 @@ export function Shell() {
             </li>
           </ul>
         </nav>
-        <div className={styles.identity}>
-          <span>{bootstrap.principal.displayName}</span>
+        <div className={styles.railStatus}>
+          {!phone && <ConnectionStatus state={status} className={styles.connection} />}
+          <div className={styles.identity}>
+            <Avatar name={name} />
+            <span>{name}</span>
+          </div>
         </div>
       </aside>
       <header className={styles.top}>
@@ -159,7 +257,7 @@ export function Shell() {
             <span className={styles.mark}>aq</span>
             Agent Q
           </p>
-          <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} />
+          {phone && scopePicker}
         </div>
         <button
           ref={searchButton}
@@ -185,9 +283,14 @@ export function Shell() {
             <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>
           </div>
         </details>
-        <span className={styles.connection} data-state={status} role="status">
-          {CONNECTION_TEXT[status]}
-        </span>
+        {phone && <ConnectionStatus state={status} className={styles.connection} />}
+        <Link
+          to={{ pathname: "/settings", search }}
+          className={styles.avatarLink}
+        >
+          <Avatar name={name} />
+          <span className={styles.srOnly}>Settings, signed in as {name}</span>
+        </Link>
       </header>
       <main id="content" className={styles.main}>
         <BundleNotice />
@@ -195,7 +298,7 @@ export function Shell() {
           <SupervisorWorkspace><Outlet /></SupervisorWorkspace>
         </TitleFocusContext>
       </main>
-      <PhoneNav search={search} />
+      <PhoneNav search={search} badge={badge} />
       {searchOpen && canSearch && <SearchDialog onClose={closeSearch} />}
     </div>
   );
