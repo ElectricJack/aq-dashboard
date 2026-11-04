@@ -9,9 +9,31 @@
 .runtime { margin: 0; color: var(--color-attention); font-size: var(--font-size-meta); }
 .history { flex: 1; min-block-size: 180px; overflow-y: auto; overflow-wrap: anywhere; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); scrollbar-gutter: stable; }
 .empty { color: var(--color-text-secondary); text-align: center; margin-block: var(--space-5); }
-.messages { display: flex; flex-direction: column; gap: var(--space-5); list-style: none; padding: 0; margin: var(--space-3) auto; max-inline-size: 1000px; }
+/* Messages and composer share the workspace's one column width; bubbles keep a reading measure. */
+.messages { display: flex; flex-direction: column; gap: var(--space-5); list-style: none; padding: 0; margin: var(--space-3) 0; }
 .message { align-self: start; max-inline-size: min(88%, 76ch); min-inline-size: 0; }
 .message[data-own=true] { align-self: end; }
+.message:focus-visible, .pending:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; border-radius: var(--radius-panel); }
+.message[data-author=supervisor] { display: flex; align-items: start; gap: var(--space-3); }
+.messageContent { min-inline-size: 0; }
+.message[data-author=supervisor] .metadata { margin-block: 0 var(--space-2); }
+/* The shared "aq" mark, sized for the message column. */
+.avatar { flex: none; display: inline-grid; place-items: center; inline-size: 32px; block-size: 32px; margin-block-start: var(--space-4); border-radius: var(--radius-control); background: var(--color-accent); color: var(--color-accent-contrast); font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
+.titleBlock { display: flex; align-items: start; gap: var(--space-3); min-inline-size: 0; }
+.titleBlock > div { min-inline-size: 0; }
+.titleIcon { flex: none; margin-block-start: var(--space-1); color: var(--color-text-secondary); }
+.historyMenu { position: relative; }
+.historyMenu:not(:last-child) { padding-inline-end: var(--space-2); border-inline-end: 1px solid var(--color-border); }
+.historyButton { min-block-size: var(--touch-target); min-inline-size: var(--touch-target); padding: var(--space-2) var(--space-3); background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-text); font: inherit; cursor: pointer; }
+.historyButton svg { vertical-align: -5px; margin-inline-end: var(--space-2); }
+.historyButton:hover, .historyActions button:hover:enabled { background: var(--color-raised); }
+.historyButton:focus-visible, .historyActions button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.historyActions { position: absolute; inset-block-start: calc(100% + var(--space-1)); inset-inline-end: 0; z-index: 5; display: grid; min-inline-size: 220px; padding: var(--space-1); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); box-shadow: 0 8px 24px rgb(0 0 0 / .35); }
+.historyActions[hidden] { display: none; }
+.historyActions button { min-block-size: var(--touch-target); padding: var(--space-2) var(--space-3); text-align: start; background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-text); font: inherit; cursor: pointer; }
+.historyActions button:disabled { cursor: default; color: var(--color-text-secondary); }
+/* In-flow marker: sticks to the history scroller's bottom edge while the reader is above. */
+.history .newMarker { position: sticky; inset-block-end: var(--space-2); z-index: 1; display: flex; inline-size: fit-content; margin: var(--space-3) auto 0; border-radius: 999px; background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent); box-shadow: 0 4px 16px rgb(0 0 0 / .35); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); padding: var(--space-3) var(--space-4); margin: 0; line-height: 1.55; }
 .message[data-own=true] .body { background: var(--color-accent); color: #111426; border-color: var(--color-accent); }
 .metadata { margin-block: var(--space-2) 0; font-size: 12px; color: var(--color-text-secondary); }
@@ -24,12 +46,18 @@
 .composerActions, .recovery { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
 .composerActions > span { margin-inline-end: auto; font-size: 12px; color: var(--color-text-secondary); }
 .composerActions button { background: var(--color-accent); color: #111426; }
+.composerActions .send { min-inline-size: 56px; padding-inline: var(--space-3); }
+.footer { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding-inline: var(--space-2); font-size: 12px; color: var(--color-text-secondary); }
 .recovery small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--color-text-secondary); }
 @media (max-width: 767px) {
  .fullControl { display: none; }
  .compactControl { display: inline; }
  .header { flex-wrap: nowrap; }
  .header > div { min-inline-size: 0; }
+ .historyMenu:not(:last-child) { padding-inline-end: 0; border-inline-end: 0; }
+ .historyButton { padding-inline: var(--space-2); font-size: 22px; line-height: 1; }
+ .titleIcon { inline-size: 24px; block-size: 24px; }
+ .footer { display: none; }
  .header h1 { font-size: 22px; }
  .header p { margin-block-start: var(--space-1); font-size: 12px; }
  .history { padding: var(--space-2); min-block-size: 100px; }
@@ -61,7 +89,7 @@
 .presentationButton { padding: var(--space-2) var(--space-3); min-block-size: var(--touch-target); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); cursor: pointer; }
 .header h2 { margin: 0; font-size: 20px; }
 .history { border: 0; border-radius: 0; padding-inline: 0; }
-.messages { max-inline-size: 1000px; gap: var(--space-5); }
+.messages { gap: var(--space-5); }
 .metadata { font-size: 12px; }
 .pending { max-inline-size: min(88%, 76ch); margin-inline-start: auto; }
 .pending .body { background: var(--color-accent); color: var(--color-accent-contrast); }
@@ -81,6 +109,7 @@
 .delivery:is(:hover, :focus-visible) .deliveryDetail { inset-block-start: 100%; inset-inline-end: 0; z-index: 1; inline-size: max-content; max-inline-size: 30ch; block-size: auto; clip-path: none; white-space: normal; margin-block-start: var(--space-1); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-raised); color: var(--color-text); text-align: start; }
 .delivery:is(:hover, :focus-visible) .separator { display: none; }
 .workspace[data-presentation=dock] .composer { padding: var(--space-3); }
+.workspace[data-presentation=dock] .send .compactControl { display: none; }
 @media (max-width: 1199px) { .launcherBar { display: none; } }
 @media (max-width: 767px) {
   .header { align-items: center; }
