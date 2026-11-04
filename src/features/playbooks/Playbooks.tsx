@@ -56,7 +56,7 @@ export function Playbooks() {
           {rows.length === 0 && <p>No runs recorded in this configured namespace.</p>}
           {rows.length > 0 && shown.length === 0 && <p>No loaded runs match this state.</p>}
           <ul className={styles.runs} aria-label="Playbook runs">{shown.map(r => <li key={r.id}>
-            <Link className={styles.runLink} data-selected={r.id === runId} to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.id)}`, search }} aria-label={`Inspect ${r.id}`}>
+            <Link className={styles.runLink} data-selected={r.id === runId} to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.id)}`, search }}>
               <strong>{r.entry}</strong><span className={styles.badge} data-state={r.status}>{statusLabel(r.status)}</span><small>{r.id}</small><small>Admitted {timestamp(r.admittedAt)}</small>
             </Link></li>)}</ul>
           {runs.hasNextPage && <ActionButton disabled={runs.isFetchingNextPage} onClick={() => void runs.fetchNextPage()}>Load more runs</ActionButton>}
@@ -88,7 +88,7 @@ function RunInspector({ id, project }: { id: string; project: string | null }) {
       <details className={styles.details}><summary>Pinned dependencies ({Object.keys(r.dependencies).length})</summary><DetailList>{Object.entries(r.dependencies).map(([name, pin]) => <div className={styles.dependency} key={name}><dt>{name}</dt><dd className={styles.pin}>{pin}</dd></div>)}</DetailList></details>
     </Panel>
     <Panel title="Recorded execution" description="Transition receipts describe execution history; the current step is shown separately.">
-      <ol className={styles.timeline} aria-label="Execution timeline">{receipts.items.map(receipt => <li key={receipt.sequence}><span className={styles.dot} /><div><strong>{receipt.kind.replaceAll("_", " ")}</strong><span>{receipt.step}{receipt.outcome ? ` · ${receipt.outcome}` : ""}</span><small>{timestamp(receipt.at)} · receipt {receipt.sequence}</small></div></li>)}</ol>
+      <ol className={styles.timeline} aria-label="Execution timeline" tabIndex={0}>{receipts.items.map(receipt => <li key={receipt.sequence}><span className={styles.dot} /><div><strong>{receipt.kind.replaceAll("_", " ")}</strong><span>{receipt.step}{receipt.outcome ? ` · ${receipt.outcome}` : ""}</span><small>{timestamp(receipt.at)} · receipt {receipt.sequence}</small></div></li>)}</ol>
       {receipts.items.length === 0 && <p>No transition receipts available in this page.</p>}
       <Toolbar>{after && <ActionButton onClick={() => setAfter(null)}>First receipts</ActionButton>}{receipts.next && <ActionButton onClick={() => setAfter(receipts.next)}>Next receipts</ActionButton>}</Toolbar>
     </Panel>
