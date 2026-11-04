@@ -15,6 +15,7 @@ export const SCENARIOS = [
   "large",
   "actions-unavailable",
   "projects-unlisted",
+  "results-media",
 ] as const;
 export type ScenarioName = (typeof SCENARIOS)[number];
 
@@ -29,7 +30,27 @@ export type Scenario = {
   reads: "ok" | "partial" | "empty" | "failed";
   /** Human-graph fixture size: the 10-task reference project, or 130 tasks for omitted counts. */
   graph: "standard" | "large";
+  /** Whether the labelled terminal/results fixtures offer `results.media.read`. */
+  media: boolean;
 };
+
+/** Capabilities the labelled terminal and results fixtures (src/mocks/terminal.ts, results.ts) serve. */
+export const FIXTURE_CAPABILITIES = ["terminal.watch", "terminal.control", "results.read", "results.comment", "results.feedback"] as const;
+
+/** Adds the fixture capabilities; media stays off unless the scenario turns it on. */
+export function withFixtureCapabilities(bootstrap: Bootstrap, media: boolean): Bootstrap {
+  const names: readonly string[] = [...FIXTURE_CAPABILITIES, "results.media.read"];
+  return {
+    ...bootstrap,
+    capabilities: [
+      ...bootstrap.capabilities.filter((c) => !names.includes(c.name)),
+      ...FIXTURE_CAPABILITIES.map((name) => ({ name, version: "1", enabled: true })),
+      media
+        ? { name: "results.media.read", version: "1", enabled: true }
+        : { name: "results.media.read", version: "1", enabled: false, reason: "Fixture scenario: result images are not offered" },
+    ],
+  };
+}
 
 /** Mock-only write/project capabilities so fixture pages render their designed controls. */
 export const ACTION_CAPABILITIES = [
@@ -89,6 +110,7 @@ const defaults: Scenario = {
   providerUsage: { kind: "ok", body: baseUsage },
   reads: "ok",
   graph: "standard",
+  media: false,
 };
 
 const built: Record<ScenarioName, Scenario> = {
@@ -97,6 +119,7 @@ const built: Record<ScenarioName, Scenario> = {
   empty: { ...defaults, reads: "empty" },
   "reads-failed": { ...defaults, reads: "failed" },
   large: { ...defaults, graph: "large" },
+  "results-media": { ...defaults, media: true },
   "actions-unavailable": { ...defaults, bootstrap: withActions(false) },
   "projects-unlisted": { ...defaults, bootstrap: projectsUnlisted },
   stale: {
