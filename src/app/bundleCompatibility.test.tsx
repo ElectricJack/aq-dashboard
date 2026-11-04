@@ -108,10 +108,10 @@ test("426 blocks message enqueue, preserves its draft, and leaves the shell and 
   let posts = 0;
   server.use(http.post("/api/v1/actions", () => { posts++; return new HttpResponse(null, { status: 426 }); }));
   const app = renderApp("/supervisor"); fireEvent.change(await composer(), { target: { value: "Keep this rejected message" } });
-  await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
-  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
   await waitFor(() => expect(posts).toBe(1));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled());
+  await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeDisabled());
   expect(await composer()).toHaveValue("Keep this rejected message");
   expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
   expect(screen.getByRole("note", { name: "Dashboard version" })).toHaveTextContent("Install compatible versions, then reload.");
