@@ -12,7 +12,7 @@ import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace"
 import { HumanTaskGraph } from "../work/graph/HumanTaskGraph";
 import { KnowledgeDocument } from "./KnowledgeDocument";
 import { AddRecordAction } from "./KnowledgeActions";
-import { HumanTaskInspector } from "../work/HumanTaskInspector";
+import { HumanTaskInspector, TaskInspectorUnavailable } from "../work/HumanTaskInspector";
 import { Icon, knowledgeCategoryIcon } from "../../components/icons";
 import styles from "./HumanNodeWorkspace.module.css";
 
@@ -72,9 +72,10 @@ function KnowledgeHeader({detail}:{detail:boolean}) {
   </header>;
 }
 export function HumanNodeWorkspace({kind}:{kind:GraphNode["kind"]}) {
-  const [scope]=useScope();const route=useParams();const id=kind === "task" ? route.taskId : route.nodeId;
+  const [scope]=useScope();const route=useParams();const [params]=useSearchParams();const id=kind === "task" ? route.taskId : route.nodeId;
+  const missing=<p role="status">This item does not exist or is not available to you.</p>;
   const body=scope.kind !== "project" ? <ProjectChoice kind={kind} id={id}/> :
-    !validGraphId(scope.project_id) || (id && !validGraphId(id)) ? <p role="status">This item does not exist or is not available to you.</p> :
+    !validGraphId(scope.project_id) || (id && !validGraphId(id)) ? (kind==="task"&&validGraphId(scope.project_id)?<TaskInspectorUnavailable search={withoutRevision(`?${params}`)} status={missing}/>:missing) :
     <ProjectWorkspace key={`${scope.project_id}:${kind}`} project={scope.project_id} kind={kind} id={id}/>;
   return kind==="knowledge" ? <><KnowledgeHeader detail={!!id}/>{body}</> : body;
 }
@@ -96,7 +97,7 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
     // Selection focuses its heading; Back restores the previously selected row/node.
     const restore=(!id || graph)?before.id:undefined;
     const focus=()=>{
-      const target=id&&!graph?element.querySelector<HTMLElement>(`.${styles.detail} h2`):restore?[...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a=>new URL(a.href).pathname===pathFor(kind,restore)):undefined;
+      const target=id&&!graph?element.querySelector<HTMLElement>(`.${styles.detail}:not([aria-busy=true]) h2`):restore?[...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a=>new URL(a.href).pathname===pathFor(kind,restore)):undefined;
       if(!target)return false;
       if(target.tagName==="H2")target.tabIndex=-1;
       target.focus(arrival?{focusVisible:false} as FocusOptions:undefined);return true;
@@ -161,7 +162,7 @@ function NodeDetail({project,kind,id,search}:{project:string;kind:GraphNode["kin
   const [params]=useSearchParams();const raw=params.get("revision");const pinned=kind==="knowledge" && raw && /^[1-9][0-9]{0,19}$/.test(raw)?raw:undefined;
   const query=useGraphDetail(project,kind,id,pinned);
   if(raw && kind==="knowledge" && !pinned)return <p role="status">This revision is not available.</p>;
-  if(!query.data)return <Panel title="Record"><QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/></Panel>;
+  if(!query.data){const status=<QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/>;return kind==="task"?<TaskInspectorUnavailable className={styles.detail} search={withoutRevision(search)} status={status} busy={!query.isError}/>:<Panel title="Record">{status}</Panel>;}
   const notice=query.isError?<p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={()=>void query.refetch()}>Refresh record</ActionButton></p>:undefined;
-  return kind === "task" ? <HumanTaskInspector record={query.data} search={withoutRevision(search)} notice={notice}/> : <KnowledgeDocument record={query.data} pinned={pinned} notice={notice}/>;
+  return kind === "task" ? <HumanTaskInspector className={styles.detail} record={query.data} search={withoutRevision(search)} notice={notice}/> : <KnowledgeDocument record={query.data} pinned={pinned} notice={notice}/>;
 }
