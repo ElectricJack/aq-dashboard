@@ -10,7 +10,7 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
 import { HumanTaskGraph } from "../work/graph/HumanTaskGraph";
 import { KnowledgeDocument } from "./KnowledgeDocument";
-import { HumanTaskInspector } from "../work/HumanTaskInspector";
+import { HumanTaskInspector, TaskInspectorUnavailable } from "../work/HumanTaskInspector";
 import styles from "./HumanNodeWorkspace.module.css";
 
 function withoutRevision(search:string) { const params=new URLSearchParams(search);params.delete("revision");const value=params.toString();return value?`?${value}`:""; }
@@ -26,9 +26,9 @@ function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
   </Panel>;
 }
 export function HumanNodeWorkspace({kind}:{kind:GraphNode["kind"]}) {
-  const [scope]=useScope();const route=useParams();const id=kind === "task" ? route.taskId : route.nodeId;
+  const [scope]=useScope();const route=useParams();const [params]=useSearchParams();const id=kind === "task" ? route.taskId : route.nodeId;
   if(scope.kind !== "project")return <ProjectChoice kind={kind} id={id}/>;
-  if(!validGraphId(scope.project_id) || (id && !validGraphId(id)))return <p role="status">This item does not exist or is not available to you.</p>;
+  if(!validGraphId(scope.project_id) || (id && !validGraphId(id))){const missing=<p role="status">This item does not exist or is not available to you.</p>;return kind==="task"&&validGraphId(scope.project_id)?<TaskInspectorUnavailable search={withoutRevision(`?${params}`)} status={missing}/>:missing;}
   return <ProjectWorkspace key={`${scope.project_id}:${kind}`} project={scope.project_id} kind={kind} id={id}/>;
 }
 function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind"];id?:string}) {
@@ -101,7 +101,7 @@ function NodeDetail({project,kind,id,search}:{project:string;kind:GraphNode["kin
   const [params]=useSearchParams();const raw=params.get("revision");const pinned=kind==="knowledge" && raw && /^[1-9][0-9]{0,19}$/.test(raw)?raw:undefined;
   const query=useGraphDetail(project,kind,id,pinned);
   if(raw && kind==="knowledge" && !pinned)return <p role="status">This revision is not available.</p>;
-  if(!query.data)return <Panel title="Record"><QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/></Panel>;
+  if(!query.data){const status=<QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/>;return kind==="task"?<TaskInspectorUnavailable className={styles.detail} search={withoutRevision(search)} status={status}/>:<Panel title="Record">{status}</Panel>;}
   const notice=query.isError?<p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={()=>void query.refetch()}>Refresh record</ActionButton></p>:undefined;
-  return kind === "task" ? <HumanTaskInspector record={query.data} search={withoutRevision(search)} notice={notice}/> : <KnowledgeDocument record={query.data} pinned={pinned} notice={notice}/>;
+  return kind === "task" ? <HumanTaskInspector className={styles.detail} record={query.data} search={withoutRevision(search)} notice={notice}/> : <KnowledgeDocument record={query.data} pinned={pinned} notice={notice}/>;
 }

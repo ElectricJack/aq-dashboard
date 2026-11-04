@@ -36,10 +36,15 @@ function operation(id:string, disposition="confirmed", extra={}) {
    subject_refs:[], receipt_refs:disposition==="confirmed"?[{type:"graph_change_set",id:graphId(99)}]:[],
    affected_entities:disposition==="confirmed"?[{type:"knowledge",id:graphId(10),revision:"5"}]:[],...extra}};
 }
+// Work's compact inspector shows one primary action; the rest live in the "More actions" menu.
+async function launch(label:string,task:boolean){
+ if(task){await screen.findByRole("button",{name:"More actions"});const direct=screen.queryByRole("button",{name:label});if(direct)return userEvent.click(direct);await userEvent.click(screen.getByRole("button",{name:"More actions"}));return userEvent.click(within(screen.getByRole("menu")).getByRole("menuitem",{name:label}));}
+ await userEvent.click(await screen.findByRole("button",{name:label}));
+}
 async function open(kind:string,label:string,labels?:string[]){
  const {node,...state}=setup(kind,undefined,labels);
  renderApp(`/${kind.startsWith("task.")?"work":"knowledge"}/${node.id}?scope=project:${graphProject}`);
- await userEvent.click(await screen.findByRole("button",{name:label}));
+ await launch(label,kind.startsWith("task."));
  const dialog=screen.getByRole("dialog",{name:label});
  if(["task.edit","knowledge.author","knowledge.correct"].includes(kind)){
   const title=within(dialog).getByLabelText("Title"); await userEvent.clear(title);await userEvent.type(title,"A revised title");
@@ -112,6 +117,15 @@ test("knowledge_correct_conflict_offers_reload",async()=>{
 test("server action refusal reason stays visible",async()=>{
  const {node}=setup("knowledge.correct","knowledge.correct");renderApp(`/knowledge/${node.id}?scope=project:${graphProject}`);
  const control=await screen.findByRole("button",{name:"Correct record"});expect(control).toBeDisabled();expect(screen.getByText("Administrator required for verified records")).toBeVisible();
+});
+
+test("work inspector shows one shared reason when task actions are not offered",async()=>{
+ const {node}=setup("task.edit");const missing=Object.values(taskCapabilities);
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.read","dashboard.actions",...missing].includes(c.name)),...["human.graph.read","tasks.read","dashboard.actions"].map(name=>({name,version:"1",enabled:true}))]}})));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);
+ expect(await screen.findByText("Task actions aren't offered by this AQ server")).toBeVisible();
+ expect(screen.queryAllByText("Not offered by this AQ server").length).toBeLessThanOrEqual(1);
+ expect(screen.queryByRole("button",{name:"More actions"})).toBeNull();
 });
 
 test("pending cancellation is an intent and polls without optimistic task lifecycle changes",async()=>{

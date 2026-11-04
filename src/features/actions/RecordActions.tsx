@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Ellipsis } from "lucide-react";
 import { useSession } from "../../app/session";
 import { ContractError } from "../../api/adapters/contract";
 import { apiGet, ApiError } from "../../api/client";
@@ -11,11 +12,12 @@ import styles from "./RecordActions.module.css";
 
 type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;edge:string;successor:string;verdict:string;url:string;confirm:boolean};
 function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",edge:"",successor:"",verdict:"verified",url:"",confirm:false};}
-export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string}) {
+type Variant="default"|"compact";
+export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;variant?:Variant}) {
   const {queryContext}=useSession();
   return <Actions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${props.record.project.id}:${props.author?"author":props.record.data?.id}`} {...props}/>;
 }
-function Actions({record,author=false,pinned}:{record:ActionContext;author?:boolean;pinned?:string}) {
+function Actions({record,author=false,pinned,variant="default"}:{record:ActionContext;author?:boolean;pinned?:string;variant?:Variant}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient();
   const kinds:ActionKind[]=author?["knowledge.author"]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"]:["knowledge.correct","knowledge.verify","knowledge.retire"];
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
@@ -86,8 +88,10 @@ function Actions({record,author=false,pinned}:{record:ActionContext;author?:bool
   const update=(name:keyof Draft,value:string|boolean)=>setDraft(v=>({...v,[name]:value,...(name==="labels"?{labelsEdited:true}:{})}));
   const editing=kind==="task.edit"||kind==="knowledge.author"||kind==="knowledge.correct";
   const status=retired?"retired":unknown?"unknown":operation?.disposition;
-  return <div className={styles.actions}>
-    {kinds.map(k=>{const cap=capability(k),reason=pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:undefined;return <div className={styles.action} key={k}><ActionButton disabled={!!reason||(unsettled&&kind!==k)} title={reason} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span className={styles.meta}>{reason}</span>}</div>;})}
+  const reasonFor=(k:ActionKind)=>{const cap=capability(k);return pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:undefined;};
+  return <div className={variant==="compact"?styles.compact:styles.actions}>
+    {variant==="compact"?<CompactActions kinds={kinds} reasonFor={reasonFor} taskState={record.data?.kind==="task"?record.data.task_state:undefined} pending={unsettled?kind:null} launch={launch}/>:
+    kinds.map(k=>{const reason=reasonFor(k);return <div className={styles.action} key={k}><ActionButton disabled={!!reason||(unsettled&&kind!==k)} title={reason} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span className={styles.meta}>{reason}</span>}</div>;})}
     <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}>
       <header className={styles.header}><h2 id={titleId}>{kind?actionLabels[kind]:"Action"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close action">Close</ActionButton></header>
       <p className={styles.meta}>{record.project.name} · {author?"Project version":"Record version"} {author?baseline.project.revision:baseline.data?.version}</p>
@@ -110,4 +114,46 @@ function Actions({record,author=false,pinned}:{record:ActionContext;author?:bool
       </section>}
     </dialog>
   </div>;
+}
+
+const NOT_OFFERED="Not offered by this AQ server";
+// The single most relevant action for a task's recorded state; cancellation is never promoted.
+function preferredFor(kinds:ActionKind[],taskState:string|null|undefined):ActionKind[] {
+  if(taskState===undefined)return kinds;
+  return taskState==="canceled"?["task.retry"]:taskState==="completed"?[]:["task.edit"];
+}
+/** One primary action plus a "More actions" menu; one shared reason when nothing is offered. */
+function CompactActions({kinds,reasonFor,taskState,pending,launch}:{kinds:ActionKind[];reasonFor:(k:ActionKind)=>string|undefined;taskState:string|null|undefined;pending:ActionKind|null;launch:(k:ActionKind)=>void}) {
+  const [open,setOpen]=useState(false),menuId=useId(),container=useRef<HTMLDivElement>(null),menu=useRef<HTMLDivElement>(null);
+  const reasons=new Map(kinds.map(k=>[k,reasonFor(k)]));
+  const available=kinds.filter(k=>!reasons.get(k));
+  const primary=pending&&kinds.includes(pending)?pending:preferredFor(kinds,taskState).find(k=>available.includes(k));
+  const rest=kinds.filter(k=>k!==primary);
+  const items=()=>[...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]")??[])];
+  useEffect(()=>{if(!open)return;items()[0]?.focus({preventScroll:true});menu.current?.scrollIntoView?.({block:"nearest"});},[open]);
+  if(!available.length&&!pending){
+    const reason=kinds.map(k=>reasons.get(k)).find(Boolean),noun=taskState===undefined?"Actions":"Task actions";
+    return <p className={styles.unavailable} role="note">{reason===NOT_OFFERED?`${noun} aren't offered by this AQ server`:`${noun} unavailable · ${reason}`}</p>;
+  }
+  const close=(focus=true)=>{setOpen(false);if(focus)container.current?.querySelector<HTMLButtonElement>("[aria-haspopup=menu]")?.focus();};
+  const choose=(k:ActionKind)=>{if(reasons.get(k)||(pending&&pending!==k))return;close(false);launch(k);};
+  const label=(k:ActionKind)=>`${actionLabels[k]}${pending===k?" · operation":""}`;
+  return <>
+    {primary&&<ActionButton className={styles.primary} disabled={!!reasons.get(primary)} onClick={()=>launch(primary)}>{label(primary)}</ActionButton>}
+    {rest.length>0&&<div ref={container} className={styles.more} onBlur={e=>{if(open&&!e.currentTarget.contains(e.relatedTarget as Node|null))setOpen(false);}} onKeyDown={e=>{
+      if(!open)return;
+      if(e.key==="Escape"){e.preventDefault();e.stopPropagation();close();return;}
+      if(e.key==="Tab"){setOpen(false);return;}
+      const list=items(),at=list.indexOf(document.activeElement as HTMLElement);
+      const next=e.key==="ArrowDown"?at+1:e.key==="ArrowUp"?at-1:e.key==="Home"?0:e.key==="End"?list.length-1:null;
+      if(next===null||!list.length)return;e.preventDefault();list[(next+list.length)%list.length]?.focus();
+    }}>
+      <ActionButton aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined} onClick={()=>setOpen(v=>!v)}><Ellipsis size={18} aria-hidden/>More actions</ActionButton>
+      {open&&<div ref={menu} id={menuId} role="menu" aria-label="More actions" className={styles.menu}>
+        {rest.map(k=>{const reason=reasons.get(k)??(pending&&pending!==k?"Settle the current operation first":undefined),hint=`${menuId}-${k}`;return <button key={k} type="button" role="menuitem" tabIndex={-1} className={styles.menuItem} aria-disabled={reason?true:undefined} aria-describedby={reason?hint:undefined} onClick={()=>choose(k)}>
+          <span>{label(k)}</span>{reason&&<span id={hint} className={styles.meta}>{reason===NOT_OFFERED?"Not offered":reason}</span>}
+        </button>;})}
+      </div>}
+    </div>}
+  </>;
 }
