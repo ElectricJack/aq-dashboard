@@ -48,7 +48,7 @@ for (const vp of VIEWPORTS) {
     test("superseded review is historical and not answerable", async ({ page }) => {
       await page.goto(`/decisions/${SUPERSEDED}?state=open`);
       await expect(page.getByText("A newer result report exists. This review is historical and can't be answered.")).toBeVisible();
-      await expect(page.getByRole("button", { name: /^Approve revision/ })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /^Approve/ })).toHaveCount(0);
       await axeClean(page);
     });
 
@@ -57,9 +57,9 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByText("Fixture: recovery tests retained")).toBeVisible();
       await shot(page, "decisions-form", vp.name);
       await axeClean(page);
-      await page.getByRole("button", { name: "Approve revision 1" }).click();
+      await page.getByRole("button", { name: "Approve task version 3" }).click();
       await expect(page.getByText("Recorded decision: approve")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Approve revision 1" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Approve task version 3" })).toHaveCount(0);
       await shot(page, "decisions-recorded", vp.name);
       await axeClean(page);
       // The answered review leaves Open and appears under Resolved. On phone the
@@ -74,7 +74,7 @@ for (const vp of VIEWPORTS) {
       await page.goto(`/decisions/${CURRENT}?state=open&scenario=decision-conflict`);
       const note = page.getByRole("textbox", { name: "Decision note" });
       await note.fill("Fixture note");
-      await page.getByRole("button", { name: "Approve revision 1" }).click();
+      await page.getByRole("button", { name: "Approve task version 3" }).click();
       await expect(page.getByText(/^The review changed\. Your note is preserved/)).toBeVisible();
       await expect(note).toHaveValue("Fixture note");
       await axeClean(page);
