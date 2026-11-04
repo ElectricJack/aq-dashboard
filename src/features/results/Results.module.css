@@ -54,3 +54,19 @@
 .fields input[type=range] { padding-inline:0; }
 
 .draftDialog > .panelHeader,.commentsDialog > .panelHeader { position:sticky; inset-block-start:0; z-index:2; background:var(--color-panel); padding-block:var(--space-2); }
+
+/* Feedback draft: the header and footer stay put while the body scrolls (RS-J). */
+.draftDialog[open] { display:flex; flex-direction:column; overflow:hidden; padding-block-end:0; }
+.draftDialog > .panelHeader { flex:none; }
+.draftBody { flex:1 1 auto; min-block-size:0; overflow:auto; overscroll-behavior:contain; margin-inline:calc(-1 * var(--space-2)); padding:var(--space-1) var(--space-2); }
+.draftFooter { flex:none; display:flex; justify-content:flex-end; flex-wrap:wrap; gap:var(--space-3); padding-block:var(--space-3) var(--space-5); border-block-start:1px solid var(--color-border); background:var(--color-panel); }
+.taskPicker { display:grid; gap:var(--space-2); font-size:var(--font-size-meta); }
+.taskPicker > p { margin:0; }
+.taskOptions { margin:0; padding:var(--space-1); list-style:none; max-block-size:15rem; overflow:auto; border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-raised); }
+.taskOption { display:grid; gap:2px; min-block-size:44px; align-content:center; padding:var(--space-2) var(--space-3); border-radius:var(--radius-control); cursor:pointer; overflow-wrap:anywhere; }
+.taskOption:hover,.taskOption[aria-selected=true] { background:var(--color-panel); box-shadow:inset 2px 0 var(--color-accent); }
+@media(max-width:600px) {
+ .draftDialog[open] { padding-block-end:0; }
+ .draftFooter { padding-block-end:calc(var(--space-4) + env(safe-area-inset-bottom)); }
+ .draftFooter > * { flex:1 1 0; }
+}
