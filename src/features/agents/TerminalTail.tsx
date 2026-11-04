@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { adaptTerminalInfo, adaptTerminalTail, adaptWatch, literalTail } from "../../api/adapters/terminalTail";
 import { terminalJson } from "../../api/terminalClient";
@@ -8,12 +8,48 @@ import styles from "./TerminalTail.module.css";
 import { ActionButton } from "../../components/layout/Workspace";
 
 const MAX_RETAINED = 65536;
-/** Volatile literal bytes only: no screen renderer, capture, input, or persistence. */
-export function TerminalTail({ terminalId }: { terminalId: string }) {
-  const { queryContext: c } = useSession();
-  return <Tail key={`${terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} terminalId={terminalId} />;
+
+export interface OutputSnapshot { live: boolean; status: string; text: string; gaps: number; trimmed: boolean }
+/** The interactive terminal's active Watch output, re-read as literal text.
+ * Volatile and bounded like the standalone tail; it holds nothing once the watch ends. */
+export interface OutputFeed {
+  subscribe(listener: () => void): () => void;
+  snapshot(): OutputSnapshot;
+  append(bytes: Uint8Array): void;
+  /** The screen restarted (gap, discontinuity or not retained): preceding text is discarded. */
+  restart(): void;
+  status(message: string, live: boolean): void;
+  end(): void;
 }
-function Tail({ terminalId }: { terminalId: string }) {
+const ENDED: OutputSnapshot = { live: false, status: "Not watching", text: "", gaps: 0, trimmed: false };
+export function createOutputFeed(): OutputFeed {
+  let bytes: number[] = [], current = ENDED, dirty = false, meta = ENDED;
+  const listeners = new Set<() => void>();
+  const changed = () => { dirty = true; listeners.forEach(l => l()); };
+  return {
+    subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    snapshot() { if (dirty) { current = { ...meta, text: literalTail(bytes) }; dirty = false; } return current; },
+    append(chunk) {
+      bytes = bytes.concat(Array.from(chunk));
+      if (bytes.length > MAX_RETAINED) { bytes = bytes.slice(-MAX_RETAINED); meta = { ...meta, trimmed: true }; }
+      changed();
+    },
+    restart() { if (bytes.length) meta = { ...meta, gaps: Math.min(1000000, meta.gaps + 1) }; bytes = []; changed(); },
+    status(message, live) { if (meta.status !== message || meta.live !== live) { meta = { ...meta, status: message, live }; changed(); } },
+    end() { bytes = []; meta = ENDED; changed(); },
+  };
+}
+const NO_FEED = () => () => {};
+const noSnapshot = () => null;
+
+/** Volatile literal bytes only: no screen renderer, capture, input, or persistence.
+ * With `feed`, a connected interactive terminal's active Watch is reused instead of a second one. */
+export function TerminalTail({ terminalId, feed }: { terminalId: string; feed?: OutputFeed }) {
+  const { queryContext: c } = useSession();
+  return <Tail key={`${terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} terminalId={terminalId} feed={feed} />;
+}
+function Tail({ terminalId, feed }: { terminalId: string; feed?: OutputFeed }) {
+  const shared = useSyncExternalStore(feed ? feed.subscribe : NO_FEED, feed ? feed.snapshot : noSnapshot);
   const { queryContext } = useSession();
   const client = useQueryClient();
   const [status, setStatus] = useState("Not watching");
@@ -91,13 +127,21 @@ function Tail({ terminalId }: { terminalId: string }) {
       if (job.current === owner) setActive(false);
     }
   }
+  if (shared?.live && !active) return <section className={styles.panel} aria-label="Read-only output tail">
+    <h3>Output tail</h3>
+    <p><span className={styles.fullCoverage}>Incomplete literal output from the terminal's active watch. Earlier bytes may be missing. This is not a terminal screen or snapshot.</span><span className={styles.compactCoverage}>Literal output · coverage incomplete</span></p>
+    <p role="status">Following the terminal's watch · {shared.status}</p>
+    {shared.gaps > 0 && <p>Output gaps or sequence discontinuities ({shared.gaps}); preceding text was cleared.</p>}
+    {shared.trimmed && <p>Older browser output discarded at the 64 KiB limit.</p>}
+    <pre className={styles.output} aria-label="Literal worker output" tabIndex={0}>{shared.text || "No output bytes available"}</pre>
+  </section>;
   return <section className={styles.panel} aria-label="Read-only output tail">
     <h3>Output tail</h3>
     <p><span className={styles.fullCoverage}>Incomplete literal output only. Earlier bytes may be missing. This is not a terminal screen or snapshot.</span><span className={styles.compactCoverage}>Literal output · coverage incomplete</span></p>
     <p role="status">{status}</p>
     {gaps > 0 && <p>Output gaps or sequence discontinuities ({gaps}); preceding text was cleared.</p>}
     {trimmed && <p>Older browser output discarded at the 64 KiB limit.</p>}
-    <pre className={styles.output} aria-label="Literal worker output">{text || "No output bytes available"}</pre>
+    <pre className={styles.output} aria-label="Literal worker output" tabIndex={0}>{text || "No output bytes available"}</pre>
     {!active && <ActionButton onClick={() => void watch()}>Watch output for up to 15 seconds</ActionButton>}
     {active && <ActionButton onClick={() => { job.current?.abort(); setText(""); setActive(false); setStatus("Watch stopped — output cleared"); }}>Stop watching</ActionButton>}
   </section>;

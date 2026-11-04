@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { ChevronDown, FileText, MessageSquare, PanelRight, Plus, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import {
   adaptSession,
@@ -19,6 +19,8 @@ import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
 import { InteractiveTerminal } from "./InteractiveTerminal";
+import { createOutputFeed, TerminalTail } from "./TerminalTail";
+import { Icon } from "../../components/icons";
 import { SessionUsage } from "./SessionUsage";
 import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
@@ -255,12 +257,45 @@ function SessionSwitcher({ selected, search }: { selected: SessionView; search: 
   </nav>;
 }
 
+type DrawerKind = "details" | "transcript";
+
+/** On-demand drawer: right side over the workspace on desktop, bottom sheet on phone.
+ * Modal while open (focus contained, Esc closes); focus returns to the opener. */
+function SessionDrawer({ id, title, open, wide, onClose, returnFocus, children }: {
+  id: string; title: string; open: boolean; wide?: boolean; onClose: () => void;
+  returnFocus: React.RefObject<HTMLElement | null>; children: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) { dialog.close(); returnFocus.current?.focus(); }
+  }, [open, returnFocus]);
+  return <dialog ref={ref} id={id} aria-labelledby={headingId} className={styles.drawer} data-wide={wide || undefined}
+    onCancel={e => { e.preventDefault(); onClose(); }}>
+    {open && <>
+      <div className={styles.drawerHeader}>
+        <h2 id={headingId}>{title}</h2>
+        <ActionButton onClick={onClose}><Icon icon={X} size={18} />Close</ActionButton>
+      </div>
+      <div className={styles.drawerBody} tabIndex={0} aria-labelledby={headingId} role="region">{children}</div>
+    </>}
+  </dialog>;
+}
+
 function SessionPage({ sessionId, search }: { sessionId: string; search: string }) {
   const [scope] = useScope();
   const { bootstrap } = useSession();
   const terminal = bootstrap.capability("terminal.watch");
   const taskView = bootstrap.capability("tasks.read");
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [drawer, setDrawer] = useState<DrawerKind | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const [feed] = useState(createOutputFeed);
+  const messageReason = useId();
+  const toggle = (kind: DrawerKind) => (e: React.MouseEvent<HTMLElement>) => { opener.current = e.currentTarget; setDrawer(v => v === kind ? null : kind); };
+  const closeDrawer = () => setDrawer(null);
   const query = useRead<SessionDetailWire, SessionDetailView>({
     resource: "session",
     path: `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
@@ -303,7 +338,6 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       <Toolbar className={styles.workspaceHeading}>
         <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
         <span className={styles.focusLabel}>Focused workspace</span>
-        <ActionButton aria-expanded={detailsOpen} aria-controls={`session-${s.id}-details`} onClick={() => setDetailsOpen(v => !v)}>Session details</ActionButton>
       </Toolbar>
       <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
         <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
@@ -321,19 +355,31 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       <SessionSwitcher selected={s} search={search} />
       <div className={styles.outputWorkspace}>
         <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong></Toolbar>
-      {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} /> : <div className={styles.terminal} role="note">
+      {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} feed={feed} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>}
 
       <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
+      <Toolbar className={styles.sessionActions} role="group" aria-label="Session actions">
+        {/* Durable Message needs a server capability; no composer is shown until one exists. */}
+        <span className={styles.messageSlot}>
+          <ActionButton disabled aria-describedby={messageReason}><Icon icon={MessageSquare} size={18} />Message</ActionButton>
+          <span id={messageReason} className={styles.muted}>Messaging unavailable on this AQ server</span>
+        </span>
+        {s.terminal && terminal.enabled && <ActionButton aria-haspopup="dialog" aria-expanded={drawer === "transcript"} aria-controls={`session-${s.id}-transcript`} onClick={toggle("transcript")}><Icon icon={FileText} size={18} />Transcript</ActionButton>}
+        <ActionButton aria-label="Session details" aria-haspopup="dialog" aria-expanded={drawer === "details"} aria-controls={`session-${s.id}-details`} onClick={toggle("details")}><Icon icon={PanelRight} size={18} />Details</ActionButton>
+      </Toolbar>
       </div>
 
-      <div id={`session-${s.id}-details`} className={styles.detailsPanel} hidden={!detailsOpen}>
-      {detailsOpen && (!query.isError && bootstrap.capability("session.usage.read").enabled && s.observationBinding
+      {s.terminal && terminal.enabled && <SessionDrawer id={`session-${s.id}-transcript`} title="Transcript" wide open={drawer === "transcript"} onClose={closeDrawer} returnFocus={opener}>
+        <TerminalTail terminalId={s.terminal.id} feed={feed} />
+      </SessionDrawer>}
+      <SessionDrawer id={`session-${s.id}-details`} title="Session details" open={drawer === "details"} onClose={closeDrawer} returnFocus={opener}>
+      {(!query.isError && bootstrap.capability("session.usage.read").enabled && s.observationBinding
         ? <SessionUsage binding={s.observationBinding} />
         : <p className={styles.muted}>Session usage unavailable for this session.</p>)}
-      {detailsOpen && !query.isError && bootstrap.capability("session.events.read").enabled && s.observationBinding && <SessionEvents key={s.id} binding={s.observationBinding} />}
+      {!query.isError && bootstrap.capability("session.events.read").enabled && s.observationBinding && <SessionEvents key={s.id} binding={s.observationBinding} />}
       <DetailList>
         <dt>Session ID</dt><dd>{s.id}</dd>
         <dt>Recorded session label</dt><dd>{s.label}</dd>
@@ -374,7 +420,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
           <li key={p}>{p}</li>
         ))}
       </ul>
-      </div>
+      </SessionDrawer>
     </section>
   );
 }

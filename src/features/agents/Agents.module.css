@@ -149,9 +149,25 @@
 .readOnly { flex: 0 0 auto; color: var(--color-accent); font-size: var(--font-size-meta); }
 .outputWorkspace .terminal { min-block-size: clamp(320px, 52dvh, 700px); border: none; border-radius: 0; }
 .outputFooter { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding: var(--space-2) var(--space-4); border-block-start: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
-.detailsPanel { padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
-.detailsPanel h3 { margin-block: var(--space-5) var(--space-3); }
-@media (max-width: 767px) { .focusLabel { display: none; } .workspaceHeading { gap: var(--space-2); } .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); } .detailsPanel { padding: var(--space-4); } }
+.sessionActions { justify-content: flex-end; padding: var(--space-3) var(--space-4); background: var(--color-panel); border-block-start: 1px solid var(--color-border); }
+.messageSlot { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-inline-size: 0; font-size: var(--font-size-meta); }
+/* On-demand drawers: right side over the workspace on desktop, bottom sheet on phone. */
+.drawer { box-sizing: border-box; position: fixed; inset: 0 0 0 auto; margin: 0; inline-size: min(360px, 100%); max-inline-size: 100%; block-size: 100dvh; max-block-size: 100dvh; padding: 0; display: none; flex-direction: column; overflow: hidden; color: var(--color-text); background: var(--color-panel); border: none; border-inline-start: 1px solid var(--color-border); }
+.drawer[open] { display: flex; }
+.drawer[data-wide] { inline-size: min(640px, 100%); }
+.drawer::backdrop { background: #0008; }
+.drawerHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-block-end: 1px solid var(--color-border); }
+.drawerHeader h2 { margin: 0; font-size: 18px; }
+.drawerBody { flex: 1 1 auto; min-block-size: 0; overflow: auto; padding: var(--space-4); }
+.drawerBody h3 { margin-block: var(--space-5) var(--space-3); }
+.drawerBody dl { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
+.drawerBody dd + dt { margin-block-start: var(--space-2); }
+@media (max-width: 767px) { .focusLabel { display: none; } .workspaceHeading { gap: var(--space-2); } .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); }
+  .sessionActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--space-3); }
+  .messageSlot { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .drawer, .drawer[data-wide] { inset: auto 0 0 0; inline-size: 100%; block-size: auto; max-block-size: 85dvh; border: 1px solid var(--color-border); border-block-end: none; border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
+  .drawerBody { padding: var(--space-3); }
+}
 .compactLabel { display: none; }
 @media (max-width: 767px) {
   .fullLabel, .observationSummary { display: none; }
