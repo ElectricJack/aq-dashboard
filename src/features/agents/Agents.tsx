@@ -131,6 +131,7 @@ function SessionSwitcher({ selected, search, id, hidden }: { selected: SessionVi
 }
 
 type DrawerKind = "details" | "transcript";
+const MESSAGE_UNAVAILABLE = "Messaging unavailable on this AQ server";
 
 /** On-demand drawer: right side over the workspace on desktop, bottom sheet on phone.
  * Modal while open (focus contained, Esc closes); focus returns to the opener. */
@@ -179,7 +180,8 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   const opener = useRef<HTMLElement | null>(null);
   const [feed] = useState(createOutputFeed);
   const messageReason = useId();
-  const toggle = (kind: DrawerKind) => (e: React.MouseEvent<HTMLElement>) => { opener.current = e.currentTarget; setDrawer(v => v === kind ? null : kind); };
+  const openDrawer = (kind: DrawerKind, from: HTMLElement) => { opener.current = from; setDrawer(v => v === kind ? null : kind); };
+  const toggle = (kind: DrawerKind) => (e: React.MouseEvent<HTMLElement>) => openDrawer(kind, e.currentTarget);
   const closeDrawer = () => setDrawer(null);
   const query = useRead<SessionDetailWire, SessionDetailView>({
     resource: "session",
@@ -215,6 +217,8 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   const { view: s, serverTime } = query.data;
   const headingId = `session-${s.id}-heading`;
   const switcherId = `session-${s.id}-switcher`;
+  const live = !!s.terminal && terminal.enabled;
+  const facts = <><span>{OBSERVATION_LABEL[s.observation.state]}</span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></>;
   const taskLink = s.task && taskView.enabled
     ? <Link className={styles.taskLink} aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
     : <span className={styles.taskLink}>{s.task?.title ?? "No task"}</span>;
@@ -246,21 +250,24 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
           <strong title={`${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`}>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong>
           {phone && taskLink}
         </Toolbar>
-      {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} feed={feed} /> : <div className={styles.terminal} role="note">
+      {live ? <InteractiveTerminal key={s.terminal!.id} terminalId={s.terminal!.id} name={s.label} feed={feed} facts={facts}
+        transcriptOpen={drawer === "transcript"} onTranscript={from => openDrawer("transcript", from)} onDetails={from => openDrawer("details", from)} messageReason={MESSAGE_UNAVAILABLE} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>}
 
-      <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
-      <Toolbar className={styles.sessionActions} role="group" aria-label="Session actions">
+      {/* With a live terminal these facts join its one-row status footer (AG-D); otherwise they stand alone. */}
+      {!live && <footer className={styles.outputFooter}>{facts}</footer>}
+      {/* Phone: the terminal's pinned action bar (reference 11) carries Transcript, Message and Details instead. */}
+      {!(phone && live) && <Toolbar className={styles.sessionActions} role="group" aria-label="Session actions">
         {/* Durable Message needs a server capability; no composer is shown until one exists. */}
         <span className={styles.messageSlot}>
           <ActionButton disabled aria-describedby={messageReason}><Icon icon={MessageSquare} size={18} />Message</ActionButton>
-          <span id={messageReason} className={styles.muted}>Messaging unavailable on this AQ server</span>
+          <span id={messageReason} className={styles.muted}>{MESSAGE_UNAVAILABLE}</span>
         </span>
         {s.terminal && terminal.enabled && <ActionButton aria-haspopup="dialog" aria-expanded={drawer === "transcript"} aria-controls={`session-${s.id}-transcript`} onClick={toggle("transcript")}><Icon icon={FileText} size={18} />Transcript</ActionButton>}
         <ActionButton aria-label="Session details" aria-haspopup="dialog" aria-expanded={drawer === "details"} aria-controls={`session-${s.id}-details`} onClick={toggle("details")}><Icon icon={PanelRight} size={18} />Details</ActionButton>
-      </Toolbar>
+      </Toolbar>}
       </div>
 
       {s.terminal && terminal.enabled && <SessionDrawer id={`session-${s.id}-transcript`} title="Transcript" wide open={drawer === "transcript"} onClose={closeDrawer} returnFocus={opener}>
