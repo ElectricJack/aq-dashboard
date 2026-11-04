@@ -3,6 +3,7 @@ import { apiGet } from "../../api/client";
 import { adaptProjectBindings, mergeProjectPages, PROJECT_PAGE_SIZE, validationLabel } from "../../api/adapters/projectBindings";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
+import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import styles from "./ProjectBindings.module.css";
 
@@ -26,13 +27,12 @@ export function ProjectBindings() {
   let items: ReturnType<typeof mergeProjectPages> = [];
   let pageError: unknown;
   try { items = mergeProjectPages(pages ?? []); } catch (e) { pageError = e; }
-  return <section className={styles.section} aria-labelledby="project-bindings-heading">
-    <h2 id="project-bindings-heading">Project execution bindings</h2>
-    <p>Saved project settings and recorded connection checks.</p>
-    {!capability.enabled ? <p>{capability.reason}</p> : !pages || query.isError || pageError ?
+  const loaded = capability.enabled && !!pages && !query.isError && !pageError;
+  return <Panel title="Project execution bindings" description="Saved project settings and recorded connection checks."
+    actions={loaded && <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh bindings</ActionButton>}>
+    {!capability.enabled ? <p className={styles.meta}>{capability.reason}</p> : !pages || query.isError || pageError ?
       <QueryStatus status={query.isError || pageError ? "error" : "pending"} error={query.error ?? pageError} label="project execution bindings" onRetry={() => void query.refetch()} /> : <>
-      <button type="button" className={styles.more} disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh bindings</button>
-      {pages[0]?.items.length === 0 && <p>No project execution bindings configured.</p>}
+      {pages[0]?.items.length === 0 && <p className={styles.meta}>No project execution bindings configured.</p>}
       <ul className={styles.list} aria-label="Project execution bindings">
         {items.map(p => <li className={styles.card} key={p.id} data-project-id={p.id}>
           <h3>{p.name}</h3>
@@ -66,5 +66,5 @@ export function ProjectBindings() {
       {query.hasNextPage && <button type="button" className={styles.more} disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more project bindings</button>}
       {pages.length === MAX_PAGES && pages[MAX_PAGES - 1]!.next && <p>Showing the first {MAX_PAGES * PROJECT_PAGE_SIZE} bindings. Additional bindings are not displayed.</p>}
     </>}
-  </section>;
+  </Panel>;
 }

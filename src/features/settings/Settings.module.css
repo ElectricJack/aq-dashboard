@@ -1,0 +1,17 @@
+.subtitle { margin: var(--space-2) 0 0; color: var(--color-text-secondary); }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); margin-block-start: var(--space-5); }
+/* Panels own their spacing inside the grid (Notifications keeps its standalone top margin elsewhere). */
+.grid > :is(div, section) { margin: 0; }
+@media (min-width: 1200px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.meta { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.status { display: flex; align-items: center; gap: var(--space-2); margin: 0; overflow-wrap: anywhere; }
+.status::before { content: ""; flex: none; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--color-text-secondary); }
+.status[data-state="healthy"]::before { background: var(--color-success); }
+.status[data-state="unavailable"]::before { background: var(--color-error); }
+.subheading { margin-block: var(--space-5) var(--space-3); font-size: var(--font-size-body); }
+.technical { margin-block-start: var(--space-4); }
+.technical summary { padding-block: var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-meta); cursor: pointer; }
+.technical > dl { margin-block-start: var(--space-2); }
+.workers { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.workers li { display: grid; gap: var(--space-1); padding-block-end: var(--space-3); border-block-end: 1px solid var(--color-border); }
+.workers li:last-child { padding-block-end: 0; border-block-end: 0; }
