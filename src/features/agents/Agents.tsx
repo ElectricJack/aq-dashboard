@@ -21,6 +21,8 @@ import { SessionUsage } from "./SessionUsage";
 import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
+import { useMediaQuery } from "../../components/useMediaQuery";
+import { ChevronDown, ChevronLeft, Maximize2, Minimize2 } from "lucide-react";
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
@@ -111,12 +113,12 @@ function Roster({ search }: { search: string }) {
   );
 }
 
-function SessionSwitcher({ selected, search }: { selected: SessionView; search: string }) {
+function SessionSwitcher({ selected, search, id, hidden }: { selected: SessionView; search: string; id: string; hidden: boolean }) {
   const [scope] = useScope();
   const query = usePagedRead<SessionSummary, SessionView>({ resource: "sessions", path: "/api/v1/sessions", scope,
     params: { limit: 25 }, adapt: adaptSession, pollMs: ROSTER_POLL_MS });
   const sessions = query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [];
-  return <nav className={styles.switcher} aria-label="Session switcher">
+  return <nav id={id} hidden={hidden} className={styles.switcher} aria-label="Session switcher">
     {sessions.length === 0 && <span className={styles.sessionTab} aria-label={selected.label} aria-current="page">{compactSessionLabel(selected)}</span>}
     {sessions.map(s => <Link key={s.id} title={s.label} aria-label={s.label} className={styles.sessionTab} aria-current={s.id === selected.id ? "page" : undefined}
       to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }}><span className={styles.sessionDot} aria-hidden="true" />{compactSessionLabel(s)}</Link>)}
@@ -132,6 +134,18 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   const terminal = bootstrap.capability("terminal.watch");
   const taskView = bootstrap.capability("tasks.read");
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const phone = useMediaQuery("(max-width: 767px)");
+  // Desktop keeps the session tabs open; the phone header collapses them behind the name's ▾.
+  const [switcherChoice, setSwitcherChoice] = useState<boolean | null>(null);
+  const switcherOpen = switcherChoice ?? !phone;
+  const workspace = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const sync = () => setExpanded(document.fullscreenElement != null && document.fullscreenElement === workspace.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const canExpand = typeof document !== "undefined" && document.fullscreenEnabled === true;
   const query = useRead<SessionDetailWire, SessionDetailView>({
     resource: "session",
     path: `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
@@ -165,36 +179,45 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   }
   const { view: s, serverTime } = query.data;
   const headingId = `session-${s.id}-heading`;
+  const switcherId = `session-${s.id}-switcher`;
+  const taskLink = s.task && taskView.enabled
+    ? <Link className={styles.taskLink} aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
+    : <span className={styles.taskLink}>{s.task?.title ?? "No task"}</span>;
 
   return (
-    <section className={styles.detail} aria-labelledby={headingId}>
-      <Toolbar className={styles.workspaceHeading}>
-        <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
-        <span className={styles.focusLabel}>Focused workspace</span>
-        <ActionButton aria-expanded={detailsOpen} aria-controls={`session-${s.id}-details`} onClick={() => setDetailsOpen(v => !v)}>Session details</ActionButton>
-      </Toolbar>
-      <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
-        <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
-      </h2>
-      <p className={styles.meta}>
-        {s.task && taskView.enabled ? (
-          <Link aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
-        ) : (
-          s.task?.title ?? "No task"
-        )}{" "}
-        · {s.project.label}<span className={styles.observationSummary}> · {OBSERVATION_LABEL[s.observation.state]} · <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} /></span>
-      </p>
+    <section ref={workspace} className={styles.detail} aria-labelledby={headingId} data-viewport-fit="">
+      <div className={styles.focusHeader}>
+        <Link to={{ pathname: "/agents", search }} className={styles.crumb} aria-label="Back to Agents">
+          <ChevronLeft className={styles.backIcon} size={20} aria-hidden="true" />Agents
+        </Link>
+        <span className={styles.crumbSeparator} aria-hidden="true">/</span>
+        <h2 id={headingId} aria-label={s.label} ref={heading} tabIndex={-1} className={styles.title}>
+          <span className={styles.fullLabel}>{s.label}</span><span className={styles.compactLabel}>{compactSessionLabel(s)}</span>
+        </h2>
+        <button type="button" className={styles.iconControl} aria-label="Sessions" aria-expanded={switcherOpen} aria-controls={switcherId} onClick={() => setSwitcherChoice(!switcherOpen)}>
+          <ChevronDown size={18} aria-hidden="true" />
+        </button>
+        {!phone && taskLink && <><span className={styles.crumbSeparator} aria-hidden="true">·</span>{taskLink}</>}
+        <button type="button" className={`${styles.iconControl} ${styles.expand}`} aria-label={expanded ? "Exit expanded workspace" : "Expand workspace"} aria-pressed={expanded} disabled={!canExpand}
+          onClick={() => { if (expanded) void document.exitFullscreen?.(); else void workspace.current?.requestFullscreen?.(); }}>
+          {expanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
+        </button>
+      </div>
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
 
-      <SessionSwitcher selected={s} search={search} />
+      <SessionSwitcher selected={s} search={search} id={switcherId} hidden={!switcherOpen} />
       <div className={styles.outputWorkspace}>
-        <Toolbar className={styles.outputHeading}><strong>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong></Toolbar>
+        <Toolbar className={styles.outputHeading}>
+          <strong title={`${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`}>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong>
+          {phone && taskLink}
+          <ActionButton className={styles.detailsToggle} aria-label="Session details" aria-expanded={detailsOpen} aria-controls={`session-${s.id}-details`} onClick={() => setDetailsOpen(v => !v)}><span className={styles.fullLabel}>Session details</span><span className={styles.compactLabel}>Details</span></ActionButton>
+        </Toolbar>
       {s.terminal && terminal.enabled ? <InteractiveTerminal key={s.terminal.id} terminalId={s.terminal.id} name={s.label} /> : <div className={styles.terminal} role="note">
         <strong>Terminal is not available</strong>
         <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
       </div>}
 
-      <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
+      <footer className={styles.outputFooter}><span>{OBSERVATION_LABEL[s.observation.state]}</span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></footer>
       </div>
 
       <div id={`session-${s.id}-details`} className={styles.detailsPanel} hidden={!detailsOpen}>
