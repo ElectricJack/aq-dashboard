@@ -1,4 +1,5 @@
 import type { ReadinessView, TaskDetailView } from "../../api/adapters/inspection";
+import { nodeLabel } from "../../api/adapters/humanGraph";
 
 export const READINESS_LABEL: Record<ReadinessView["state"], string> = {
   draft: "Draft",
@@ -41,3 +42,23 @@ export const ATTEMPT_LABEL: Record<TaskDetailView["attempts"][number]["outcome"]
   unknown: "Outcome unknown",
   unsupported: "Unsupported outcome",
 };
+
+/** Lifecycle chips on the Work toolbar, in workflow order. Selection lives in `?state=`. */
+export const WORK_STATE_FILTERS = ["draft", "active", "completed", "canceled"] as const;
+export type WorkStateFilter = (typeof WORK_STATE_FILTERS)[number];
+export const WORK_STATE_LABEL: Record<WorkStateFilter, string> = {
+  draft: "Draft",
+  active: "Active",
+  completed: "Completed",
+  canceled: "Canceled",
+};
+export const workStateFilter = (value: string | null): WorkStateFilter | undefined =>
+  (WORK_STATE_FILTERS as readonly string[]).includes(value ?? "") ? (value as WorkStateFilter) : undefined;
+
+/** Second row line: lifecycle, record retirement when present, revision ("Active · r1"). */
+export function taskRowMeta(task: { task_state: string | null; content_revision: string; retired?: boolean; deleted?: boolean }): string {
+  return [nodeLabel(task.task_state), task.deleted ? "Deleted record" : task.retired ? "Retired record" : null, `r${task.content_revision}`].filter(Boolean).join(" · ");
+}
+
+/** The Graph task read carries no readiness, agent or latest result; say so once. */
+export const EXECUTION_UNAVAILABLE = "Execution details unavailable";
