@@ -63,7 +63,7 @@ for (const vp of VIEWPORTS) {
 
       const note = page.getByRole("note", { name: /Decision requested/ });
       await expect(note).toBeVisible();
-      await expect(note).toContainText("Validation policy · policy");
+      await expect(note).toContainText("Validation policy · fixture-validation-policy");
 
       await expect(panel.locator("ol[data-decision-criteria] > li")).toHaveCount(2);
       await expect(panel.getByRole("heading", { level: 3, name: "Acceptance criteria" })).toBeVisible();
@@ -72,7 +72,7 @@ for (const vp of VIEWPORTS) {
       await expect(panel.getByRole("link", { name: `Task · ${TITLE}` })).toHaveAttribute("href", new RegExp(`^/work/${TASK}\\?scope=`));
       for (const label of ["Copy repository id", "Copy base object", "Copy resulting object"])
         await expect(panel.getByRole("button", { name: label })).toBeVisible();
-      await expect(panel.locator("dl code")).toHaveText(["00000000…0006", "a".repeat(12), "b".repeat(12)]);
+      await expect(panel.locator("dl code")).toHaveText(["00000000…0006", "04".repeat(6), "05".repeat(6)]);
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
       expect(overflow).toBe(false);

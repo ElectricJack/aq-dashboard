@@ -47,7 +47,7 @@ for (const vp of VIEWPORTS) {
 
     test("superseded review is historical and not answerable", async ({ page }) => {
       await page.goto(`/decisions/${SUPERSEDED}?state=open`);
-      await expect(page.getByText("A newer result report exists. This review remains historical evidence.")).toBeVisible();
+      await expect(page.getByText("A newer result report exists. This review is historical and can't be answered.")).toBeVisible();
       await expect(page.getByRole("button", { name: /^Approve revision/ })).toHaveCount(0);
       await axeClean(page);
     });
