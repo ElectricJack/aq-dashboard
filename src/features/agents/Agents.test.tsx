@@ -9,6 +9,7 @@ import { renderApp } from "../../test/renderApp";
 
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
+beforeEach(() => sessionStorage.clear());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
@@ -135,8 +136,14 @@ test("focused workspace switches real sessions and keeps metadata behind explici
   expect(within(detail).queryByRole("list", { name: "Permissions" })).not.toBeInTheDocument();
   const switcher = await screen.findByRole("navigation", { name: "Session switcher" });
   await waitFor(() => expect(within(switcher).getByRole("link", { name: "Worker 07" })).toHaveAttribute("aria-current", "page"));
-  await userEvent.click(within(switcher).getByRole("link", { name: "Worker 12" }));
+  expect(within(switcher).queryByRole("link", { name: "Worker 12" })).not.toBeInTheDocument();
+  await userEvent.click(within(switcher).getByRole("button", { name: /^Sessions/ }));
+  const options = within(switcher).getByRole("listbox", { name: "Sessions" });
+  await userEvent.click(await within(options).findByRole("option", { name: /Worker 12/ }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/agents/sess-12"));
   expect(await screen.findByRole("heading", { level: 2, name: "Worker 12" })).toBeInTheDocument();
+  const tabs = screen.getByRole("navigation", { name: "Session switcher" });
+  expect(within(tabs).getByRole("link", { name: "Worker 12" })).toHaveAttribute("aria-current", "page");
+  expect(within(tabs).getByRole("link", { name: "Worker 07" })).not.toHaveAttribute("aria-current");
   expect(screen.queryByRole("button", { name: /Take control|Send message/ })).not.toBeInTheDocument();
 });

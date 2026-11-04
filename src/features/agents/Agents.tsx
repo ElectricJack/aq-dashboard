@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronDown, Plus, X } from "lucide-react";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import {
   adaptSession,
   adaptSessionDetail,
@@ -7,6 +8,7 @@ import {
   type SessionView,
 } from "../../api/adapters/inspection";
 import type { SessionDetail as SessionDetailWire, SessionSummary } from "../../api/wire/proposed";
+import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { FreshnessLabel } from "../../components/QueryStatus/FreshnessLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { formatAge } from "../../components/time/relative";
@@ -111,17 +113,144 @@ function Roster({ search }: { search: string }) {
   );
 }
 
+const OPEN_TABS_KEY = "aq.agents.openSessions";
+const MAX_OPEN_TABS = 12;
+/** Tabs opened this visit (session storage); the full roster stays in the Sessions listbox. */
+function readOpenTabs(): string[] {
+  try {
+    const ids: unknown = JSON.parse(sessionStorage.getItem(OPEN_TABS_KEY) ?? "[]");
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string").slice(-MAX_OPEN_TABS) : [];
+  } catch { return []; }
+}
+function writeOpenTabs(ids: string[]) {
+  try { sessionStorage.setItem(OPEN_TABS_KEY, JSON.stringify(ids.slice(-MAX_OPEN_TABS))); } catch { /* storage unavailable: tabs last for this page only */ }
+}
+
+const TAB_STATUS: Record<SessionView["observation"]["state"], string> = {
+  reported_running: "Running", reported_stopped: "Stopped", unknown: "State unknown", unsupported: "Unsupported state",
+};
+function tabStatus(s: SessionView): string {
+  return TAB_STATUS[s.observation.state] + (s.observation.freshness === "stale" ? " (stale)" : "");
+}
+
+type FocusState = { focusTab?: string } | null;
+
 function SessionSwitcher({ selected, search }: { selected: SessionView; search: string }) {
   const [scope] = useScope();
+  const navigate = useNavigate();
+  const location = useLocation();
   const query = usePagedRead<SessionSummary, SessionView>({ resource: "sessions", path: "/api/v1/sessions", scope,
     params: { limit: 25 }, adapt: adaptSession, pollMs: ROSTER_POLL_MS });
   const sessions = query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [];
-  return <nav className={styles.switcher} aria-label="Session switcher">
-    {sessions.length === 0 && <span className={styles.sessionTab} aria-label={selected.label} aria-current="page">{compactSessionLabel(selected)}</span>}
-    {sessions.map(s => <Link key={s.id} title={s.label} aria-label={s.label} className={styles.sessionTab} aria-current={s.id === selected.id ? "page" : undefined}
-      to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }}><span className={styles.sessionDot} aria-hidden="true" />{compactSessionLabel(s)}</Link>)}
-    {sessions.length > 0 && !sessions.some(s => s.id === selected.id) && <span className={styles.sessionTab} aria-label={selected.label} aria-current="page">{compactSessionLabel(selected)}</span>}
-    {query.hasNextPage && sessions.length < 100 && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>More sessions</ActionButton>}
+  const total = query.data?.pages[0]?.page.total ?? null;
+  const [openIds, setOpenIds] = useState(() => {
+    const ids = readOpenTabs();
+    return ids.includes(selected.id) ? ids : [...ids, selected.id].slice(-MAX_OPEN_TABS);
+  });
+  useEffect(() => writeOpenTabs(openIds), [openIds]);
+  const byId = new Map(sessions.map(s => [s.id, s]));
+  const tabs = openIds.flatMap(id => id === selected.id ? [selected] : byId.get(id) ?? []);
+
+  const tabLinks = useRef(new Map<string, HTMLAnchorElement>());
+  const pendingFocus = useRef<string | null>((location.state as FocusState)?.focusTab ?? null);
+  useEffect(() => {
+    const id = pendingFocus.current;
+    const link = id && tabLinks.current.get(id);
+    if (link) { pendingFocus.current = null; link.focus(); }
+  });
+
+  const go = (id: string, state?: FocusState) => navigate({ pathname: `/agents/${encodeURIComponent(id)}`, search }, { state });
+  function close(id: string) {
+    const i = tabs.findIndex(t => t.id === id);
+    const neighbour = tabs[i + 1] ?? tabs[i - 1];
+    const next = openIds.filter(x => x !== id);
+    writeOpenTabs(next);
+    setOpenIds(next);
+    if (id !== selected.id) pendingFocus.current = neighbour?.id ?? selected.id;
+    else if (neighbour) go(neighbour.id, { focusTab: neighbour.id });
+    else navigate({ pathname: "/agents", search });
+  }
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const listbox = useRef<HTMLUListElement>(null);
+  const nav = useRef<HTMLElement>(null);
+  const listboxId = useId();
+  function openMenu(trigger: HTMLButtonElement) {
+    opener.current = trigger;
+    setActive(Math.max(0, sessions.findIndex(s => s.id === selected.id)));
+    setMenuOpen(true);
+  }
+  function closeMenu(restoreFocus: boolean) {
+    setMenuOpen(false);
+    if (restoreFocus) opener.current?.focus();
+  }
+  useEffect(() => { if (menuOpen) listbox.current?.focus(); }, [menuOpen]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const outside = (e: PointerEvent) => { if (!nav.current?.contains(e.target as Node)) setMenuOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [menuOpen]);
+  useEffect(() => {
+    if (menuOpen) document.getElementById(`${listboxId}-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [menuOpen, active, listboxId]);
+  function choose(s: SessionView) {
+    if (s.id === selected.id) { closeMenu(true); return; }
+    setMenuOpen(false);
+    go(s.id);
+  }
+  function onListKey(e: KeyboardEvent<HTMLUListElement>) {
+    const last = sessions.length - 1;
+    const move: Record<string, number> = { ArrowDown: Math.min(last, active + 1), ArrowUp: Math.max(0, active - 1), Home: 0, End: last };
+    if (e.key in move) { e.preventDefault(); setActive(move[e.key]!); }
+    else if ((e.key === "Enter" || e.key === " ") && sessions[active]) { e.preventDefault(); choose(sessions[active]); }
+    else if (e.key === "Escape") { e.preventDefault(); closeMenu(true); }
+  }
+  const toggle = (e: MouseEvent<HTMLButtonElement>) => menuOpen && opener.current === e.currentTarget ? closeMenu(false) : openMenu(e.currentTarget);
+  const menuProps = { "aria-haspopup": "listbox" as const, "aria-expanded": menuOpen, "aria-controls": listboxId, onClick: toggle };
+
+  return <nav ref={nav} className={styles.switcher} aria-label="Session switcher"
+    onBlur={e => { if (menuOpen && !nav.current?.contains(e.relatedTarget as Node | null)) setMenuOpen(false); }}>
+    <ActionButton {...menuProps} className={styles.sessionsButton}>
+      <span className={styles.fullLabel}>Sessions {total && <span className={styles.sessionCount}><CountLabel total={total} /></span>}</span>
+      <span className={styles.compactLabel}><span className="visually-hidden">Switch session, current </span>{compactSessionLabel(selected)}</span>
+      <ChevronDown size={16} aria-hidden="true" />
+    </ActionButton>
+    <div className={styles.tabs}>
+      {tabs.map(s => {
+        const current = s.id === selected.id;
+        const statusId = `${listboxId}-tab-${s.id}`;
+        return <div key={s.id} className={styles.sessionTab} data-current={current || undefined}>
+          <Link ref={el => { if (el) tabLinks.current.set(s.id, el); else tabLinks.current.delete(s.id); }}
+            to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }} title={s.label} aria-label={s.label}
+            aria-describedby={statusId} aria-current={current ? "page" : undefined} className={styles.tabLink}>
+            <span className={styles.sessionDot} data-state={s.observation.state} aria-hidden="true" />
+            <span className={styles.tabName}>{compactSessionLabel(s)}</span>
+          </Link>
+          <span id={statusId} className={styles.tabStatus}>· {tabStatus(s)}</span>
+          <button type="button" className={styles.tabClose} aria-label={`Close ${s.label}`} onClick={() => close(s.id)}><X size={16} aria-hidden="true" /></button>
+        </div>;
+      })}
+      <ActionButton {...menuProps} className={styles.addTab} aria-label="Open another session"><Plus size={18} aria-hidden="true" /></ActionButton>
+    </div>
+    <div className={styles.sessionMenu} hidden={!menuOpen}>
+      {sessions.length > 0
+        ? <ul ref={listbox} id={listboxId} role="listbox" aria-label="Sessions" tabIndex={0} className={styles.sessionOptions}
+            aria-activedescendant={menuOpen ? `${listboxId}-${active}` : undefined} onKeyDown={onListKey}>
+            {sessions.map((s, i) => <li key={s.id} id={`${listboxId}-${i}`} role="option" aria-selected={s.id === selected.id}
+              data-active={i === active || undefined} className={styles.sessionOption} onClick={() => choose(s)} onPointerMove={() => setActive(i)}>
+              <span className={styles.sessionDot} data-state={s.observation.state} aria-hidden="true" />
+              <span className={styles.optionText}>
+                <span>{s.label} <span className={styles.tabStatus}>· {tabStatus(s)}</span></span>
+                <span className={styles.meta}>{s.task?.title ?? "No task"} · {s.project.label}</span>
+              </span>
+            </li>)}
+          </ul>
+        : <p id={listboxId} className={styles.muted}>{query.isError ? "Sessions unavailable" : query.data ? "No other sessions" : "Loading sessions…"}</p>}
+      {query.hasNextPage && sessions.length < 100 && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more sessions</ActionButton>}
+    </div>
     {query.isError && <span className={styles.muted}>Session switcher unavailable</span>}
   </nav>;
 }
@@ -144,11 +273,14 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
     pollMs: DETAIL_POLL_MS,
   });
   const heading = useRef<HTMLHeadingElement>(null);
-  const navigated = useLocation().key !== "default";
+  const location = useLocation();
+  const navigated = location.key !== "default";
+  // Closing the current tab hands focus to its neighbouring tab, not the heading.
+  const tabFocus = Boolean((location.state as FocusState)?.focusTab);
   const loaded = query.data?.view.id;
   useEffect(() => {
-    if (navigated && loaded === sessionId) heading.current?.focus();
-  }, [navigated, loaded, sessionId]);
+    if (navigated && !tabFocus && loaded === sessionId) heading.current?.focus();
+  }, [navigated, tabFocus, loaded, sessionId]);
 
   if (!query.data) {
     return (
