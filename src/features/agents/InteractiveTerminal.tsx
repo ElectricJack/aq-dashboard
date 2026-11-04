@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
 import { connectInteractiveTerminal, type TerminalState } from '../../api/interactiveTerminalClient';
-import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport } from './terminal/terminalSetup';
+import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
 import { ActionButton } from '../../components/layout/Workspace';
@@ -14,6 +14,9 @@ import { useMediaQuery } from '../../components/useMediaQuery';
 import { formatAge } from '../../components/time/relative';
 import type { OutputFeed } from './TerminalTail';
 import styles from './InteractiveTerminal.module.css';
+
+/** Phone key bar keys, in the spec's order: Esc, Tab, Ctrl (separate), arrows, Enter. */
+const KEYS = [['Esc', 'Esc', '\x1b'], ['Tab', 'Tab', '\t'], ['←', 'Left arrow', '\x1b[D'], ['↑', 'Up arrow', '\x1b[A'], ['↓', 'Down arrow', '\x1b[B'], ['→', 'Right arrow', '\x1b[C'], ['Enter', 'Enter', '\r']] as const;
 
 /** Port of agent-queue2 InteractiveTerminal/TerminalPane; the renderer and gestures
  * are unchanged in principle, while authority comes exclusively from v2 receipts. */
@@ -49,9 +52,17 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
   const [state, setState] = useState<TerminalState>({ message: 'Connecting…', connected: false, controlling: false, canControl: false, paused: false });
   const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true);
+  // Sticky on-screen Ctrl: the ref is read by xterm's onData, the state renders aria-pressed.
+  const [ctrl, setCtrlState] = useState(false), ctrlArmed = useRef(false);
+  const setCtrl = useCallback((on: boolean) => { ctrlArmed.current = on; setCtrlState(on); }, []);
+  const [fontSize, setFontSize] = useState(TERMINAL_FONT_SIZE), fontSizeRef = useRef(fontSize);
+  const relayout = useRef<(forceResize?: boolean) => void>(() => {});
+  const [panColumns, setPanColumns] = useState<number | null>(null);
+  const keys = useRef<HTMLDivElement>(null);
+  const [keyFade, setKeyFade] = useState({ start: false, end: false });
   useEffect(() => {
     if (!host.current || !watching) return;
-    const term = new Terminal({ ...terminalOptions(), cols: 80, rows: 24 }); terminal.current = term;
+    const term = new Terminal({ ...terminalOptions(fontSizeRef.current), cols: 80, rows: 24 }); terminal.current = term;
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
     const guarded = [...guardUntrustedOutput(term), ...guardObservedTerminalQueries(term)];
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
@@ -68,11 +79,20 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       reset: () => { feed?.restart(); term.reset(); },
       state: next => { uncertain.current ||= next.paused; term.options.disableStdin = !next.controlling; feed?.status(next.message, next.connected); setState(next); },
     }); connection.current = transport;
-    const data = term.onData(value => { if (!isObservedFocusReport(value)) transport.sendInput(new TextEncoder().encode(value)); });
+    const data = term.onData(value => {
+      if (isObservedFocusReport(value)) return;
+      if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
+      transport.sendInput(new TextEncoder().encode(value));
+    });
     const binary = term.onBinary(value => transport.sendInput(Uint8Array.from(value, c => c.charCodeAt(0) & 255)));
     const resize = term.onResize(size => transport.resize(size.cols, size.rows));
-    let animation = 0;
-    const layout = () => {
+    let animation = 0, force = false;
+    const measurePan = () => {
+      const screen = host.current?.querySelector<HTMLElement>('.xterm-screen');
+      setPanColumns(screen && host.current && screen.scrollWidth > host.current.clientWidth ? term.cols : null);
+    };
+    const layout = (forceResize = false) => {
+      force ||= forceResize;
       cancelAnimationFrame(animation); animation = requestAnimationFrame(() => {
         if (!host.current || !frame.current) return;
         const viewport = window.visualViewport;
@@ -82,28 +102,57 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         frame.current.style.maxHeight = viewport && viewport.width < 768 ? `${Math.max(180, viewport.height + viewport.offsetTop - box.top - below)}px` : '';
         const dimensions = fit.proposeDimensions();
         if (dimensions) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
+        // A text-size change re-sends the controller's size even when the grid is unchanged.
+        if (force) { force = false; transport.resize(term.cols, term.rows); }
+        measurePan();
       });
     };
-    const observer = new ResizeObserver(layout); observer.observe(host.current); layout();
-    void document.fonts?.ready.then(layout);
-    const touch = attachTouchScroll(host.current, { lineHeight: () => 14 * 1.2, scroll: lines => term.scrollLines(lines), onTap: () => { if (canFocusTerminal()) term.focus(); } });
-    window.visualViewport?.addEventListener('resize', layout); window.visualViewport?.addEventListener('scroll', layout);
+    relayout.current = layout;
+    const observer = new ResizeObserver(() => layout()); observer.observe(host.current); layout();
+    const screen = host.current.querySelector('.xterm-screen'); if (screen) observer.observe(screen);
+    void document.fonts?.ready.then(() => layout());
+    const touch = attachTouchScroll(host.current, { lineHeight: () => fontSizeRef.current * TERMINAL_LINE_HEIGHT, scroll: lines => term.scrollLines(lines), onTap: () => { if (canFocusTerminal()) term.focus(); } });
+    const viewportLayout = () => layout();
+    window.visualViewport?.addEventListener('resize', viewportLayout); window.visualViewport?.addEventListener('scroll', viewportLayout);
     return () => {
+      relayout.current = () => {}; setPanColumns(null);
       transport.close(); connection.current = null; feed?.end(); cancelAnimationFrame(animation); observer.disconnect(); touch();
-      window.visualViewport?.removeEventListener('resize', layout); window.visualViewport?.removeEventListener('scroll', layout);
+      window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
-  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed]);
+  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl]);
   useEffect(() => {
     if (state.controlling && terminal.current) connection.current?.resize(terminal.current.cols, terminal.current.rows);
-  }, [state.controlling]);
+    if (!state.controlling) setCtrl(false);
+  }, [state.controlling, setCtrl]);
+  useEffect(() => {
+    if (fontSizeRef.current === fontSize) return;
+    fontSizeRef.current = fontSize;
+    if (terminal.current) { terminal.current.options.fontSize = fontSize; relayout.current(true); }
+  }, [fontSize]);
+  // Phone watch mode (reference 11) has no key bar: every key is inert until control, and Disconnect is under More.
+  const keyBar = !phone || state.controlling;
+  const updateKeyFade = useCallback(() => {
+    const bar = keys.current; if (!bar) return;
+    const start = bar.scrollLeft > 1, end = bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 1;
+    setKeyFade(previous => previous.start === start && previous.end === end ? previous : { start, end });
+  }, []);
+  useEffect(() => {
+    const bar = keys.current; if (!bar || !keyBar) return;
+    const observer = new ResizeObserver(updateKeyFade); observer.observe(bar); updateKeyFade();
+    return () => observer.disconnect();
+  }, [updateKeyFade, keyBar]);
   const now = useServerNow(state);
   useEffect(() => {
     if (!moreOpen) return;
     const close = (event: PointerEvent) => { if (!(event.target instanceof Node) || !actions.current?.contains(event.target)) setMoreOpen(false); };
     document.addEventListener('pointerdown', close); return () => document.removeEventListener('pointerdown', close);
   }, [moreOpen]);
-  function send(value: string) { connection.current?.sendInput(new TextEncoder().encode(value)); if (canFocusTerminal()) terminal.current?.focus(); }
+  function focusTerminal() { if (canFocusTerminal()) terminal.current?.focus(); }
+  function send(value: string) {
+    if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
+    connection.current?.sendInput(new TextEncoder().encode(value)); focusTerminal();
+  }
   const toggleControl = () => { if (state.controlling) void connection.current?.release(); else void connection.current?.takeControl(); };
   const controlBlocked = !state.controlling && (!state.canControl || state.paused);
   const reconnect = () => { setWatching(true); setAttempt(n => n + 1); };
@@ -117,13 +166,20 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const controlButton = <ActionButton className={phone ? styles.primary : state.controlling ? undefined : styles.primaryOutline} disabled={controlBlocked} onClick={toggleControl}>{state.controlling ? 'Release control' : 'Take control'}</ActionButton>;
   const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-haspopup]') ?? undefined;
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
+  const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
   return <section className={styles.pane} aria-label="Interactive agent terminal" data-interactive-terminal>
     <div className={styles.toolbar}>
-      <div className={styles.controls}>
+      <div className={styles.controls} data-lease={leaseText ? true : undefined}>
         <span className={styles.state}>
           <span role="status" className={leaseText && routineMessage ? 'visually-hidden' : undefined}>{state.message}</span>
           {leaseText && <span className={styles.lease}>{leaseText}</span>}
         </span>
+        {/* Phone text size (desktop keeps browser zoom) shares the mode row so the terminal keeps its height. */}
+        <div className={styles.textSize} role="group" aria-label="Text size">
+          <button type="button" aria-label="A− Decrease text size" disabled={fontSize <= TERMINAL_FONT_SIZE_MIN} onClick={() => setFontSize(size => clampTerminalFontSize(size - TERMINAL_FONT_SIZE_STEP))}>A−</button>
+          <span className={styles.size}>{fontSize}px</span>
+          <button type="button" aria-label="A+ Increase text size" disabled={fontSize >= TERMINAL_FONT_SIZE_MAX} onClick={() => setFontSize(size => clampTerminalFontSize(size + TERMINAL_FONT_SIZE_STEP))}>A+</button>
+        </div>
         <label className={styles.mode}><span className="visually-hidden">Terminal mode</span>
           <select value={state.controlling ? 'control' : 'watch'} onChange={event => { if ((event.target.value === 'control') !== state.controlling) toggleControl(); }}>
             <option value="watch">Watch only</option>
@@ -136,21 +192,25 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     </div>
     <>
       <div className={styles.frame} ref={frame}><div className={styles.host} ref={host} /></div>
+      {!phone && panHint && <div className={styles.view}>{panHint}</div>}
       <footer className={styles.footer}>
         {/* Reference 08 order: Output · Progress · ● Connected. */}
         <span>{state.outputObservedAtMs && now !== null ? `Output ${formatAge(new Date(now).toISOString(), new Date(state.outputObservedAtMs).toISOString())}` : 'Output unavailable'}</span>
         <span>Progress unavailable</span>
         <span className={styles.connection} data-phase={phase}><span className={styles.dot} aria-hidden="true" />{phase === 'connected' ? 'Connected' : phase === 'connecting' ? 'Connecting' : 'Disconnected'}</span>
+        {/* Phone: the pan hint joins the footer's second line so the terminal keeps its rows. */}
+        {phone && panHint}
         {facts && <span className={styles.facts}>{facts}</span>}
         <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">Resident output · incomplete</span>
       </footer>
-      {/* Phone watch mode (reference 11) has no key bar: every key is inert until control, and Disconnect is under More. */}
-      {(!phone || state.controlling) && <div className={styles.keys} aria-label="Terminal keyboard">
+      {keyBar && <div className={styles.keys} ref={keys} role="group" aria-label="Terminal keyboard" data-fade-start={keyFade.start || undefined} data-fade-end={keyFade.end || undefined} onScroll={updateKeyFade}>
         <button type="button" ref={typeButton} disabled={!state.controlling} onClick={() => terminal.current?.focus()}>Type</button>
-        {([['Esc', '\x1b'], ['Tab', '\t'], ['Ctrl+C', '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C'], ['Enter', '\r']] as const).map(([label, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={label === '↑' ? 'Up arrow' : label === '↓' ? 'Down arrow' : label === '←' ? 'Left arrow' : label === '→' ? 'Right arrow' : label} onClick={() => send(bytes)}>{label}</button>)}
+        {KEYS.slice(0, 2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
+        <button type="button" className={styles.modifier} disabled={!state.controlling} aria-pressed={ctrl} onClick={() => { setCtrl(!ctrlArmed.current); focusTerminal(); }}>Ctrl</button>
+        {KEYS.slice(2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
         <button type="button" onClick={disconnect}>Disconnect</button>
       </div>}
-      <p id="terminal-input-help" className={styles.help}>Take control to type. Ctrl+M returns focus to the controls. Ctrl+C sends an interrupt; it does not cancel the task.</p>
+      <p id="terminal-input-help" className={styles.help}>Take control to type. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
     </>
     {phone && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}

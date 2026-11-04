@@ -88,3 +88,26 @@ export function guardObservedTerminalQueries(terminal: Terminal): IDisposable[] 
 export function isObservedFocusReport(data: string): boolean {
   return data === '\x1b[I' || data === '\x1b[O';
 }
+
+/** Phone text-size bounds (spec §6): never below the 14px readable default. */
+export const TERMINAL_FONT_SIZE_MIN = TERMINAL_FONT_SIZE;
+export const TERMINAL_FONT_SIZE_MAX = 20;
+export const TERMINAL_FONT_SIZE_STEP = 2;
+export function clampTerminalFontSize(size: number): number {
+  return Math.max(TERMINAL_FONT_SIZE_MIN, Math.min(TERMINAL_FONT_SIZE_MAX, size));
+}
+
+const CTRL_SYMBOLS: Record<string, number> = { '@': 0, ' ': 0, '2': 0, '[': 0x1b, '3': 0x1b, '\\': 0x1c, '4': 0x1c, ']': 0x1d, '5': 0x1d, '^': 0x1e, '6': 0x1e, '_': 0x1f, '-': 0x1f, '7': 0x1f, '/': 0x1f, '?': 0x7f, '8': 0x7f };
+const CTRL_ARROWS: Record<string, string> = { '\x1b[A': '\x1b[1;5A', '\x1b[B': '\x1b[1;5B', '\x1b[C': '\x1b[1;5C', '\x1b[D': '\x1b[1;5D', '\x1bOA': '\x1b[1;5A', '\x1bOB': '\x1b[1;5B', '\x1bOC': '\x1b[1;5C', '\x1bOD': '\x1b[1;5D' };
+
+/** Apply a sticky on-screen Ctrl modifier to the next key's data, as xterm
+ * would encode the chord: letters and the C0 symbols become control codes and
+ * arrows gain the xterm Ctrl parameter. Anything else passes through unchanged. */
+export function withControlModifier(data: string): string {
+  if (CTRL_ARROWS[data]) return CTRL_ARROWS[data];
+  if (data.length !== 1) return data;
+  const code = data.charCodeAt(0);
+  if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) return String.fromCharCode(code & 0x1f);
+  const symbol = CTRL_SYMBOLS[data];
+  return symbol === undefined ? data : String.fromCharCode(symbol);
+}
