@@ -21,8 +21,20 @@ test("discovery opens exact run and shows pins, timeline and pending operation",
   const detail = await screen.findByRole("region", { name: "Run run-0000000000000001" });
   expect(router.state.location.pathname).toBe("/playbooks/runs/run-0000000000000001");
   expect(within(detail).getByText(`sha256:${"a".repeat(64)}`)).toBeInTheDocument();
-  expect(within(detail).getByRole("list", { name: "Execution timeline" })).toHaveTextContent("9007199254740993");
+  const timeline = within(detail).getByRole("list", { name: "Execution timeline" });
+  expect(within(timeline).getAllByRole("listitem").map(li => li.textContent)).toEqual(["InspectCompleted", "Request reviewWaiting"]);
+  expect(within(timeline).getByText("Request review").closest("li")).toHaveAttribute("aria-current", "step");
+  expect(within(detail).getByRole("tab", { name: "Execution" })).toHaveAttribute("aria-selected", "true");
   expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("effect pending")).toBeInTheDocument();
+  await userEvent.click(within(detail).getByRole("tab", { name: "Events" }));
+  const table = within(detail).getByRole("table", { name: "Recent evidence" });
+  expect(within(table).getAllByRole("row")).toHaveLength(3);
+  expect(within(table).getByRole("link", { name: "Receipt 9007199254740993" })).toHaveAttribute("href", "#receipt-9007199254740993");
+  expect(within(table).getByText(/Operation accepted · Request review/)).toBeInTheDocument();
+  expect(within(detail).getByText(/^Observed \d+s ago$/)).toBeInTheDocument();
+  expect(within(detail).getByRole("tab", { name: "Inputs & outputs" })).toHaveAttribute("aria-disabled", "true");
+  await userEvent.click(within(detail).getByRole("tab", { name: "Definition" }));
+  expect(within(detail).getByRole("link", { name: "Open in Definitions" })).toHaveAttribute("href", `/playbooks?view=definitions&definition=sha256%3A${"a".repeat(64)}`);
 });
 test("empty and failed discovery remain distinct and failure retries explicitly", async () => {
   enabled(); let reads = 0; server.use(http.get("/api/playbooks/inspection/runs", () => ++reads === 1 ? HttpResponse.json({}, { status: 503 }) : HttpResponse.json(playbookPage([]))));

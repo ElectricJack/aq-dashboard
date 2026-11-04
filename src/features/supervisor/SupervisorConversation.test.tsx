@@ -45,13 +45,11 @@ async function ready() {
   // Bootstrap mounts the workspace; discovery then enables history controls.
   // Give each async stage its normal deadline instead of timing the entire
   // initial request chain with the final history assertion's 1000 ms budget.
-  // The dock has no Refresh control, so wait for the loaded history there.
   await composer();
-  if (screen.queryByRole("button", { name: "Refresh history" })) await waitFor(() => expect(screen.getByRole("button", { name: "Refresh history" })).toBeEnabled());
-  else await waitFor(() => expect(screen.queryByText("Loading conversation history…")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("Loading conversation history…")).toBeNull());
   return screen.findByText("Retained human message 1");
 }
-async function send(text: string) { const input = await composer(); await userEvent.type(input, text); await userEvent.click(screen.getByRole("button", { name: "Send message" })); }
+async function send(text: string) { const input = await composer(); await userEvent.type(input, text); await userEvent.click(screen.getByRole("button", { name: "Send" })); }
 
 test("granular history capability gates all mailbox requests independently of legacy runtime capability", async () => {
   const app = setup({ enabled: false });
@@ -66,7 +64,7 @@ test("keeps one global history and draft across project changes without scoped r
 });
 test("sends one frozen text-only intent and renders actual queued history without inventing a reply", async () => {
   const app = setup(); await ready(); await userEvent.type(await composer(), "Inspect the retained boundary");
-  await userEvent.dblClick(screen.getByRole("button", { name: "Send message" }));
+  await userEvent.dblClick(screen.getByRole("button", { name: "Send" }));
   await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
   expect(app.posts).toHaveLength(1); const body = JSON.parse(app.posts[0]!).payload;
   expect(body.context).toEqual([]); expect(body.attachments).toEqual([]); expect(body.expected_conversation_revision).toBe("1"); expect(body.message_id).not.toBe(body.operation_id);
@@ -83,7 +81,7 @@ test("lost response and missing lookup receipt keep exact intent; retry preserve
   await send("Only the original request"); await screen.findByText(/Message status is unknown/);
   expect(await composer()).toHaveValue("Only the original request"); expect(await composer()).toHaveAttribute("readonly");
   await userEvent.click(screen.getByRole("button", { name: "Check message status" })); await screen.findByText(/No receipt is available yet/);
-  expect(writes).toBe(1); expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  expect(writes).toBe(1); expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Retry exact message" })); await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
   expect(bytes).toHaveLength(2); expect(bytes[0]).toBe(bytes[1]); expect(app.posts).toHaveLength(0);
 });
@@ -125,7 +123,7 @@ test("IME composition and Shift+Enter never enqueue prematurely", async () => {
 });
 test("history-only authority preserves a usable draft and cannot enqueue", async () => {
   const app = setup({ write: false }); await ready(); await userEvent.type(await composer(), "Draft without enqueue permission");
-  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled(); expect(app.posts).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled(); expect(app.posts).toHaveLength(0);
 });
 test("changing operation reference fences a late response from the original intent", async () => {
   let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; }); let posts = 0;
@@ -146,9 +144,10 @@ test("new history does not scroll a reader who moved up and offers an explicit l
   Object.defineProperty(region, "scrollHeight", { configurable: true, value: 1000 });
   Object.defineProperty(region, "clientHeight", { configurable: true, value: 100 });
   region.scrollTop = 0; fireEvent.scroll(region); app.stored.push(supervisorMessage(2));
-  await userEvent.click(screen.getByRole("button", { name: "Refresh history" }));
+  await userEvent.click(screen.getByRole("button", { name: /history/i }));
+  await userEvent.click(screen.getByRole("button", { name: "Refresh messages" }));
   await screen.findByText("Retained human message 2");
-  expect(screen.getByRole("button", { name: "New messages available · Show latest" })).toBeInTheDocument();
+  expect(within(region).getByRole("button", { name: "New messages" })).toBeInTheDocument();
   expect(region.scrollTop).toBe(0);
 });
 test("a stale rejected preparation cannot clear the newer operation lookup's busy state", async () => {
@@ -221,7 +220,7 @@ test("unavailable supervisor preserves the draft and refuses action sends", asyn
   await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] }));
   await screen.findByText(/Conversation unavailable; your draft is preserved/);
   expect(await composer()).toHaveValue("Keep while disconnected");
-  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled(); expect(app.posts).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled(); expect(app.posts).toHaveLength(0);
 });
 
 test("dock does not mistake another workspace's operation for a supervisor send", async () => {
@@ -229,7 +228,7 @@ test("dock does not mistake another workspace's operation for a supervisor send"
   const app = setup({ path: `/overview?operation=${supervisorId(88)}` });
   await userEvent.click(await screen.findByRole("button", { name: "Open supervisor" })); await ready();
   await userEvent.type(await composer(), "Independent supervisor draft");
-  expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled(); expect(app.posts).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "Send" })).toBeEnabled(); expect(app.posts).toHaveLength(0);
 });
 
 test("dock header shows only expand and close, with short metadata carrying the full delivery text", async () => {
@@ -244,5 +243,5 @@ test("dock header shows only expand and close, with short metadata carrying the 
   const status = within(metadata as HTMLElement).getByText("Queued", { exact: false });
   expect(status).toHaveAttribute("tabindex", "0");
   await userEvent.click(within(header).getByRole("button", { name: "Expand conversation" }));
-  expect(await screen.findByRole("button", { name: "Refresh history" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /history/i })).toBeInTheDocument();
 });
