@@ -72,7 +72,7 @@ test.describe("phone-390", () => {
     await expect(page.getByRole("list", { name: /inbox/i })).not.toBeVisible();
     const back = page.getByRole("link", { name: "All decisions" });
     await expect(back).toBeVisible();
-    const evidence = page.getByRole("heading", { name: "Review criteria" });
+    const evidence = page.getByRole("heading", { name: "Acceptance criteria" });
     expect((await back.boundingBox())!.y).toBeLessThan((await evidence.boundingBox())!.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     if (EVIDENCE) await page.screenshot({ path: `${EVIDENCE}/decisions-selected-phone-390.png` });
