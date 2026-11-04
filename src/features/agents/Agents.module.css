@@ -65,6 +65,29 @@
   max-inline-size: none;
 }
 
+/* AG-A: the focused session is a viewport-fit workspace. The shell's [data-viewport-fit]
+   rule makes main a viewport-high flex column; each wrapper between main and this section
+   passes the remaining height down so only the terminal pane grows. */
+.detail[data-viewport-fit] { display: flex; flex-direction: column; flex: 1 1 auto; min-block-size: 0; gap: var(--space-2); background: var(--color-canvas); }
+:global(#content) > :has(.detail[data-viewport-fit]),
+:global([data-supervisor-destination]):has(.detail[data-viewport-fit]),
+:global([data-supervisor-destination]) > div:has(> .detail[data-viewport-fit]) { display: flex; flex-direction: column; flex: 1 1 auto; min-block-size: 0; }
+/* The destination's shared "Agents" h1 stays for assistive tech; the breadcrumb row is the visible title. */
+:global([data-supervisor-destination]):has(.detail[data-viewport-fit]) > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.focusHeader { display: flex; flex: none; align-items: center; gap: var(--space-2); min-inline-size: 0; min-block-size: var(--touch-target); }
+.crumb { display: inline-flex; flex: none; align-items: center; min-block-size: var(--touch-target); color: var(--color-text-secondary); font-size: 16px; text-decoration: none; }
+.crumb:hover { color: var(--color-text); }
+.backIcon { display: none; }
+.crumbSeparator { flex: none; color: var(--color-text-secondary); }
+.focusHeader .title { flex: 0 1 auto; min-inline-size: 0; margin: 0; overflow: hidden; font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.iconControl { display: inline-grid; flex: none; place-items: center; inline-size: var(--touch-target); block-size: var(--touch-target); padding: 0; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+.iconControl:hover:not(:disabled) { color: var(--color-text); border-color: var(--color-border); }
+.iconControl:disabled { opacity: .45; cursor: default; }
+.iconControl:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.expand { margin-inline-start: auto; }
+.taskLink { flex: 0 1 auto; min-inline-size: 0; overflow: hidden; color: var(--color-accent); font-size: var(--font-size-meta); text-overflow: ellipsis; white-space: nowrap; }
+
 .back {
   justify-self: start;
   font-size: var(--font-size-meta);
@@ -113,25 +136,57 @@
 /* The selected session gets the workspace; metadata is an explicit disclosure. */
 .workspaceHeading { justify-content: space-between; }
 .focusLabel { margin-inline-end: auto; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
-.switcher { display: flex; align-items: center; gap: var(--space-2); min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; padding-block: var(--space-1); }
+.switcher[hidden] { display: none; }
+.switcher { flex: none; display: flex; align-items: center; gap: var(--space-2); min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; padding-block: var(--space-1); }
 .sessionTab { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-2); max-inline-size: 28ch; min-block-size: var(--touch-target); overflow: hidden; white-space: nowrap; padding: var(--space-2) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control) var(--radius-control) 0 0; background: var(--color-panel); color: var(--color-text-secondary); text-decoration: none; }
 .sessionTab[aria-current="page"] { border-color: var(--color-accent); color: var(--color-text); background: var(--color-raised); box-shadow: inset 0 2px var(--color-accent); }
 .sessionDot { flex: 0 0 auto; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--color-text-secondary); }
-.outputWorkspace { display: grid; min-inline-size: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: #0b0e11; }
-.outputHeading { justify-content: space-between; padding: var(--space-3) var(--space-4); background: var(--color-panel); border-block-end: 1px solid var(--color-border); }
-.outputHeading strong { font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.outputWorkspace { display: flex; flex-direction: column; flex: 1 1 auto; min-block-size: 0; min-inline-size: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: #0b0e11; }
+.outputHeading { flex: none; flex-wrap: nowrap; justify-content: space-between; padding: var(--space-2) var(--space-4); background: var(--color-panel); border-block-end: 1px solid var(--color-border); }
+.outputHeading strong { flex: 0 1 auto; min-inline-size: 0; overflow: hidden; font-size: var(--font-size-meta); text-overflow: ellipsis; white-space: nowrap; }
 .readOnly { flex: 0 0 auto; color: var(--color-accent); font-size: var(--font-size-meta); }
-.outputWorkspace .terminal { min-block-size: clamp(320px, 52dvh, 700px); border: none; border-radius: 0; }
-.outputFooter { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding: var(--space-2) var(--space-4); border-block-start: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
-.detailsPanel { padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
-.detailsPanel h3 { margin-block: var(--space-5) var(--space-3); }
-@media (max-width: 767px) { .focusLabel { display: none; } .workspaceHeading { gap: var(--space-2); } .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); } .detailsPanel { padding: var(--space-4); } }
+.outputWorkspace .terminal { flex: 1 1 auto; min-block-size: 240px; border: none; border-radius: 0; }
+.outputWorkspace > :global([data-interactive-terminal]) { display: flex; flex-direction: column; flex: 1 1 0; min-block-size: 0; }
+.outputFooter { flex: none; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding: var(--space-2) var(--space-4); border-block-start: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.sessionActions { flex: none; justify-content: flex-end; padding: var(--space-3) var(--space-4); background: var(--color-panel); border-block-start: 1px solid var(--color-border); }
+.messageSlot { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-inline-size: 0; font-size: var(--font-size-meta); }
+/* On-demand drawers: right side over the workspace on desktop, bottom sheet on phone. */
+.drawer { box-sizing: border-box; position: fixed; inset: 0 0 0 auto; margin: 0; inline-size: min(360px, 100%); max-inline-size: 100%; block-size: 100dvh; max-block-size: 100dvh; padding: 0; display: none; flex-direction: column; overflow: hidden; color: var(--color-text); background: var(--color-panel); border: none; border-inline-start: 1px solid var(--color-border); }
+.drawer[open] { display: flex; }
+.drawer[data-wide] { inline-size: min(640px, 100%); }
+.drawer::backdrop { background: #0008; }
+.drawerHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-block-end: 1px solid var(--color-border); }
+.drawerHeader h2 { margin: 0; font-size: 18px; }
+.drawerBody { flex: 1 1 auto; min-block-size: 0; overflow: auto; padding: var(--space-4); }
+.drawerBody h3 { margin-block: var(--space-5) var(--space-3); }
+.drawerBody dl { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
+.drawerBody dd + dt { margin-block-start: var(--space-2); }
+@media (max-width: 767px) {
+  .focusLabel { display: none; }
+  .workspaceHeading { gap: var(--space-2); }
+  .outputWorkspace .terminal { min-block-size: 48dvh; padding: var(--space-4); }
+  /* Viewport fit: tighter block padding keeps the terminal at half the phone viewport. */
+  .sessionActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-2); padding: var(--space-2) var(--space-3); }
+  .messageSlot { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .drawer, .drawer[data-wide] { inset: auto 0 0 0; inline-size: 100%; block-size: auto; max-block-size: 85dvh; border: 1px solid var(--color-border); border-block-end: none; border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
+  .drawerBody { padding: var(--space-3); }
+  .focusHeader { gap: var(--space-1); margin-block-start: calc(-1 * var(--space-2)); }
+  .crumb { margin-inline-start: calc(-1 * var(--space-2)); padding-inline-end: var(--space-2); color: var(--color-text); }
+  .backIcon { display: block; }
+  .crumbSeparator { display: none; }
+  .focusHeader .title { padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+  .focusHeader .iconControl[aria-controls] { margin-inline-start: calc(-1 * var(--space-2)); }
+  .outputHeading { gap: var(--space-2); min-block-size: 24px; padding: 2px var(--space-3); }
+  .outputHeading .taskLink { flex: 1 1 auto; text-align: end; }
+  .outputFooter { gap: 0 var(--space-3); padding: var(--space-1) var(--space-3); }
+  .outputFooter > span { white-space: nowrap; }
+  /* Central state stays in Session details; the phone footer keeps observation and activity on one line. */
+  .footerCentral { display: none; }
+}
 .compactLabel { display: none; }
 @media (max-width: 767px) {
   .fullLabel, .observationSummary { display: none; }
   .compactLabel { display: inline; }
-  .detail .title { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .detail > .meta { margin: 0; }
   .switcher { padding-block: 0; }
   .sessionTab { max-inline-size: 100%; }
 }

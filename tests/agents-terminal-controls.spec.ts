@@ -29,7 +29,11 @@ for (const vp of VIEWPORTS) {
       await page.goto("/agents/sess-07");
       const pane = page.getByRole("region", { name: "Interactive agent terminal" });
       await expect(pane.getByRole("status").filter({ hasText: "Watch only" })).toBeAttached();
-      await expect(pane.getByRole("radiogroup", { name: "Output view" }).getByRole("radio", { name: "Terminal" })).toHaveAttribute("aria-checked", "true");
+      // Reference 11 puts the Terminal | Transcript switch in the phone dock; reference 08 has
+      // none on desktop, where Transcript is the Session actions drawer button (AG-C).
+      const view = pane.getByRole("radiogroup", { name: "Output view" });
+      if (vp.phone) await expect(view.getByRole("radio", { name: "Terminal" })).toHaveAttribute("aria-checked", "true");
+      else await expect(view).toHaveCount(0);
       await expect(pane.getByRole("combobox", { name: "Terminal mode" })).toHaveValue("watch");
       const footer = pane.locator("footer");
       await expect(footer.getByText("Connected", { exact: true })).toBeVisible();

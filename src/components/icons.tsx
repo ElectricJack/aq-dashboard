@@ -14,6 +14,7 @@ import {
   FileText,
   House,
   List,
+  ListChecks,
   ListTodo,
   LoaderCircle,
   MessageSquare,
@@ -21,6 +22,7 @@ import {
   OctagonAlert,
   RefreshCw,
   Settings,
+  Shield,
   TriangleAlert,
   Users,
   Workflow,
@@ -79,3 +81,16 @@ export const COUNT_ICON = {
   needs_you: CircleAlert,
   recovering: RefreshCw,
 } as const;
+
+/** Knowledge category icons (reference 07). Unknown categories fall back to a book. */
+export const KNOWLEDGE_CATEGORY_ICON: Record<string, LucideIcon> = {
+  decision: FileText,
+  procedure: ListChecks,
+  policy: Shield,
+  incident: TriangleAlert,
+  reference: BookOpen,
+  fact: Database,
+};
+export function knowledgeCategoryIcon(category: string | null): LucideIcon {
+  return (category && KNOWLEDGE_CATEGORY_ICON[category.toLowerCase()]) || BookOpen;
+}
