@@ -6,16 +6,17 @@ import { adaptDecision, adaptDecisions, validateAnswerReceipt, type DecisionDeta
 import { queryKey } from "../../api/queryKeys";
 import { PageTitle } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
-import { scopeSearch, useScope } from "../../app/scope";
+import { useScope } from "../../app/scope";
 import { ActionButton, DetailList, Panel, Toolbar } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { DecisionContext } from "./DecisionContext";
 import styles from "./Decisions.module.css";
 const ROOT = "/api/reviews/decisions";
 const short = (id: string) => id.slice(0, 8);
 export function Component() {
   const { bootstrap, queryContext } = useSession();
   const permission = bootstrap.capability("decisions.read");
-  const [scope] = useScope(); const search = scopeSearch(scope);
+  const [scope] = useScope();
   const [params, setParams] = useSearchParams(); const state = params.get("state") === "closed" ? "closed" : "open";
   const { decisionId } = useParams();
   const project = scope.kind === "project" ? scope.project_id : undefined;
@@ -43,7 +44,6 @@ export function Component() {
         {decisionId ? <Selected key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`} id={decisionId} project={project} /> : <Panel title="Choose a review"><p>Select an available decision to inspect its exact result and evidence.</p></Panel>}
       </div>
     </>}
-    <Link to={{ pathname: "/work", search }}>Open Work</Link>
   </>;
 }
 function Selected({ id, project }: { id: string; project: string | undefined }) {
@@ -60,7 +60,7 @@ function Selected({ id, project }: { id: string; project: string | undefined }) 
     <h3>Review criteria</h3><ul>{d.criteria.map(c => <li key={c}>{c}</li>)}</ul>
     <h3>Source evidence</h3><DetailList><dt>Repository</dt><dd>{d.source.repository}</dd><dt>Base object</dt><dd>{d.source.base}</dd><dt>Resulting object</dt><dd>{d.source.result}</dd></DetailList>
     <DecisionAction key={`${id}:${d.revision}`} detail={d} enabled={bootstrap.capability("decisions.resolve").enabled} onRecorded={() => { void read.refetch(); void client.invalidateQueries({ queryKey: queryKey(queryContext, "decision-inbox", {}) .slice(0, 5) }); }} />
-  </Panel><Panel title="Decision context" className={styles.context}><DetailList><dt>Project</dt><dd>{d.projectId}</dd><dt>Task</dt><dd>{d.taskId}</dd><dt>Report</dt><dd>{d.reportId}</dd></DetailList><h3>Pinned evidence</h3><ul className={styles.artifacts}>{d.evidence.map(e => <li key={e.label}><strong>{e.label}</strong><span className={styles.muted}>{e.id}</span><code>{e.digest}</code></li>)}</ul><p className={styles.muted}>A recorded answer does not establish task completion or source publication.</p></Panel></>;
+  </Panel><DecisionContext detail={d} updatedAt={read.dataUpdatedAt} className={styles.context} /></>;
 }
 type Answer = { schema_version: 1; operation_id: string; decision_id: string; expected_decision_revision: number; choice: "approve" | "reject"; comment: string | null };
 function DecisionAction({ detail: d, enabled, onRecorded }: { detail: DecisionDetail; enabled: boolean; onRecorded(): void }) {
