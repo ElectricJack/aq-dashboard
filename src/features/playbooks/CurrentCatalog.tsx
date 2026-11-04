@@ -60,7 +60,7 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
       <p ref={rosterSummary} tabIndex={-1} className={styles.meta}>Current namespace metadata · observed {timestamp(stamp!.observedAt)}</p>
       {rows.length === 0 && <p>No {kind} represented in this namespace.</p>}
       <ul className={styles.runs} aria-label={`Current playbook ${kind}`}>{rows.map(item => <li key={item.key}>
-        <button ref={element => { if (element) buttons.current.set(item.key, element); else buttons.current.delete(item.key); }} className={styles.definitionLink} data-selected={item.key === selected} onClick={() => select(item.key)} aria-label={`Inspect ${singular} ${item.kind === "definition" ? item.name : item.binding}`}>
+        <button ref={element => { if (element) buttons.current.set(item.key, element); else buttons.current.delete(item.key); }} className={styles.definitionLink} data-selected={item.key === selected} onClick={() => select(item.key)}>
           <strong>{item.kind === "definition" ? item.name : item.binding}</strong><span>{item.kind === "definition" ? `${item.entries.length} ${item.entries.length === 1 ? "entry" : "entries"}` : `Binding revision ${item.revision}`}</span><small>{item.artifact}</small>
         </button></li>)}</ul>
       {pages.hasNextPage && <ActionButton disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>Load more {kind}</ActionButton>}

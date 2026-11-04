@@ -14,6 +14,7 @@ export const SCENARIOS = [
   "reads-failed",
   "large",
   "actions-unavailable",
+  "projects-unlisted",
   "results-media",
 ] as const;
 export type ScenarioName = (typeof SCENARIOS)[number];
@@ -95,6 +96,15 @@ const quotaDisabled: Bootstrap = {
   ),
 };
 
+/** The server declines to list projects; a URL can still select one. */
+const projectsUnlisted: Bootstrap = {
+  ...baseBootstrap,
+  capabilities: [
+    ...baseBootstrap.capabilities.filter((c) => c.name !== "projects.read"),
+    { name: "projects.read", version: "1", enabled: false, reason: "Project listing is not offered by this AQ server" },
+  ],
+};
+
 const defaults: Scenario = {
   bootstrap: baseBootstrap,
   providerUsage: { kind: "ok", body: baseUsage },
@@ -111,6 +121,7 @@ const built: Record<ScenarioName, Scenario> = {
   large: { ...defaults, graph: "large" },
   "results-media": { ...defaults, media: true },
   "actions-unavailable": { ...defaults, bootstrap: withActions(false) },
+  "projects-unlisted": { ...defaults, bootstrap: projectsUnlisted },
   stale: {
     ...defaults,
     providerUsage: {

@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { BookOpen, Circle, List, ListChecks, Network, RefreshCw, Search as SearchIcon, Shield, Tag, Workflow, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useScope } from "../../app/scope";
-import { useProjects } from "../../app/useProjects";
+import { useProjects, useProjectsCapability } from "../../app/useProjects";
 import { useGraphList, useGraphDetail } from "../../api/humanGraphReads";
 import { mergeGraphPages, validGraphId, GRAPH_MAX_PAGES, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -46,9 +46,11 @@ function withoutRevision(search:string) { const params=new URLSearchParams(searc
 const pathFor=(kind:GraphNode["kind"],id?:string)=>`/${kind === "task" ? "work" : "knowledge"}${id?`/${encodeURIComponent(id)}`:""}`;
 function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
   const [params] = useSearchParams();
+  const capability=useProjectsCapability();
   const projects=useProjects();
   return <Panel title="Choose a project" description={`Select a project to browse its ${kind === "task" ? "tasks and dependencies" : "knowledge records"}.`}>
-    {!projects.data ? <QueryStatus status={projects.isError?"error":"pending"} error={projects.error} label="projects" onRetry={()=>void projects.refetch()}/> :
+    {!capability.enabled ? <div role="status"><p>Project list isn't offered by this AQ server — choose a project from the scope menu or open a project link.</p><p className={styles.meta}>Reason: {capability.reason}</p></div> :
+      !projects.data ? <QueryStatus status={projects.isError?"error":"pending"} error={projects.error} label="projects" onRetry={()=>void projects.refetch()}/> :
       projects.data.view.length ? <ul className={styles.projectList}>{projects.data.view.map(p=><li key={p.id}><Link to={{pathname:pathFor(kind,id),search:(()=>{const next=new URLSearchParams(params);next.set("scope",`project:${p.id}`);return `?${next}`;})()}}>{p.label}</Link></li>)}</ul> : <p>No projects are available to this account.</p>}
   </Panel>;
 }
@@ -89,6 +91,8 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const noun=kind==="task"?(filtered.length===1?"task":"tasks"):(filtered.length===1?"record":"records");
   const categories=[...new Set(rows.map(n=>n.content_type).filter((v):v is string=>!!v))].sort();
   const projectName=query.data?.pages[0]?.project.name;
+  // A failed or pending read has no count; never present it as "0 loaded" (spec 0002 §10).
+  const listTitle=query.isError || mergeError ? `${kind==="task"?"Tasks":"Records"} unavailable` : !query.data ? (kind==="task"?"Tasks":"Records") : `${filtered.length} ${noun} loaded`;
   const update=(key:string,value:string)=>setParams(p=>{const n=new URLSearchParams(p);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);return n;});
   return <div ref={workspace} className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
     <p className={styles.subtitle}>{kind==="knowledge"?"Find the decisions, procedures, and evidence behind the work.":"Inspect project tasks and their recorded dependencies."}{projectName && <span> · {projectName}</span>}</p>
@@ -116,7 +120,7 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
     <div className={styles.panes}>
       <div className={styles.listPane}>
       {graph ? id ? <HumanTaskGraph project={project} root={graphRoot!} selected={id} search={search}/> : <Panel title="Dependency graph"><p>Select a task from the list to open its neighborhood.</p><ActionButton onClick={()=>update("view","")}>Choose a task</ActionButton></Panel> :
-      <Panel title={`${filtered.length} ${noun} loaded`} className={styles.listPanel} actions={knowledge ? <div className={styles.listActions}>
+      <Panel title={listTitle} className={styles.listPanel} actions={knowledge ? <div className={styles.listActions}>
           <label><span className="visually-hidden">Sort records</span><select value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">Updated recently</option><option value="title">Title A–Z</option></select></label>
           <ActionButton className={styles.iconButton} aria-label="Refresh list" title="Refresh list" disabled={query.isFetching} onClick={()=>void query.refetch()}><Icon icon={RefreshCw} size={18}/></ActionButton>
         </div> : <ActionButton disabled={query.isFetching} onClick={()=>void query.refetch()}>Refresh list</ActionButton>}>

@@ -6,6 +6,7 @@ import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
+import { PLAYBOOK_CAPABILITIES, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
   return {
@@ -64,13 +65,15 @@ const FIXTURE_TERMINALS = new Map(FIXTURE_SESSIONS.flatMap((x) => (x.terminal ? 
 
 /**
  * MSW handlers serving PROPOSED fixtures for one scenario. `fixtures` adds the
- * labelled terminal and Results fixtures and their capabilities; the mock app
+ * labelled terminal, Results and Playbooks fixtures and their capabilities; the mock app
  * turns it on, unit tests keep the default contract bootstrap.
  */
 export function handlersFor(name: string | null | undefined, { fixtures = false }: { fixtures?: boolean } = {}) {
   const s = scenario(name);
   const sessions = fixtures ? FIXTURE_SESSIONS : SESSIONS;
   const bootstrap = fixtures ? withFixtureCapabilities(s.bootstrap, s.media) : s.bootstrap;
+  const playbookNames: readonly string[] = fixtures ? PLAYBOOK_CAPABILITIES : [];
+  const playbookCaps = fixtures ? playbookCapabilities(playbookMode(name)) : [];
   const coverage: Coverage =
     s.reads === "partial"
       ? { state: "partial", omitted_count: 1, reason: "One project's read model did not respond" }
@@ -85,9 +88,11 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...decisionHandlers(),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...humanGraphHandlers(s.reads, s.graph),
+    ...(fixtures ? playbookHandlers(playbookMode(name)) : []),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
-    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true}]}))),
+    // Grant the human-graph reads, the labelled playbook fixtures (fixture mode) and, unless the scenario declares otherwise, the fixture project list.
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"&&!playbookNames.includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},...playbookCaps,...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
     http.get("/api/v1/provider-usage", () =>
       s.providerUsage.kind === "ok"
         ? HttpResponse.json(s.providerUsage.body)
