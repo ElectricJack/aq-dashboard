@@ -92,20 +92,24 @@ test("graph nodes are keyboard reachable and selection keeps positions", async (
   expect(await offset()).toEqual(before);
 });
 
+// Gap audit W20 (WK-F): on phone, selection inside the graph stays in the graph (a summary
+// sheet); "Open task" opens the detail, and Back returns to the graph on the selected node.
 test("phone: Graph opens from a task, a node opens its detail and Back returns to the graph", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(work);
   await page.getByRole("button", { name: "Graph" }).click();
   const graph = page.getByRole("region", { name: "Dependency graph" });
   await expect(graph).toBeVisible();
-  // The graph node itself (the Recorded relationships list repeats the same links as text).
-  const node = graph.getByRole("region", { name: "Scrollable task graph" }).getByRole("link", { name: /Fixture: verify recovery/ });
-  await node.click();
+  const node = () => graph.getByRole("region", { name: "Scrollable task graph" }).getByRole("link", { name: /Fixture: verify recovery/ });
+  await node().click();
+  await expect(page).toHaveURL(/view=graph/);
+  const sheet = graph.getByRole("region", { name: "Fixture: verify recovery" });
+  await sheet.getByRole("link", { name: "Open task" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Fixture: verify recovery" })).toBeVisible();
   await expect(graph).toBeHidden();
   await page.goBack();
-  await expect(page.getByRole("region", { name: "Dependency graph" })).toBeVisible();
-  await expect(node).toBeFocused();
+  await expect(graph).toBeVisible();
+  await expect(node()).toBeFocused();
 });
 
 test("returning to Work retains the served list without proposed task requests", async ({ page }) => {

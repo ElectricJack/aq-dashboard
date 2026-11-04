@@ -18,3 +18,7 @@
 .annotatable { position:relative; display:inline-flex; max-inline-size:100%; }
 .frame .annotatable img { inline-size:auto; max-inline-size:100%; max-block-size:360px; }
 .annotation { position:absolute; border:2px solid var(--color-focus); background:#f3c57630; pointer-events:none; box-sizing:border-box; }
+.thumbRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); min-inline-size: 0; }
+.thumbRow > p { margin: 0; }
+.evidence { display: flex; justify-content: flex-end; margin-block-start: var(--space-3); }
+@media(max-width:600px) { .thumbRow { display: grid; } .evidence { justify-content: flex-start; } }

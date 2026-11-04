@@ -5,7 +5,10 @@ import { adaptControl, adaptInputReceipt, adaptInteractiveInfo, type TerminalInf
 import { adaptTerminalTail, adaptWatch, sameTerminal } from './adapters/terminalTail';
 import { isRecord, ContractError } from './adapters/contract';
 import { terminalJson } from './terminalClient';
-export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean }
+export interface TerminalLease { mine: boolean; expiresAtMs: number }
+/** `clock` maps the last server time header onto `performance.now()` so a view can count down server-time facts. */
+export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean;
+  lease?: TerminalLease | null; clock?: { serverMs: number; at: number }; outputObservedAtMs?: number | null }
 class NotDelivered extends Error {}
 type Read = (part: string, fetcher: () => ReturnType<typeof terminalJson>) => ReturnType<typeof terminalJson>;
 export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void }) {
@@ -13,12 +16,16 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   const path = `/api/v1/terminals/${encodeURIComponent(options.terminalId)}`;
   let info: TerminalInfo | undefined, clock = 0, clockAt = 0, owned: string | null = null;
   let paused = options.initiallyPaused ?? false, connected = false, busy = false, queue: Uint8Array[] = [], queued = 0, resizeSequence = 0, renewing = false;
+  let outputObservedAtMs: number | null = null;
+  const acquired = new Set<string>();
   let inputBatchTimer: ReturnType<typeof setTimeout> | undefined;
   let pendingResize: { columns: number; rows: number } | null = null;
   const now = () => clock + performance.now() - clockAt;
   const active = () => !!(connected && !paused && info?.input_enabled && !info.disconnected && info.control.fence_acknowledged && !info.control.input_paused && info.control.lease?.lease_id === owned && info.control.lease.expires_at_ms > now());
   const emit = (message = active() ? 'You have control' : paused ? 'Input delivery uncertain — typing paused' : connected ? 'Watch only' : 'Connecting…') => {
-    if (!signal.aborted) options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused });
+    if (signal.aborted) return;
+    const lease = connected && info?.control.lease ? { mine: acquired.has(info.control.lease.lease_id), expiresAtMs: info.control.lease.expires_at_ms } : null;
+    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs });
   };
   const request: Read = async (part, fetcher) => {
     const value = await options.read(part, fetcher);
@@ -98,7 +105,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       if (!isRecord(raw.body) || raw.body.kind !== 'control' || !isRecord(raw.body.body) || raw.body.body.operation_id !== operation) throw new ContractError('Control reply');
       const status = adaptControl(raw.body.body.status, info.terminal, info.session_revision);
       if (!status.lease || status.lease.expires_at_ms <= now()) throw new ContractError('Control expiry');
-      owned = status.lease.lease_id; info.control = status;
+      owned = status.lease.lease_id; acquired.add(owned); info.control = status;
       if (kind === 'control') resizeSequence = 0;
       emit('Waiting for worker control acknowledgement…');
     } catch { owned = null; queue = []; queued = 0; emit('Control unavailable — select Take control to try again'); }
@@ -124,6 +131,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
           if (discontinuity || tail.availability === 'not_retained') options.reset();
           for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
           after = tail.next_sequence;
+          outputObservedAtMs = tail.last_observed_at_ms;
           emit(tail.availability === 'not_retained' ? 'Output not retained' : discontinuity ? 'Output gap — screen restarted' : tail.disconnected ? 'Output stream disconnected' : undefined);
           if (performance.now() - lastInspect >= 750) {
             await inspect(); lastInspect = performance.now();
@@ -138,7 +146,10 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   return {
     takeControl: () => control('control'),
     async release() {
-      const lease = owned; owned = null; queue = []; queued = 0; pendingResize = null; emit();
+      const lease = owned; owned = null; queue = []; queued = 0; pendingResize = null;
+      // The release reply ends this lease; stop showing its countdown now, not at the next inspect.
+      if (lease && info?.control.lease?.lease_id === lease) info.control = { ...info.control, lease: null };
+      emit();
       if (!lease || !info) return;
       try { await json('release', '/mutations', { kind: 'release', body: { terminal: info.terminal, operation_id: crypto.randomUUID(), expected_session_revision: info.session_revision, expected_controller_generation: info.control.generation, lease_id: lease } }); } catch { emit('Control released locally; server lease will expire'); }
     },

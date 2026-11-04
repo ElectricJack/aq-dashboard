@@ -25,7 +25,8 @@ export function ResultMediaWindow({ keys, children }: { keys: string[]; children
   </MediaWindow.Provider>;
 }
 export type ImageAnnotation={x:number;y:number;width:number;height:number;onPlace?(x:number,y:number):void};
-export function ResultMedia({ binding,onArtifact,annotation }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation }) {
+/** `evidence` is the card's evidence line: beside the thumbnails, or under the placeholder. */
+export function ResultMedia({ binding,onArtifact,annotation,evidence }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation;evidence?:ReactNode }) {
   const { bootstrap, queryContext } = useSession(); const window = useContext(MediaWindow)!;
   const enabled = bootstrap.capability("results.media.read").enabled, key = resultMediaKey(binding), element = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -35,7 +36,7 @@ export function ResultMedia({ binding,onArtifact,annotation }: { binding: MediaB
   }, [key, enabled, window.visible]);
   if (!enabled) return null;
   return <div ref={element} className={styles.surface} data-result-media>
-    {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} onArtifact={onArtifact} annotation={annotation} /> : <div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>}
+    {window.active(key) ? <MediaGallery key={`${key}:${queryContext.principalId}:${queryContext.authorizationRevision}`} binding={binding} onArtifact={onArtifact} annotation={annotation} evidence={evidence} /> : <><div className={styles.placeholder}><ActionButton onClick={() => window.prefer(key)}>View supplemental images</ActionButton></div>{evidence && <div className={styles.evidence}>{evidence}</div>}</>}
   </div>;
 }
 function useMediaListing(binding: MediaBinding) {
@@ -43,19 +44,20 @@ function useMediaListing(binding: MediaBinding) {
   return useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), retry: false, gcTime: 0, staleTime: 0, refetchOnMount: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => { const started = performance.now(); const page = await adaptResultMedia(await resultMediaJson(binding, signal), binding); signal.throwIfAborted(); return { page, started }; } });
 }
-function MediaGallery({ binding,onArtifact,annotation }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation }) {
+function MediaGallery({ binding,onArtifact,annotation,evidence }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation;evidence?:ReactNode }) {
   const window = useContext(MediaWindow)!; const [selected, setSelected] = useState<string | null>(null);
   const query = useMediaListing(binding);
   const chosen=query.data?.page.items.find(item=>item.receipt.artifact_id===selected)??query.data?.page.items[0];
   useEffect(()=>{if(chosen)onArtifact?.(chosen);},[chosen,onArtifact]);
-  if (query.isPending) return <p role="status">Loading supplemental images…</p>;
-  if (query.isError) return <div><p role="status">Supplemental images unavailable.</p><ActionButton onClick={() => void query.refetch()}>Retry images</ActionButton></div>;
+  const below = evidence && <div className={styles.evidence}>{evidence}</div>;
+  if (query.isPending) return <><p role="status">Loading supplemental images…</p>{below}</>;
+  if (query.isError) return <div><p role="status">Supplemental images unavailable.</p><ActionButton onClick={() => void query.refetch()}>Retry images</ActionButton>{below}</div>;
   const { page, started } = query.data;
   const artifact = page.items.find(item => item.receipt.artifact_id === selected) ?? page.items[0];
-  if (!artifact) return <p className={styles.note}>No supplemental images are retained for this exact report.</p>;
+  if (!artifact) return <><p className={styles.note}>No supplemental images are retained for this exact report.</p>{below}</>;
   return <section aria-label="Human supplemental images" className={styles.gallery}>
     <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} annotation={annotation} /></div>
-    <div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>
+    <div className={styles.thumbRow}><div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>{evidence}</div>
     <div className={styles.caption}><strong>Image preview</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
     <p className={styles.note}>Uploaded by a human. Capture details are unverified.</p>
     <MediaProvenance artifact={artifact} />

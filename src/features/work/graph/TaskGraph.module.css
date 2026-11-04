@@ -217,3 +217,31 @@
   /* Keep the control row on one line at phone width; the button keeps its accessible name. */
   .fitLabel { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+
+
+/* Phone (WK-F): the graph is a dedicated full-viewport view; the modal dialog covers the shell and its bottom nav. */
+.phoneView { position:fixed; inset:0; inline-size:100%; block-size:100dvh; max-inline-size:none; max-block-size:none; margin:0; padding:0; border:0; background:var(--color-canvas); color:var(--color-text); overflow:auto; }
+.phoneView::backdrop { background:var(--color-canvas); }
+.phoneRegion { display:grid; grid-template-rows:auto minmax(180px,1fr) auto auto; min-block-size:100%; box-sizing:border-box; padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); min-inline-size:0; }
+.phoneHeader { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-2) var(--gutter-mobile); border-block-end:1px solid var(--color-border); background:var(--color-panel); }
+.phoneHeader h2 { margin:0; font-size:18px; line-height:1.2; }
+.phoneBack { display:inline-flex; align-items:center; gap:var(--space-2); min-block-size:var(--touch-target); padding-inline:var(--space-3); margin-inline-start:calc(-1 * var(--space-3)); border-radius:var(--radius-control); color:var(--color-accent); font-weight:600; text-decoration:none; white-space:nowrap; }
+.phoneBack:focus-visible,.sheetClose:focus-visible,.sheetOpen:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
+.phoneMeta { display:grid; gap:2px; padding:var(--space-2) var(--gutter-mobile); }
+.phoneStatus { padding:var(--space-4) var(--gutter-mobile); }
+/* The graph region (summary, canvas, legend/controls) fills the view; full screen keeps the same rows. */
+.phoneCanvas { grid-template-rows:auto auto minmax(0,1fr) auto; gap:var(--space-2); min-block-size:0; padding:var(--space-2) var(--gutter-mobile) 0; }
+.phoneCanvas .canvas { max-block-size:none; block-size:100%; min-block-size:0; border:1px solid var(--color-border); border-radius:var(--radius-panel); background:var(--color-panel); }
+.phoneCanvas .canvas:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
+.phoneRelations { padding:var(--space-1) var(--gutter-mobile); font-size:var(--font-size-meta); color:var(--color-text-secondary); }
+.phoneRelations summary { min-block-size:var(--touch-target); display:list-item; align-content:center; cursor:pointer; }
+.phoneRelations ul { margin:0 0 var(--space-2); padding-inline-start:var(--space-5); max-block-size:20dvh; overflow:auto; }
+.sheet { display:grid; gap:var(--space-2); padding:var(--space-4) var(--gutter-mobile); background:var(--color-raised); border:1px solid var(--color-border); border-block-end:0; border-radius:var(--radius-panel) var(--radius-panel) 0 0; box-shadow:var(--shadow-overlay); max-block-size:40dvh; overflow:auto; }
+.sheetHead { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--space-2); align-items:start; }
+.sheetHead h3 { margin:0; font-size:18px; overflow-wrap:anywhere; }
+.sheetEyebrow { margin:0 0 var(--space-1); color:var(--color-text-secondary); font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+.sheetClose { display:inline-grid; place-items:center; min-inline-size:var(--touch-target); min-block-size:var(--touch-target); border-radius:var(--radius-control); color:var(--color-text); text-decoration:none; }
+.sheetText { margin:0; color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+.sheetRelations { margin:0; padding:0; list-style:none; display:grid; gap:2px; font-size:var(--font-size-meta); color:var(--color-text-secondary); }
+.sheetRelations li { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sheetOpen { display:inline-flex; justify-content:center; align-items:center; min-block-size:var(--touch-target); border-radius:var(--radius-control); background:var(--color-accent); color:var(--color-accent-contrast); font-weight:600; text-decoration:none; }

@@ -35,6 +35,8 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       expect(dashes.dependency).toBe("none");
       expect(new Set(Object.values(dashes)).size).toBe(Object.keys(dashes).length);
       // Textual relationships phrase the dependency and link to select the task.
+      // Phone (WK-F) collapses them below the dedicated graph view.
+      if (vp.name === "phone") await page.getByText(/^Recorded relationships/).click();
       const relation = page.getByRole("listitem").filter({ hasText: "Fixture: Define lease contract must finish before Fixture: Approve recovery plan" });
       await expect(relation.getByRole("link", { name: "Fixture: Define lease contract" })).toHaveAttribute("href", /\/work\/00000000-0000-0000-0000-000000000102/);
       if (evidence) await page.screenshot({ path: `${evidence}/work-graph-after-${vp.name}.png`, fullPage: true });

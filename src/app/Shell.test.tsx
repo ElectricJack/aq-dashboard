@@ -30,7 +30,8 @@ test("redirects / to the Overview page", async () => {
 test("rail lists destinations in the specified order with Supervisor below Overview", async () => {
   renderApp("/overview");
   const links = within(await rail()).getAllByRole("link");
-  expect(links.map((l) => l.textContent)).toEqual([
+  // The first span is the label; a pending badge may follow it.
+  expect(links.map((l) => l.querySelector("span")?.textContent)).toEqual([
     "Overview",
     "Supervisor",
     "Work",
@@ -62,7 +63,7 @@ test("phone navigation offers Overview, Results, Supervisor, Agents and More", a
   ]);
   await userEvent.click(within(phone).getByRole("button", { name: "More" }));
   const more = within(phone).getByRole("list", { name: "More destinations" });
-  expect(within(more).getAllByRole("link").map((l) => l.textContent)).toEqual([
+  expect(within(more).getAllByRole("link").map((l) => l.querySelector("span")?.textContent)).toEqual([
     "Work",
     "Decisions",
     "Playbooks",
@@ -164,13 +165,18 @@ test("shows the signed-in principal in the rail", async () => {
   expect(within(screen.getByRole("complementary", {name:"Application navigation"})).getByText("Sample Owner")).toBeInTheDocument();
 });
 
-test("shows connection status in the top area", async () => {
+function railNavigation() {
+  return screen.getByRole("complementary", { name: "Application navigation" });
+}
+
+test("shows connection status in the rail footer, not the desktop header", async () => {
   renderApp("/overview");
   const banner = await screen.findByRole("banner");
-  expect(within(banner).getByRole("status")).toHaveTextContent("Connected");
+  expect(within(railNavigation()).getByRole("status")).toHaveTextContent("Connected");
+  expect(within(banner).queryByRole("status")).not.toBeInTheDocument();
 });
 
-test("reports Disconnected when AQ stops responding after load", async () => {
+test("reports Reconnecting when AQ stops responding after load", async () => {
   const { queryClient } = renderApp("/overview");
   const banner = await screen.findByRole("banner");
   await waitFor(() => expect(banner.querySelector("summary")).toHaveTextContent("42% used"));
@@ -179,13 +185,55 @@ test("reports Disconnected when AQ stops responding after load", async () => {
     http.get("/api/v1/provider-usage", () => HttpResponse.error()),
   );
   await queryClient.refetchQueries();
-  await waitFor(() => expect(within(banner).getByRole("status")).toHaveTextContent("Disconnected"));
+  await waitFor(() => expect(within(railNavigation()).getByRole("status")).toHaveTextContent("Reconnecting"));
+});
+
+test("reports Offline when the browser has no network", async () => {
+  const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  try {
+    renderApp("/overview");
+    await rail();
+    expect(within(railNavigation()).getByRole("status")).toHaveTextContent("Offline");
+  } finally {
+    onLine.mockRestore();
+  }
+});
+
+test("desktop rail holds the scope picker; the header does not", async () => {
+  renderApp("/overview");
+  const nav = await rail();
+  expect(within(nav).getByRole("combobox", { name: "Scope" })).toHaveDisplayValue("All projects");
+  expect(within(screen.getByRole("banner")).queryByRole("combobox")).not.toBeInTheDocument();
+});
+
+test("Decisions shows the scoped pending count from the overview", async () => {
+  renderApp("/overview");
+  const nav = await rail();
+  expect(await within(nav).findByRole("link", { name: "Decisions, 3 pending" })).toBeInTheDocument();
+});
+
+test("Decisions has no badge when nothing is pending", async () => {
+  useScenario("empty");
+  renderApp("/overview");
+  const nav = await rail();
+  await screen.findByText("Nothing needs your attention");
+  const decisions = within(nav).getByRole("link", { name: "Decisions" });
+  expect(decisions).toHaveTextContent(/^Decisions$/);
+});
+
+test("identity shows initials beside the name and the header avatar links to Settings", async () => {
+  renderApp("/overview");
+  await rail();
+  expect(within(railNavigation()).getByText("SO")).toBeInTheDocument();
+  const avatar = within(screen.getByRole("banner")).getByRole("link", { name: "Settings, signed in as Sample Owner" });
+  expect(avatar).toHaveTextContent("SO");
+  expect(avatar).toHaveAttribute("href", "/settings");
 });
 
 test("removes protected views and caches when a refresh is unauthenticated", async () => {
   const { queryClient } = renderApp("/overview");
-  const banner = await screen.findByRole("banner");
-  await within(banner).findByText("Connected");
+  await rail();
+  await within(railNavigation()).findByText("Connected");
   server.use(
     http.get("/api/v1/bootstrap", () =>
       HttpResponse.json(

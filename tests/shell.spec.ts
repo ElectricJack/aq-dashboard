@@ -29,12 +29,17 @@ for (const vp of VIEWPORTS) {
       await expect(usageSummary(page).getByText("42% used")).toBeVisible();
       await expect(usageSummary(page)).toHaveAccessibleName(/Provider usage \(account-wide\).*Claude.*42% used.*Codex.*85% used/);
       const summaryBox = (await usageSummary(page).boundingBox())!;
-      const connectionBox = (await page.getByRole("banner").getByRole("status").boundingBox())!;
+      // Phone keeps connection status in the header; wider layouts move it to
+      // the rail footer and end the header with the Settings avatar instead.
+      const neighbour = vp.phone
+        ? page.getByRole("banner").getByRole("status")
+        : page.getByRole("banner").getByRole("link", { name: /^Settings, signed in as/ });
+      const connectionBox = (await neighbour.boundingBox())!;
       const overlaps = summaryBox.x < connectionBox.x + connectionBox.width &&
         summaryBox.x + summaryBox.width > connectionBox.x &&
         summaryBox.y < connectionBox.y + connectionBox.height &&
         summaryBox.y + summaryBox.height > connectionBox.y;
-      expect(overlaps, "connection status must not obscure provider usage").toBe(false);
+      expect(overlaps, "header controls must not obscure provider usage").toBe(false);
       expect(await hasPageHorizontalScroll(page)).toBe(false);
     });
 
@@ -141,6 +146,70 @@ test.describe("single-row desktop header (gap SH-I)", () => {
       .include("header")
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+});
+
+function within(inner: { x: number; y: number; width: number; height: number }, outer: { x: number; y: number; width: number; height: number }) {
+  return inner.x >= outer.x - 0.5 && inner.y >= outer.y - 0.5 &&
+    inner.x + inner.width <= outer.x + outer.width + 0.5 &&
+    inner.y + inner.height <= outer.y + outer.height + 0.5;
+}
+
+const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", () => {
+  test("1440x900: scope picker, badge, connection and identity live in the rail", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/overview");
+    const rail = page.getByRole("complementary", { name: "Application navigation" });
+    const primary = page.getByRole("navigation", { name: "Primary", exact: true });
+    const scope = primary.getByRole("combobox", { name: "Scope" });
+    await expect(scope).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("combobox")).toHaveCount(0);
+    const railBox = (await rail.boundingBox())!;
+    expect(within((await scope.boundingBox())!, railBox), "scope picker inside the rail").toBe(true);
+
+    const decisions = primary.getByRole("link", { name: /decisions, \d+ pending/i });
+    await expect(decisions).toBeVisible();
+    await expect(decisions).toHaveAccessibleName("Decisions, 3 pending");
+
+    const connection = rail.getByRole("status").filter({ hasText: "Connected" });
+    await expect(connection).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("status")).toHaveCount(0);
+    expect(within((await connection.boundingBox())!, railBox), "connection inside the rail footer").toBe(true);
+    expect((await connection.boundingBox())!.y).toBeGreaterThan((await primary.getByRole("link", { name: "Settings" }).boundingBox())!.y);
+
+    await expect(rail.getByText("SO", { exact: true })).toBeVisible();
+    const avatar = page.getByRole("banner").getByRole("link", { name: /^Settings, signed in as/ });
+    await expect(avatar.getByText("SO", { exact: true })).toBeVisible();
+    await expect(avatar).toHaveAttribute("href", /^\/settings/);
+    expect(await hasPageHorizontalScroll(page)).toBe(false);
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+
+  test("1440x900: empty scenario shows no Decisions badge", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/overview?scenario=empty");
+    await expect(page.getByText("Nothing needs your attention")).toBeVisible();
+    const primary = page.getByRole("navigation", { name: "Primary", exact: true });
+    await expect(primary.getByRole("link", { name: "Decisions", exact: true })).toBeVisible();
+    await expect(primary.getByRole("link", { name: /pending/i })).toHaveCount(0);
+  });
+
+  test("390x844: phone keeps scope and connection in the header with no hidden rail", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/overview");
+    const header = page.getByRole("banner");
+    await expect(header.getByRole("combobox", { name: "Scope" })).toBeVisible();
+    await expect(header.getByRole("status")).toHaveText("Connected");
+    await expect(page.getByRole("complementary", { name: "Application navigation" })).toBeHidden();
+    const compact = page.getByRole("navigation", { name: "Primary (compact)" });
+    await compact.getByRole("button", { name: "More" }).click();
+    await expect(compact.getByRole("link", { name: "Decisions, 3 pending" })).toBeVisible();
+    expect(await hasPageHorizontalScroll(page)).toBe(false);
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
 });
