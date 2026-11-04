@@ -11,6 +11,7 @@ import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
+import { Digest, TechnicalIdentity, shortDigest } from "./identity";
 import styles from "./Playbooks.module.css";
 
 class ExactCatalogConflict extends ApiError {
@@ -61,7 +62,7 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
       {rows.length === 0 && <p>No {kind} represented in this namespace.</p>}
       <ul className={styles.runs} aria-label={`Current playbook ${kind}`}>{rows.map(item => <li key={item.key}>
         <button ref={element => { if (element) buttons.current.set(item.key, element); else buttons.current.delete(item.key); }} className={styles.definitionLink} data-selected={item.key === selected} onClick={() => select(item.key)}>
-          <strong>{item.kind === "definition" ? item.name : item.binding}</strong><span>{item.kind === "definition" ? `${item.entries.length} ${item.entries.length === 1 ? "entry" : "entries"}` : `Binding revision ${item.revision}`}</span><small>{item.artifact}</small>
+          <strong>{item.kind === "definition" ? item.name : item.binding}</strong><span>{item.kind === "definition" ? `${item.entries.length} ${item.entries.length === 1 ? "entry" : "entries"}` : `Binding revision ${item.revision}`}</span><small className={styles.pin} title={item.artifact}>{shortDigest(item.artifact)}</small>
         </button></li>)}</ul>
       {pages.hasNextPage && <ActionButton disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>Load more {kind}</ActionButton>}
       {pages.data.pages.length === 4 && pages.data.pages.at(-1)!.next && <p className={styles.meta}>Showing {rows.length} {kind} in four bounded pages. More may be available.</p>}
@@ -79,16 +80,18 @@ function DefinitionDetails({ item, heading }: { item: CatalogDefinition; heading
   return <section className={styles.inspector} aria-label={`Definition ${item.name}`}>
     <div className={styles.runHeading}><h2 className={styles.definitionHeading} ref={heading} tabIndex={-1}>{item.name}</h2><span className={styles.badge}>Namespace artifact</span></div>
     <Panel title="Purpose"><p className={styles.purpose}>{item.purpose || "No purpose text was supplied."}</p>{item.purposeTruncated && <p className={styles.meta}>Showing the first 4096 UTF-8 bytes of purpose text.</p>}</Panel>
-    <Panel title="Immutable artifact"><DetailList className={styles.definitionFacts}><dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd><dt>Executable fingerprint</dt><dd className={styles.pin}>{item.fingerprint}</dd><dt>Source digest</dt><dd className={styles.pin}>{item.sourceDigest}</dd><dt>Compiler</dt><dd>{item.compiler}</dd><dt>Scope</dt><dd>{item.scope}</dd></DetailList></Panel>
+    <Panel title="Immutable artifact"><DetailList className={styles.definitionFacts}><dt>Artifact</dt><dd><Digest value={item.artifact} /></dd><dt>Compiler</dt><dd>{item.compiler}</dd><dt>Scope</dt><dd>{item.scope}</dd></DetailList>
+      <TechnicalIdentity><dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd><dt>Executable fingerprint</dt><dd className={styles.pin}>{item.fingerprint}</dd><dt>Source digest</dt><dd className={styles.pin}>{item.sourceDigest}</dd></TechnicalIdentity></Panel>
     <div className={styles.lower}><Panel title="Entry points"><ul className={`${styles.children} ${styles.entryPoints}`}>{item.entries.map(entry => <li key={entry}>{entry}</li>)}</ul></Panel>
-      <Panel title="Declared dependencies"><DetailList className={styles.definitionFacts}>{Object.entries(item.dependencies).map(([name, dependency]) => <div className={styles.dependency} key={name}><dt>{name}</dt><dd><span className={styles.pin}>{dependency.artifact}</span><p className={styles.meta}>Binding {dependency.binding} · {dependency.selection === "exact" ? "Exact artifact" : "Catalog-compatible selection"}</p></dd></div>)}</DetailList>{Object.keys(item.dependencies).length === 0 ? <p>No declared dependencies.</p> : <p className={styles.meta}>These references do not relabel dependencies pinned by an existing run.</p>}</Panel></div>
+      <Panel title="Declared dependencies"><DetailList className={styles.definitionFacts}>{Object.entries(item.dependencies).map(([name, dependency]) => <div className={styles.dependency} key={name}><dt>{name}</dt><dd><Digest value={dependency.artifact} /><p className={styles.meta}>Binding {dependency.binding} · {dependency.selection === "exact" ? "Exact artifact" : "Catalog-compatible selection"}</p></dd></div>)}</DetailList>{Object.keys(item.dependencies).length === 0 ? <p>No declared dependencies.</p> : <p className={styles.meta}>These references do not relabel dependencies pinned by an existing run.</p>}</Panel></div>
     <p className={styles.meta}>Run artifacts and dependencies remain pinned when admitted.</p>
   </section>;
 }
 function ActivationDetails({ item, heading, selectDefinition }: { item: CatalogActivation; heading: React.RefObject<HTMLHeadingElement | null>; selectDefinition(): void }) {
   return <section className={styles.inspector} aria-label={`Activation ${item.binding}`}>
     <div className={styles.runHeading}><h2 className={styles.definitionHeading} ref={heading} tabIndex={-1}>{item.binding}</h2><span className={styles.badge}>Current binding</span></div>
-    <Panel title="Bound definition"><DetailList className={styles.definitionFacts}><dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd><dt>Binding revision</dt><dd>{item.revision}</dd></DetailList><ActionButton onClick={selectDefinition}>Inspect bound definition</ActionButton></Panel>
+    <Panel title="Bound definition"><DetailList className={styles.definitionFacts}><dt>Artifact</dt><dd><Digest value={item.artifact} /></dd><dt>Binding revision</dt><dd>{item.revision}</dd></DetailList><ActionButton onClick={selectDefinition}>Inspect bound definition</ActionButton>
+      <TechnicalIdentity><dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd></TechnicalIdentity></Panel>
     <Panel title="Stored controls"><DetailList className={styles.definitionFacts}><dt>New calls</dt><dd>{item.controls.calls ? "Enabled" : "Disabled"}</dd><dt>Event starts</dt><dd>{item.controls.events ? "Enabled" : "Disabled"}</dd><dt>Execution</dt><dd>{item.controls.execution ? "Enabled" : "Disabled"}</dd><dt>Artifact execution denied</dt><dd>{item.executionDenied ? "Yes" : "No"}</dd></DetailList><p className={styles.meta}>These controls do not establish current grant validity or readiness.</p></Panel>
   </section>;
 }
