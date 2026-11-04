@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
@@ -11,6 +11,7 @@ import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layou
 import { CATALOG_CAPABILITY } from "../../api/adapters/playbookCatalog";
 import { CurrentCatalog } from "./CurrentCatalog";
 import { LoadedDefinitions } from "./LoadedDefinitions";
+import { InspectorTabs, RecentEvidence, RunTimeline, type InspectorTab } from "./RunTimeline";
 import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
@@ -79,18 +80,20 @@ function RunInspector({ id, project }: { id: string; project: string | null }) {
   const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after), retry: false });
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (query.data) heading.current?.focus(); }, [id, Boolean(query.data)]);
+  const [tab, setTab] = useState<InspectorTab>("execution");
+  const receivedAt = useMemo(() => performance.now(), [query.dataUpdatedAt]);
   if (!query.data || query.isError) return <Panel title="Run inspection"><QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this playbook run" onRetry={() => void query.refetch()} /></Panel>;
   const { run: r, effects, receipts } = query.data;
+  const definitionSearch = (() => { const p = new URLSearchParams(search); p.set("view", "definitions"); p.set("definition", r.artifact); return `?${p}`; })();
   return <section className={styles.inspector} aria-label={`Run ${r.id}`}>
     <div className={styles.runHeading}><h2 ref={heading} tabIndex={-1}>{r.entry}</h2><span className={styles.badge} data-state={r.status}>{statusLabel(r.status)}</span><p className={styles.meta}>{r.id}</p><ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh run</ActionButton></div>
     <Panel title="Pinned execution">
       <DetailList><dt>Artifact</dt><dd className={styles.pin}>{r.artifact}</dd><dt>Entry</dt><dd>{r.entry}</dd><dt>Current step</dt><dd>{r.step}</dd><dt>Admitted</dt><dd>{timestamp(r.admittedAt)}</dd><dt>Outcome</dt><dd>{r.outcome ?? "Not recorded"}</dd></DetailList>
       <details className={styles.details}><summary>Pinned dependencies ({Object.keys(r.dependencies).length})</summary><DetailList>{Object.entries(r.dependencies).map(([name, pin]) => <div className={styles.dependency} key={name}><dt>{name}</dt><dd className={styles.pin}>{pin}</dd></div>)}</DetailList></details>
     </Panel>
-    <Panel title="Recorded execution" description="Transition receipts describe execution history; the current step is shown separately.">
-      <ol className={styles.timeline} aria-label="Execution timeline" tabIndex={0}>{receipts.items.map(receipt => <li key={receipt.sequence}><span className={styles.dot} /><div><strong>{receipt.kind.replaceAll("_", " ")}</strong><span>{receipt.step}{receipt.outcome ? ` · ${receipt.outcome}` : ""}</span><small>{timestamp(receipt.at)} · receipt {receipt.sequence}</small></div></li>)}</ol>
-      {receipts.items.length === 0 && <p>No transition receipts available in this page.</p>}
-      <Toolbar>{after && <ActionButton onClick={() => setAfter(null)}>First receipts</ActionButton>}{receipts.next && <ActionButton onClick={() => setAfter(receipts.next)}>Next receipts</ActionButton>}</Toolbar>
+    <InspectorTabs id="run-inspector" tab={tab} setTab={setTab}>{tab === "execution" ? <>
+    <Panel title="Recorded execution" description="Steps from the loaded transition receipts, then the current step.">
+      <RunTimeline receipts={receipts.items} run={r} />
     </Panel>
     <div className={styles.lower}>
       <Panel title="Waiting on"><p>{r.pendingKind ? `${r.pendingKind.replaceAll("_", " ")} pending` : "No pending wait recorded"}</p>{r.reason && <p>{r.reason}</p>}
@@ -98,6 +101,11 @@ function RunInspector({ id, project }: { id: string; project: string | null }) {
       </Panel>
       <Panel title="Child workflows"><ul className={styles.children}>{r.children.map(child => <li key={child}><Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(child)}`, search }}>{child}</Link></li>)}</ul>{r.children.length === 0 && <p>No child workflows recorded.</p>}{r.parent && <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.parent)}`, search }}>Parent workflow</Link>}</Panel>
     </div>
+    </> : tab === "events" ? <RecentEvidence receipts={receipts.items} next={receipts.next} paged={after !== null} observedAt={receipts.observedAt} receivedAt={receivedAt} onFirst={() => setAfter(null)} onNext={setAfter} />
+    : <Panel title="Pinned definition" description="The definition artifact this run was admitted with. Run pins remain unchanged when definitions change.">
+      <DetailList><dt>Artifact</dt><dd className={styles.pin}>{r.artifact}</dd><dt>Entry</dt><dd>{r.entry}</dd><dt>Dependencies</dt><dd>{Object.keys(r.dependencies).length}</dd></DetailList>
+      <Link className={styles.definitionOpen} to={{ pathname: "/playbooks", search: definitionSearch }}>Open in Definitions</Link>
+    </Panel>}</InspectorTabs>
     <p className={styles.meta}>Observed {timestamp(query.data.observedAt)}. Run, operations and receipt pages are separate observations.</p>
   </section>;
 }
