@@ -18,6 +18,15 @@
   border-radius: var(--radius-control);
 }
 
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .skip:focus {
   inset-block-start: var(--space-2);
 }
@@ -121,13 +130,117 @@
   font-weight: 600;
 }
 
-.identity {
+/* Rail top: scope sits under the brand (reference 01). The native select keeps
+   keyboard and screen-reader behaviour; the icons are decorative. */
+.railNav {
+  gap: var(--space-4);
+}
+
+.railScope {
+  position: relative;
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3);
+  align-items: center;
+}
+
+.railScope .scope {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.railScope .scope select {
+  appearance: none;
+  padding-inline: calc(var(--space-3) + 26px) calc(var(--space-3) + 20px);
+  color: var(--color-text);
+  font: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.railScopeIcon,
+.railScopeChevron {
+  position: absolute;
+  pointer-events: none;
+  color: var(--color-text-secondary);
+}
+
+.railScopeIcon {
+  inset-inline-start: var(--space-3);
+}
+
+.railScopeChevron {
+  inset-inline-end: var(--space-3);
+}
+
+.railNav > ul:first-of-type {
+  align-content: start;
+  flex: 1;
+}
+
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 22px;
+  block-size: 22px;
+  margin-inline-start: auto;
+  padding-inline: 6px;
+  border-radius: 999px;
+  background: var(--color-attention);
+  color: var(--color-canvas);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Rail bottom: connection then identity, below Settings (reference 01). */
+.railStatus {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) 0;
   border-block-start: 1px solid var(--color-border);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
   font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
+}
+
+.identity > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.avatarLink {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-inline-size: var(--touch-target);
+  min-block-size: var(--touch-target);
+  border-radius: 50%;
+  text-decoration: none;
+}
+
+.avatarLink:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .connection {
@@ -153,6 +266,14 @@
 
 .connection:not([data-state="connected"])::before {
   background: var(--color-error);
+}
+
+.connection[data-state="reconnecting"] {
+  color: var(--color-attention);
+}
+
+.connection[data-state="reconnecting"]::before {
+  background: var(--color-attention);
 }
 
 /* A labelled chip inside the header row; it never adds a row on desktop or tablet. */
@@ -307,7 +428,8 @@
       "main";
   }
 
-  .rail {
+  .rail,
+  .avatarLink {
     display: none;
   }
 
@@ -445,7 +567,7 @@
    chip, scope, search and connection, then the provider strip. */
 @media (min-width: 768px) and (max-width: 1439px) {
   .top { flex-wrap: wrap; }
-  .connection { margin-inline-start: auto; }
+  .avatarLink { margin-inline-start: auto; }
   .compactUsage { order: 1; flex-basis: 100%; margin-inline-start: 0; }
 }
 .usageReason { position: absolute; inset-block-start: calc(100% + var(--space-1)); inset-inline-end: var(--gutter-desktop); z-index: 10; display: grid; gap: var(--space-3); inline-size: min(36rem, calc(100% - 2 * var(--gutter-desktop))); max-block-size: min(70dvh, 32rem); overflow: auto; min-inline-size: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-raised); box-shadow: var(--shadow-overlay); overflow-wrap: anywhere; white-space: normal; }

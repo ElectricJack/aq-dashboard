@@ -29,7 +29,7 @@ test("selection makes an exact stamped read, shows immutable pins, and restores 
   const select = within(list).getByRole("button", { name: /^contract-fixture/ }); await userEvent.click(select);
   const detail = await screen.findByRole("region", { name: "Definition contract-fixture" }); expect(within(detail).getByText("Namespace artifact")).toBeInTheDocument();
   expect(requests).toHaveLength(2); expect(requests[1]?.get("exact")).toBe(catalogDefinition().key); expect(requests[1]?.get("incarnation")).toBe("2"); expect(requests[1]?.get("metadata_revision")).toBe("5"); expect(router.state.location.search).toContain("definition=sha256");
-  expect(screen.queryByRole("button", { name: /^Activate$/ })).toBeNull(); await userEvent.click(screen.getByRole("button", { name: "All definitions" })); await waitFor(() => expect(select).toHaveFocus());
+  expect(screen.queryByRole("button", { name: /^Activate$/ })).toBeNull(); await userEvent.click(screen.getByRole("link", { name: "All definitions" })); await waitFor(() => expect(select).toHaveFocus());
 });
 test("activation detail shows actual stored controls and navigates to exact bound artifact", async () => {
   capability(); server.use(http.get("/api/playbooks/inspection/catalog/activations", () => HttpResponse.json(activationCatalog())), http.get("/api/playbooks/inspection/catalog/definitions", () => HttpResponse.json(definitionCatalog())));
@@ -41,7 +41,7 @@ test("activation detail shows actual stored controls and navigates to exact boun
 test("capability absence retains explicitly historical Definitions and makes no current query", async () => {
   capability(false); let reads = 0; server.use(http.get("/api/playbooks/inspection/catalog/definitions", () => { reads++; return HttpResponse.json(definitionCatalog()); }), http.get("/api/playbooks/inspection/loaded-definitions", () => HttpResponse.json(loadedDefinitions())));
   renderApp("/playbooks?view=definitions"); await screen.findByRole("list", { name: "Loaded playbook definitions" }); expect(reads).toBe(0);
-  await userEvent.click(screen.getByRole("button", { name: "Activations" })); await screen.findByText("Current namespace catalog is unavailable"); expect(reads).toBe(0);
+  await userEvent.click(screen.getByRole("tab", { name: "Activations" })); await screen.findByText("Current namespace catalog is unavailable"); expect(reads).toBe(0);
 });
 test("current read failure never falls back to startup history or invents an empty set", async () => {
   capability(); let historical = 0; server.use(http.get("/api/playbooks/inspection/catalog/definitions", () => HttpResponse.json({}, { status: 503 })), http.get("/api/playbooks/inspection/loaded-definitions", () => { historical++; return HttpResponse.json(loadedDefinitions()); }));
@@ -61,7 +61,7 @@ test("exact deep link outside roster still checks current namespace and renders 
   capability(); const selected = catalogDefinition(`sha256:${"d".repeat(64)}`); selected.record.metadata.purpose = "<img src=x onerror=alert(1)>";
   server.use(http.get("/api/playbooks/inspection/catalog/definitions", ({ request }) => HttpResponse.json(new URL(request.url).searchParams.has("exact") ? definitionCatalog([selected]) : definitionCatalog())));
   renderApp(`/playbooks?view=definitions&definition=${encodeURIComponent(selected.key)}`); const detail = await screen.findByRole("region", { name: "Definition contract-fixture" }); expect(within(detail).getByText(selected.record.metadata.purpose)).toBeInTheDocument(); expect(document.querySelector('img[src="x"]')).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "All definitions" })); await waitFor(() => expect(screen.getByText(/Current namespace metadata/)).toHaveFocus());
+  await userEvent.click(screen.getByRole("link", { name: "All definitions" })); await waitFor(() => expect(screen.getByText(/Current namespace metadata/)).toHaveFocus());
 });
 
 test("a valid catalog-change conflict hides old rows and refreshes from a fresh first page", async () => {
@@ -103,7 +103,7 @@ test("exact409 invalidates its currently painted roster until a fresh epoch", as
   }));
   renderApp(`/playbooks?view=definitions&definition=${encodeURIComponent(first.key)}`); await screen.findByRole("alert"); expect(screen.queryByRole("list", { name: "Current playbook definitions" })).toBeNull();
   // Clearing selection through the tab must not resurrect a known stale roster.
-  await userEvent.click(screen.getByRole("button", { name: "Definitions" })); expect(screen.queryByRole("list", { name: "Current playbook definitions" })).toBeNull();
+  await userEvent.click(screen.getByRole("tab", { name: "Definitions" })); expect(screen.queryByRole("list", { name: "Current playbook definitions" })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Try again" })); const list = await screen.findByRole("list", { name: "Current playbook definitions" }); expect(within(list).getByText("fresh-definition")).toBeInTheDocument(); expect(lists).toBe(2);
 });
 test("late exact409 from a replaced stamp cannot hide a freshly read roster", async () => {

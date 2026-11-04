@@ -8,11 +8,6 @@ export function shortDigest(digest: string) {
   return hex.slice(0, 6) || digest;
 }
 
-/** `run-0000000000000284` → `run-284`. Ids without zero padding are returned unchanged. */
-export function shortRunId(id: string) {
-  return id.replace(/^(.*-)0+(?=\d)/, "$1");
-}
-
 /** A short digest with its full value available on hover; never the only place the full value appears. */
 export function Digest({ value }: { value: string }) {
   return <span className={styles.pin} title={value}>{shortDigest(value)}</span>;

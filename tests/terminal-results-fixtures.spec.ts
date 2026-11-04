@@ -41,7 +41,8 @@ for (const vp of VIEWPORTS) {
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/results-feed-${vp.name}.png` });
       await axe(page);
       await feed.getByRole("article", { name: /^Result / }).first().getByRole("button", { name: /^Comments 2/ }).click();
-      const discussion = page.getByRole("region", { name: "Discussion" }).or(page.getByRole("dialog", { name: /comments/i })).first();
+      // Desktop shows the side comments pane; narrower widths open the comments sheet.
+      const discussion = page.getByRole("complementary", { name: "Discussion" }).or(page.getByRole("dialog", { name: /comments/i })).first();
       await expect(discussion.getByText("Fixture comment: the summary should name")).toBeVisible();
       await expect(discussion.getByText("Fixture comment: the caption wraps")).toBeVisible();
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/results-comments-${vp.name}.png` });

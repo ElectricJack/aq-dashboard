@@ -24,7 +24,7 @@ for (const vp of VIEWPORTS) {
     test("run header row, pin strip and Technical identity", async ({ page }) => {
       await page.goto("/playbooks");
       // A mouse click loads the route, so the programmatically focused H2 must not draw a ring.
-      await page.getByRole("link", { name: /worker-recovery/ }).first().click({ timeout: 30_000 });
+      await page.getByRole("link", { name: new RegExp(`Worker recovery ${waiting}`) }).click({ timeout: 30_000 });
       const inspector = page.getByRole("region", { name: `Run ${waiting}` });
       const h2 = inspector.getByRole("heading", { level: 2, name: "worker-recovery" });
       await expect(h2).toBeFocused({ timeout: 30_000 });
