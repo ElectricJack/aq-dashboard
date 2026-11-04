@@ -25,8 +25,12 @@ async function inViewport(page: Page, target: Locator) {
 }
 async function openDraft(page: Page) {
   await page.goto("/results");
+  // RS-H / reference 10: the card has no feedback button; the entry is the per-comment
+  // "Create feedback task" in the discussion (side pane on desktop, comments sheet on phone).
   const feed = page.getByRole("list", { name: "Results feed" });
-  await feed.getByRole("article", { name: /^Result / }).first().getByRole("button", { name: "Create feedback task" }).click();
+  await feed.getByRole("article", { name: /^Result / }).first().getByRole("button", { name: /^Comments/ }).click();
+  const discussion = page.getByRole("complementary", { name: "Discussion" }).or(page.getByRole("dialog", { name: "Result comments" })).first();
+  await discussion.getByRole("button", { name: "Create feedback task" }).first().click();
   const draft = page.getByRole("dialog", { name: "Create feedback task" });
   await expect(draft).toBeVisible();
   return draft;
