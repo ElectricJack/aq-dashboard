@@ -9,8 +9,9 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
 import { ProjectChoice, pathFor, withoutRevision } from "../knowledge/HumanNodeWorkspace";
 import inspectorStyles from "../knowledge/HumanNodeWorkspace.module.css";
-import { HumanTaskGraph } from "./graph/HumanTaskGraph";
-import { HumanTaskInspector } from "./HumanTaskInspector";
+import { useMediaQuery } from "../../components/useMediaQuery";
+import { HumanTaskGraph, PHONE_QUERY, PhoneGraphView, graphListTarget } from "./graph/HumanTaskGraph";
+import { HumanTaskInspector, TaskInspectorUnavailable } from "./HumanTaskInspector";
 import { EXECUTION_UNAVAILABLE, WORK_STATE_FILTERS, WORK_STATE_LABEL, taskRowMeta, workStateFilter } from "./labels";
 import styles from "./WorkWorkspace.module.css";
 
@@ -18,8 +19,12 @@ import styles from "./WorkWorkspace.module.css";
 export function WorkWorkspace({ action }: { action?: ReactNode }) {
   const [scope] = useScope();
   const id = useParams().taskId;
+  const [params] = useSearchParams();
   if (scope.kind !== "project") return <div className={styles.page}><WorkHead action={action}/><ProjectChoice kind="task" id={id}/></div>;
-  if (!validGraphId(scope.project_id) || (id && !validGraphId(id))) return <div className={styles.page}><WorkHead action={action}/><p role="status">This item does not exist or is not available to you.</p></div>;
+  const missing = <p role="status">This item does not exist or is not available to you.</p>;
+  // A malformed task id inside a valid project still offers the "All tasks" exit (WK-E).
+  if (!validGraphId(scope.project_id)) return <div className={styles.page}><WorkHead action={action}/>{missing}</div>;
+  if (id && !validGraphId(id)) return <div className={styles.page}><WorkHead action={action}/><TaskInspectorUnavailable search={withoutRevision(`?${params}`)} status={missing}/></div>;
   return <TaskWorkspace key={scope.project_id} project={scope.project_id} id={id} action={action}/>;
 }
 
@@ -58,35 +63,43 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
     return n;
   });
 
-  const workspace = useRef<HTMLDivElement>(null), previous = useRef<{ id?: string; graph: boolean }>({ graph: false });
+  const phone = useMediaQuery(PHONE_QUERY);
+  const workspace = useRef<HTMLDivElement>(null), previous = useRef<{ id?: string; graph: boolean }>({ graph: false }), mounted = useRef(false);
   useEffect(() => {
     const before = previous.current; previous.current = { id, graph };
+    // A deep link focuses the heading for screen readers without drawing a focus ring on arrival.
+    // (A StrictMode re-run repeats the same selection, so it is still an arrival.)
+    const arrival = !mounted.current || (before.id === id && before.graph === graph); mounted.current = true;
     const element = workspace.current; if (!element) return;
-    // Selection focuses its heading; Back restores the previously selected row/node.
-    const restore = (!id || graph) ? before.id : undefined;
+    // Selection focuses its loaded heading; Back restores the previously selected row/node.
+    // Phone graph: a node tap keeps the graph open, so focus stays on the tapped node.
+    const restore = phone && graph && before.graph && id ? id : (!id || graph) ? before.id : undefined;
     const focus = () => {
-      const target = id && !graph ? element.querySelector<HTMLElement>(`[data-work-inspector] .${inspectorStyles.detail} h2`) : restore ? [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a => new URL(a.href).pathname === pathFor("task", restore)) : undefined;
+      const target = id && !graph ? element.querySelector<HTMLElement>(`[data-work-inspector] .${inspectorStyles.detail}:not([aria-busy=true]) h2`) : restore ? [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a => new URL(a.href).pathname === pathFor("task", restore)) : undefined;
       if (!target) return false;
       if (target.tagName === "H2") target.tabIndex = -1;
-      target.focus(); return true;
+      target.focus(arrival ? { focusVisible: false } as FocusOptions : undefined); return true;
     };
     if (focus()) return;
     const observer = new MutationObserver(() => { if (focus()) observer.disconnect(); });
     observer.observe(element, { childList: true, subtree: true }); return () => observer.disconnect();
-  }, [id, graph]);
+  }, [id, graph, phone]);
 
+  const graphStatus = unavailable || !query.data
+    ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/>
+    : <p>{rows.length ? "No loaded tasks match this state." : "No tasks returned for this search."}</p>;
+  // Phone keeps the dedicated full-viewport graph view (with Back to list) even before a root is known (WK-F).
   const graphPanel = graphRoot
     ? <HumanTaskGraph project={project} root={graphRoot} selected={id} search={search}/>
-    : <Panel title="Dependency graph">{unavailable || !query.data
-      ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/>
-      : <p>{rows.length ? "No loaded tasks match this state." : "No tasks returned for this search."}</p>}</Panel>;
+    : phone ? <PhoneGraphView backTo={graphListTarget(search)}><div className={styles.phoneGraphStatus}>{graphStatus}</div></PhoneGraphView>
+    : <Panel title="Dependency graph">{graphStatus}</Panel>;
 
   return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={graph ? "graph" : "list"}>
     <WorkHead action={action} project={query.data?.pages[0]?.project.name}>
-      <div role="group" aria-label="Work view" className={styles.segmented}>
+      <nav aria-label="Work view" className={styles.segmented}>
         <ActionButton aria-pressed={!graph} onClick={() => update("view", "")}><List size={18} aria-hidden/>List</ActionButton>
         <ActionButton aria-pressed={graph} onClick={() => update("view", "graph")}><Workflow size={18} aria-hidden/>Graph</ActionButton>
-      </div>
+      </nav>
     </WorkHead>
     <Toolbar className={styles.toolbar}>
       <form role="search" className={styles.search} onSubmit={e => { e.preventDefault(); update("q", draft.trim()); }}>
@@ -125,7 +138,9 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
 
 function TaskDetail({ project, id, search }: { project: string; id: string; search: string }) {
   const query = useGraphDetail(project, "task", id);
-  if (!query.data) return <Panel title="Record"><QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this record" onRetry={() => void query.refetch()}/></Panel>;
+  // A missing or pending task keeps the "All tasks" exit; aria-busy keeps focus off its placeholder heading (WK-E).
+  if (!query.data) return <TaskInspectorUnavailable className={inspectorStyles.detail} search={withoutRevision(search)} busy={!query.isError}
+    status={<QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this record" onRetry={() => void query.refetch()}/>}/>;
   const notice = query.isError ? <p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={() => void query.refetch()}>Refresh record</ActionButton></p> : undefined;
-  return <HumanTaskInspector record={query.data} search={withoutRevision(search)} notice={notice}/>;
+  return <HumanTaskInspector className={inspectorStyles.detail} record={query.data} search={withoutRevision(search)} notice={notice}/>;
 }
