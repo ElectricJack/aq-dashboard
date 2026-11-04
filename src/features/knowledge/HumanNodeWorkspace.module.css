@@ -86,3 +86,22 @@
   .documentTabs { flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; justify-content:start; scrollbar-width:thin; }
   .documentTabs button { flex:none; }
 }
+
+/* KN-E: phone document page. The back link sits above the document and section navigation
+   jumps to DocumentBody headings; desktop keeps the 07-knowledge-v2 pane unchanged. */
+.documentBack { justify-self:start; }
+.sectionOutline { display:none; }
+.documentBody [id] { scroll-margin-block:var(--space-4) calc(var(--touch-target) + var(--space-6) + env(safe-area-inset-bottom)); }
+.documentBody [id]:focus { outline:none; }
+.documentBody [id]:focus-visible { outline:2px solid var(--color-accent); outline-offset:2px; }
+@media(max-width:1199px) {
+  .sectionOutline { display:grid; gap:var(--space-2); margin-block:0 var(--space-4); }
+  .sectionOutline > span { color:var(--color-text-secondary); font-size:var(--font-size-meta); }
+  .sectionOutline ul { display:flex; gap:var(--space-2); margin:0; padding:0 0 var(--space-1); list-style:none; overflow-x:auto; scrollbar-width:thin; }
+  .sectionOutline li { flex:none; }
+  .sectionOutline a { display:inline-flex; align-items:center; min-block-size:var(--touch-target); padding:0 var(--space-3); border:1px solid var(--color-border); border-radius:18px; background:var(--color-raised); color:var(--color-text); text-decoration:none; font-size:14px; white-space:nowrap; }
+  .sectionOutline a:hover { border-color:var(--color-accent); }
+}
+@media(max-width:600px) {
+  .detail.knowledgeDocument { padding:0; border:0; border-radius:0; background:transparent; }
+}
