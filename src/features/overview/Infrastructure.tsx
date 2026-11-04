@@ -19,9 +19,15 @@ export function Infrastructure() {
  const capability=bootstrap.capability("workers.read");
  const workers=useQuery({queryKey:queryKey(queryContext,"overview-worker-heartbeats",{}),enabled:capability.enabled,retry:false,refetchInterval:15000,queryFn:async({signal})=>adaptOverviewWorkers(await apiGet<unknown>("/api/workers",signal))});
  return <aside className={styles.secondary} aria-label="Infrastructure observations">
- <section className={styles.panel} aria-labelledby="overview-capacity-heading">
- <h2 id="overview-capacity-heading">Capacity</h2><p className={styles.capacityValue}>Slots unavailable</p><p className={styles.meta}>Occupied: unknown · Idle: unknown</p>
- <p className={styles.meta}>Slot capacity and project eligibility are not reported here.</p>
+ <section className={`${styles.panel} ${styles.capacityPanel}`} aria-labelledby="overview-capacity-heading">
+ <h2 id="overview-capacity-heading">Capacity</h2><p className={styles.capacityValue}>Slots unavailable</p>
+ <p className={styles.meta}>Occupied: unknown · Idle: unknown. Slot capacity and project eligibility are not reported here.</p>
+ <Link to="/settings">Inspect eligibility →</Link>
+ <section className={styles.infrastructureSection} aria-labelledby="overview-provider-heading"><h3 id="overview-provider-heading">Provider status</h3><p className={styles.meta}>Availability not reported.</p>
+ {configuredCapability.enabled && (!configured.data||configured.isError?<QueryStatus status={configured.isError?'error':'pending'} label="provider accounts" error={configured.error} onRetry={()=>void configured.refetch()}/>:<><ul className={styles.snapshotList}>{configured.data.accounts.map(account=><li key={JSON.stringify([account.provider,account.account_reference])}><strong>{configuredAccountLabel(account)}</strong><span className={styles.meta}>{configuredAccountStatus(account)}</span></li>)}</ul><p className={styles.meta}>Startup configuration; authentication and availability are not checked.</p></>)}
+ </section>
+ {/* OV-D: disk storage and worker nodes are not reference-01 regions, so they sit in a collapsed disclosure. */}
+ <details className={styles.moreCapacity}><summary>More capacity</summary>
  {/* SBX25: central storage has no server source yet, so it stays "Not reported". */}
  <StorageCapacity central={unreportedStorage} nodes={capability.enabled&&workers.data&&!workers.isError?workers.data:null} nodesUnavailable={!capability.enabled||workers.isError?"Node storage unavailable.":"Loading node storage…"}/>
  <section className={styles.infrastructureSection} aria-labelledby="overview-workers-heading"><h3 id="overview-workers-heading">Worker nodes</h3>
@@ -30,10 +36,7 @@ export function Infrastructure() {
  {workers.data.length===0?<p className={styles.meta}>No enrolled worker records.</p>:<details className={styles.observationDetails}><summary>Inspect heartbeat observations</summary><ul className={styles.snapshotList}>{workers.data.slice(0,4).map(worker=><li key={worker.id}><strong>{worker.name}</strong><span className={styles.meta}>{worker.status==="online"?"Heartbeat online":worker.status==="offline"?"Heartbeat offline":worker.status==="revoked"?"Revoked":"Heartbeat state unknown"}</span>{worker.last_seen_at&&<time className={styles.meta} dateTime={worker.last_seen_at}>{worker.last_seen_at}</time>}</li>)}</ul>{workers.data.length>4&&<p className={styles.meta}>Showing 4 of {workers.data.length} workers.</p>}</details>}
  </>}
  </section>
- <section className={styles.infrastructureSection} aria-labelledby="overview-provider-heading"><h3 id="overview-provider-heading">Provider status</h3><p className={styles.meta}>Availability not reported.</p>
- {configuredCapability.enabled && (!configured.data||configured.isError?<QueryStatus status={configured.isError?'error':'pending'} label="provider accounts" error={configured.error} onRetry={()=>void configured.refetch()}/>:<><ul className={styles.snapshotList}>{configured.data.accounts.map(account=><li key={JSON.stringify([account.provider,account.account_reference])}><strong>{configuredAccountLabel(account)}</strong><span className={styles.meta}>{configuredAccountStatus(account)}</span></li>)}</ul><p className={styles.meta}>Startup configuration; authentication and availability are not checked.</p></>)}
- </section>
- <Link to="/settings">Inspect configuration →</Link>
+ </details>
  </section>
  <PinnedSessions key={JSON.stringify([queryContext,scope])}/>
  </aside>;
