@@ -9,7 +9,8 @@ import { useGraphList, useGraphDetail } from "../../api/humanGraphReads";
 import { mergeGraphPages, validGraphId, GRAPH_MAX_PAGES, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
-import { HumanTaskGraph } from "../work/graph/HumanTaskGraph";
+import { HumanTaskGraph, PhoneGraphView, PHONE_QUERY, graphListTarget } from "../work/graph/HumanTaskGraph";
+import { useMediaQuery } from "../../components/useMediaQuery";
 import { KnowledgeDocument } from "./KnowledgeDocument";
 import { AddRecordAction } from "./KnowledgeActions";
 import { HumanTaskInspector, TaskInspectorUnavailable } from "../work/HumanTaskInspector";
@@ -86,7 +87,7 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const [category,setCategory]=useState("");const [lifecycle,setLifecycle]=useState("active");const [verification,setVerification]=useState("");const [sort,setSort]=useState("updated");
   const query=useGraphList(project,kind,q);let rows:GraphNode[]=[],mergeError:unknown;
   try{rows=mergeGraphPages(query.data?.pages??[]);}catch(e){mergeError=e;}
-  const search=params.toString()?`?${params}`:"";const graph=kind === "task" && params.get("view")==="graph";
+  const search=params.toString()?`?${params}`:"";const graph=kind === "task" && params.get("view")==="graph";const phone=useMediaQuery(PHONE_QUERY);
   const workspace=useRef<HTMLDivElement>(null),previous=useRef<{id?:string;graph:boolean}>({graph:false}),mounted=useRef(false);
   useEffect(()=>{
     const before=previous.current;previous.current={id,graph};
@@ -95,7 +96,8 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
     const arrival=!mounted.current || (before.id===id && before.graph===graph);mounted.current=true;
     const element=workspace.current;if(!element)return;
     // Selection focuses its heading; Back restores the previously selected row/node.
-    const restore=(!id || graph)?before.id:undefined;
+    // Phone graph: a node tap keeps the graph open, so focus stays on the tapped node.
+    const restore=phone&&graph&&before.graph&&id?id:(!id || graph)?before.id:undefined;
     const focus=()=>{
       const target=id&&!graph?element.querySelector<HTMLElement>(`.${styles.detail}:not([aria-busy=true]) h2`):restore?[...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a=>new URL(a.href).pathname===pathFor(kind,restore)):undefined;
       if(!target)return false;
@@ -105,7 +107,7 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
     if(focus())return;
     const observer=new MutationObserver(()=>{if(focus())observer.disconnect();});
     observer.observe(element,{childList:true,subtree:true});return()=>observer.disconnect();
-  },[id,graph,kind]);
+  },[id,graph,kind,phone]);
   const graphRoot=validGraphId(params.get("root"))?params.get("root")!:id;
   const knowledge=kind==="knowledge";
   const filtered=rows.filter(n=>(!taskState || n.task_state===taskState)&&(!knowledge || ((!category || n.content_type===category)&&(lifecycle==="all" || lifecycleOf(n)===lifecycle)&&(!verification || n.verification===verification))));
@@ -135,12 +137,13 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
           <button type="button" disabled title="Relationship browsing is not offered by this read contract"><Icon icon={Network} size={18}/>Relationships</button>
         </div>
       </>}
-      {kind==="task" && <label><span className="visually-hidden">State of loaded tasks</span><select value={taskState} onChange={e=>setTaskState(e.target.value)}><option value="">All task states loaded</option>{["draft","active","completed","canceled"].map(state=><option value={state} key={state}>{nodeLabel(state)}</option>)}</select></label>}
+      {kind==="task" && <label><span className="visually-hidden">State of loaded tasks</span><select value={taskState} onChange={e=>setTaskState(e.target.value)}><option value="">{phone?"All states":"All task states loaded"}</option>{["draft","active","completed","canceled"].map(state=><option value={state} key={state}>{nodeLabel(state)}</option>)}</select></label>}
       {kind==="task" && <nav aria-label="Work view" className={styles.views}><ActionButton aria-pressed={!graph} onClick={()=>update("view","")}><List size={18} aria-hidden/>List</ActionButton><ActionButton aria-pressed={graph} onClick={()=>update("view","graph")}><Workflow size={18} aria-hidden/>Graph</ActionButton></nav>}
     </Toolbar>
     <div className={styles.panes}>
       <div className={styles.listPane}>
-      {graph ? id ? <HumanTaskGraph project={project} root={graphRoot!} selected={id} search={search}/> : <Panel title="Dependency graph"><p>Select a task from the list to open its neighborhood.</p><ActionButton onClick={()=>update("view","")}>Choose a task</ActionButton></Panel> :
+      {graph && phone && !id ? <PhoneTaskGraph project={project} root={graphRoot??filtered[0]?.id} search={search} status={query.isError||mergeError?"error":!query.data?"pending":undefined} error={mergeError??query.error} onRetry={()=>void query.refetch()}/> :
+      graph ? id ? <HumanTaskGraph project={project} root={graphRoot!} selected={id} search={search}/> : <Panel title="Dependency graph"><p>Select a task from the list to open its neighborhood.</p><ActionButton onClick={()=>update("view","")}>Choose a task</ActionButton></Panel> :
       <Panel title={listTitle} className={styles.listPanel} actions={knowledge ? <div className={styles.listActions}>
           <label><span className="visually-hidden">Sort records</span><select value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">Updated recently</option><option value="title">Title A–Z</option></select></label>
           <ActionButton className={styles.iconButton} aria-label="Refresh list" title="Refresh list" disabled={query.isFetching} onClick={()=>void query.refetch()}><Icon icon={RefreshCw} size={18}/></ActionButton>
@@ -157,6 +160,11 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
       {id ? <NodeDetail key={`${id}:${params.get("revision")??"current"}`} project={project} kind={kind} id={id} search={search}/> : <Panel title={kind==="knowledge"?"Project knowledge":"Task inspector"} className={styles.emptyInspector}><BookOpen size={34} aria-hidden/><p>Select a {kind==="task"?"task":"record"} to read its content and exact revision.</p></Panel>}
     </div>
   </div>;
+}
+/** Phone graph without a selected task: open the dedicated view on the root (or first loaded task) instead of a dead end. */
+function PhoneTaskGraph({project,root,search,status,error,onRetry}:{project:string;root?:string;search:string;status?:"error"|"pending";error:unknown;onRetry:()=>void}) {
+  if(root)return <HumanTaskGraph project={project} root={root} search={search}/>;
+  return <PhoneGraphView backTo={graphListTarget(search)}><div className={styles.phoneGraphStatus}>{status ? <QueryStatus status={status} error={error} label="tasks" onRetry={onRetry}/> : <p>No loaded tasks to show in a graph.</p>}</div></PhoneGraphView>;
 }
 function NodeDetail({project,kind,id,search}:{project:string;kind:GraphNode["kind"];id:string;search:string}) {
   const [params]=useSearchParams();const raw=params.get("revision");const pinned=kind==="knowledge" && raw && /^[1-9][0-9]{0,19}$/.test(raw)?raw:undefined;
