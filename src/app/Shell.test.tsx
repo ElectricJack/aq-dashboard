@@ -62,7 +62,7 @@ test("phone navigation offers Overview, Results, Supervisor, Agents and More", a
     "Agents",
   ]);
   await userEvent.click(within(phone).getByRole("button", { name: "More" }));
-  const more = within(phone).getByRole("list", { name: "More destinations" });
+  const more = within(screen.getByRole("dialog", { name: "More" })).getByRole("list", { name: "More destinations" });
   expect(within(more).getAllByRole("link").map((l) => l.querySelector("span")?.textContent)).toEqual([
     "Work",
     "Decisions",
@@ -256,12 +256,21 @@ test("redirecting / keeps the scope", async () => {
   expect(new URLSearchParams(router.state.location.search).get("scope")).toBe("project:alpha");
 });
 
-test("Tab from an opened More button reaches the first More destination", async () => {
+test("More opens a labelled sheet whose Close button leads to the first More destination", async () => {
   renderApp("/overview");
   const phone = await screen.findByRole("navigation", { name: "Primary (compact)" });
-  await userEvent.click(within(phone).getByRole("button", { name: "More" }));
+  const more = within(phone).getByRole("button", { name: "More" });
+  expect(more).toHaveAttribute("aria-expanded", "false");
+  await userEvent.click(more);
+  expect(more).toHaveAttribute("aria-expanded", "true");
+  const sheet = screen.getByRole("dialog", { name: "More" });
+  expect(more).toHaveAttribute("aria-controls", sheet.id);
+  within(sheet).getByRole("button", { name: "Close" }).focus();
   await userEvent.tab();
-  expect(within(phone).getByRole("link", { name: "Work" })).toHaveFocus();
+  expect(within(sheet).getByRole("link", { name: "Work" })).toHaveFocus();
+  await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("dialog", { name: "More" })).not.toBeInTheDocument();
+  expect(more).toHaveFocus();
 });
 
 test("Escape inside the More menu closes it and returns focus to More", async () => {
@@ -269,9 +278,9 @@ test("Escape inside the More menu closes it and returns focus to More", async ()
   const phone = await screen.findByRole("navigation", { name: "Primary (compact)" });
   const more = within(phone).getByRole("button", { name: "More" });
   await userEvent.click(more);
-  within(phone).getByRole("link", { name: "Work" }).focus();
+  within(screen.getByRole("dialog", { name: "More" })).getByRole("link", { name: "Work" }).focus();
   await userEvent.keyboard("{Escape}");
-  expect(within(phone).queryByRole("list", { name: "More destinations" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "More" })).not.toBeInTheDocument();
   expect(more).toHaveFocus();
 });
 
@@ -290,7 +299,7 @@ test("mock mode shows a persistent mock-data banner in the header", async () => 
   try {
     renderApp("/overview");
     const banner = await screen.findByRole("banner");
-    expect(within(banner).getByText(/mock data/i)).toHaveTextContent(/proposed contracts/i);
+    expect(within(banner).getByRole("note")).toHaveTextContent(/^Mock data · proposed contracts/i);
   } finally {
     vi.unstubAllEnvs();
   }

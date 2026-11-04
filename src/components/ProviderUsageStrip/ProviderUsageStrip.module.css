@@ -197,22 +197,22 @@
   white-space: nowrap;
 }
 
-/* Phone keeps the stacked per-provider summary: name, percent, window line with its own age. */
+/* Phone: one quota row of two provider columns (reference 12); each column keeps
+   name and percent on its first line and the window line with its own age below. */
 @media (max-width: 767px) {
   .summary {
-    flex-wrap: wrap;
-    gap: var(--space-1);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px var(--space-3);
     inline-size: 100%;
   }
 
   .summaryEntry {
-    flex: 1 1 100%;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      "name"
-      "figure"
-      "meta";
-    gap: 2px;
+      "name figure"
+      "meta meta";
+    gap: 0 var(--space-1);
     font-size: 12px;
     line-height: inherit;
     white-space: normal;

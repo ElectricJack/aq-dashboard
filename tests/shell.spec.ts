@@ -51,7 +51,7 @@ for (const vp of VIEWPORTS) {
         await expect(compact).toBeVisible();
         await expect(primary).toBeHidden();
         await compact.getByRole("button", { name: "More" }).click();
-        await compact.getByRole("link", { name: "Knowledge" }).click();
+        await page.getByRole("dialog", { name: "More" }).getByRole("link", { name: "Knowledge" }).click();
       } else {
         await expect(primary).toBeVisible();
         await expect(compact).toBeHidden();
@@ -91,13 +91,6 @@ test("mock mode is labelled on screen", async ({ page }) => {
   await expect(page.getByRole("banner").getByText(/mock data/i)).toBeVisible();
 });
 
-test("phone header scrolls away so it cannot obscure focused content", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto("/overview");
-  await expect(usageSummary(page).getByText("42% used")).toBeVisible();
-  const position = await page.getByRole("banner").evaluate((el) => getComputedStyle(el).position);
-  expect(["static", "relative"]).toContain(position);
-});
 
 test.describe("single-row desktop header (gap SH-I)", () => {
   test("1440x900: one row with labelled quota bars and a compact mock chip", async ({ page }) => {
@@ -207,9 +200,102 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
     await expect(page.getByRole("complementary", { name: "Application navigation" })).toBeHidden();
     const compact = page.getByRole("navigation", { name: "Primary (compact)" });
     await compact.getByRole("button", { name: "More" }).click();
-    await expect(compact.getByRole("link", { name: "Decisions, 3 pending" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "More" }).getByRole("link", { name: "Decisions, 3 pending" })).toBeVisible();
     expect(await hasPageHorizontalScroll(page)).toBe(false);
     const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+});
+
+test.describe("sticky compact phone header and More sheet (gap SH-K)", () => {
+  test("390x844: header stays pinned and compact; the quota row collapses", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/overview");
+    const header = page.getByRole("banner");
+    await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 2000));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    const pinned = (await header.boundingBox())!;
+    expect(pinned.y).toBe(0);
+    expect(pinned.height).toBeLessThanOrEqual(120);
+    const connection = header.getByRole("status");
+    await expect(connection).toHaveText("Connected");
+    expect(parseFloat(await connection.evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+
+    const toggle = header.getByRole("button", { name: "Provider usage row" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(usageSummary(page)).toBeHidden();
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(56);
+    await toggle.click();
+    await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+  });
+
+  test("390x844: More and the menu open one labelled sheet that returns focus", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/overview");
+    await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+    const compact = page.getByRole("navigation", { name: "Primary (compact)" });
+    const more = compact.getByRole("button", { name: "More" });
+    const sheet = page.getByRole("dialog", { name: "More" });
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+
+    await more.click();
+    await expect(sheet).toBeVisible();
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    await expect(sheet.getByRole("link", { name: "Decisions, 3 pending" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Close" })).toBeVisible();
+    // Focus stays trapped in the modal sheet.
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press("Tab");
+      expect(await sheet.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    }
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await expect(more).toBeFocused();
+
+    // A click on the scrim above the sheet closes it.
+    await more.click();
+    await expect(sheet).toBeVisible();
+    await page.mouse.click(195, 60);
+    await expect(sheet).toBeHidden();
+    await expect(more).toBeFocused();
+
+    const menu = page.getByRole("banner").getByRole("button", { name: "Menu" });
+    await menu.click();
+    await expect(sheet).toBeVisible();
+    await expect(menu).toHaveAttribute("aria-expanded", "true");
+    await sheet.getByRole("button", { name: "Close" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(menu).toBeFocused();
+
+    await menu.click();
+    await sheet.getByRole("link", { name: "Work" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Work" })).toBeFocused();
+    await expect(sheet).toBeHidden();
+    await expect(more).toHaveAttribute("data-active", "true");
+  });
+
+  test("320x700: header wraps without horizontal scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto("/overview");
+    await expect(usageSummary(page).getByText("42% used")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    expect((await page.getByRole("banner").boundingBox())!.height).toBeLessThanOrEqual(140);
+  });
+
+  test("390x844: focusing the supervisor composer hides the bottom nav", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/supervisor");
+    const nav = page.getByRole("navigation", { name: "Primary (compact)" });
+    await expect(nav).toBeVisible();
+    await page.getByRole("textbox", { name: "Message the global supervisor" }).focus();
+    await expect(nav).toBeHidden();
+    expect(await page.locator("main").evaluate((el) => getComputedStyle(el).getPropertyValue("--shell-bottom-nav-height").trim())).toBe("0px");
+    await page.getByRole("heading", { level: 1, name: "Global supervisor" }).focus();
+    await expect(nav).toBeVisible();
   });
 });

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { SupervisorWorkspace } from "../features/supervisor/SupervisorWorkspace";
 import { SearchDialog } from "../features/search/SearchDialog";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
-import { ChevronDown, Ellipsis, LayoutGrid, Search } from "lucide-react";
+import { ChevronDown, Ellipsis, LayoutGrid, Menu, Search, X } from "lucide-react";
 import { adaptOverview, type OverviewView } from "../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../api/wire/overview";
 import type { Scope } from "../api/wire/proposed";
@@ -74,10 +74,11 @@ function subscribeOnline(notify: () => void) {
 }
 const browserOnline = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
-function DestinationLink({ dest, search, badge }: { dest: Destination; search: string; badge?: Badge | null }) {
+function DestinationLink({ dest, search, badge, onClick }: { dest: Destination; search: string; badge?: Badge | null; onClick?: () => void }) {
   return (
     <NavLink
       to={{ pathname: `/${dest.id}`, search }}
+      onClick={onClick}
       className={styles.navLink}
       aria-label={badge ? `${dest.label}, ${badge.label}` : undefined}
     >
@@ -94,25 +95,15 @@ function DestinationLink({ dest, search, badge }: { dest: Destination; search: s
   );
 }
 
-function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
-  const [open, setOpen] = useState(false);
-  const listId = useId();
-  const moreButton = useRef<HTMLButtonElement>(null);
-  const location = useLocation();
-  useEffect(() => setOpen(false), [location.pathname]);
-  const more = DESTINATIONS.filter((d) => d.phone === "more");
+const MORE = DESTINATIONS.filter((d) => d.phone === "more");
 
+type SheetControl = { open: boolean; id: string; onOpen: (opener: HTMLElement) => void };
+
+function PhoneNav({ search, sheet }: { search: string; sheet: SheetControl }) {
+  const { pathname } = useLocation();
+  const moreRoute = MORE.some((d) => pathname === `/${d.id}` || pathname.startsWith(`/${d.id}/`));
   return (
-    <nav
-      aria-label="Primary (compact)"
-      className={styles.phoneNav}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && open) {
-          setOpen(false);
-          moreButton.current?.focus();
-        }
-      }}
-    >
+    <nav aria-label="Primary (compact)" className={styles.phoneNav}>
       <ul className={styles.phoneBar}>
         {PHONE_PRIMARY.map((id) => (
           <li key={id}>
@@ -121,30 +112,96 @@ function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
         ))}
         <li>
           <button
-            ref={moreButton}
             type="button"
             className={styles.navLink}
-            aria-expanded={open}
-            aria-controls={listId}
-            onClick={() => setOpen((v) => !v)}
+            data-more
+            data-active={sheet.open || moreRoute || undefined}
+            aria-haspopup="dialog"
+            aria-expanded={sheet.open}
+            aria-controls={sheet.open ? sheet.id : undefined}
+            onClick={(e) => sheet.onOpen(e.currentTarget)}
           >
             <Icon icon={Ellipsis} />
             <span>More</span>
           </button>
         </li>
       </ul>
-      {/* After the bar in DOM so Tab from More enters the list; CSS places it above. */}
-      {open && (
-        <ul id={listId} className={styles.moreList} aria-label="More destinations">
-          {more.map((d) => (
+    </nav>
+  );
+}
+
+/**
+ * Phone bottom sheet for the destinations that do not fit the bar; ☰ and More open it.
+ * A native modal dialog supplies the focus trap, Escape and inertness of the page behind.
+ * It unmounts on close so the browser's own focus restore never competes with the
+ * page-title focus after a destination link navigates.
+ */
+function MoreSheet({ id, search, badge, onClose }: { id: string; search: string; badge: Badge | null; onClose: (restoreFocus: boolean) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  // The page behind a modal dialog is inert, so close it before focus returns to the opener.
+  const dismiss = (restoreFocus: boolean) => {
+    if (restoreFocus && dialog.current?.open) dialog.current.close();
+    onClose(restoreFocus);
+  };
+  useLayoutEffect(() => {
+    const d = dialog.current;
+    if (d && !d.open) d.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      id={id}
+      className={styles.sheet}
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        e.preventDefault();
+        dismiss(true);
+      }}
+      onClose={() => dismiss(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          dismiss(true);
+        } else if (e.key === "Tab") {
+          // A modal dialog lets Tab leave for the browser chrome; wrap inside the sheet instead.
+          const items = [...e.currentTarget.querySelectorAll<HTMLElement>("a[href], button:not(:disabled)")];
+          const edge = e.shiftKey ? items[0] : items.at(-1);
+          if (edge && document.activeElement === edge) {
+            e.preventDefault();
+            (e.shiftKey ? items.at(-1) : items[0])?.focus();
+          }
+        }
+      }}
+      // The dialog has no padding, so a click whose target is the dialog itself landed on the scrim.
+      onClick={(e) => e.target === e.currentTarget && dismiss(true)}
+    >
+      <div className={styles.sheetBody}>
+        <div className={styles.sheetHead}>
+          <h2 id={titleId}>More</h2>
+          <button type="button" className={styles.sheetClose} onClick={() => dismiss(true)}>
+            <Icon icon={X} size={18} />
+            <span>Close</span>
+          </button>
+        </div>
+        <ul className={styles.moreList} aria-label="More destinations">
+          {MORE.map((d) => (
             <li key={d.id}>
-              <DestinationLink dest={d} search={search} badge={d.id === "decisions" ? badge : null} />
+              <DestinationLink dest={d} search={search} badge={d.id === "decisions" ? badge : null} onClick={() => dismiss(false)} />
             </li>
           ))}
         </ul>
-      )}
-    </nav>
+      </div>
+    </dialog>
   );
+}
+
+const TEXT_INPUT_TYPES = new Set(["text", "search", "email", "url", "tel", "password", "number", "date", "datetime-local", "month", "time", "week"]);
+/** Text entry raises the phone keyboard, so the bottom bar steps aside while it has focus. */
+function isTextEntry(el: EventTarget | null): boolean {
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(el.type);
+  return el instanceof HTMLElement && el.isContentEditable;
 }
 
 /** Bootstrap keeps polling while AQ is unreachable, so that state is a reconnect attempt. */
@@ -159,14 +216,13 @@ type ConnectionState = keyof typeof CONNECTION_TEXT;
 function ConnectionStatus({ state, className }: { state: ConnectionState; className?: string }) {
   return (
     <span className={className} data-state={state} role="status">
-      {CONNECTION_TEXT[state]}
+      <span className={styles.connectionText}>{CONNECTION_TEXT[state]}</span>
     </span>
   );
 }
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
-  const focusedSession = /^\/agents\/[^/]+\/?$/.test(useLocation().pathname);
   const [scope, setScope] = useScope();
   const usage = useProviderUsage();
   const projects = useProjects();
@@ -176,6 +232,22 @@ export function Shell() {
   const searchButton = useRef<HTMLButtonElement>(null);
   const usageDetails = useRef<HTMLDetailsElement>(null);
   const usageSummary = useRef<HTMLElement>(null);
+  const usageId = useId();
+  const [quotaCollapsed, setQuotaCollapsed] = useState(false);
+  const [entryFocus, setEntryFocus] = useState(false);
+  const sheetId = useId();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetOpener = useRef<HTMLElement | null>(null);
+  const openSheet = useCallback((opener: HTMLElement) => {
+    sheetOpener.current = opener;
+    setSheetOpen(true);
+  }, []);
+  const closeSheet = useCallback((restoreFocus: boolean) => {
+    setSheetOpen(false);
+    if (restoreFocus) sheetOpener.current?.focus();
+  }, []);
+  const { pathname } = useLocation();
+  useEffect(() => setSheetOpen(false), [pathname]);
   const closeUsage = () => {
     if (usageDetails.current) usageDetails.current.open = false;
     usageSummary.current?.focus();
@@ -199,6 +271,10 @@ export function Shell() {
   const reachable = connection === "connected" && !usage.unreachable;
   const status: ConnectionState = connection === "signed_out" ? "signed_out" : !online ? "offline" : reachable ? "connected" : "reconnecting";
   const phone = useMediaQuery(PHONE_QUERY);
+  const focusedSession = /^\/agents\/[^/]+\/?$/.test(pathname);
+  useEffect(() => {
+    if (!phone) setSheetOpen(false);
+  }, [phone]);
   const badge = usePendingBadge(scope, bootstrap.capability("dashboard.overview").enabled);
   const name = bootstrap.principal.displayName;
   const search = scopeSearch(scope);
@@ -206,7 +282,13 @@ export function Shell() {
   const isMock = import.meta.env.MODE === "mock";
 
   return (
-    <div className={styles.shell} data-focused-session={focusedSession || undefined} data-compact-usage={compactUsage || undefined}>
+    <div
+      className={styles.shell}
+      data-focused-session={focusedSession || undefined}
+      data-compact-usage={compactUsage || undefined}
+      data-quota-collapsed={quotaCollapsed || undefined}
+      data-entry-focus={(phone && entryFocus) || undefined}
+    >
       <a href="#content" className={styles.skip}>
         Skip to content
       </a>
@@ -247,9 +329,23 @@ export function Shell() {
         </div>
       </aside>
       <header className={styles.top}>
+        {phone && (
+          <button
+            type="button"
+            className={styles.menuButton}
+            aria-label="Menu"
+            aria-haspopup="dialog"
+            aria-expanded={sheetOpen}
+            aria-controls={sheetOpen ? sheetId : undefined}
+            onClick={(e) => openSheet(e.currentTarget)}
+          >
+            <Icon icon={Menu} size={22} />
+          </button>
+        )}
         {isMock && (
           <p className={styles.mockBanner} role="note" title="Mock data · proposed contracts, not a live AQ server">
-            Mock data<span className="visually-hidden"> · proposed contracts, not a live AQ server</span>
+            Mock<span className={styles.mockWord}> data</span>
+            <span className="visually-hidden"> · proposed contracts, not a live AQ server</span>
           </p>
         )}
         <div className={styles.scopeRow}>
@@ -274,7 +370,8 @@ export function Shell() {
             Ctrl K
           </kbd>
         </button>
-        <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
+        {phone && <ConnectionStatus state={status} className={styles.connection} />}
+        <details id={usageId} ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
           if (event.key === "Escape") { event.preventDefault(); closeUsage(); }
         }}>
           <summary ref={usageSummary}><span className="visually-hidden">Provider usage (account-wide) </span><ProviderUsageSummary state={usage.state} /><Icon icon={ChevronDown} size={16} className={styles.usageChevron} /></summary>
@@ -283,7 +380,18 @@ export function Shell() {
             <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>
           </div>
         </details>
-        {phone && <ConnectionStatus state={status} className={styles.connection} />}
+        {phone && (
+          <button
+            type="button"
+            className={styles.quotaToggle}
+            aria-label="Provider usage row"
+            aria-expanded={!quotaCollapsed}
+            aria-controls={usageId}
+            onClick={() => setQuotaCollapsed((v) => !v)}
+          >
+            <Icon icon={ChevronDown} size={18} />
+          </button>
+        )}
         <Link
           to={{ pathname: "/settings", search }}
           className={styles.avatarLink}
@@ -292,13 +400,19 @@ export function Shell() {
           <span className={styles.srOnly}>Settings, signed in as {name}</span>
         </Link>
       </header>
-      <main id="content" className={styles.main}>
+      <main
+        id="content"
+        className={styles.main}
+        onFocus={(e) => setEntryFocus(isTextEntry(e.target))}
+        onBlur={() => setEntryFocus(false)}
+      >
         <BundleNotice />
         <TitleFocusContext value={lastTitlePath}>
           <SupervisorWorkspace><Outlet /></SupervisorWorkspace>
         </TitleFocusContext>
       </main>
-      <PhoneNav search={search} badge={badge} />
+      <PhoneNav search={search} sheet={{ open: sheetOpen, id: sheetId, onOpen: openSheet }} />
+      {sheetOpen && <MoreSheet id={sheetId} search={search} badge={badge} onClose={closeSheet} />}
       {searchOpen && canSearch && <SearchDialog onClose={closeSearch} />}
     </div>
   );
