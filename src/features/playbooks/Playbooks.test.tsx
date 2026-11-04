@@ -25,7 +25,7 @@ test("discovery opens exact run and shows pins, timeline and pending operation",
   expect(within(timeline).getAllByRole("listitem").map(li => li.textContent)).toEqual(["InspectCompleted", "Request reviewWaiting"]);
   expect(within(timeline).getByText("Request review").closest("li")).toHaveAttribute("aria-current", "step");
   expect(within(detail).getByRole("tab", { name: "Execution" })).toHaveAttribute("aria-selected", "true");
-  expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("effect pending")).toBeInTheDocument();
+  expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("Operation")).toBeInTheDocument();
   await userEvent.click(within(detail).getByRole("tab", { name: "Events" }));
   const table = within(detail).getByRole("table", { name: "Recent evidence" });
   expect(within(table).getAllByRole("row")).toHaveLength(3);

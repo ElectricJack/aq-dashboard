@@ -40,8 +40,8 @@ for (const vp of VIEWPORTS) {
       await expect(inspector.getByRole("heading", { name: "Pinned execution" })).toBeAttached();
       await expect(inspector.getByText(/^sha256:a81c9e/).first()).toBeAttached();
       await expect(inspector.getByRole("list", { name: "Execution timeline" }).getByRole("listitem")).toHaveCount(3);
-      await expect(inspector.getByText("decision pending")).toBeAttached();
-      await expect(inspector.getByRole("link", { name: "run-0000000000000285" })).toBeAttached();
+      await expect(inspector.getByText("Human decision")).toBeAttached();
+      await expect(inspector.getByRole("link", { name: "run-285" })).toBeAttached();
       await expectNoHorizontalOverflow(page);
       await expectNoAxeViolations(page);
       await page.screenshot({ path: `${evidence}/playbooks-run-${vp.name}.png`, fullPage: true });
