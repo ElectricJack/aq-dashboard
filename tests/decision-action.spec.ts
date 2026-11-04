@@ -3,31 +3,13 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * DC-K: reference 03 decision bar (note, applies-to line, primary Approve, Request changes),
- * sticky on phone, honest unavailability and conflict recovery. Mock mode fixture; the
- * spec makes the signed-in principal an eligible owner, offers `decisions.resolve` and
- * answers every resolve with 409 because the mock server has no resolve handler.
+ * sticky on phone, honest unavailability and conflict recovery. Mock mode (DC-N fixtures):
+ * the fixture principal is an eligible owner of the reference review, `decision-conflict`
+ * refuses every answer with 409 and `actions-unavailable` withdraws `decisions.resolve`.
  */
 const EVIDENCE = process.env.DCK_EVIDENCE_DIR;
 const DECISION = "00000000-0000-4000-8000-000000000001";
-const OWNER = "00000000-0000-4000-8000-000000000009";
-
-async function answerable(page: Page) {
-  await page.addInitScript(({ owner }) => {
-    const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
-    const wrap = (inner: typeof fetch): typeof fetch => async (input, init) => {
-      const path = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href).pathname;
-      if (/^\/api\/reviews\/decisions\/[^/]+\/resolve$/.test(path)) return json({ code: "revision_conflict" }, 409);
-      const response = await inner(input, init);
-      if (path !== "/api/v1/bootstrap") return response;
-      const body = await response.clone().json();
-      body.data.principal.id = owner;
-      body.data.capabilities = [...body.data.capabilities.filter((c: { name: string }) => c.name !== "decisions.resolve"), { name: "decisions.resolve", version: "1", enabled: true }];
-      return json(body);
-    };
-    let current = wrap(window.fetch.bind(window));
-    Object.defineProperty(window, "fetch", { configurable: true, get: () => current, set: (value: typeof fetch) => { current = wrap(value); } });
-  }, { owner: OWNER });
-}
+const UNAVAILABLE_REASON = "Fixture scenario: actions are not offered";
 
 const accent = (page: Page) => page.evaluate(() => {
   const probe = document.createElement("span"); probe.style.backgroundColor = "var(--color-accent)"; document.body.append(probe);
@@ -43,8 +25,7 @@ test.describe("desktop-1440", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test("full-width bar with primary Approve, and conflict recovery keeps the note", async ({ page }) => {
-    await answerable(page);
-    await page.goto(`/decisions/${DECISION}`);
+    await page.goto(`/decisions/${DECISION}?scenario=decision-conflict`);
     const bar = page.getByRole("region", { name: "Your decision" });
     const approve = bar.getByRole("button", { name: /Approve/ });
     await expect(approve).toHaveText("Approve task version 3");
@@ -78,9 +59,9 @@ test.describe("desktop-1440", () => {
   });
 
   test("capability off names the server's reason", async ({ page }) => {
-    await page.goto(`/decisions/${DECISION}`);
+    await page.goto(`/decisions/${DECISION}?scenario=actions-unavailable`);
     const bar = page.getByRole("region", { name: "Your decision" });
-    await expect(bar.getByText("Not offered by this AQ server")).toBeVisible();
+    await expect(bar.getByText(UNAVAILABLE_REASON)).toBeVisible();
     await expect(bar.getByRole("button", { name: /Approve/ })).toHaveCount(0);
     if (EVIDENCE) await page.screenshot({ path: `${EVIDENCE}/decisions-action-unavailable-desktop-1440.png` });
     await axe(page);
@@ -91,7 +72,6 @@ test.describe("phone-390", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test("sticky action row never covers the focused note", async ({ page }) => {
-    await answerable(page);
     await page.goto(`/decisions/${DECISION}`);
     const bar = page.getByRole("region", { name: "Your decision" });
     const row = page.locator("[data-decision-actions]");
@@ -117,8 +97,8 @@ test.describe("phone-390", () => {
   });
 
   test("capability off names the server's reason", async ({ page }) => {
-    await page.goto(`/decisions/${DECISION}`);
-    await expect(page.getByRole("region", { name: "Your decision" }).getByText("Not offered by this AQ server")).toBeVisible();
+    await page.goto(`/decisions/${DECISION}?scenario=actions-unavailable`);
+    await expect(page.getByRole("region", { name: "Your decision" }).getByText(UNAVAILABLE_REASON)).toBeVisible();
     await axe(page);
   });
 });

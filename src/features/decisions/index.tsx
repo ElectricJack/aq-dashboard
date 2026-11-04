@@ -7,16 +7,16 @@ import { queryKey } from "../../api/queryKeys";
 import { PageTitle } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
 import { useScope } from "../../app/scope";
-import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
+import { Panel } from "../../components/layout/Workspace";
 import { Icon } from "../../components/icons";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ChevronLeft } from "lucide-react";
 import { DecisionAction } from "./DecisionAction";
 import { DecisionContext } from "./DecisionContext";
+import { DecisionEvidence } from "./DecisionEvidence";
 import { DecisionInbox, type InboxState } from "./DecisionInbox";
 import styles from "./Decisions.module.css";
 const ROOT = "/api/reviews/decisions";
-const short = (id: string) => id.slice(0, 8);
 export function Component() {
   const { bootstrap, queryContext } = useSession();
   const permission = bootstrap.capability("decisions.read");
@@ -60,12 +60,6 @@ function Selected({ id, project }: { id: string; project: string | undefined }) 
   if (!read.data || read.isError) return <Panel title="Decision evidence"><QueryStatus status={read.isError ? "error" : "pending"} error={read.error} label="decision evidence" onRetry={() => void read.refetch()} /></Panel>;
   const d = read.data;
   if (project && d.projectId !== project) return <Panel title="Decision outside selected scope"><p>Select its project or return to All projects to inspect this review.</p></Panel>;
-  return <><Panel title={`Review task ${short(d.taskId)}`} description={`Decision revision ${d.revision} · Task version ${d.taskVersion}`} actions={<ActionButton onClick={() => void refresh()}>Refresh evidence</ActionButton>}>
-    <p className={styles.status}>{d.finality ? `Recorded decision: ${d.finality}` : d.state === "pending" ? "Awaiting your decision" : d.state}</p>
-    {!d.current && <p role="status">A newer result report exists. This review remains historical evidence.</p>}
-    {d.conclusion && <><h3>Recorded result</h3><p>{d.conclusion}</p><p className={styles.muted}>Reported process outcome: {d.processOutcome}</p></>}
-    <h3>Review criteria</h3><ul>{d.criteria.map(c => <li key={c}>{c}</li>)}</ul>
-    <h3>Source evidence</h3><DetailList><dt>Repository</dt><dd>{d.source.repository}</dd><dt>Base object</dt><dd>{d.source.base}</dd><dt>Resulting object</dt><dd>{d.source.result}</dd></DetailList>
-  </Panel><DecisionContext detail={d} updatedAt={read.dataUpdatedAt} className={styles.context} />
+  return <><DecisionEvidence detail={d} onRefresh={() => void refresh()} /><DecisionContext detail={d} updatedAt={read.dataUpdatedAt} className={styles.context} />
   <DecisionAction detail={d} capability={bootstrap.capability("decisions.resolve")} refreshes={refreshes} onRefresh={refresh} onRecorded={() => { void read.refetch(); void client.invalidateQueries({ queryKey: queryKey(queryContext, "decision-inbox", {}) .slice(0, 5) }); }} /></>;
 }

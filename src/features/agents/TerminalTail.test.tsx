@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -76,7 +76,7 @@ test("reported gaps discard preceding text and distinguish disconnection", async
   held.release();
   await screen.findByText("after gap"); expect(screen.queryByText("before gap")).toBeNull();
   expect(screen.getByText(/Output gaps or sequence discontinuities/)).toBeInTheDocument();
-  expect(screen.getByText(/Disconnected —/)).toBeInTheDocument();
+  expect(within(screen.getByRole("dialog", { name: "Transcript" })).getByText(/Disconnected —/)).toBeInTheDocument();
 });
 test("not-retained output does not invent a snapshot or replay old bytes", async () => {
   setup(() => ({ notRetained: true })); await start();
