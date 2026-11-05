@@ -20,4 +20,6 @@ for name in ('dashboard-actions', 'human-graph'):
         assert hashlib.sha256((root / 'contracts/live' / name / path).read_bytes()).hexdigest() == digest, path
 read_source = json.loads((root / 'contracts/live/dashboard-read-g2/source.json').read_text())
 assert hashlib.sha256((root / 'contracts/live/dashboard-read-g2/schema.json').read_bytes()).hexdigest() == read_source['sha256']
+for path, digest in read_source['fixtures'].items():
+    assert hashlib.sha256((root / 'contracts/live/dashboard-read-g2' / path).read_bytes()).hexdigest() == digest, path
 print('G3 pinned fixture source hashes passed')

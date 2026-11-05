@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import bootstrap from "../../../contracts/proposed/bootstrap.json";
-import proposal from "../../../contracts/proposed/question-inbox.json";
+import openFixture from "../../../contracts/live/dashboard-read-g2/fixtures/question-inbox-open.json";
+import detailFixture from "../../../contracts/live/dashboard-read-g2/fixtures/question-detail.json";
+import readSchema from "../../../contracts/live/dashboard-read-g2/schema.json";
 import actionSchema from "../../../contracts/live/dashboard-actions/schema.json";
 import confirmed from "../../../contracts/live/dashboard-actions/fixtures/operation-confirmed.json";
-import { adaptQuestion, adaptQuestions } from "../../api/adapters/questions";
+import { adaptQuestion, adaptQuestions, isQuestionExpired } from "../../api/adapters/questions";
 import { handlersFor } from "../../mocks/handlers";
 import { decisionId, decisionPage } from "../../test/decisions";
 import { renderApp } from "../../test/renderApp";
@@ -15,6 +17,7 @@ import { freezeQuestionAnswer } from "./questionAnswer";
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" })); afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 
+const proposal = { list: openFixture, detail: detailFixture };
 const QUESTION = proposal.list.items[0]!;
 const ID = QUESTION.decision_id;
 const answeredItem = (answer: string) => ({ ...QUESTION, decision_revision: "2", state: "answered", answer, answered_at_ms: proposal.list.server_time_ms + 1000, delivery: { kind: "wait" } });
@@ -32,9 +35,12 @@ function setup({ questions = true, answer = true }: { questions?: boolean; answe
     http.get("/api/reviews/decisions", () => HttpResponse.json({ ...decisionPage(), items: [] })));
 }
 
-test("the proposed read adapts and the frozen answer matches the live question.answer schema", () => {
+test("the live read adapts and the frozen answer matches the live question.answer schema", () => {
   expect(adaptQuestions(proposal.list, true, QUESTION.project_id).items[0]).toMatchObject({ decisionId: ID, revision: "1", state: "pending", answer: null });
   expect(adaptQuestion(proposal.detail, proposal.detail.item.decision_id).item.delivery).toEqual({ kind: "task_mail", messageId: proposal.detail.item.delivery.message_id });
+  expect(adaptQuestions(proposal.list, true).items[0]!.taskTitle).toBeNull();
+  expect(adaptQuestions(page([{ ...QUESTION, task_title: "Migrate leases" }]), true).items[0]!.taskTitle).toBe("Migrate leases");
+  expect(Object.keys(readSchema.$defs.QuestionItem.properties).sort()).toEqual(Object.keys(QUESTION).sort());
   expect(() => adaptQuestions(proposal.list, false)).toThrow();
   expect(() => adaptQuestions(page([{ ...QUESTION, answer: "early" }]), true)).toThrow();
   const q = adaptQuestions(proposal.list, true).items[0]!;
@@ -66,7 +72,7 @@ test("a pending question shows in the inbox; answering submits question.answer a
   renderApp("/decisions");
   const list = await screen.findByRole("list", { name: "Agent questions" });
   const row = within(list).getByRole("link");
-  expect(row).toHaveTextContent(QUESTION.question); expect(row).toHaveTextContent("· Question"); expect(row).toHaveTextContent(/Expires in \d+h/);
+  expect(row).toHaveTextContent(QUESTION.question); expect(row).toHaveTextContent("· Question"); expect(row).toHaveTextContent(/Expires in \d+[dh]/);
   expect(row.getAttribute("href")).toBe(`/decisions/${ID}?state=open&kind=question`);
   await userEvent.click(row);
   expect(await screen.findByText(QUESTION.question, { selector: "blockquote" })).toBeInTheDocument();
@@ -113,5 +119,21 @@ test("answering names the reason when questions.answer is not offered", async ()
   server.use(http.get("/api/questions/decisions", () => HttpResponse.json(page([QUESTION]))), http.get(`/api/questions/decisions/${ID}`, () => HttpResponse.json(detail(QUESTION))));
   renderApp(`/decisions/${ID}?kind=question`);
   await screen.findByText("Not offered by this AQ server");
+  expect(screen.queryByRole("button", { name: "Send answer" })).toBeNull();
+});
+
+test("a pending question past its expiry is marked expired and cannot be answered", async () => {
+  setup();
+  const expired = { ...QUESTION, expires_at_ms: proposal.list.server_time_ms - 1, task_title: "Migrate leases" };
+  expect(isQuestionExpired(adaptQuestions(page([expired]), true).items[0]!, proposal.list.server_time_ms)).toBe(true);
+  expect(isQuestionExpired(adaptQuestions(page([{ ...QUESTION, expires_at_ms: proposal.list.server_time_ms }]), true).items[0]!, proposal.list.server_time_ms)).toBe(false);
+  expect(isQuestionExpired({ state: "answered", expires: 1 }, 2)).toBe(false);
+  server.use(http.get("/api/questions/decisions", () => HttpResponse.json(page([expired]))), http.get(`/api/questions/decisions/${ID}`, () => HttpResponse.json(detail(expired))));
+  renderApp(`/decisions/${ID}?kind=question`);
+  expect(await screen.findByRole("heading", { name: "Migrate leases" })).toBeInTheDocument();
+  expect(document.querySelector("[data-question-expired]")).toHaveTextContent("Expired");
+  expect(screen.queryByText("Awaiting your answer")).toBeNull();
+  expect(screen.getByText(/expired before it was answered/)).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "Answer" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Send answer" })).toBeNull();
 });

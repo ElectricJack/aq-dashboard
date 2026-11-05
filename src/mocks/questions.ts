@@ -1,7 +1,7 @@
 /**
  * Mock-only F5 agent question fixtures (`?scenario=questions`). Every question says
- * "Fixture"; nothing here claims to be a real agent. Shapes follow the PROPOSED read in
- * contracts/proposed/question-inbox.json and the live `question.answer` action kind.
+ * "Fixture"; nothing here claims to be a real agent. Shapes follow the live question-inbox-1 read in
+ * contracts/live/dashboard-read-g2/schema.json and the live `question.answer` action kind.
  */
 import { http, HttpResponse } from "msw";
 import operationFixture from "../../contracts/live/dashboard-actions/fixtures/operation-confirmed.json";
@@ -12,13 +12,13 @@ import { fixtureDecisionId, SERVER_TIME_MS } from "./decisionFixtures";
 const HOUR = 3_600_000;
 type Fixture = {
   kind: "question"; decision_id: string; decision_revision: string; state: "pending" | "answered";
-  project_id: string; workspace_id: string; task_id: string; question: string; asked_at_ms: number; expires_at_ms: number;
+  project_id: string; workspace_id: string; task_id: string; task_title: string | null; question: string; asked_at_ms: number; expires_at_ms: number;
   answer: string | null; answered_at_ms: number | null; delivery: { kind: "wait" } | { kind: "task_mail"; message_id: string } | null;
 };
 export const fixtureQuestionId = (n: number) => fixtureDecisionId(0xa00 + n);
 const pending = (n: number, task: string, question: string, askedHoursAgo: number): Fixture => ({
   kind: "question", decision_id: fixtureQuestionId(n), decision_revision: "1", state: "pending",
-  project_id: fixtureProject.id, workspace_id: fixtureProject.workspace_id, task_id: task, question,
+  project_id: fixtureProject.id, workspace_id: fixtureProject.workspace_id, task_id: task, task_title: null, question,
   asked_at_ms: SERVER_TIME_MS - askedHoursAgo * HOUR, expires_at_ms: SERVER_TIME_MS + (24 - askedHoursAgo) * HOUR,
   answer: null, answered_at_ms: null, delivery: null,
 });
