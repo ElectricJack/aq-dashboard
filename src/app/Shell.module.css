@@ -403,9 +403,7 @@
   padding: var(--gutter-mobile);
 }
 
-.phoneNav,
-.menuButton,
-.quotaToggle {
+.phoneNav {
   display: none;
 }
 
@@ -422,7 +420,7 @@
   .brand { padding-inline: var(--space-2); gap: var(--space-2); font-size: 18px; white-space: nowrap; }
   .top { column-gap: var(--space-3); }
   .search { flex: none; min-inline-size: 0; inline-size: var(--touch-target); padding: 0; justify-content: center; }
-  .search > span, .search .kbd { position: absolute; inline-size: 1px; block-size: 1px; clip-path: inset(50%); white-space: nowrap; }
+  .search > span, .search .kbd { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* Phone: no rail; compact header and bottom destinations. */
@@ -439,80 +437,50 @@
     display: none;
   }
 
-  /* Sticky compact header (gap SH-K): one control row (menu, brand, scope, search,
-     connection) and one quota row with its collapse toggle. Flex wrapping lets hidden
-     items leave no empty tracks. */
+  /* References 12/13: brand, scope and search on one row, then a one-row quota strip.
+     Row 1 holds the mock chip (when present) and the connection state. */
   .top {
-    position: sticky;
-    inset-block-start: env(safe-area-inset-top, 0px);
-    z-index: 15;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--touch-target);
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-2) var(--gutter-mobile);
+  }
+
+  .scopeRow {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
-    min-block-size: 0;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--gutter-mobile);
+    gap: var(--space-3);
+    min-inline-size: 0;
   }
-
-  .menuButton { order: -2; }
-  .phoneBrand { order: -1; }
-
-  .menuButton,
-  .quotaToggle {
-    display: inline-grid;
-    flex: none;
-    place-items: center;
-    min-block-size: var(--touch-target);
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-control);
-    background: transparent;
-    color: var(--color-text);
-    cursor: pointer;
-  }
-
-  .menuButton { inline-size: var(--touch-target); }
-  .quotaToggle { inline-size: 32px; color: var(--color-text-secondary); }
-  .menuButton:hover,
-  .quotaToggle:hover { background: var(--color-panel); }
-  .menuButton:focus-visible,
-  .quotaToggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
 
   .phoneBrand {
     display: flex;
-    flex: none;
+    gap: var(--space-2);
+    font-size: 18px;
   }
-
-  /* The mark alone stands for the brand; the name stays on the rail and in the page title. */
-  .phoneBrand { font-size: 0; }
 
   .phoneBrand .mark {
     inline-size: 32px;
     block-size: 32px;
-    font-size: 15px;
-  }
-
-  .scope {
-    flex: 1 1 0;
-    inline-size: auto;
-    min-inline-size: 0;
   }
 
   .scope select {
     inline-size: 100%;
-    text-overflow: ellipsis;
   }
 
   .search {
-    flex: none;
+    grid-column: 2;
+    grid-row: 2;
     min-inline-size: 0;
     inline-size: var(--touch-target);
     padding: 0;
     justify-content: center;
   }
 
-  .search > span,
-  .mockWord {
+  .search > span {
     position: absolute;
     inline-size: 1px;
     block-size: 1px;
@@ -521,35 +489,13 @@
     white-space: nowrap;
   }
 
-  /* Connected is a dot with a spoken label; any other state stays readable text on its own row. */
   .connection {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-inline-size: 16px;
-    min-block-size: var(--touch-target);
-    font-size: 12px;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    font-size: 11px;
   }
-
-  .connection[data-state="connected"]::before { margin-inline-end: 0; }
-  .connection[data-state="connected"] .connectionText {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .connection:not([data-state="connected"]) {
-    flex-basis: 100%;
-    justify-content: start;
-    min-block-size: 0;
-  }
-
-  /* Focused content stays clear of the sticky header and the bottom bar. */
-  :global(html):has(.shell) { scroll-padding-block: 128px calc(64px + env(safe-area-inset-bottom)); }
-  :global(html):has(.shell[data-quota-collapsed]) { scroll-padding-block-start: 64px; }
 
   .kbd {
     display: none;
@@ -557,6 +503,10 @@
 
   .main {
     padding: var(--space-4) var(--gutter-mobile) calc(var(--shell-bottom-nav-height) + var(--space-4));
+  }
+
+  .top {
+    position: relative;
   }
 
   .shell {
@@ -572,8 +522,11 @@
   .shell[data-entry-focus] .phoneNav { display: none; }
 
   .mockBanner {
-    flex: none;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: start;
   }
+
 
   .phoneNav {
     display: flex;
@@ -708,6 +661,8 @@
 /* Window details stay in this bounded panel rather than opening a clipped second overlay. */
 .usageReason ul { position: static; min-inline-size: 0; max-inline-size: 100%; }
 @media (max-width: 767px) {
+  .compactUsage { grid-column: 1 / -1; grid-row: 3; margin-inline-start: 0; }
+  .scope { inline-size: 100%; min-inline-size: 0; }
   .usageReason { inset-inline: var(--gutter-mobile); inline-size: auto; }
   .shell[data-focused-session] .scopeRow,
   .shell[data-focused-session] .search { display: none; }
@@ -715,20 +670,20 @@
   .shell[data-focused-session] .main > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
-/* Phone: account facts wrap as text; the header never truncates quota/reset/freshness. */
-@media (max-width: 767px) {
- .compactUsage summary { white-space: normal; min-block-size: 0; padding-block: 2px; }
- .usageChevron { display: none; }
- /* The quota row shares its line only with the collapse toggle. */
- .compactUsage { flex: 1 1 calc(100% - 32px - var(--space-1)); margin-inline-start: 0; }
- .compactUsage summary > :not(svg) { min-inline-size: 0; flex: 1 1 auto; }
- .shell[data-quota-collapsed] .compactUsage { display: none; }
- .shell[data-focused-session] .compactUsage { flex: 1; }
+/* 320 reflow: the mark alone carries the brand so the scope picker keeps its label. */
+@media (max-width: 359px) {
+  .phoneWordmark { display: none; }
+  /* The focused session's quota strip takes its own row below the chip and connection state. */
+  .shell[data-focused-session] .top { flex-wrap: wrap; row-gap: 0; }
+  .shell[data-focused-session] .top .compactUsage { order: 1; flex: 1 1 100%; }
 }
 
-/* Very narrow phones: the brand mark yields its width to the scope picker. */
-@media (max-width: 359px) {
-  .phoneBrand { display: none; }
+/* Phone: account facts wrap as text inside their strip column; the header never truncates
+   quota/reset/freshness. */
+@media (max-width: 767px) {
+ .compactUsage summary { white-space: normal; }
+ .usageChevron { display: none; }
+ .shell[data-focused-session] .compactUsage { flex: 1; }
 }
 
 /* A viewport-fit page (full Supervisor) owns one internal scroller: the shell is exactly

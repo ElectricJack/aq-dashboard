@@ -19,6 +19,8 @@ import { Icon, runStatusIcon } from "../../components/icons";
 import { Age, useObservedNow } from "./Age";
 import { humanize, InspectorTabs, RecentEvidence, RunTimeline, type InspectorTab } from "./RunTimeline";
 import { Digest, TechnicalIdentity } from "./identity";
+import { CancelRun } from "./RunActions";
+import { StartRun } from "./StartRun";
 import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
@@ -87,7 +89,7 @@ export function Playbooks() {
     </Toolbar>
     {tab === "definitions" ? bootstrap.capability(CATALOG_CAPABILITY).enabled ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:definitions`} kind="definitions" /> : <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} /> : tab === "activations" ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:activations`} kind="activations" /> : tab === "runs" ? <div className={styles.workspace} data-focused={Boolean(runId)}>
       {runId && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search }}>All runs</Link>}
-      <Panel title="Recent runs" className={styles.roster} actions={runs.data && filtering ? <span className={styles.meta}>Filtering loaded runs</span> : undefined}>
+      <Panel title="Recent runs" className={styles.roster} actions={<div className={styles.rosterActions}>{runs.data && filtering && <span className={styles.meta}>Filtering loaded runs</span>}<StartRun /></div>}>
         {!runs.data || runs.isError || invalid ? <QueryStatus status={runs.isError || invalid ? "error" : "pending"} error={invalid ?? runs.error} label="playbook runs" onRetry={() => void runs.refetch()} /> : <>
           {rows.length === 0 && <p>No runs recorded in this configured namespace.</p>}
           {rows.length > 0 && shown.length === 0 && <p>No loaded runs match these filters.</p>}
@@ -134,6 +136,7 @@ function RunInspector({ id, project, loaded }: { id: string; project: string | n
       <span className={styles.badge} data-state={r.status}>{statusLabel(r.status)}</span>
       <ActionButton className={styles.iconButton} aria-label="Refresh run" title="Refresh run" disabled={query.isFetching} onClick={() => void query.refetch()}><Icon icon={RefreshCw} size={18} /></ActionButton>
       <p className={styles.meta}><span title={r.id}>{shortRunId(r.id)}</span>{projectLabel && <> · <span>{projectLabel}</span></>} · Started <Age at={r.admittedAt} now={now} /></p>
+      <CancelRun className={styles.runAction} project={namespace.projectId} run={r.id} status={r.status} />
     </header>
     <div className={styles.pinStrip}>
       <p><Icon icon={FileText} size={18} /><span>This run: <strong>{r.entry}</strong> · <Digest value={r.artifact} /></span></p>

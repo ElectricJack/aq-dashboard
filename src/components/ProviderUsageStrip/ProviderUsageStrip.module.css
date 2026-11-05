@@ -197,24 +197,24 @@
   white-space: nowrap;
 }
 
-/* Phone: one quota row of two provider columns (reference 12); each column keeps
-   name and percent on its first line and the window line with its own age below. */
+/* Phone (references 12/13): providers side by side, "Name ▬ 42% used" over the window line with
+   its own age. Text wraps inside its column rather than truncating. */
 @media (max-width: 767px) {
   .summary {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 2px var(--space-3);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: var(--space-3);
     inline-size: 100%;
   }
 
   .summaryEntry {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      "name figure"
-      "meta meta";
-    gap: 0 var(--space-1);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px var(--space-2);
     font-size: 12px;
-    line-height: inherit;
+    line-height: 1.35;
     white-space: normal;
   }
 
@@ -225,16 +225,11 @@
 
   .summaryEntry > .meta,
   .summaryStatus {
-    color: var(--color-accent);
+    flex-basis: 100%;
   }
 
-  /* Visually hidden so the 390 composition is unchanged; the progressbar stays announced. */
   .summaryEntry .bar {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+    inline-size: 40px;
   }
 
   .summary[data-shared-freshness] .summaryEntry .freshness {
@@ -249,12 +244,6 @@
 /* AG-A focus mode (phone): the focused session keeps the quota to one line per provider,
    "Name ▬ 42% used"; window, reset and age stay announced and remain in the usage disclosure. */
 @media (max-width: 767px) {
-  /* One provider per line: the focused header has no room for SH-K's two columns. */
-  :global([data-focused-session]) .summary {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
   :global([data-focused-session]) .summaryEntry {
     grid-template-columns: auto auto;
     grid-template-areas: "name figure";

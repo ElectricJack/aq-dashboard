@@ -1,0 +1,383 @@
+{
+  "task": "steady-cascade-45.12 (G11)",
+  "date": "2026-11-04",
+  "procedure": "docs/design/visual-acceptance.md",
+  "evidence": "docs/implementation/G11.md",
+  "served_bundle": {
+    "manifest_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55",
+    "files": 35,
+    "served_by": "vite preview of pnpm build, proxied to the E0 local server http://127.0.0.1:32838",
+    "evidence": "docs/implementation/evidence/G11/live/bundle.json"
+  },
+  "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+  "assets": {
+    "01-overview-v3.png": {
+      "status": "accepted",
+      "reference": "docs/design/01-overview-v3.png",
+      "surface": "overview",
+      "delivered_subset": "Compact four-count status band; Needs your attention, Work in motion and Recent outcomes main column; Capacity, Provider status and Pinned sessions secondary column; rail, quota header and Create task. The live E0 capture shows a non-empty work row; the fixture is the labelled empty contract.",
+      "deferred_differences": [
+        "Capacity is 'Slots unavailable' and provider status 'not reported' because the server does not report them; no quota or activity is invented",
+        "An 'Open supervisor' launcher sits above the page title on desktop (the reference reaches Supervisor from the rail only)",
+        "On phone the header shows the scope picker where the reference shows a menu button",
+        "Work in motion scrolls inside its own table region at 320px"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/overview-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/overview-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/overview-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/overview-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/overview-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/overview-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/overview-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/overview-tablet-768.png",
+          "docs/implementation/evidence/G11/live/overview-phone-390.png",
+          "docs/implementation/evidence/G11/live/overview-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "02-work-explorer-v3.png": {
+      "status": "accepted",
+      "reference": "docs/design/02-work-explorer-v3.png",
+      "surface": "work",
+      "delivered_subset": "List/Graph switch, project search and state filters; prominent dependency graph with legend, Fit graph, zoom and fullscreen; contextual task inspector with Edit task, More actions, description, acceptance criteria, dependencies and Open full task.",
+      "deferred_differences": [
+        "The fixture neighbourhood has four tasks rather than the reference's ten-node plan; nodes beyond the viewport pan inside the labelled graph region (allowed reflow exception)",
+        "The inspector shows the selected task; the reference's decision-specific 'Why this is waiting' and Related activity are not offered by the read contract",
+        "Live E0 has one task, so the live capture shows the list view with one row"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/work-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/work-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/work-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/work-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/work-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/work-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/work-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/work-tablet-768.png",
+          "docs/implementation/evidence/G11/live/work-phone-390.png",
+          "docs/implementation/evidence/G11/live/work-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "03-decision-workspace-v3.png": {
+      "status": "accepted",
+      "reference": "docs/design/03-decision-workspace-v3.png",
+      "surface": "decisions",
+      "delivered_subset": "Open/Resolved inbox, evidence and proposal workspace with Decision requested, recorded result and acceptance criteria, Decision context and Evidence column, and a sticky decision bar with note, Approve and Request changes. The phone capture puts evidence first with safe sticky actions.",
+      "deferred_differences": [
+        "There is no Defer action and no 'What happens next' panel; neither is in the decision contract",
+        "Live E0 states that decision inspection requires an owner account and a mounted review owner; the concise unavailable state stays within the page"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/decisions-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/decisions-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/decisions-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/decisions-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/decisions-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/decisions-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/decisions-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/decisions-tablet-768.png",
+          "docs/implementation/evidence/G11/live/decisions-phone-390.png",
+          "docs/implementation/evidence/G11/live/decisions-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "04-supervisor-chat.png": {
+      "status": "accepted",
+      "reference": "docs/design/04-supervisor-chat.png",
+      "surface": "supervisor-docked",
+      "delivered_subset": "The docked supervisor conversation beside the Overview page at desktop: header, message history with delivery states, a text-only composer and draft preservation.",
+      "deferred_differences": [
+        "Context chips and attachments are hidden because the contract advertises none",
+        "Inline result-card previews are not offered",
+        "Live docked capture is deferred: live /supervisor shows the compatibility gate (follow-up steady-cascade-45.12.1); the fixture capture is the accepted record (fix landed on main as f8975f7 and is merged; live recapture pending a running E0 server)"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/supervisor-docked-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-docked-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-docked-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-docked-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-docked-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "06-playbooks.png": {
+      "status": "accepted",
+      "reference": "docs/design/06-playbooks.png",
+      "surface": "playbooks",
+      "delivered_subset": "Runs/Definitions/Activations (plus Admissions) navigation with state and time filters; Recent runs list with state badges; selected run header with Cancel run, This run pin, Execution/Events/Inputs & outputs/Definition tabs, step timeline, Waiting on and Child workflows. Tablet and phone show one detail pane with an All runs link back.",
+      "deferred_differences": [
+        "There is no Create playbook button; runs start from 'Start run'",
+        "The Recent evidence table is reached through the Events tab rather than shown under the timeline",
+        "Live E0 reports 'Playbooks is not available' because no mounted runtime namespace owner exists"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/playbooks-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/playbooks-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/playbooks-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/playbooks-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/playbooks-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/playbooks-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/playbooks-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/playbooks-tablet-768.png",
+          "docs/implementation/evidence/G11/live/playbooks-phone-390.png",
+          "docs/implementation/evidence/G11/live/playbooks-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "07-knowledge-v2.png": {
+      "status": "accepted",
+      "reference": "docs/design/07-knowledge-v2.png",
+      "surface": "knowledge",
+      "delivered_subset": "Searchable library with category, state and verification filters and a List/Relationships switch; record list; readable document with Content/Sources/History/Relationships tabs, Decision and Why-this-matters sections, Verification, Sources and Linked work. Tablet and phone show one document pane.",
+      "deferred_differences": [
+        "The fixture has one record, not 48; the counts cover loaded records only",
+        "Linked work says it is not offered by the read contract",
+        "Live E0 has no knowledge records and shows the empty library within the same composition"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/knowledge-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/knowledge-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/knowledge-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/knowledge-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/knowledge-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/knowledge-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/knowledge-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/knowledge-tablet-768.png",
+          "docs/implementation/evidence/G11/live/knowledge-phone-390.png",
+          "docs/implementation/evidence/G11/live/knowledge-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "08-agents-focus-desktop.png": {
+      "status": "accepted",
+      "reference": "docs/design/08-agents-focus-desktop.png",
+      "surface": "agents",
+      "delivered_subset": "One large terminal output workspace with Agents breadcrumb, session switcher and tab, Focus/Split view/Expand, Watch only and Take control, status footer and on-demand Transcript and Details.",
+      "deferred_differences": [
+        "Split view is disabled until the measured width fits 160 columns",
+        "Messaging is unavailable on this AQ server, so the composer shows that instead of Send",
+        "The control-key row sits above the message bar",
+        "Live E0 roster has partial coverage and no attached session"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/agents-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/agents-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/agents-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/agents-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/agents-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/agents-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/agents-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/agents-tablet-768.png",
+          "docs/implementation/evidence/G11/live/agents-phone-390.png",
+          "docs/implementation/evidence/G11/live/agents-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "09-supervisor-full-desktop.png": {
+      "status": "accepted",
+      "reference": "docs/design/09-supervisor-full-desktop.png",
+      "surface": "supervisor-full",
+      "delivered_subset": "Full-page Global supervisor with History and Dock chat, readable message width, delivery and reply states, and a text-only composer with draft notice. This is also the default at tablet widths.",
+      "deferred_differences": [
+        "Context chips, attachments and inline result previews are hidden because the contract offers none",
+        "Live /supervisor against E0 renders 'Dashboard update required': adaptSupervisorDiscovery requires exact schema limits and E0 advertises context_refs 0 and attachments 0. This is bundle compatibility, out of G11 scope; follow-up steady-cascade-45.12.1. The fixture captures are the accepted visual record (fix landed on main as f8975f7 and is merged; live recapture pending a running E0 server)"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/supervisor-full-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/supervisor-full-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-tablet-768.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-phone-390.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "10-results-desktop-v2.png": {
+      "status": "accepted",
+      "reference": "docs/design/10-results-desktop-v2.png",
+      "surface": "results",
+      "delivered_subset": "Centred evidence feed with Latest/Needs review/Following, project, media and time filters; distinct result cards with exact context, capture requirements, Comments and Review result; the selected Comments panel with anchored threads and Create feedback task. At tablet widths comments open as an overlay.",
+      "deferred_differences": [
+        "The fixture offers no result images, so the media region states 'Images unavailable' and no media is invented",
+        "Thumbnails and the clip player appear only when media is offered",
+        "Live E0 has no results and shows the empty feed"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/results-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/results-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/results-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/results-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/results-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/results-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/results-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/results-tablet-768.png",
+          "docs/implementation/evidence/G11/live/results-phone-390.png",
+          "docs/implementation/evidence/G11/live/results-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "11-agent-mobile-v2.png": {
+      "status": "accepted",
+      "reference": "docs/design/11-agent-mobile-v2.png",
+      "surface": "agents",
+      "delivered_subset": "Phone focus: one terminal, a session switcher, Watch only and Take control, a status line, and an accessible exit back to Agents with the bottom navigation hidden.",
+      "deferred_differences": [
+        "At 320px, Take control wraps and the mode select takes its own row; the terminal pans inside its labelled region",
+        "Messaging is unavailable on this server"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/agents-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/agents-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/agents-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/agents-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/agents-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/agents-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/agents-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/agents-tablet-768.png",
+          "docs/implementation/evidence/G11/live/agents-phone-390.png",
+          "docs/implementation/evidence/G11/live/agents-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "12-supervisor-mobile.png": {
+      "status": "accepted",
+      "reference": "docs/design/12-supervisor-mobile.png",
+      "surface": "supervisor-full",
+      "delivered_subset": "Phone full-page supervisor with history, a keyboard-aware text-only composer, a compact quota header and the bottom destinations Overview, Results, Supervisor, Agents and More.",
+      "deferred_differences": [
+        "Context chips and attachments are hidden (contract offers none)",
+        "At 320px the 'Supervisor' bottom-nav label overflows its cell by about 5px without page overflow",
+        "The live capture shows the compatibility gate (see 09; follow-up steady-cascade-45.12.1) (fix landed on main as f8975f7 and is merged; live recapture pending a running E0 server)"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/supervisor-full-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/supervisor-full-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/supervisor-full-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-tablet-768.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-phone-390.png",
+          "docs/implementation/evidence/G11/live/supervisor-full-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    },
+    "13-results-mobile-v2.png": {
+      "status": "accepted",
+      "reference": "docs/design/13-results-mobile-v2.png",
+      "surface": "results",
+      "delivered_subset": "Phone single feed with tabs, filters behind More filters, full-width result cards and full-width comments opened from Comments.",
+      "deferred_differences": [
+        "No result media is offered in the fixture (stated, not invented)",
+        "At 320px the toolbar wraps to two rows"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/results-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/results-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/results-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/results-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/results-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/results-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/results-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/results-tablet-768.png",
+          "docs/implementation/evidence/G11/live/results-phone-390.png",
+          "docs/implementation/evidence/G11/live/results-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    }
+  },
+  "pages": {
+    "settings": {
+      "status": "accepted",
+      "reference": "docs/specs/0002-product-design.md §§2, 9, 10 (no selected PNG)",
+      "surface": "settings",
+      "delivered_subset": "Identity, Framework connection, Your notifications and the new Display panel (text size, reduce motion, terminal text size; stored in this browser only and kept after sign-out) in the shared shell, panels and controls.",
+      "deferred_differences": [
+        "Text size scales the shared type tokens; about 108 hard-coded px font sizes in feature stylesheets do not scale yet"
+      ],
+      "captures": {
+        "fixture": [
+          "docs/implementation/evidence/G11/fixture/settings-desktop-1440.png",
+          "docs/implementation/evidence/G11/fixture/settings-tablet-1024.png",
+          "docs/implementation/evidence/G11/fixture/settings-tablet-768.png",
+          "docs/implementation/evidence/G11/fixture/settings-phone-390.png",
+          "docs/implementation/evidence/G11/fixture/settings-phone-320.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/G11/live/settings-desktop-1440.png",
+          "docs/implementation/evidence/G11/live/settings-tablet-1024.png",
+          "docs/implementation/evidence/G11/live/settings-tablet-768.png",
+          "docs/implementation/evidence/G11/live/settings-phone-390.png",
+          "docs/implementation/evidence/G11/live/settings-phone-320.png"
+        ]
+      },
+      "reviewer": "Claude Opus 5.5, AQ worker session 02f58d88-fc8e-499b-b4ee-9d84e8049557 (G11, steady-cascade-45.12), 2026-11-04",
+      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+    }
+  }
+}

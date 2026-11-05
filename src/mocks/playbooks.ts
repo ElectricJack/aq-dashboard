@@ -1,4 +1,5 @@
 import { http, HttpResponse } from "msw";
+import operationFixture from "../../contracts/live/dashboard-actions/fixtures/operation-confirmed.json";
 import examples from "../../contracts/live/current-playbook-catalog/examples.json";
 import { fixtureProject } from "./humanGraph";
 import { SERVER_TIME } from "./inspectionData";
@@ -9,7 +10,15 @@ import { SERVER_TIME } from "./inspectionData";
  * current catalog examples (contracts/live/current-playbook-catalog). The
  * namespace name labels every row as fixture data; nothing here is live AQ data.
  */
-export const PLAYBOOK_CAPABILITIES = ["playbooks.inspect", "playbooks.catalog.read"] as const;
+export const PLAYBOOK_CAPABILITIES = [
+  "playbooks.inspect",
+  "playbooks.catalog.read",
+  // PROPOSED playbook action capabilities (dashboard-actions-1 kinds); not offered by aq-server main yet.
+  "playbooks.runs.start",
+  "playbooks.runs.cancel",
+  "playbooks.activations.activate",
+  "playbooks.activations.rollback",
+] as const;
 export type PlaybookMode = "ok" | "empty" | "failed" | "unavailable";
 
 /** `?scenario=` switches for playbook reads: empty rows, failed reads, or an unconfigured runtime. */
@@ -166,6 +175,32 @@ export function playbookHandlers(mode: PlaybookMode) {
       const exact = url.searchParams.get("exact"), after = url.searchParams.get("after");
       const all = mode === "empty" ? [] : [kind === "definitions" ? DEFINITION : ACTIVATION];
       return HttpResponse.json(catalog(kind, all.filter((item) => (!exact || item.key === exact) && (!after || item.key > after))));
+    }),
+  ];
+}
+
+/**
+ * Mock-mode `playbook.*` operations through the action union: admission is pending, the
+ * first lookup confirms with a labelled fixture receipt. Other kinds fall through untouched.
+ */
+export function playbookActionHandlers() {
+  const seen = new Map<string, { subject: unknown; project: string }>();
+  const respond = (id: string, disposition: "pending" | "confirmed", entry: { subject: unknown; project: string }) =>
+    HttpResponse.json({ ...operationFixture, data: { ...operationFixture.data, operation_id: id, disposition,
+      scope: { kind: "project", project_id: entry.project }, subject_refs: [entry.subject],
+      receipt_refs: disposition === "confirmed" ? [{ type: "playbook_operation", id }] : [], affected_entities: [],
+      recovery: disposition === "confirmed" ? "none" : "lookup_original" } }, { status: disposition === "pending" ? 202 : 200 });
+  return [
+    http.post("/api/v1/actions", async ({ request }) => {
+      const body = (await request.clone().json().catch(() => null)) as { operation_id?: string; kind?: string; subject?: unknown; payload?: { project_id?: string } } | null;
+      if (!body?.kind?.startsWith("playbook.") || !body.operation_id) return undefined;
+      const entry = seen.get(body.operation_id) ?? { subject: body.subject, project: body.payload?.project_id ?? "" };
+      seen.set(body.operation_id, entry);
+      return respond(body.operation_id, "pending", entry);
+    }),
+    http.get("/api/v1/operations/:id", ({ params }) => {
+      const entry = seen.get(String(params.id));
+      return entry ? respond(String(params.id), "confirmed", entry) : undefined;
     }),
   ];
 }

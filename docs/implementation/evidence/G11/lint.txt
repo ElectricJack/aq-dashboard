@@ -1,0 +1,3 @@
+> node scripts/lint.mjs
+
+Build and release script syntax lint passed

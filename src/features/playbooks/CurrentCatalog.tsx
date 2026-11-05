@@ -12,6 +12,7 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
 import { Digest, TechnicalIdentity, shortDigest } from "./identity";
 import { Age, useObservedNow } from "./Age";
+import { ActivationActions } from "./ActivationActions";
 import styles from "./Playbooks.module.css";
 
 class ExactCatalogConflict extends ApiError {
@@ -77,7 +78,7 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
       : detail.error instanceof ExactCatalogConflict ? <Panel title="Selection changed"><p>The catalog changed while this selection loaded. Choose an item from the current list.</p><ActionButton onClick={refresh}>Refresh selection</ActionButton></Panel>
       : !detail.data || detail.isError ? <Panel title={`${title} inspection`}><QueryStatus status={detail.isError ? "error" : "pending"} error={detail.error} label={`this current ${singular}`} onRetry={refresh} /></Panel>
       : !row ? <Panel title={`${singular === "definition" ? "Definition" : "Activation"} not represented`}><p>This item is not represented in the observed current namespace.</p></Panel>
-      : row.kind === "definition" ? <DefinitionDetails item={row} heading={heading} /> : <ActivationDetails item={row} heading={heading} selectDefinition={() => setParams(old => { const next = new URLSearchParams(old); next.set("view", "definitions"); next.delete("activation"); next.set("definition", row.artifact); return next; })} />}
+      : row.kind === "definition" ? <DefinitionDetails item={row} heading={heading} /> : <ActivationDetails item={row} project={stamp!.namespace.projectId} heading={heading} selectDefinition={() => setParams(old => { const next = new URLSearchParams(old); next.set("view", "definitions"); next.delete("activation"); next.set("definition", row.artifact); return next; })} />}
   </div>;
 }
 function DefinitionDetails({ item, heading }: { item: CatalogDefinition; heading: React.RefObject<HTMLHeadingElement | null> }) {
@@ -91,11 +92,12 @@ function DefinitionDetails({ item, heading }: { item: CatalogDefinition; heading
     <p className={styles.meta}>Run artifacts and dependencies remain pinned when admitted.</p>
   </section>;
 }
-function ActivationDetails({ item, heading, selectDefinition }: { item: CatalogActivation; heading: React.RefObject<HTMLHeadingElement | null>; selectDefinition(): void }) {
+function ActivationDetails({ item, project, heading, selectDefinition }: { item: CatalogActivation; project: string; heading: React.RefObject<HTMLHeadingElement | null>; selectDefinition(): void }) {
   return <section className={styles.inspector} aria-label={`Activation ${item.binding}`}>
     <div className={styles.runHeading}><h2 className={styles.definitionHeading} ref={heading} tabIndex={-1}>{item.binding}</h2><span className={styles.badge}>Current binding</span></div>
     <Panel title="Bound definition"><DetailList className={styles.definitionFacts}><dt>Artifact</dt><dd><Digest value={item.artifact} /></dd><dt>Binding revision</dt><dd>{item.revision}</dd></DetailList><ActionButton onClick={selectDefinition}>Inspect bound definition</ActionButton>
       <TechnicalIdentity><dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd></TechnicalIdentity></Panel>
+    <ActivationActions item={item} project={project} />
     <Panel title="Stored controls"><DetailList className={styles.definitionFacts}><dt>New calls</dt><dd>{item.controls.calls ? "Enabled" : "Disabled"}</dd><dt>Event starts</dt><dd>{item.controls.events ? "Enabled" : "Disabled"}</dd><dt>Execution</dt><dd>{item.controls.execution ? "Enabled" : "Disabled"}</dd><dt>Artifact execution denied</dt><dd>{item.executionDenied ? "Yes" : "No"}</dd></DetailList><p className={styles.meta}>These controls do not establish current grant validity or readiness.</p></Panel>
   </section>;
 }

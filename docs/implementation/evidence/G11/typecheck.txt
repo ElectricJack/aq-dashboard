@@ -1,0 +1,4 @@
+
+> aq-dashboard@0.1.0 typecheck /home/jkern/dev/aq-platform-agents/projects/aq-dashboard/.aq/worktrees/slot-1
+> tsc -b
+

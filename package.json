@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "test:live": "playwright test --config playwright.live.config.ts",
+    "test:visual": "playwright test --config playwright.visual.config.ts",
     "lint": "node scripts/lint.mjs"
   },
   "dependencies": {

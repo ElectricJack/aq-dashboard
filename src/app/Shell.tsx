@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSy
 import { SupervisorWorkspace } from "../features/supervisor/SupervisorWorkspace";
 import { SearchDialog } from "../features/search/SearchDialog";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
-import { ChevronDown, Ellipsis, LayoutGrid, Menu, Search, X } from "lucide-react";
+import { ChevronDown, Ellipsis, LayoutGrid, Search, X } from "lucide-react";
 import { adaptOverview, type OverviewView } from "../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../api/wire/overview";
 import type { Scope } from "../api/wire/proposed";
@@ -132,7 +132,7 @@ function PhoneNav({ search, sheet }: { search: string; sheet: SheetControl }) {
 }
 
 /**
- * Phone bottom sheet for the destinations that do not fit the bar; ☰ and More open it.
+ * Phone bottom sheet for the destinations that do not fit the bar; More opens it.
  * A native modal dialog supplies the focus trap, Escape and inertness of the page behind.
  * It unmounts on close so the browser's own focus restore never competes with the
  * page-title focus after a destination link navigates.
@@ -205,6 +205,56 @@ function isTextEntry(el: EventTarget | null): boolean {
   return el instanceof HTMLElement && el.isContentEditable;
 }
 
+/**
+ * Whether text entry inside `region` has focus. A tap that moves focus changes it on
+ * pointerdown, and showing the bottom bar then would move the tapped control before its
+ * pointerup, so the click would land elsewhere. While a pointer is down the update waits
+ * until that gesture's click has been dispatched.
+ */
+function useEntryFocus() {
+  const region = useRef<HTMLElement>(null);
+  const [entryFocus, setEntryFocus] = useState(false);
+  const pointerDown = useRef(false);
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const down = () => { pointerDown.current = true; };
+    const up = () => { pointerDown.current = false; };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+      pending.current?.abort();
+    };
+  }, []);
+  const sync = useCallback(() => {
+    const el = document.activeElement;
+    setEntryFocus(!!region.current?.contains(el) && isTextEntry(el));
+  }, []);
+  const onFocusChange = useCallback(() => {
+    if (!pointerDown.current) {
+      sync();
+      return;
+    }
+    if (pending.current) return;
+    const gesture = new AbortController();
+    pending.current = gesture;
+    // The click follows pointerup in the same task; a timeout runs after it.
+    const done = () => {
+      gesture.abort();
+      setTimeout(() => {
+        if (pending.current === gesture) pending.current = null;
+        sync();
+      });
+    };
+    window.addEventListener("pointerup", done, { capture: true, signal: gesture.signal });
+    window.addEventListener("pointercancel", done, { capture: true, signal: gesture.signal });
+  }, [sync]);
+  return { region, entryFocus, onFocusChange };
+}
+
 /** Bootstrap keeps polling while AQ is unreachable, so that state is a reconnect attempt. */
 const CONNECTION_TEXT = {
   connected: "Connected",
@@ -217,7 +267,7 @@ type ConnectionState = keyof typeof CONNECTION_TEXT;
 function ConnectionStatus({ state, className }: { state: ConnectionState; className?: string }) {
   return (
     <span className={className} data-state={state} role="status">
-      <span className={styles.connectionText}>{CONNECTION_TEXT[state]}</span>
+      {CONNECTION_TEXT[state]}
     </span>
   );
 }
@@ -233,9 +283,7 @@ export function Shell() {
   const searchButton = useRef<HTMLButtonElement>(null);
   const usageDetails = useRef<HTMLDetailsElement>(null);
   const usageSummary = useRef<HTMLElement>(null);
-  const usageId = useId();
-  const [quotaCollapsed, setQuotaCollapsed] = useState(false);
-  const [entryFocus, setEntryFocus] = useState(false);
+  const { region: mainRegion, entryFocus, onFocusChange } = useEntryFocus();
   const sheetId = useId();
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetOpener = useRef<HTMLElement | null>(null);
@@ -287,7 +335,6 @@ export function Shell() {
       className={styles.shell}
       data-focused-session={focusedSession || undefined}
       data-compact-usage={compactUsage || undefined}
-      data-quota-collapsed={quotaCollapsed || undefined}
       data-entry-focus={(phone && entryFocus) || undefined}
     >
       <a href="#content" className={styles.skip}>
@@ -330,29 +377,15 @@ export function Shell() {
         </div>
       </aside>
       <header className={styles.top}>
-        {phone && (
-          <button
-            type="button"
-            className={styles.menuButton}
-            aria-label="Menu"
-            aria-haspopup="dialog"
-            aria-expanded={sheetOpen}
-            aria-controls={sheetOpen ? sheetId : undefined}
-            onClick={(e) => openSheet(e.currentTarget)}
-          >
-            <Icon icon={Menu} size={22} />
-          </button>
-        )}
         {isMock && (
           <p className={styles.mockBanner} role="note" title="Mock data · proposed contracts, not a live AQ server">
-            Mock<span className={styles.mockWord}> data</span>
-            <span className="visually-hidden"> · proposed contracts, not a live AQ server</span>
+            Mock data<span className="visually-hidden"> · proposed contracts, not a live AQ server</span>
           </p>
         )}
         <div className={styles.scopeRow}>
           <p className={styles.phoneBrand} aria-hidden="true">
             <span className={styles.mark}>aq</span>
-            Agent Q
+            <span className={styles.phoneWordmark}>Agent Q</span>
           </p>
           {phone && scopePicker}
         </div>
@@ -371,8 +404,7 @@ export function Shell() {
             Ctrl K
           </kbd>
         </button>
-        {phone && <ConnectionStatus state={status} className={styles.connection} />}
-        <details id={usageId} ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
+        <details ref={usageDetails} className={styles.compactUsage} onKeyDown={event => {
           if (event.key === "Escape") { event.preventDefault(); closeUsage(); }
         }}>
           <summary ref={usageSummary}><span className="visually-hidden">Provider usage (account-wide) </span><ProviderUsageSummary state={usage.state} /><Icon icon={ChevronDown} size={16} className={styles.usageChevron} /></summary>
@@ -381,18 +413,7 @@ export function Shell() {
             <button type="button" className={styles.button} onClick={closeUsage}>Close usage details</button>
           </div>
         </details>
-        {phone && (
-          <button
-            type="button"
-            className={styles.quotaToggle}
-            aria-label="Provider usage row"
-            aria-expanded={!quotaCollapsed}
-            aria-controls={usageId}
-            onClick={() => setQuotaCollapsed((v) => !v)}
-          >
-            <Icon icon={ChevronDown} size={18} />
-          </button>
-        )}
+        {phone && <ConnectionStatus state={status} className={styles.connection} />}
         <Link
           to={{ pathname: "/settings", search }}
           className={styles.avatarLink}
@@ -404,8 +425,9 @@ export function Shell() {
       <main
         id="content"
         className={styles.main}
-        onFocus={(e) => setEntryFocus(isTextEntry(e.target))}
-        onBlur={() => setEntryFocus(false)}
+        ref={mainRegion}
+        onFocus={onFocusChange}
+        onBlur={onFocusChange}
       >
         <BundleNotice />
         <TitleFocusContext value={lastTitlePath}>
