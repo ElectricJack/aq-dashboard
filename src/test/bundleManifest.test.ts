@@ -46,7 +46,9 @@ test("bundle_manifest_lists_required_capabilities_and_digest", () => {
   expect(manifest.required_api_versions).toEqual(["dashboard-read-1"]);
   expect(manifest.required_api_versions).toEqual(requirements.required_api_versions);
   expect(manifest.required_capabilities).toEqual(requirements.required_capabilities);
-  expect(manifest.required_capabilities).toEqual(expect.arrayContaining(["results.media.read", "playbooks.inspect"]));
+  expect(manifest.required_capabilities).toEqual(expect.arrayContaining(["results.read", "playbooks.inspect"]));
+  expect(manifest.required_capabilities).not.toContain("results.media.read");
+  expect(manifest.required_capabilities).not.toContain("results.media.upload");
   expect(manifest.required_capabilities.every((cap: string) => /^[a-z][a-z.-]+$/.test(cap))).toBe(true);
   expect(manifest.source).toEqual({ revision: git("rev-parse", "HEAD"), dirty: false, official: true });
   expect(manifest.toolchain).toEqual({ node: process.version, pnpm: "10.34.5", lockfile_sha256: hash(readFileSync(join(root, "pnpm-lock.yaml"))) });

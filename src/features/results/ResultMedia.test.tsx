@@ -42,6 +42,11 @@ test("media capability absence preserves useful metadata and makes no media requ
   expect(screen.queryByRole("button", { name: "View supplemental images" })).toBeNull(); expect(app.listings()).toBe(0); expect(created).toHaveLength(0);
   await userEvent.click(screen.getByText("Result context and evidence")); expect(screen.getByText("Source base")).toBeVisible();
 });
+test("read gate: disabled media.read shows a media-not-configured note, no thumbnails", async () => {
+  setup(undefined, false); await screen.findByText("Retained worker claim 1");
+  expect(screen.getByText(/Images unavailable: media not configured/)).toBeVisible();
+  expect(screen.queryByRole("region", { name: "Human supplemental images" })).toBeNull();
+});
 test("only selected preview reads initially; expansion is explicit and close revokes its URL", async () => {
   const app = setup(); await screen.findByText("Retained worker claim 1"); expect(app.listings()).toBe(0);
   const gallery = await openImages(); await within(gallery).findByRole("img", { name: "Human supplemental Supplemental image 1.png" }); expect(app.reads).toEqual(["preview"]);

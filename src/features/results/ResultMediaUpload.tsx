@@ -22,7 +22,10 @@ const referenceKey = (ref: Reference) => JSON.stringify([ref.operation, ref.acto
 export function ResultMediaUpload({ binding }: { binding: MediaBinding }) {
   const { bootstrap, queryContext } = useSession(), [scope] = useScope(), [params] = useSearchParams();
   const canWrite = bootstrap.capability("results.media.upload").enabled;
-  if (!canWrite && !(fields.some(key => params.has(key)) && bootstrap.capability("results.media.read").enabled)) return null;
+  if (!canWrite && !(fields.some(key => params.has(key)) && bootstrap.capability("results.media.read").enabled)) {
+    const cap = bootstrap.capability("results.media.upload");
+    return <p role="note" data-media-upload-unavailable>Image upload is unavailable: result media is not configured on this AQ server.{!cap.enabled && cap.reason ? ` (${cap.reason})` : ""}</p>;
+  }
   return <UploadControl key={canonicalMedia([queryContext, scope, binding])} binding={binding} canWrite={canWrite} />;
 }
 function UploadControl({ binding, canWrite }: { binding: MediaBinding; canWrite: boolean }) {
