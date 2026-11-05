@@ -16,7 +16,7 @@ beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("matchMedia
 afterEach(() => { server.resetHandlers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(() => server.close());
 const base = `/api/human/conversations/${discovery.conversation.id}`;
-function setup(options: { path?: string; history?: SupervisorMessage[]; enabled?: boolean; write?: boolean } = {}) {
+function setup(options: { path?: string; history?: SupervisorMessage[]; enabled?: boolean; write?: boolean; limits?: Partial<typeof discovery.limits> } = {}) {
   const stored = [...(options.history ?? [supervisorMessage(1)])], posts: string[] = [], reads: string[] = [];
   let discoveries = 0;
   server.use(
@@ -24,7 +24,7 @@ function setup(options: { path?: string; history?: SupervisorMessage[]; enabled?
       ...bootstrap.data.capabilities.filter(cap => !["supervisor.history.read", "supervisor.message.enqueue", "supervisor.conversation"].includes(cap.name)),
       { name: "dashboard.actions", version: "1", enabled: true }, { name: "supervisor.conversation", version: "1", enabled: true }, { name: "supervisor.history.read", version: "1", enabled: options.enabled ?? true }, { name: "supervisor.message.enqueue", version: "1", enabled: options.write ?? true },
     ] } })),
-    http.get("/api/human/conversations/global", () => { discoveries++; return HttpResponse.json(discovery); }),
+    http.get("/api/human/conversations/global", () => { discoveries++; return HttpResponse.json({ ...discovery, limits: { ...discovery.limits, ...options.limits } }); }),
     http.get(`${base}/messages`, ({ request }) => {
       const url = new URL(request.url); reads.push(url.search);
       const before = url.searchParams.get("before"), after = url.searchParams.get("after"), limit = Number(url.searchParams.get("limit") ?? 16);
@@ -51,6 +51,17 @@ async function ready() {
 }
 async function send(text: string) { const input = await composer(); await userEvent.type(input, text); await userEvent.click(screen.getByRole("button", { name: "Send" })); }
 
+test("a server that disables context refs and attachments (limits 0) still renders the text-only Supervisor workspace and bounds bodies by its limit", async () => {
+  const app = setup({ limits: { context_refs: 0, attachments: 0, body_bytes: 32 } }); await ready();
+  expect(screen.queryByText(/Dashboard update required/)).toBeNull();
+  expect(screen.getAllByText(/Text only/).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: /attach|add context/i })).toBeNull();
+  await send("x".repeat(33));
+  expect(await screen.findByText("Message exceeds 32 bytes.")).toBeInTheDocument(); expect(app.posts).toHaveLength(0);
+  await userEvent.clear(await composer()); await send("Short enough");
+  await waitFor(() => expect(app.posts).toHaveLength(1));
+  expect(JSON.parse(app.posts[0]!).payload).toMatchObject({ body: "Short enough", context: [], attachments: [] });
+});
 test("granular history capability gates all mailbox requests independently of legacy runtime capability", async () => {
   const app = setup({ enabled: false });
   await screen.findByText(/Supervisor history is unavailable/); expect(app.discoveries()).toBe(0); expect(app.posts).toHaveLength(0);

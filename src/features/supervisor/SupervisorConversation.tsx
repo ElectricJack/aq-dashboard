@@ -169,10 +169,10 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   }, [operationParam, messageParam, conversation?.id, full]);
   async function send(event?: FormEvent) {
     event?.preventDefault(); if (!conversation || !canSend || busy.current || operation) return;
-    const invalid = validateSupervisorText(draft); if (invalid) { setSendError(invalid); return; }
+    const limits = discovery.data?.limits; const invalid = validateSupervisorText(draft, limits?.body_bytes); if (invalid) { setSendError(invalid); return; }
     busy.current = true; setSending(true); const preparation = ticket.current;
     try {
-      const intent = await freezeSupervisorMessage(conversation, queryContext.principalId, draft);
+      const intent = await freezeSupervisorMessage(conversation, queryContext.principalId, draft, limits && { limits });
       if (!active.current || preparation !== ticket.current) return;
       pending.current = intent; ownReference.current = `${intent.operation}:${intent.message}`; setFrozen(intent); operationUrl(intent.operation, intent.message);
       await execute("post", intent.operation, intent.message, intent);

@@ -21,7 +21,22 @@ test("discovery accepts the available runtime binding and schema limits, rejecti
   expect(adaptSupervisorDiscovery(available).runtime).toEqual(available.runtime);
   for (const raw of [{ ...discovery, runtime: { state: "available", binding: "worker" } }, { ...available, runtime: { ...available.runtime, reason: "central_runtime_not_connected" } },
     { ...available, runtime: { ...available.runtime, binding: { ...available.runtime.binding, generation: 0 } } }, { ...discovery, runtime: { state: "unavailable", binding: available.runtime.binding, reason: "central_runtime_not_connected" } },
-    { ...discovery, limits: { ...discovery.limits, context_refs: 0 } }, { ...discovery, limits: { ...discovery.limits, attachments: 5 } }]) expect(() => adaptSupervisorDiscovery(raw)).toThrow();
+    { ...discovery, limits: { ...discovery.limits, attachments: 5 } }]) expect(() => adaptSupervisorDiscovery(raw)).toThrow();
+});
+test("discovery limits are maxima: a server may advertise lower bounds and disable context refs and attachments with 0", async () => {
+  // Pinned E0 build (dashboard-refresh-c0a7399) advertises context_refs:0 and attachments:0.
+  const disabled = { ...discovery, limits: { body_bytes: 16384, context_refs: 0, attachments: 0, history_page: 16 } };
+  expect(adaptSupervisorDiscovery(disabled).limits).toEqual(disabled.limits);
+  const lower = { ...discovery, limits: { body_bytes: 1024, context_refs: 3, attachments: 1, history_page: 8 } };
+  expect(adaptSupervisorDiscovery(lower).limits).toEqual(lower.limits);
+  for (const limits of [{ body_bytes: 16385 }, { body_bytes: 0 }, { context_refs: 17 }, { context_refs: -1 }, { attachments: 1.5 }, { attachments: "0" }, { history_page: 0 }, { history_page: 17 }])
+    expect(() => adaptSupervisorDiscovery({ ...discovery, limits: { ...discovery.limits, ...limits } })).toThrow();
+  expect(() => adaptSupervisorDiscovery({ ...discovery, limits: { body_bytes: 16384, context_refs: 0, attachments: 0 } })).toThrow();
+  const refs = { context: [{ type: "task" as const, id: supervisorId(30), revision: "3" }], attachments: [{ id: supervisorId(40), digest: textDigest("x") }] };
+  await expect(freezeSupervisorMessage(discovery.conversation, supervisorActor, "x", { limits: disabled.limits, context: refs.context })).rejects.toThrow();
+  await expect(freezeSupervisorMessage(discovery.conversation, supervisorActor, "x", { limits: disabled.limits, attachments: refs.attachments })).rejects.toThrow();
+  await expect(freezeSupervisorMessage(discovery.conversation, supervisorActor, "Text only", { limits: disabled.limits })).resolves.toMatchObject({ bytes: expect.stringContaining('"attachments":[]') });
+  await expect(freezeSupervisorMessage(discovery.conversation, supervisorActor, "x".repeat(1025), { limits: lower.limits })).rejects.toThrow();
 });
 test("history accepts an available runtime and echoes human context refs and attachment descriptors", async () => {
   const runtime = { state: "available", binding: { actor_id: supervisorId(7), generation: 1, session_id: supervisorId(8) }, reason: "central_session_active" } as const;
@@ -39,7 +54,7 @@ test("freezes context and attachment refs into canonical create bytes within dis
   const frozen = await freezeSupervisorMessage(discovery.conversation, supervisorActor, "With refs", { limits: discovery.limits, context, attachments });
   expect(JSON.parse(frozen.bytes)).toMatchObject({ context, attachments });
   expect(frozen.bytes.indexOf('"attachments"')).toBeLessThan(frozen.bytes.indexOf('"body"')); expect(frozen.requestDigest).toBe(textDigest(frozen.bytes));
-  const tight = { ...discovery.limits, attachments: 0 } as never;
+  const tight = { ...discovery.limits, attachments: 0 };
   await expect(freezeSupervisorMessage(discovery.conversation, supervisorActor, "x", { limits: tight, attachments })).rejects.toThrow();
   await expect(freezeSupervisorMessage(discovery.conversation, supervisorActor, "x", { limits: discovery.limits, attachments: [...attachments, ...attachments] })).rejects.toThrow();
 });
