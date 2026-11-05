@@ -11,7 +11,8 @@ export const actionLabels = {
 export const actionCapability = (kind: ActionKind): string => ({"task.edit":"tasks.edit","task.cancel":"tasks.cancel","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
 export type ActionKind = keyof typeof actionLabels;
 export type ActionContext = { project: GraphEnvelope<unknown>["project"]; data?: GraphNode };
-export type FrozenAction = Readonly<{ id: string; bytes: string; kind: ActionKind; subject: {type:string;id:string;revision:string} }>;
+/** `kind` is a union kind name; feature modules (for example playbooks) freeze their own kinds through the same transport. */
+export type FrozenAction = Readonly<{ id: string; bytes: string; kind: string; subject: {type:string;id:string;revision?:string} }>;
 export type EntityRef = {type:string;id:string;revision?:string|null};
 export type ActionOperation = {
   operation_id:string; disposition:"pending"|"confirmed"|"conflict"|"rejected"|"unknown";

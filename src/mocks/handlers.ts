@@ -7,7 +7,7 @@ import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
 import { withDecisionFixtures } from "./decisionFixtures";
-import { PLAYBOOK_CAPABILITIES, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
+import { PLAYBOOK_CAPABILITIES, playbookActionHandlers, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
   return {
@@ -89,7 +89,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...humanGraphHandlers(s.reads, s.graph),
-    ...(fixtures ? playbookHandlers(playbookMode(name)) : []),
+    ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
     // Grant the human-graph reads, the labelled playbook fixtures (fixture mode) and, unless the scenario declares otherwise, the fixture project list.
