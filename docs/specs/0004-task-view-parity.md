@@ -36,7 +36,7 @@ The v2 Work inspector answers only the first question. In the owner's words (202
 
 ## 2. Scope
 
-The scope is items 1–15 of the inventory, delivered in three phases. Each phase is owner-verifiable on its own. Item numbers match the inventory's tiers: A (data already on the server), B (small server additions) and C (new server models).
+The scope is items 1–15 of the inventory, plus item 16 (compact list rows, an owner request), delivered in three phases. Each phase is owner-verifiable on its own. Item numbers match the inventory's tiers: A (data already on the server), B (small server additions) and C (new server models).
 
 ### Phase 1: identity, live state, agent, history and comments
 
@@ -56,6 +56,12 @@ The scope is items 1–15 of the inventory, delivered in three phases. Each phas
    - The neighborhood adapter must stop dropping `parent`, `omitted` and `expansion`. When the neighborhood is truncated, the view says so.
 7. **Results.** `GET /api/v1/results?task_id=` lists the task's results: summary, submitted time, conclusion and process outcome, check and evidence references. Each links to the Results page.
 8. **Labels and reprioritize.** Labels appear as chips. `task.reprioritize` is exposed in the action menu; the capability is already published. The current priority is shown once item 9 makes it readable. Until then the action takes a value and shows the confirmed result.
+16. **Compact task list rows (owner request, 2026-11-05).** Today each Work list row shows a neutral `ListChecks` icon and two lines: the title (which wraps) and a meta line such as "Active · r3". Change rows to:
+    - **One line.** The title is truncated with an ellipsis, and the full title shows on hover and to assistive technology. The visible status label and the `r<revision>` meta are removed. Retired and deleted records keep a short inline marker, because they are rare and need to stand out.
+    - **The icon carries the status.** The bullet icon takes the status colour from the design tokens: ready, running, waiting/blocked, draft, completed and canceled. Each status also gets a distinct icon shape, so the list doesn't rely on colour alone (WCAG 1.4.1). The status is the icon's accessible name, and also shows in its tooltip.
+    - **Status source.** Until per-task readiness is available in the list read, the list uses the Graph lifecycle state plus "running" when the list response's `executions` field shows an attempt holding the task. The current adapter ignores that field. Once the list read carries readiness, the icon uses it.
+    - **Density.** The row height drops so that roughly twice as many tasks fit on a 1440×900 screen. On a phone (390 px) a row is still at least 44 px tall to tap.
+
 13. **Comments.** These are a new server model, specified in §4.1.
     - The thread shows newest first, 50 per page, with "Load older".
     - Each comment shows the author (owner, agent session, supervisor or system), with a link for agent authors, and its time. Bodies are rendered as Markdown.
@@ -190,6 +196,12 @@ The next phase starts only after sign-off.
 - [ ] The parent link, child counts and dependency reasons are shown.
 - [ ] The task's results are listed and link to Results.
 - [ ] Labels are shown, and Reprioritize works.
+- [ ] Task list:
+  - each row is a single line;
+  - the bullet icon is coloured, and shaped, by status;
+  - there's no status label or revision;
+  - noticeably more tasks fit on screen;
+  - the status is still announced to a screen reader.
 - [ ] Comments:
   - an agent's comment from a real run appears;
   - the owner can add, edit and delete a comment;
