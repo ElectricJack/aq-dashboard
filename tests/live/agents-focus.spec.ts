@@ -24,7 +24,7 @@ test("focused session uses actual scoped navigation and a readable responsive ou
   const current = switcher.getByRole("link", { name: session.label, exact: true });
   await expect(current).toHaveAttribute("aria-current", "page");
   await expect(detail.getByRole("button", { name: "Session details" })).toHaveAttribute("aria-expanded", "false");
-  await expect(detail.getByRole("list", { name: "Permissions" })).toBeHidden();
+  await expect(detail.getByRole("list", { name: "Effective permissions" })).toBeHidden();
   const output = detail.locator("pre[aria-label='Literal worker output']");
   if (await output.count()) {
     const dimensions = await output.boundingBox();
@@ -35,7 +35,8 @@ test("focused session uses actual scoped navigation and a readable responsive ou
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: test.info().outputPath("focused-agents-desktop.png"), fullPage: true });
   await detail.getByRole("button", { name: "Session details" }).click();
-  await expect(detail.getByRole("list", { name: "Permissions" })).toBeVisible();
+  await detail.getByRole("navigation", { name: "Session operations" }).getByRole("button", { name: "Profile" }).click();
+  await expect(detail.getByRole("list", { name: "Effective permissions" })).toBeVisible();
   await expect(detail.getByRole("list", { name: "Profile revisions" })).toBeVisible();
   await detail.getByRole("button", { name: "Session details" }).click();
   await page.setViewportSize({ width: 390, height: 844 });

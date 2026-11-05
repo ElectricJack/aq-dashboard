@@ -8,10 +8,15 @@ import { terminalJson } from './terminalClient';
 export interface TerminalLease { mine: boolean; expiresAtMs: number }
 /** `clock` maps the last server time header onto `performance.now()` so a view can count down server-time facts. */
 export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean;
-  lease?: TerminalLease | null; clock?: { serverMs: number; at: number }; outputObservedAtMs?: number | null }
+  lease?: TerminalLease | null; clock?: { serverMs: number; at: number }; outputObservedAtMs?: number | null;
+  /** The identity and epoch this connection observed; a reconnect passes it back as `expect`. */
+  binding?: TerminalBinding }
+export interface TerminalBinding { terminal: TerminalInfo['terminal']; session_revision: number }
+class EpochChanged extends Error {}
 class NotDelivered extends Error {}
 type Read = (part: string, fetcher: () => ReturnType<typeof terminalJson>) => ReturnType<typeof terminalJson>;
-export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void }) {
+/** `expect` pins a reconnect to the identity and epoch seen before: a changed binding is reported, never watched. */
+export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void }) {
   const abort = new AbortController(), { signal } = abort;
   const path = `/api/v1/terminals/${encodeURIComponent(options.terminalId)}`;
   let info: TerminalInfo | undefined, clock = 0, clockAt = 0, owned: string | null = null;
@@ -25,7 +30,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   const emit = (message = active() ? 'You have control' : paused ? 'Input delivery uncertain — typing paused' : connected ? 'Watch only' : 'Connecting…') => {
     if (signal.aborted) return;
     const lease = connected && info?.control.lease ? { mine: acquired.has(info.control.lease.lease_id), expiresAtMs: info.control.lease.expires_at_ms } : null;
-    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs });
+    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs, binding: info ? { terminal: info.terminal, session_revision: info.session_revision } : undefined });
   };
   const request: Read = async (part, fetcher) => {
     const value = await options.read(part, fetcher);
@@ -39,6 +44,8 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   });
   async function inspect() {
     const raw = await json('info'); const next = adaptInteractiveInfo(raw.body, options.terminalId);
+    const pinned = !info && options.expect;
+    if (pinned && (!sameTerminal(next.terminal, pinned.terminal) || next.session_revision !== pinned.session_revision)) throw new EpochChanged();
     if (info && (!sameTerminal(next.terminal, info.terminal) || next.session_revision !== info.session_revision)) throw new ContractError('Terminal binding changed');
     info = next;
     if (info.control.input_paused) { paused = true; queue = []; queued = 0; pendingResize = null; }
@@ -140,7 +147,13 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
           await delay(tail.more ? 50 : 200);
         }
       }
-    } catch { if (!signal.aborted) { connected = false; owned = null; queue = []; queued = 0; options.reset(); emit('Disconnected — reconnect to watch; control released'); } }
+    } catch (error) {
+      if (signal.aborted) return;
+      connected = false; owned = null; queue = []; queued = 0;
+      // A changed epoch is a different terminal: keep the last observation and do not attach to it.
+      if (error instanceof EpochChanged) { emit('Terminal epoch changed — this is no longer the terminal you were watching; open the session again'); return; }
+      options.reset(); emit('Disconnected — reconnect to watch; control released');
+    }
   }
   void run();
   return {

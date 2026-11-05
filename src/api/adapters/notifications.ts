@@ -4,7 +4,7 @@ export const NOTIFICATION_MAX_PAGES = 4;
 export type NotificationMessage = { id: string; revision: number; recipient: string; project: string; workspace: string; summary: string; created: string; expires: string };
 export type NotificationItem = { sequence: number; message: NotificationMessage; routing: "routed" | "no_external_route" };
 export type NotificationPage = { items: NotificationItem[]; next: number | null };
-export type DeliveryView = { id: string; revision: number; route: string; routeRevision: number; kind: string; label: string; attempts: number; duplicateRiskRetries: number; at?: string; reason?: string; human: string; decision: string };
+export type DeliveryView = { id: string; revision: number; route: string; routeRevision: number; kind: string; label: string; attempts: number; duplicateRiskRetries: number; at?: string; reason?: string; receipt?: string; human: string; decision: string };
 export type NotificationDetail = { message: NotificationMessage; routing: NotificationItem["routing"]; deliveries: DeliveryView[] };
 function ensure(value: unknown): asserts value { if (!value) throw new ContractError("Invalid notification inspection response"); }
 function positive(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value > 0; }
@@ -55,7 +55,7 @@ export function adaptNotificationDetail(raw: unknown, expected: NotificationItem
     if (kind === "delivery_unknown") at = stamp(row.status.since_ms);
     if (kind === "retry_scheduled") at = stamp(row.status.next_attempt_ms);
     if (["permanently_failed", "suppressed"].includes(kind)) ensure(typeof row.status.reason === "string" && row.status.reason.length <= 64);
-    return { id: row.delivery_id, revision: row.record_revision, route: row.route_id, routeRevision: row.route_revision, kind, label: LABELS[kind] ?? "Unsupported delivery status", attempts: row.attempts, duplicateRiskRetries: row.duplicate_risk_retries, at,
+    return { id: row.delivery_id, revision: row.record_revision, route: row.route_id, routeRevision: row.route_revision, kind, label: LABELS[kind] ?? "Unsupported delivery status", attempts: row.attempts, duplicateRiskRetries: row.duplicate_risk_retries, at, receipt: kind === "accepted_by_transport" ? String(row.status.message_id) : undefined,
       reason: typeof row.status.reason === "string" ? REASONS[row.status.reason] ?? "Unknown reason" : undefined,
       human: row.human_acknowledgment === "unacknowledged" ? "Not acknowledged" : "Unsupported acknowledgment status", decision: row.decision === "not_applicable" ? "No decision attached" : "Unsupported decision status" };
   });

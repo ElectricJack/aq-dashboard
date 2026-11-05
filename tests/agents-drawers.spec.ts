@@ -53,7 +53,8 @@ for (const vp of VIEWPORTS) {
       if (vp.phone) await terminal.getByRole("button", { name: "Session details" }).click();
       const details = page.getByRole("dialog", { name: "Session details" });
       await expect(details).toBeVisible();
-      await expect(details.getByRole("list", { name: "Permissions" })).toBeVisible();
+      await expect(details.getByRole("navigation", { name: "Session operations" })).toBeVisible();
+      await expect(details.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "true");
       const box = await withinViewport(page, details);
       if (vp.width >= 768) {
         expect(box.width).toBeLessThanOrEqual(361);

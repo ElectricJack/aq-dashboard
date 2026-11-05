@@ -89,3 +89,32 @@ test("late accounting from the previous session cannot appear after switching", 
   await act(async () => { release(); await gate; });
   await waitFor(() => expect(screen.queryByText("Reported subtotal: 120 · partial")).toBeNull());
 });
+
+test("agents_unknown_cost_renders_unknown", async () => {
+  const fixture = usageFixture();
+  fixture.usage.costs = [];
+  server.use(http.get("/api/observations/sessions/:attempt/usage", () => HttpResponse.json(fixture)));
+  setup();
+  const usage = await open();
+  await within(usage).findByText("Unknown · not reported");
+  expect(within(usage).getAllByText(/^Unknown · /).length).toBeGreaterThan(1);
+  expect(usage.textContent).not.toMatch(/\$0|USD 0|(^|\s)0\.0+(\s|$)/);
+  expect(within(usage).getByText("Unavailable on this AQ server")).toBeInTheDocument();
+});
+
+test("estimated, reported and flat-subscription costs keep their basis distinct", async () => {
+  const fixture = usageFixture();
+  const card = { id: "aq.rates", version: "7", digest: "b".repeat(64) }, policy = { id: "aq.alloc", version: "3", digest: "c".repeat(64) };
+  fixture.usage.costs = [
+    { kind: "provider_reported", amount_microunits: 1250000, currency: "USD", receipt: { id: "invoice-line", version: "1", digest: "d".repeat(64) } },
+    { kind: "non_invoice_estimate", amount_microunits: 40, currency: "USD", rate_card: card, basis: "token_rates", allocation_policy: policy },
+    { kind: "non_invoice_estimate", amount_microunits: 90, currency: "USD", rate_card: card, basis: "subscription_allocation", allocation_policy: policy },
+  ];
+  server.use(http.get("/api/observations/sessions/:attempt/usage", () => HttpResponse.json(fixture)));
+  setup();
+  const usage = await open();
+  await within(usage).findByText(/USD 1\.250000 · Provider reported/);
+  expect(within(usage).getByText(/USD 0\.000040 · Non-invoice estimate/)).toBeInTheDocument();
+  expect(within(usage).getByText(/Flat subscription · not costed/)).toBeInTheDocument();
+  expect(within(usage).getAllByText(/rate card aq\.rates · revision 7/).length).toBe(2);
+});

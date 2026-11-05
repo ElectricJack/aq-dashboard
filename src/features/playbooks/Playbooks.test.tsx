@@ -25,7 +25,7 @@ test("discovery opens exact run and shows pins, timeline and pending operation",
   expect(within(timeline).getAllByRole("listitem").map(li => li.textContent)).toEqual(["InspectCompleted", "Request reviewWaiting"]);
   expect(within(timeline).getByText("Request review").closest("li")).toHaveAttribute("aria-current", "step");
   expect(within(detail).getByRole("tab", { name: "Execution" })).toHaveAttribute("aria-selected", "true");
-  expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("effect pending")).toBeInTheDocument();
+  expect(within(detail).getByText("decision.request")).toBeInTheDocument(); expect(within(detail).getByText("Operation")).toBeInTheDocument();
   await userEvent.click(within(detail).getByRole("tab", { name: "Events" }));
   const table = within(detail).getByRole("table", { name: "Recent evidence" });
   expect(within(table).getAllByRole("row")).toHaveLength(3);
@@ -49,7 +49,7 @@ test("next run page uses exact cursor and keeps bounded rows", async () => {
 });
 test("admissions show pending without inventing an engine run", async () => {
   responses(); server.use(http.get("/api/playbooks/inspection/admissions", () => HttpResponse.json({ ...playbookPage([{ request_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", status: "pending", created_at_ms: 1, run_id: null, activation_revision: null, catalog_revision: null }]), revision: null })));
-  renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("button", { name: "Admissions" }));
+  renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("tab", { name: "Admissions" }));
   await screen.findByText("Engine run not confirmed"); expect(screen.queryByRole("link", { name: "Inspect admitted run" })).toBeNull();
 });
 test("loaded state filter describes only loaded rows", async () => {

@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronLeft, FileText, Maximize2, MessageSquare, Minimize2, PanelRight, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { ChevronDown, ChevronLeft, Columns2, FileText, Maximize2, MessageSquare, Monitor, PanelRight, Plus, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import {
   adaptSession,
@@ -18,7 +18,7 @@ import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
-import { InteractiveTerminal } from "./InteractiveTerminal";
+import { columnsForPane, InteractiveTerminal, MIN_PANE_COLUMNS } from "./InteractiveTerminal";
 import { createOutputFeed, TerminalTail } from "./TerminalTail";
 import { Icon } from "../../components/icons";
 import { SessionUsage } from "./SessionUsage";
@@ -26,6 +26,14 @@ import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
 import { useMediaQuery } from "../../components/useMediaQuery";
+import { OperationsNav, ProfileView, type OperationsView } from "./operations/OperationsViews";
+import { HealthView } from "./operations/HealthView";
+import { WaitsView } from "./operations/WaitsView";
+import { NotificationsView } from "./operations/NotificationsView";
+
+function providerText(s: SessionView) {
+  return `${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`;
+}
 
 /** Initial budgets from docs/plans/0001 §2. */
 const ROSTER_POLL_MS = 10_000;
@@ -143,13 +151,18 @@ type SwitcherProps = {
   /** Phone: no tab row; the header's ▾ shows the Sessions listbox directly and `onDismiss` hides it again. */
   inline: boolean; onDismiss: (restoreFocus: boolean) => void;
 };
-function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: SwitcherProps) {
+/** The switcher's roster read; the split view's second pane picks from the same cached pages. */
+function useSessionRoster() {
   const [scope] = useScope();
-  const navigate = useNavigate();
-  const location = useLocation();
   const query = usePagedRead<SessionSummary, SessionView>({ resource: "sessions", path: "/api/v1/sessions", scope,
     params: { limit: 25 }, adapt: adaptSession, pollMs: ROSTER_POLL_MS });
-  const sessions = query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [];
+  return { query, sessions: query.data?.pages.flatMap(p => p.page.items).slice(0, 100) ?? [] };
+}
+
+function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: SwitcherProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { query, sessions } = useSessionRoster();
   const total = query.data?.pages[0]?.page.total ?? null;
   const [openIds, setOpenIds] = useState(() => {
     const ids = readOpenTabs();
@@ -279,6 +292,45 @@ function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: Sw
 type DrawerKind = "details" | "transcript";
 const MESSAGE_UNAVAILABLE = "Messaging unavailable on this AQ server";
 
+/** Workspace view (spec §6). Split is explicit and at most two panes; Expand hides page chrome. */
+export type WorkspaceView = { layout: "focus" | "split"; expanded: boolean; secondId: string | null };
+type ViewChange = (change: Partial<WorkspaceView>) => void;
+/** Divider between split panes (`.panes[data-split]` gap). */
+const SPLIT_GAP_PX = 1;
+
+/** Per-pane columns a split of the measured workspace would give; null until measured. */
+function useSplitColumns(present: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState<number | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!present || !el) return;
+    const observer = new ResizeObserver(() => setColumns(columnsForPane((el.getBoundingClientRect().width - SPLIT_GAP_PX) / 2)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [present]);
+  return [ref, columns] as const;
+}
+
+/** Reference 08: Focus / Split view / Expand on the header row. Phone (reference 11) offers
+ * Expand only: no split fits there, so sessions stay one at a time behind the name's ▾. */
+function ViewControl({ split, expanded, splitReason, onChange, expandId, phone }: {
+  split: boolean; expanded: boolean; splitReason: string | null; onChange: ViewChange; expandId: string; phone: boolean;
+}) {
+  const reasonId = useId();
+  return <div className={styles.viewControl}>
+    <div role="group" aria-label="Workspace view" className={styles.viewButtons}>
+      {!phone && <>
+        <ActionButton aria-pressed={!split} onClick={() => onChange({ layout: "focus" })}><Icon icon={Monitor} size={18} /><span className={styles.viewText}>Focus</span></ActionButton>
+        <ActionButton aria-pressed={split} disabled={splitReason !== null} aria-describedby={splitReason ? reasonId : undefined}
+          onClick={() => onChange({ layout: "split" })}><Icon icon={Columns2} size={18} /><span className={styles.viewText}>Split view</span></ActionButton>
+      </>}
+      <ActionButton id={expandId} aria-pressed={expanded} onClick={() => onChange({ expanded: !expanded })}><Icon icon={Maximize2} size={18} /><span className={styles.viewText}>Expand<span className="visually-hidden"> workspace</span></span></ActionButton>
+    </div>
+    {!phone && splitReason && <span id={reasonId} className={styles.splitReason}>{splitReason}</span>}
+  </div>;
+}
+
 /** On-demand drawer: right side over the workspace on desktop, bottom sheet on phone.
  * Modal while open (focus contained, Esc closes); focus returns to the opener. */
 function SessionDrawer({ id, title, open, wide, onClose, returnFocus, children }: {
@@ -305,7 +357,7 @@ function SessionDrawer({ id, title, open, wide, onClose, returnFocus, children }
   </dialog>;
 }
 
-function SessionPage({ sessionId, search }: { sessionId: string; search: string }) {
+function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: string; search: string; view: WorkspaceView; onViewChange: ViewChange }) {
   const [scope] = useScope();
   const { bootstrap } = useSession();
   const terminal = bootstrap.capability("terminal.watch");
@@ -316,14 +368,8 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
   const switcherOpen = switcherChoice ?? !phone;
   const switcherToggle = useRef<HTMLButtonElement>(null);
   const workspace = useRef<HTMLElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    const sync = () => setExpanded(document.fullscreenElement != null && document.fullscreenElement === workspace.current);
-    document.addEventListener("fullscreenchange", sync);
-    return () => document.removeEventListener("fullscreenchange", sync);
-  }, []);
-  const canExpand = typeof document !== "undefined" && document.fullscreenEnabled === true;
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
+  const [opsView, setOpsView] = useState<OperationsView>("overview");
   const opener = useRef<HTMLElement | null>(null);
   const [feed] = useState(createOutputFeed);
   const messageReason = useId();
@@ -351,6 +397,51 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
     if (navigated && !tabFocus && loaded === sessionId) heading.current?.focus();
   }, [navigated, tabFocus, loaded, sessionId]);
 
+  const { sessions: roster } = useSessionRoster();
+  const watchable = !!query.data?.view.terminal && terminal.enabled;
+  const [panes, paneColumns] = useSplitColumns(watchable);
+  const others = roster.filter(o => o.id !== sessionId && o.terminal);
+  const second = others.find(o => o.id === view.secondId) ?? others[0] ?? null;
+  const splitReason = !watchable ? "Terminal not available"
+    : !second ? "No second session with a terminal"
+    : paneColumns === null || paneColumns < MIN_PANE_COLUMNS
+      ? `Needs at least ${2 * MIN_PANE_COLUMNS} columns${paneColumns === null ? "" : ` (${2 * paneColumns} fit)`}` : null;
+  // The chosen layout is kept; it applies only while both panes fit (never shrink the font).
+  const split = view.layout === "split" && splitReason === null && second !== null;
+  const expanded = view.expanded && !!query.data;
+  const expandId = useId(), exitId = useId();
+  useEffect(() => {
+    if (!expanded) return;
+    const exit = () => { document.getElementById(expandId)?.focus(); onViewChange({ expanded: false }); };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target instanceof Element ? e.target : null;
+      // Dialogs own their Esc; a controlled terminal receives Esc as input (Ctrl+M leaves it).
+      if (target?.closest("dialog") || target?.closest("[data-controlling] .xterm")) return;
+      e.preventDefault();
+      exit();
+    };
+    // The overlay covers the shell; keep focus from landing on obscured controls behind it.
+    const onFocus = (e: FocusEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target && workspace.current && !workspace.current.contains(target) && !target.closest("dialog")) document.getElementById(exitId)?.focus();
+    };
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      root.style.overflow = overflow;
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocus);
+    };
+  }, [expanded, onViewChange, expandId, exitId]);
+  const changeView = (change: Partial<WorkspaceView>) => {
+    if (change.expanded === false) document.getElementById(expandId)?.focus();
+    onViewChange(change);
+  };
+
   if (!query.data) {
     return (
       <div className={styles.detail}>
@@ -377,7 +468,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
     onDismiss={restoreFocus => { setSwitcherChoice(false); if (restoreFocus) switcherToggle.current?.focus(); }} />;
 
   return (
-    <section ref={workspace} className={styles.detail} aria-labelledby={headingId} data-viewport-fit="">
+    <section ref={workspace} className={styles.detail} aria-labelledby={headingId} data-viewport-fit="" data-expanded={expanded || undefined}>
       <div className={styles.focusHeader}>
         <Link to={{ pathname: "/agents", search }} className={styles.crumb} aria-label="Back to Agents">
           <ChevronLeft className={styles.backIcon} size={20} aria-hidden="true" />Agents
@@ -390,10 +481,9 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
           <ChevronDown size={18} aria-hidden="true" />
         </button>
         {!phone && taskLink && <><span className={styles.crumbSeparator} aria-hidden="true">·</span>{taskLink}</>}
-        <button type="button" className={`${styles.iconControl} ${styles.expand}`} aria-label={expanded ? "Exit expanded workspace" : "Expand workspace"} aria-pressed={expanded} disabled={!canExpand}
-          onClick={() => { if (expanded) void document.exitFullscreen?.(); else void workspace.current?.requestFullscreen?.(); }}>
-          {expanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
-        </button>
+        <ViewControl split={split} expanded={expanded} splitReason={splitReason} onChange={changeView} expandId={expandId} phone={phone} />
+        {expanded && <ActionButton id={exitId} className={styles.exit} aria-keyshortcuts="Escape" onClick={() => changeView({ expanded: false })}>
+          <Icon icon={X} size={18} />Exit<span className={styles.exitLong}> expanded view</span><kbd className={styles.kbd} aria-hidden="true">Esc</kbd></ActionButton>}
         {/* Phone: the listbox drops from the header row as an overlay. */}
         {phone && switcher}
       </div>
@@ -401,15 +491,32 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
 
       {!phone && switcher}
       <div className={styles.outputWorkspace}>
-        <Toolbar className={styles.outputHeading}>
-          <strong title={`${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`}>{s.profile.provider ?? "Provider unknown"} · {profileText(s.profile)}</strong>
+        {!split && <Toolbar className={styles.outputHeading}>
+          <strong title={providerText(s)}>{providerText(s)}</strong>
           {phone && taskLink}
-        </Toolbar>
-      {live ? <InteractiveTerminal key={s.terminal!.id} terminalId={s.terminal!.id} name={s.label} feed={feed} facts={facts}
-        transcriptOpen={drawer === "transcript"} onTranscript={from => openDrawer("transcript", from)} onDetails={from => openDrawer("details", from)} messageReason={MESSAGE_UNAVAILABLE} /> : <div className={styles.terminal} role="note">
-        <strong>Terminal is not available</strong>
-        <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
-      </div>}
+        </Toolbar>}
+      {/* Split (spec §6): at most two panes, offered only while each fits 80 columns at the readable font size. */}
+      <div ref={panes} className={styles.panes} data-split={split || undefined}>
+        <div className={styles.paneSlot}>
+          {split && <div className={styles.paneCaption}><strong>{s.label}</strong><span>{providerText(s)}</span></div>}
+          {live ? <InteractiveTerminal key={s.terminal!.id} terminalId={s.terminal!.id} name={s.label} feed={feed} facts={facts}
+            label={split ? `Interactive agent terminal, ${s.label}` : undefined}
+            transcriptOpen={drawer === "transcript"} onTranscript={from => openDrawer("transcript", from)} onDetails={from => openDrawer("details", from)} messageReason={MESSAGE_UNAVAILABLE} /> : <div className={styles.terminal} role="note">
+            <strong>Terminal is not available</strong>
+            <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
+          </div>}
+        </div>
+        {split && second?.terminal && <div className={styles.paneSlot}>
+          <div className={styles.paneCaption}>
+            <label>Second pane <select value={second.id} onChange={e => onViewChange({ secondId: e.target.value })}>
+              {others.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select></label>
+            <span>{providerText(second)}</span>
+          </div>
+          <InteractiveTerminal key={second.terminal.id} terminalId={second.terminal.id} name={second.label}
+            label={`Interactive agent terminal, ${second.label}`} />
+        </div>}
+      </div>
 
       {/* With a live terminal these facts join its one-row status footer (AG-D); otherwise they stand alone. */}
       {!live && <footer className={styles.outputFooter}>{facts}</footer>}
@@ -429,6 +536,11 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
         <TerminalTail terminalId={s.terminal.id} feed={feed} />
       </SessionDrawer>}
       <SessionDrawer id={`session-${s.id}-details`} title="Session details" open={drawer === "details"} onClose={closeDrawer} returnFocus={opener}>
+      <OperationsNav view={opsView} onView={setOpsView} />
+      {opsView === "health" ? <HealthView session={s} serverTime={serverTime} />
+        : opsView === "waits" ? <WaitsView session={s} />
+        : opsView === "notifications" ? <NotificationsView session={s} />
+        : opsView === "profile" ? <ProfileView session={s} /> : <>
       {(!query.isError && bootstrap.capability("session.usage.read").enabled && s.observationBinding
         ? <SessionUsage binding={s.observationBinding} />
         : <p className={styles.muted}>Session usage unavailable for this session.</p>)}
@@ -458,21 +570,7 @@ function SessionPage({ sessionId, search }: { sessionId: string; search: string 
       <h3>Worker lifecycle history</h3>
       <p><LifecycleHistory session={s} serverTime={serverTime} /></p>
       <p className={styles.muted}>Recorded lifecycle reports are historical evidence. Live process observation remains separate.</p>
-
-      <h3>Profile revisions</h3>
-      <ul aria-label="Profile revisions" className={styles.bullets}>
-        {s.profileRevisions.map((p) => (
-          <li key={p.name}>
-            {p.name} · revision {p.revision}
-          </li>
-        ))}
-      </ul>
-      <h3>Permissions</h3>
-      <ul aria-label="Permissions" className={styles.bullets}>
-        {s.permissions.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
+      </>}
       </SessionDrawer>
     </section>
   );
@@ -484,6 +582,9 @@ export function Agents() {
   const search = scopeSearch(scope);
   const container = useRef<HTMLDivElement>(null);
   const lastSelected = useRef<string | null>(null);
+  // View state outlives the per-session page so switching sessions keeps the layout.
+  const [view, setView] = useState<WorkspaceView>({ layout: "focus", expanded: false, secondId: null });
+  const changeView = useCallback<ViewChange>(change => setView(v => ({ ...v, ...change })), []);
   // Back from a session returns focus to the roster row that opened it.
   useEffect(() => {
     if (sessionId) {
@@ -496,7 +597,7 @@ export function Agents() {
   return (
     <div ref={container}>
       {sessionId ? (
-        <SessionPage key={sessionId} sessionId={sessionId} search={search} />
+        <SessionPage key={sessionId} sessionId={sessionId} search={search} view={view} onViewChange={changeView} />
       ) : (
         <Roster search={search} />
       )}

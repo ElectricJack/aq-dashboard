@@ -33,9 +33,9 @@
 .mainPane,.inspector { min-inline-size:0; }
 .page[data-view=graph] .panes { grid-template-columns:minmax(0,62fr) minmax(320px,38fr); }
 @media (min-width:1200px) {
-  /* Graph fills the viewport below the header rows; the canvas grows with it. */
+  /* Graph fills the viewport below the header rows; the canvas keeps its 70dvh cap so Fit (WK-C) can size to it. */
   .page[data-view=graph] .mainPane > section { min-block-size:calc(100dvh - 300px); }
-  .page[data-view=graph] .mainPane [role=region][tabindex] { min-block-size:max(320px, calc(100dvh - 560px)); max-block-size:none; }
+  .page[data-view=graph] .mainPane [role=region][tabindex] { min-block-size:max(320px, calc(100dvh - 560px)); }
 }
 
 .rows { margin:0; padding:0; list-style:none; }

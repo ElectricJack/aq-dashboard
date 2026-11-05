@@ -1,24 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
 import { scopedKey } from "../../api/queryKeys";
-import { Calendar, ChevronRight, RefreshCw } from "lucide-react";
-import { adaptAdmissions, adaptRunDetail, adaptRuns, mergeRunPages, statusLabel, type Run } from "../../api/adapters/playbooks";
+import { Calendar, ChevronRight, FileText, RefreshCw } from "lucide-react";
+import { adaptAdmissions, adaptRunDetail, adaptRuns, mergeRunPages, statusLabel, timestamp, type Run } from "../../api/adapters/playbooks";
 import { useSession } from "../../app/session";
+import { PageTitle } from "../../app/DestinationPage";
 import { scopeSearch, useScope } from "../../app/scope";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layout/Workspace";
+import { useProjects } from "../../app/useProjects";
 import { CATALOG_CAPABILITY } from "../../api/adapters/playbookCatalog";
 import { CurrentCatalog } from "./CurrentCatalog";
 import { LoadedDefinitions } from "./LoadedDefinitions";
+import { ChildWorkflows, WaitingOn } from "./RunRelations";
 import { Icon, runStatusIcon } from "../../components/icons";
 import { Age, useObservedNow } from "./Age";
 import { humanize, InspectorTabs, RecentEvidence, RunTimeline, type InspectorTab } from "./RunTimeline";
+import { Digest, TechnicalIdentity } from "./identity";
 import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
 const MAX_PAGES = 4;
+const TABS = [["runs", "Runs"], ["definitions", "Definitions"], ["activations", "Activations"], ["admissions", "Admissions"]] as const;
+type Tab = typeof TABS[number][0];
 function url(path: string, project: string | null, after?: string | null) {
   const q = new URLSearchParams({ limit: "25" }); if (project) q.set("project_id", project); if (after) q.set("after", after);
   return `${BASE}${path}?${q}`;
@@ -37,7 +43,7 @@ export function Playbooks() {
   const project = scope.kind === "project" ? scope.project_id : null;
   const { bootstrap, queryContext } = useSession();
   const [params, setParams] = useSearchParams(); const navigate = useNavigate();
-  const tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : params.get("view") === "activations" ? "activations" : "runs";
+  const tab: Tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : params.get("view") === "activations" ? "activations" : "runs";
   const [filter, setFilter] = useState("all"); const [range, setRange] = useState("24h");
   const runs = useInfiniteQuery({ queryKey: scopedKey(queryContext, scope, "playbook-runs", {}), initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => adaptRuns(await apiGet<unknown>(url("/runs", project, pageParam), signal), project, pageParam),
@@ -51,15 +57,22 @@ export function Playbooks() {
   const filtering = filter !== "all" || windowMs !== null;
   const runsNow = useObservedNow(observedAt, runs.dataUpdatedAt);
   const admissionsNow = useObservedNow(admissions.data?.observedAt, admissions.dataUpdatedAt);
-  function selectTab(next: string) { const p = new URLSearchParams(params); p.delete("definition"); p.delete("activation"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions" || next === "activations") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
-  return <div className={styles.page}>
-    <p className={styles.intro}>Inspect policy and follow each execution.</p>
-    <Toolbar aria-label="Playbook views">
-      <div className={styles.tabs}>
-        <ActionButton aria-pressed={tab === "runs"} onClick={() => selectTab("runs")}>Runs</ActionButton>
-        <ActionButton aria-pressed={tab === "definitions"} onClick={() => selectTab("definitions")}>Definitions</ActionButton>
-        <ActionButton aria-pressed={tab === "activations"} onClick={() => selectTab("activations")}>Activations</ActionButton>
-        <ActionButton aria-pressed={tab === "admissions"} onClick={() => selectTab("admissions")}>Admissions</ActionButton>
+  // Phone detail pages (run, definition or activation) hide the view toolbar; the back control leads out.
+  const detail = tab === "runs" ? Boolean(runId) : tab === "definitions" ? params.has("definition") : tab === "activations" ? params.has("activation") : false;
+  const tabRefs = useRef(new Map<Tab, HTMLButtonElement>()), moved = useRef(false);
+  useEffect(() => { if (moved.current) { moved.current = false; tabRefs.current.get(tab)?.focus(); } }, [tab]);
+  function selectTab(next: Tab) { const p = new URLSearchParams(params); p.delete("definition"); p.delete("activation"); if (next === "runs") p.delete("view"); else p.set("view", next); if (next === "definitions" || next === "activations") navigate({ pathname: "/playbooks", search: p.toString() }); else setParams(p); }
+  function tabKey(event: KeyboardEvent) {
+    const index = TABS.findIndex(([id]) => id === tab), last = TABS.length - 1;
+    const target = event.key === "ArrowRight" ? (index === last ? 0 : index + 1) : event.key === "ArrowLeft" ? (index === 0 ? last : index - 1) : event.key === "Home" ? 0 : event.key === "End" ? last : null;
+    if (target === null) return;
+    event.preventDefault(); moved.current = true; selectTab(TABS[target]![0]);
+  }
+  return <div className={styles.page} data-detail={detail}>
+    <header className={styles.header}><PageTitle>Playbooks</PageTitle><p className={styles.subtitle}>Inspect policy and follow each execution.</p></header>
+    <Toolbar className={styles.viewBar}>
+      <div className={styles.tabs} role="tablist" aria-label="Playbook views" onKeyDown={tabKey}>
+        {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} ref={element => { if (element) tabRefs.current.set(id, element); else tabRefs.current.delete(id); }} onClick={() => selectTab(id)}>{label}</button>)}
       </div>
       {tab === "runs" && <div className={styles.filters}>
         <label className={styles.filter}><span className="visually-hidden">Run state</span><select value={filter} onChange={e => setFilter(e.target.value)}>
@@ -91,7 +104,7 @@ export function Playbooks() {
           {runs.data.pages[0] && <p className={styles.meta}>{runs.data.pages[0].namespace.name} · observed <Age at={runs.data.pages[0].observedAt} now={runsNow} /> · key order</p>}
         </>}
       </Panel>
-      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
+      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} loaded={rows} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
     </div> : <Panel title="Admissions" description="Retained requests and their engine admission status.">
       {!admissions.data || admissions.isError ? <QueryStatus status={admissions.isError ? "error" : "pending"} error={admissions.error} label="playbook admissions" onRetry={() => void admissions.refetch()} /> : <>
         {admissions.data.items.length === 0 ? <p>No admissions recorded.</p> : <ul className={styles.admissions} aria-label="Playbook admissions">{admissions.data.items.map(a => <li key={a.requestId}><strong>{a.status.replaceAll("_", " ")}</strong> · {a.requestId}<p className={styles.meta}><Age at={a.createdAt} now={admissionsNow} /></p>{a.runId ? <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(a.runId)}`, search }}>Inspect admitted run</Link> : <span>Engine run not confirmed</span>}</li>)}</ul>}
@@ -100,37 +113,51 @@ export function Playbooks() {
     </Panel>}
   </div>;
 }
-function RunInspector({ id, project }: { id: string; project: string | null }) {
+function RunInspector({ id, project, loaded }: { id: string; project: string | null; loaded: readonly Run[] }) {
   const { queryContext } = useSession(); const [scope] = useScope(); const search = scopeSearch(scope);
   const [after, setAfter] = useState<string | null>(null);
   const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after), retry: false });
+  const projects = useProjects();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (query.data) heading.current?.focus(); }, [id, Boolean(query.data)]);
   const [tab, setTab] = useState<InspectorTab>("execution");
   const receivedAt = useMemo(() => performance.now(), [query.dataUpdatedAt]);
   const now = useObservedNow(query.data?.observedAt, query.dataUpdatedAt);
   if (!query.data || query.isError) return <Panel title="Run inspection"><QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this playbook run" onRetry={() => void query.refetch()} /></Panel>;
-  const { run: r, effects, receipts } = query.data;
+  const { run: r, effects, receipts, namespace } = query.data;
+  const projectLabel = projects.data?.view.find(p => p.id === namespace.projectId)?.label;
+  const admittedIso = new Date(r.admittedAt).toISOString();
   const definitionSearch = (() => { const p = new URLSearchParams(search); p.set("view", "definitions"); p.set("definition", r.artifact); return `?${p}`; })();
   return <section className={styles.inspector} aria-label={`Run ${r.id}`}>
-    <div className={styles.runHeading}><h2 ref={heading} tabIndex={-1}>{r.entry}</h2><span className={styles.badge} data-state={r.status}>{statusLabel(r.status)}</span><p className={styles.meta}>{r.id}</p><ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh run</ActionButton></div>
-    <Panel title="Pinned execution">
-      <DetailList><dt>Artifact</dt><dd className={styles.pin}>{r.artifact}</dd><dt>Entry</dt><dd>{r.entry}</dd><dt>Current step</dt><dd>{r.step}</dd><dt>Admitted</dt><dd><Age at={r.admittedAt} now={now} /></dd><dt>Outcome</dt><dd>{r.outcome ?? "Not recorded"}</dd></DetailList>
-      <details className={styles.details}><summary>Pinned dependencies ({Object.keys(r.dependencies).length})</summary><DetailList>{Object.entries(r.dependencies).map(([name, pin]) => <div className={styles.dependency} key={name}><dt>{name}</dt><dd className={styles.pin}>{pin}</dd></div>)}</DetailList></details>
-    </Panel>
+    <header className={styles.inspectorHeader}>
+      <h2 ref={heading} tabIndex={-1}>{r.entry}</h2>
+      <span className={styles.badge} data-state={r.status}>{statusLabel(r.status)}</span>
+      <ActionButton className={styles.iconButton} aria-label="Refresh run" title="Refresh run" disabled={query.isFetching} onClick={() => void query.refetch()}><Icon icon={RefreshCw} size={18} /></ActionButton>
+      <p className={styles.meta}><span title={r.id}>{shortRunId(r.id)}</span>{projectLabel && <> · <span>{projectLabel}</span></>} · Started <Age at={r.admittedAt} now={now} /></p>
+    </header>
+    <div className={styles.pinStrip}>
+      <p><Icon icon={FileText} size={18} /><span>This run: <strong>{r.entry}</strong> · <Digest value={r.artifact} /></span></p>
+      <p className={styles.meta}>Current step: {humanize(r.step)}</p>
+    </div>
+    <TechnicalIdentity className={styles.runIdentity}>
+      <dt>Run</dt><dd className={styles.pin}>{r.id}</dd>
+      <dt>Artifact</dt><dd className={styles.pin}>{r.artifact}</dd>
+      <dt>Admitted</dt><dd><time dateTime={admittedIso}>{timestamp(r.admittedAt)}</time></dd>
+      <dt>Outcome</dt><dd>{r.outcome ?? "Not recorded"}</dd>
+      {Object.entries(r.dependencies).map(([name, pin]) => <div className={styles.dependency} key={name}><dt>Pinned dependency: {name}</dt><dd className={styles.pin}>{pin}</dd></div>)}
+      {Object.keys(r.dependencies).length === 0 && <><dt>Pinned dependencies</dt><dd>None recorded</dd></>}
+    </TechnicalIdentity>
     <InspectorTabs id="run-inspector" tab={tab} setTab={setTab}>{tab === "execution" ? <>
     <Panel title="Recorded execution" description="Steps from the loaded transition receipts, then the current step.">
       <RunTimeline receipts={receipts.items} run={r} />
     </Panel>
     <div className={styles.lower}>
-      <Panel title="Waiting on"><p>{r.pendingKind ? `${r.pendingKind.replaceAll("_", " ")} pending` : "No pending wait recorded"}</p>{r.reason && <p>{r.reason}</p>}
-        {effects.items.length > 0 && <ul className={styles.effects}>{effects.items.map(e => <li key={e.id}><strong>{e.command}</strong><span>{e.step} · {e.status.replaceAll("_", " ")}</span>{e.cancelRequested && <span>Cancellation requested</span>}</li>)}</ul>}{effects.next && <p>Additional operations are not shown in this bounded view.</p>}
-      </Panel>
-      <Panel title="Child workflows"><ul className={styles.children}>{r.children.map(child => <li key={child}><Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(child)}`, search }}>{child}</Link></li>)}</ul>{r.children.length === 0 && <p>No child workflows recorded.</p>}{r.parent && <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.parent)}`, search }}>Parent workflow</Link>}</Panel>
+      <WaitingOn run={r} effects={effects} />
+      <ChildWorkflows run={r} loaded={loaded} search={search} />
     </div>
     </> : tab === "events" ? <RecentEvidence receipts={receipts.items} next={receipts.next} paged={after !== null} observedAt={receipts.observedAt} receivedAt={receivedAt} onFirst={() => setAfter(null)} onNext={setAfter} />
     : <Panel title="Pinned definition" description="The definition artifact this run was admitted with. Run pins remain unchanged when definitions change.">
-      <DetailList><dt>Artifact</dt><dd className={styles.pin}>{r.artifact}</dd><dt>Entry</dt><dd>{r.entry}</dd><dt>Dependencies</dt><dd>{Object.keys(r.dependencies).length}</dd></DetailList>
+      <DetailList><dt>Artifact</dt><dd><Digest value={r.artifact} /></dd><dt>Entry</dt><dd>{r.entry}</dd><dt>Dependencies</dt><dd>{Object.keys(r.dependencies).length}</dd></DetailList>
       <Link className={styles.definitionOpen} to={{ pathname: "/playbooks", search: definitionSearch }}>Open in Definitions</Link>
     </Panel>}</InspectorTabs>
     <p className={styles.meta}>Observed <Age at={query.data.observedAt} now={now} />. Run, operations and receipt pages are separate observations.</p>
