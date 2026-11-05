@@ -50,8 +50,9 @@ test("opening a session shows its metadata and an honest terminal placeholder", 
   expect(within(detail).getByText(/Not offered by this AQ server/)).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Worker 07" })).toHaveFocus());
   await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
+  await userEvent.click(within(within(detail).getByRole("navigation", { name: "Session operations" })).getByRole("button", { name: "Profile" }));
   expect(within(detail).getByRole("list", { name: "Profile revisions" })).toHaveTextContent("agent profile · revision 4");
-  expect(within(detail).getByRole("list", { name: "Permissions" })).toHaveTextContent("run tests");
+  expect(within(detail).getByRole("list", { name: "Effective permissions" })).toHaveTextContent("run tests");
   expect(within(detail).getByRole("link", { name: "Fixture: Replay reconciliation" })).toHaveAttribute("href", "/work/00000000-0000-0000-0000-000000000105?scope=project%3Aagent-queue");
 });
 
@@ -135,7 +136,7 @@ test("focused workspace switches real sessions and keeps metadata behind explici
   const { router } = renderApp("/agents/sess-07");
   const detail = await screen.findByRole("region", { name: "Worker 07" });
   expect(within(detail).getByRole("button", { name: "Session details" })).toHaveAttribute("aria-expanded", "false");
-  expect(within(detail).queryByRole("list", { name: "Permissions" })).not.toBeInTheDocument();
+  expect(within(detail).queryByRole("list", { name: "Effective permissions" })).not.toBeInTheDocument();
   expect(within(detail).getByRole("button", { name: "Message" })).toBeDisabled();
   expect(within(detail).getByRole("button", { name: "Message" })).toHaveAccessibleDescription("Messaging unavailable on this AQ server");
   const switcher = await screen.findByRole("navigation", { name: "Session switcher" });

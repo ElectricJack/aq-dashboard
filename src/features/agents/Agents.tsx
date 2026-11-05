@@ -26,6 +26,10 @@ import { SessionEvents } from "./SessionEvents";
 import { ContractError } from "../../api/adapters/contract";
 import { ActionButton, DetailList, Toolbar } from "../../components/layout/Workspace";
 import { useMediaQuery } from "../../components/useMediaQuery";
+import { OperationsNav, ProfileView, type OperationsView } from "./operations/OperationsViews";
+import { HealthView } from "./operations/HealthView";
+import { WaitsView } from "./operations/WaitsView";
+import { NotificationsView } from "./operations/NotificationsView";
 
 function providerText(s: SessionView) {
   return `${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`;
@@ -365,6 +369,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   const switcherToggle = useRef<HTMLButtonElement>(null);
   const workspace = useRef<HTMLElement>(null);
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
+  const [opsView, setOpsView] = useState<OperationsView>("overview");
   const opener = useRef<HTMLElement | null>(null);
   const [feed] = useState(createOutputFeed);
   const messageReason = useId();
@@ -531,6 +536,11 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
         <TerminalTail terminalId={s.terminal.id} feed={feed} />
       </SessionDrawer>}
       <SessionDrawer id={`session-${s.id}-details`} title="Session details" open={drawer === "details"} onClose={closeDrawer} returnFocus={opener}>
+      <OperationsNav view={opsView} onView={setOpsView} />
+      {opsView === "health" ? <HealthView session={s} serverTime={serverTime} />
+        : opsView === "waits" ? <WaitsView session={s} />
+        : opsView === "notifications" ? <NotificationsView session={s} />
+        : opsView === "profile" ? <ProfileView session={s} /> : <>
       {(!query.isError && bootstrap.capability("session.usage.read").enabled && s.observationBinding
         ? <SessionUsage binding={s.observationBinding} />
         : <p className={styles.muted}>Session usage unavailable for this session.</p>)}
@@ -560,21 +570,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
       <h3>Worker lifecycle history</h3>
       <p><LifecycleHistory session={s} serverTime={serverTime} /></p>
       <p className={styles.muted}>Recorded lifecycle reports are historical evidence. Live process observation remains separate.</p>
-
-      <h3>Profile revisions</h3>
-      <ul aria-label="Profile revisions" className={styles.bullets}>
-        {s.profileRevisions.map((p) => (
-          <li key={p.name}>
-            {p.name} · revision {p.revision}
-          </li>
-        ))}
-      </ul>
-      <h3>Permissions</h3>
-      <ul aria-label="Permissions" className={styles.bullets}>
-        {s.permissions.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
+      </>}
       </SessionDrawer>
     </section>
   );

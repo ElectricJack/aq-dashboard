@@ -9,12 +9,19 @@ import styles from "./SessionUsage.module.css";
 
 const CATEGORY_LABELS = { input: "Input", output: "Output", cache_read: "Cache read", cache_write: "Cache write", reasoning: "Reasoning" };
 const REASONS: Record<UnknownUsageReason, string> = { not_reported: "not reported", unsupported: "unsupported", source_gap: "source gap", not_applicable: "not applicable", incomplete: "incomplete" };
-function Cost({ cost }: { cost: UsageCost }) {
-  if (cost.kind === "unknown") return <>Unknown · {REASONS[cost.reason]}</>;
+function money(cost: { amount_microunits: number; currency: string }) {
   // Preserve micro-unit precision; estimates are never invoices or account quota.
   const amount = BigInt(cost.amount_microunits);
-  const formatted = `${amount / 1000000n}.${String(amount % 1000000n).padStart(6, "0")}`;
-  return <>{cost.currency} {formatted} · {cost.kind === "provider_reported" ? "Provider reported" : "Non-invoice estimate"}</>;
+  return `${cost.currency} ${amount / 1000000n}.${String(amount % 1000000n).padStart(6, "0")}`;
+}
+const ref = (a: { id: string; version: string }) => `${a.id} · revision ${a.version}`;
+/** Reported, estimated and unknown values stay distinct; a missing value is never 0. */
+function Cost({ cost }: { cost: UsageCost }) {
+  if (cost.kind === "unknown") return <>Unknown · {REASONS[cost.reason]}</>;
+  if (cost.kind === "provider_reported") return <>{money(cost)} · Provider reported<small className={styles.basis}>Receipt {ref(cost.receipt)}</small></>;
+  const basis = <small className={styles.basis}>Cost basis {cost.currency} · rate card {ref(cost.rate_card)} · allocation policy {ref(cost.allocation_policy)}</small>;
+  if (cost.basis === "subscription_allocation") return <>Flat subscription · not costed<small className={styles.basis}>Allocation estimate {money(cost)}, not an invoice</small>{basis}</>;
+  return <>{money(cost)} · {cost.basis === "local_model_allocation" ? "Local model allocation estimate" : "Non-invoice estimate"}{basis}</>;
 }
 
 /** Mounted only while Session details is open; its key includes every binding field. */
@@ -50,7 +57,9 @@ export function SessionUsage({ binding }: { binding: UsageBinding }) {
           <dt>Unresolved events</dt><dd>{query.data.unresolved_events.toLocaleString("en-US")}</dd>
         </DetailList>
       </>}
-      <DetailList><dt>Cost</dt><dd>{query.data.usage.costs.length === 0 ? "Unknown · not reported" : query.data.usage.costs.map((cost, index) => <div key={index}><Cost cost={cost} /></div>)}</dd></DetailList>
+      <DetailList><dt>Cost</dt><dd>{query.data.usage.costs.length === 0 ? "Unknown · not reported" : query.data.usage.costs.map((cost, index) => <div key={index} className={styles.cost}><Cost cost={cost} /></div>)}</dd>
+        <dt>Ledger revision</dt><dd>{ref(query.data.usage.ledger_revision)}</dd>
+        <dt>Task lineage totals</dt><dd>Unavailable on this AQ server</dd></DetailList>
       <p className={styles.note}>Checked <time dateTime={new Date(query.data.checked_at_ms).toISOString()}>{new Date(query.data.checked_at_ms).toISOString()}</time>
         {query.data.last_recorded_at_ms !== null && <> · Last accounting report <time dateTime={new Date(query.data.last_recorded_at_ms).toISOString()}>{new Date(query.data.last_recorded_at_ms).toISOString()}</time></>}</p>
       <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh session usage</ActionButton>

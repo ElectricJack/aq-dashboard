@@ -5,10 +5,11 @@ import '@xterm/xterm/css/xterm.css';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
-import { connectInteractiveTerminal, type TerminalState } from '../../api/interactiveTerminalClient';
+import { connectInteractiveTerminal, type TerminalBinding, type TerminalState } from '../../api/interactiveTerminalClient';
 import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_FAMILY, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
+import { snapshotLines } from './terminal/terminalSnapshot';
 import { ActionButton } from '../../components/layout/Workspace';
 import { useMediaQuery } from '../../components/useMediaQuery';
 import { formatAge } from '../../components/time/relative';
@@ -78,6 +79,9 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
   const [state, setState] = useState<TerminalState>({ message: 'Connecting…', connected: false, controlling: false, canControl: false, paused: false });
   const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true);
+  // U11: the screen at the moment observation stopped, and the identity/epoch a reconnect must match.
+  const [snapshot, setSnapshot] = useState<string[] | null>(null);
+  const binding = useRef<TerminalBinding | null>(null);
   // Sticky on-screen Ctrl: the ref is read by xterm's onData, the state renders aria-pressed.
   const [ctrl, setCtrlState] = useState(false), ctrlArmed = useRef(false);
   const setCtrl = useCallback((on: boolean) => { ctrlArmed.current = on; setCtrlState(on); }, []);
@@ -101,11 +105,12 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       return true;
     });
     const job = crypto.randomUUID();
-    const transport = connectInteractiveTerminal({ terminalId, allowControl, initiallyPaused: uncertain.current,
+    const freeze = () => { const lines = snapshotLines(term.buffer.active, term.rows); if (lines.length) setSnapshot(lines); };
+    const transport = connectInteractiveTerminal({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
       write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
-      reset: () => { feed?.restart(); term.reset(); },
-      state: next => { uncertain.current ||= next.paused; term.options.disableStdin = !next.controlling; feed?.status(next.message, next.connected); setState(next); },
+      reset: () => { freeze(); feed?.restart(); term.reset(); },
+      state: next => { uncertain.current ||= next.paused; if (next.binding) binding.current = next.binding; if (!next.connected) freeze(); term.options.disableStdin = !next.controlling; feed?.status(next.message, next.connected); setState(next); },
     }); connection.current = transport;
     const data = term.onData(value => {
       if (isObservedFocusReport(value)) return;
@@ -132,7 +137,8 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         const below = (pane.current ? bottom - box.bottom : 170) + 8;
         frame.current.style.maxHeight = viewport && viewport.width < 768 ? `${Math.max(180, viewport.height + viewport.offsetTop - box.top - below)}px` : '';
         const dimensions = fit.proposeDimensions();
-        if (dimensions) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
+        // A hidden host (frozen last observation) proposes NaN; keep the current size.
+        if (dimensions && Number.isFinite(dimensions.cols) && Number.isFinite(dimensions.rows)) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
         if (pane.current) { pane.current.dataset.cols = String(term.cols); pane.current.dataset.fitCols = dimensions ? String(dimensions.cols) : ''; }
         // A text-size change re-sends the controller's size even when the grid is unchanged.
         if (force) { force = false; transport.resize(term.cols, term.rows); }
@@ -149,7 +155,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     window.visualViewport?.addEventListener('resize', viewportLayout); window.visualViewport?.addEventListener('scroll', viewportLayout);
     return () => {
       relayout.current = () => {}; setPanColumns(null);
-      transport.close(); connection.current = null; feed?.end(); cancelAnimationFrame(animation); observer.disconnect(); touch();
+      freeze(); transport.close(); connection.current = null; feed?.end(); cancelAnimationFrame(animation); observer.disconnect(); touch();
       window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
@@ -196,6 +202,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const disconnect = () => { void connection.current?.release(); setWatching(false); setState({ message: 'Disconnected', controlling: false, connected: false, canControl: false, paused: state.paused }); };
   const phase = state.connected ? 'connected' : watching && state.message === 'Connecting…' ? 'connecting' : 'disconnected';
   const lease = state.lease && now !== null ? state.lease : null;
+  const frozen = phase === 'disconnected' && snapshot !== null;
   const leaseText = lease && `Controlled by ${lease.mine ? `${bootstrap.principal.displayName} (you)` : 'another viewer'} · lease expires in ${countdown(lease.expiresAtMs - now!)}`;
   // The lease line restates the default mode message, so keep that message for assistive technology only.
   const routineMessage = state.message === 'You have control' || state.message === 'Watch only';
@@ -206,7 +213,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
   return <section ref={pane} className={styles.pane} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
     <div className={styles.toolbar}>
-      <div className={styles.controls} data-lease={leaseText ? true : undefined}>
+      <div className={styles.controls} data-lease={leaseText ? true : undefined} data-disconnected={phase === 'disconnected' || undefined}>
         <span className={styles.state}>
           <span role="status" className={leaseText && routineMessage ? 'visually-hidden' : undefined}>{state.message}</span>
           {leaseText && <span className={styles.lease}>{leaseText}</span>}
@@ -228,7 +235,14 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       </div>
     </div>
     <>
-      <div className={styles.frame} ref={frame}><div className={styles.host} ref={host} /></div>
+      <div className={styles.frame} ref={frame}>
+        <div className={styles.host} ref={host} hidden={frozen} />
+        {/* Input is frozen while disconnected: the last observation is text, never a live terminal. */}
+        {frozen && <figure className={styles.observation} aria-label="Last observation">
+          <pre tabIndex={0}>{snapshot.join('\n')}</pre>
+          <figcaption>Last observation · output after this point was not observed. Reconnect reads this same terminal{binding.current ? ` (epoch ${binding.current.terminal.epoch})` : ''} again and replays what it retained; it never relaunches the agent or takes control.</figcaption>
+        </figure>}
+      </div>
       {!phone && panHint && <div className={styles.view}>{panHint}</div>}
       <footer className={styles.footer}>
         {/* Reference 08 order: Output · Progress · ● Connected. */}

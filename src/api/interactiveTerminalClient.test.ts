@@ -56,3 +56,23 @@ it('allows a fresh user operation after a definitive rejection without replaying
     await vi.waitFor(() => expect(sent).toEqual([[65], [13]]));
   } finally { c.close(); }
 });
+
+describe('reconnect binding (U11)', () => {
+  it('reconnect_rejects_a_changed_terminal_epoch_without_watching', async () => {
+    const read = vi.fn(async (_part: string, _fetcher: unknown) => ({ body: { ...info, terminal: { ...terminal, epoch: 2 }, control: { ...info.control, terminal: { ...terminal, epoch: 2 } } }, serverTime: 1000 }));
+    const states: { message: string; connected: boolean }[] = []; const reset = vi.fn();
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, expect: { terminal, session_revision: 2 }, read, write: async () => {}, reset, state: s => states.push(s) });
+    try {
+      await vi.waitFor(() => expect(states.at(-1)?.message).toMatch(/^Terminal epoch changed/));
+      expect(states.some(s => s.connected)).toBe(false);
+      expect(read.mock.calls.map(call => call[0])).toEqual(['info']);
+      expect(reset).not.toHaveBeenCalled();
+    } finally { c.close(); }
+  });
+  it('reports the observed binding so a reconnect can pin the same identity and epoch', async () => {
+    const read = vi.fn(async (part: string, _fetcher: unknown) => { if (part !== 'info') throw new Error('stop'); return { body: info, serverTime: 1000 }; });
+    const bindings: unknown[] = [];
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, expect: { terminal, session_revision: 2 }, read, write: async () => {}, reset: vi.fn(), state: s => bindings.push(s.binding) });
+    try { await vi.waitFor(() => expect(bindings).toContainEqual({ terminal, session_revision: 2 })); } finally { c.close(); }
+  });
+});

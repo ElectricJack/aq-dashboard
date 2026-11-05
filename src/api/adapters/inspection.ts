@@ -336,7 +336,16 @@ export type SessionDetailView = SessionView & {
   profileRevisions: SessionDetail["profile_revisions"];
   permissions: string[];
   lastActivityAt: string | null;
+  lastOutputAt: string | null;
+  /** Assignment generation from `session_identity` (decimal string), the nudge's expected generation. */
+  generation: string | null;
 };
+function identityGeneration(raw: unknown): string | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  const value = r.kind === "remote" ? r.assignment_generation : r.kind === "central" ? r.generation : undefined;
+  return typeof value === "string" && /^[1-9][0-9]{0,18}$/.test(value) ? value : null;
+}
 
 export function adaptSessionDetail(s: SessionDetail, serverTime: string): SessionDetailView {
   return {
@@ -345,6 +354,8 @@ export function adaptSessionDetail(s: SessionDetail, serverTime: string): Sessio
     profileRevisions: s.profile_revisions,
     permissions: s.permissions,
     lastActivityAt: s.last_activity_at,
+    lastOutputAt: typeof s.last_output_at === "string" ? s.last_output_at : null,
+    generation: identityGeneration(s.session_identity),
   };
 }
 

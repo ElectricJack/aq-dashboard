@@ -250,6 +250,8 @@ export type SessionSummary = {
   /** Optional additive live-read projection; absent on older servers. */
   execution_authority?: string;
   lifecycle?: { started_at: Timestamp | null; stopped_at: Timestamp | null } | null;
+  /** Optional additive provider-output observation; absent on older servers. */
+  last_output_at?: Timestamp | null;
 };
 
 export type SessionDetail = SessionSummary & {
