@@ -113,7 +113,18 @@ The scope is items 1–15 of the inventory, plus item 16 (compact list rows, an 
 
 ## 3. Layout
 
-The task view keeps the current Work page shell: the list or graph on the left and the inspector on the right. On a phone, the inspector is a full-screen page. Inspector sections, top to bottom:
+**One task view: the inspector on the right.** There is no separate "full task" page.
+- The "Open full task" link in `HumanTaskInspector.tsx` points at the same `/work/{id}` route the list rows already open, so it does nothing visible (owner report, 2026-11-05). It is removed.
+- Everything in this spec lives in the right-hand inspector.
+- `/work/{id}` stays the deep link. It opens the list with that task selected and the inspector showing it.
+- To fit everything without a second page:
+  - **Width.** In list view the inspector keeps its ~60% share (`.panes` is `0.8fr / 1.2fr` today). In graph view the graph currently takes 62% and the inspector 38%. When a task is selected, the split flips to 40% graph / 60% inspector.
+  - **Expand.** An "Expand" toggle in the inspector header collapses the list or graph so the inspector takes the full width. It is reflected in the URL (`?focus=1`), so the expanded view can be linked and survives a reload. Esc or the toggle restores the split. This replaces the full-page link's purpose.
+  - **Sections fold.** Each section below is collapsible. Its open or closed state is remembered per browser, using local storage guarded by try/catch. Sections that can grow long (Comments, Attempts, History) show a bounded preview and a "Show all" link, so the most-used parts (header, status, comments) are visible without scrolling at 1440×900.
+  - **Sticky header.** The inspector header, with title, ID, status chips and the action menu, stays pinned while the sections scroll.
+  - **Phone.** The inspector is a full-screen page with Back, as it is today. Expand doesn't apply there.
+
+Inspector sections, top to bottom:
 
 1. **Header:**
    - a breadcrumb with project › parent;
@@ -196,6 +207,10 @@ The next phase starts only after sign-off.
 - [ ] The parent link, child counts and dependency reasons are shown.
 - [ ] The task's results are listed and link to Results.
 - [ ] Labels are shown, and Reprioritize works.
+- [ ] There is no "Open full task" button. Everything fits in the right-hand inspector:
+  - "Expand" gives it the full width, and survives a reload;
+  - sections fold;
+  - the header stays visible while scrolling.
 - [ ] Task list:
   - each row is a single line;
   - the bullet icon is coloured, and shaped, by status;
