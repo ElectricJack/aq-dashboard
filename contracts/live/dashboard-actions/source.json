@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "4b9d732bb2591b2c0bd1c6113f23894d28b6383f",
+  "commit": "620a1b83cdfc9595791ee89248cd7b0dcdc0e637",
   "path": "protocol/dashboard-actions/v1",
   "files": {
     "README.md": "28fc8c51ff50cba9ba2e4033d422bf4039953e32c63cf8d1d2613b6723e232b7",
     "check.py": "4455f11db1436ebaee690d1706d18c6fa44ec64b278347b5667f470c5cec2e18",
-    "fixtures/compatibility.json": "a6c3a6f5754e954e0a188fbbb07f4516410cb1f957cf079cc6034681bf843956",
+    "fixtures/compatibility.json": "5005bc5401d079774e1d323d676d45eb1df33b9c8f9aadfba41af79b2dbf1520",
     "fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",

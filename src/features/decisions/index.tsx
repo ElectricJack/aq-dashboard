@@ -90,7 +90,7 @@ function SelectedQuestion({ id, project }: { id: string; project: string | undef
   const { item: q, serverTime } = read.data;
   if (project && q.projectId !== project) return <Panel title="Question outside selected scope"><p>Select its project or return to All projects to answer this question.</p></Panel>;
   return <><QuestionPanel question={q} serverTime={serverTime} updatedAt={read.dataUpdatedAt}>
-      <QuestionAnswer question={q} refreshes={refreshes} onRefresh={refresh} onRecorded={() => { void read.refetch(); void client.invalidateQueries({ queryKey: queryKey(queryContext, "question-inbox", {}).slice(0, 5) }); }} />
+      <QuestionAnswer question={q} serverTime={serverTime} updatedAt={read.dataUpdatedAt} refreshes={refreshes} onRefresh={refresh} onRecorded={() => { void read.refetch(); void client.invalidateQueries({ queryKey: queryKey(queryContext, "question-inbox", {}).slice(0, 5) }); }} />
     </QuestionPanel>
     <QuestionContext question={q} serverTime={serverTime} updatedAt={read.dataUpdatedAt} className={styles.context} /></>;
 }

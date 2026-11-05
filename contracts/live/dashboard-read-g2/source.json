@@ -1,6 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "4b9d732bb2591b2c0bd1c6113f23894d28b6383f",
+  "commit": "620a1b83cdfc9595791ee89248cd7b0dcdc0e637",
   "path": "protocol/dashboard-read/v1/schema.json",
-  "sha256": "061fc35f350dae31aa1616c1592a4e627489eb86d8d6b836b6931689b8710184"
+  "sha256": "c3cbd5c140cbf5f0a29905a877070d267db55f63d96a2277e9a3ca6707c03cde",
+  "fixtures": {
+    "fixtures/question-inbox-open.json": "1010628372812ec7b2882e8615e3274505e17a0ecda481ee7ce22fa535e2be16",
+    "fixtures/question-inbox-closed.json": "5a963f1b2dd416784b9e0890218986023ec717b1106650937bd435bb8e5a7b24",
+    "fixtures/question-detail.json": "689f1be90a05ca85d2da0a79cbc27a32cd4ac40bf3c62d2a908dc573a39efa88"
+  }
 }

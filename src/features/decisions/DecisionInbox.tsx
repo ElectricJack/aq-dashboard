@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { ChevronRight, MessageCircleQuestion, RefreshCw, TriangleAlert } from "lucide-react";
 import type { DecisionSummary } from "../../api/adapters/decisions";
-import type { QuestionSummary } from "../../api/adapters/questions";
+import { isQuestionExpired, type QuestionSummary } from "../../api/adapters/questions";
 import { useGraphDetail } from "../../api/humanGraphReads";
 import { useSession } from "../../app/session";
 import { useProjects } from "../../app/useProjects";
@@ -101,12 +101,12 @@ function InboxRow({ row: r, selected, projectName, now, search }: { row: Decisio
 function QuestionRow({ row: q, selected, projectName, now, search }: { row: QuestionSummary; selected: boolean; projectName: string | undefined; now: string | null; search: string }) {
   const { bootstrap } = useSession();
   const task = useGraphDetail(bootstrap.capability("human.graph.read").enabled ? q.projectId : "", "task", q.taskId);
-  const title = task.data?.data.title ?? `Question on task ${q.taskId.slice(0, 8)}`;
+  const title = q.taskTitle ?? task.data?.data.title ?? `Question on task ${q.taskId.slice(0, 8)}`;
   const project = projectName ?? `Project ${shortId(q.projectId)}`;
   let timing: string | null = q.state === "answered" ? "Answered" : null;
   if (q.state === "pending" && now) {
     const until = formatUntil(now, new Date(q.expires).toISOString());
-    timing = until === "due now" ? "Expiry due now" : `Expires ${until}`;
+    timing = isQuestionExpired(q, Date.parse(now)) ? "Expired" : until === "due now" ? "Expiry due now" : `Expires ${until}`;
   }
   return <Link className={styles.row} aria-current={selected ? "page" : undefined} to={{ pathname: `/decisions/${q.decisionId}`, search }} data-question-row="">
     <span className={styles.body}>

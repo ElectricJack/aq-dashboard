@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { MessageCircleQuestion, MessageSquare } from "lucide-react";
 import { ContractError } from "../../api/adapters/contract";
 import { ApiError } from "../../api/client";
-import { MAX_ANSWER_BYTES, QUESTIONS_ANSWER, type QuestionSummary } from "../../api/adapters/questions";
+import { isQuestionExpired, MAX_ANSWER_BYTES, QUESTIONS_ANSWER, type QuestionSummary } from "../../api/adapters/questions";
 import type { CapabilityState } from "../../api/adapters/bootstrap";
 import { useGraphDetail } from "../../api/humanGraphReads";
 import { useSession } from "../../app/session";
@@ -18,6 +18,7 @@ import { freezeQuestionAnswer } from "./questionAnswer";
 import contextStyles from "./DecisionContext.module.css";
 import styles from "./QuestionDetail.module.css";
 
+const EXPIRED_REASON = "This question expired before it was answered, so it can no longer be answered here.";
 const DELIVERY: Record<string, string> = {
   wait: "Delivered to the waiting agent.",
   task_mail: "The asking attempt had ended, so the answer was queued as task mail for its continuation.",
@@ -35,7 +36,7 @@ function useTask(q: QuestionSummary) {
   const projects = useProjects();
   const task = useGraphDetail(bootstrap.capability("human.graph.read").enabled ? q.projectId : "", "task", q.taskId);
   return {
-    title: task.data?.data.title,
+    title: q.taskTitle ?? task.data?.data.title,
     project: projects.data?.view.find(p => p.id === q.projectId)?.label ?? task.data?.project.name,
     work: { pathname: `/work/${q.taskId}`, search: new URLSearchParams({ scope: `project:${q.projectId}` }).toString() },
   };
@@ -51,13 +52,14 @@ export function QuestionPanel({ question: q, serverTime, updatedAt, children }: 
   const headingId = useId();
   const task = useTask(q);
   const now = useNow(serverTime, updatedAt);
-  const until = now && q.state === "pending" ? formatUntil(now, new Date(q.expires).toISOString()) : null;
+  const expired = now !== null && isQuestionExpired(q, Date.parse(now));
+  const until = now && q.state === "pending" && !expired ? formatUntil(now, new Date(q.expires).toISOString()) : null;
   return <section className={styles.panel} aria-labelledby={headingId} data-question="">
     <header className={styles.header}>
       <p className={styles.kicker}><Icon icon={MessageCircleQuestion} size={18} />Agent question</p>
       <h2 id={headingId} className={styles.title}>{task.title ?? `Task ${shortId(q.taskId)}`}</h2>
       <p className={styles.meta}>{task.project ?? `Project ${shortId(q.projectId)}`}{until && ` · ${until === "due now" ? "Expiry due now" : `Expires ${until}`}`}</p>
-      <span className={q.state === "pending" ? styles.chipAttention : styles.chipNeutral}>{q.state === "pending" ? "Awaiting your answer" : "Answered"}</span>
+      <span className={q.state === "pending" && !expired ? styles.chipAttention : styles.chipNeutral} data-question-expired={expired || undefined}>{q.state !== "pending" ? "Answered" : expired ? "Expired" : "Awaiting your answer"}</span>
     </header>
     <h3 className={styles.section}>Question</h3>
     <blockquote className={styles.question} data-question-text="">{q.question}</blockquote>
@@ -81,7 +83,7 @@ export function QuestionContext({ question: q, serverTime, updatedAt, className 
       <div><dt>Project</dt><dd>{task.project ? <span className={contextStyles.name}>{task.project}</span> : <ShortId id={q.projectId} label="project id" />}</dd></div>
       <div><dt>Task</dt><dd><Link className={contextStyles.link} to={task.work} title={q.taskId}>{task.title ?? <code>{shortId(q.taskId)}</code>}</Link>{!task.title && <CopyValue value={q.taskId} label="task id" />}</dd></div>
       <div><dt>Asked</dt><dd>{now ? formatAge(now, iso(q.askedAt)) : "—"}</dd></div>
-      <div><dt>{q.state === "pending" ? "Expires" : "Answered"}</dt><dd>{!now ? "—" : q.state === "pending" ? formatUntil(now, iso(q.expires)) : formatAge(now, iso(q.answeredAt!))}</dd></div>
+      <div><dt>{q.state === "pending" ? "Expires" : "Answered"}</dt><dd>{!now ? "—" : q.state === "pending" ? (isQuestionExpired(q, Date.parse(now)) ? "Expired" : formatUntil(now, iso(q.expires))) : formatAge(now, iso(q.answeredAt!))}</dd></div>
       <div><dt>Decision</dt><dd><ShortId id={q.decisionId} label="decision id" /> · revision {q.revision}</dd></div>
     </dl>
     <h3 className={contextStyles.section}>What happens next</h3>
@@ -96,8 +98,8 @@ type Outcome = "unknown" | "refused" | null;
  * pending or unknown outcome keeps the exact request for a status check or identical
  * retry, and a refusal keeps the draft until a deliberate refresh releases it.
  */
-export function QuestionAnswer({ question: q, refreshes, onRefresh, onRecorded }: {
-  question: QuestionSummary;
+export function QuestionAnswer({ question: q, serverTime, updatedAt, refreshes, onRefresh, onRecorded }: {
+  question: QuestionSummary; serverTime: number; updatedAt: number;
   /** Count of completed deliberate refreshes of this question. */
   refreshes: number; onRefresh(): Promise<unknown>; onRecorded(): void;
 }) {
@@ -107,7 +109,9 @@ export function QuestionAnswer({ question: q, refreshes, onRefresh, onRecorded }
   const [outcome, setOutcome] = useState<Outcome>(null);
   const frozen = useRef<FrozenAction | null>(null);
   const fieldId = useId(), metaId = useId();
-  const reason = !capability.enabled ? capability.reason : null;
+  const now = useNow(serverTime, updatedAt);
+  const expired = now !== null && isQuestionExpired(q, Date.parse(now));
+  const reason = !capability.enabled ? capability.reason : expired ? EXPIRED_REASON : null;
 
   const seen = useRef(refreshes);
   useEffect(() => {

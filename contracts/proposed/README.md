@@ -8,6 +8,5 @@ These fixtures transcribe the shapes in [docs/specs/0003-dashboard-api.md](../..
 | --- | --- | --- |
 | `bootstrap.json` | `GET /api/v1/bootstrap` | §3 |
 | `provider-usage.json` | `GET /api/v1/provider-usage` | §3 |
-| `question-inbox.json` | `GET /api/questions/decisions`, `GET /api/questions/decisions/{id}` | F5 agent questions (see the file's `rules`) |
 
 When API-02 publishes its OpenAPI/JSON Schema, generated bindings and canonical fixtures, replace this directory with the pinned published contracts (plus a provenance lock) and delete `src/api/wire/proposed.ts`. Scenario variants (stale, unknown, unavailable, failed) are derived in `src/mocks/scenarios.ts`.
