@@ -24,7 +24,7 @@ for (const vp of VIEWPORTS) {
       await page.goto("/settings");
       const h1 = page.getByRole("heading", { level: 1, name: "Settings" });
       await expect(h1).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("Your identity, connection and project execution settings.")).toBeVisible();
+      await expect(page.getByText("Your identity, connection, display and project execution settings.")).toBeVisible();
 
       const panels = page.locator("main section[class*=panel]");
       await expect(panels.first()).toBeVisible();
@@ -48,7 +48,9 @@ for (const vp of VIEWPORTS) {
       // Two columns at desktop width, one column on phone.
       const framework = await box(page.getByRole("region", { name: "Framework connection" }));
       const identityBox = await box(identity);
-      if (vp.name === "d") expect(Math.abs(framework.y - identityBox.y)).toBeLessThan(2);
+      // Display (ST-G11) is the second panel, so it pairs with Identity in the first desktop row.
+      const display = await box(page.getByRole("region", { name: "Display" }));
+      if (vp.name === "d") expect(Math.abs(display.y - identityBox.y)).toBeLessThan(2);
       else expect(framework.y).toBeGreaterThanOrEqual(identityBox.y + identityBox.height);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 
