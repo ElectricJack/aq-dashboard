@@ -17,30 +17,80 @@ def load(name):
     return json.loads((root / 'fixtures' / (name + '.json')).read_text())
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
-TYPED = ('task.edit', 'task.cancel', 'task.retry', 'task.reprioritize', 'task.dependency.add',
+TYPED = ('task.graph.create', 'task.edit', 'task.cancel', 'task.retry', 'task.reprioritize', 'task.dependency.add',
          'task.dependency.remove', 'knowledge.author', 'knowledge.correct', 'knowledge.verify',
          'knowledge.retire', 'knowledge.restore')
+def validate_task(task):
+    assert task['title'].strip() and len(task['title']) <= 512
+    assert not any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in task['title'])
+    assert len(task.get('body', '').encode()) <= 32768 and len(task.get('acceptance_criteria', '').encode()) <= 8192
+    labels = task.get('labels', [])
+    assert len(labels) <= 16 and len(set(labels)) == len(labels)
+    assert all(s.strip() and len(s.encode()) <= 128 for s in labels)
+    if task.get('priority') is not None:
+        assert 1 <= task['priority'] <= 300
+    for field in ('profile_hint', 'intelligence_hint', 'task_type'):
+        if task.get(field) is not None:
+            assert task[field].strip() and len(task[field].encode()) <= 128
+            assert not any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in task[field])
+PLAYBOOK = ('playbook.run.start', 'playbook.run.cancel', 'playbook.activation.activate', 'playbook.activation.rollback')
+def validate_playbook(value):
+    payload, subject, kind = value['payload'], value['subject'], value['kind']
+    assert UUID(payload['project_id']).int
+    if kind == 'playbook.run.cancel':
+        assert subject == {'type':'playbook_run', 'id':payload['run_id']} and value['expected_versions'] == {}
+        assert 'expected_version' not in payload
+    else:
+        revision = payload['expected_version']
+        assert subject == {'type':'playbook_binding', 'id':payload['binding'], 'revision':revision}
+        assert value['expected_versions'] == {'playbook_binding':revision} and 0 < int(revision) <= 2**63 - 1
+        assert payload['artifact'].startswith('sha256:') and len(payload['artifact']) == 71
+        if kind == 'playbook.run.start':
+            assert payload['entry'].strip() and len(payload.get('inputs', {})) <= 32
+            assert all(isinstance(v, (bool, int, float, str)) for v in payload.get('inputs', {}).values())
+    assert len(canonical(value)) <= 65536
 def validate_request(value):
     validator.validate(value)
     payload, subject = value['payload'], value['subject']
     assert UUID(value['operation_id']).int and payload['operation_id'] == value['operation_id']
     kind = value['kind']
-    key = {'task.create':'project', 'decision.resolve':'decision', 'supervisor.message.send':'conversation'}.get(kind)
+    if kind in PLAYBOOK:
+        return validate_playbook(value)
+    key = {'task.graph.create':'project', 'task.create':'project', 'decision.resolve':'decision', 'supervisor.message.send':'conversation', 'session.message.send':'session'}.get(kind)
     key = key or ('project' if kind == 'knowledge.author' else kind.split('.')[0])
-    field = {'task.create':'expected_project_revision', 'decision.resolve':'expected_decision_revision', 'supervisor.message.send':'expected_conversation_revision', 'knowledge.author':'expected_project_revision'}.get(kind, 'expected_version')
+    field = {'task.create':'expected_project_revision', 'decision.resolve':'expected_decision_revision', 'supervisor.message.send':'expected_conversation_revision', 'knowledge.author':'expected_project_revision', 'session.message.send':'expected_generation'}.get(kind, 'expected_version')
     revision = str(payload[field])
     assert value['expected_versions'] == {key:revision} and subject['revision'] == revision
     assert subject['type'] == key and UUID(subject['id']).int
     assert 0 < int(revision) <= 2**63 - 1
-    if kind == 'task.create':
-        assert payload['title'].strip() and len(payload['title']) <= 512
-        assert len(payload['body'].encode()) <= 32768 and len(payload['acceptance_criteria'].encode()) <= 8192
-        assert len(payload['labels']) <= 16 and len(set(payload['labels'])) == len(payload['labels'])
-        assert all(s.strip() and len(s.encode()) <= 128 for s in payload['labels'])
+    if kind == 'task.graph.create':
+        assert subject['id'] == payload['project_id'] and UUID(payload['project_id']).int
+        tasks, edges = payload['tasks'], payload.get('edges', [])
+        ids = {t['id'] for t in tasks}
+        assert len(ids) == len(tasks) and all(UUID(i).int for i in ids)
+        assert 1 <= len(tasks) + len(edges) + sum('parent_id' in t and t['parent_id'] is not None for t in tasks) <= 100
+        edge_ids, pairs = set(), set()
+        for task in tasks:
+            validate_task(task)
+            if task.get('parent_id'):
+                assert UUID(task['parent_id']).int and task['parent_id'] != task['id']
+        for edge in edges:
+            assert UUID(edge['id']).int and edge['id'] not in ids | edge_ids
+            assert UUID(edge['source']).int and UUID(edge['target']).int and edge['source'] != edge['target']
+            assert edge['source'] in ids or edge['target'] in ids
+            assert (edge['source'], edge['target']) not in pairs
+            edge_ids.add(edge['id'])
+            pairs.add((edge['source'], edge['target']))
+    elif kind == 'task.create':
+        validate_task(payload)
     elif kind == 'supervisor.message.send':
         assert UUID(payload['message_id']).int and payload['message_id'] != value['operation_id']
         assert payload['body'].strip() and len(payload['body'].encode()) <= 16384
         assert payload['context'] == [] and payload['attachments'] == []
+    elif kind == 'session.message.send':
+        assert UUID(payload['project_id']).int and UUID(payload['message_id']).int
+        assert payload['message_id'] != value['operation_id']
+        assert payload['body'].strip() and len(payload['body'].encode()) <= 16384
     elif kind in TYPED:
         assert UUID(payload['project_id']).int
         if kind == 'knowledge.author':
@@ -54,7 +104,7 @@ def validate_request(value):
         assert payload['expected_subject']['version'] == '1'
     assert len(canonical(value)) <= 65536
 
-for name in ('task-create', 'decision-resolve', 'supervisor-message-send') + tuple(k.replace('.', '-') for k in TYPED):
+for name in ('task-create', 'decision-resolve', 'supervisor-message-send', 'session-message-send') + tuple(k.replace('.', '-') for k in TYPED + PLAYBOOK):
     validate_request(load('request-' + name))
 conflict = load('operation-conflict-current-versions')
 validator.validate(conflict)
@@ -84,13 +134,14 @@ for status in (401,403,404,409,410,413,422,426,429,503):
         assert 'operation_id' not in error
 validator.validate(load('expired-cursor'))
 assert load('expired-cursor')['code'] == 'cursor_restart_required'
-replay = load('replay')
-for key in ('original','identical','changed'):
-    validate_request(replay[key])
-assert canonical(replay['original']) == canonical(replay['identical'])
-assert canonical(replay['original']) != canonical(replay['changed'])
-assert all(replay[key]['operation_id'] == replay['original_operation_id'] for key in ('original','identical','changed'))
-assert replay['identical_disposition'] == 'confirmed' and replay['changed_status'] == 409
+for fixture in ('replay', 'replay-task-graph-create'):
+    replay = load(fixture)
+    for key in ('original','identical','changed'):
+        validate_request(replay[key])
+    assert canonical(replay['original']) == canonical(replay['identical'])
+    assert canonical(replay['original']) != canonical(replay['changed'])
+    assert all(replay[key]['operation_id'] == replay['original_operation_id'] for key in ('original','identical','changed'))
+    assert replay['identical_disposition'] == 'confirmed' and replay['changed_status'] == 409
 for case in load('invalid'):
     try:
         validate_request(case['request'])
@@ -107,4 +158,5 @@ for contract in compat['read']['data']['contracts']:
     assert contract['digest'] == 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()
 assert len(compat['read']['data']['contracts']) == 2
 assert compat['read']['api_version'] == 'dashboard-read-1'
-print('14 requests, 5 dispositions, current-versions conflict, 10 errors, cursor, replay, invalid and compatibility fixtures passed')
+validate_request(load('request-task-create-metadata'))
+print('21 requests, 5 dispositions, current-versions conflict, 10 errors, cursor, replay, invalid and compatibility fixtures passed')
