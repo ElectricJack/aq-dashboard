@@ -5,7 +5,8 @@ export type Conversation = { id: string; revision: string; label: "Global superv
 type UnavailableRuntime = { state: "unavailable"; binding: null; reason: "central_runtime_not_connected" };
 /** Discovery and History report a live binding while a central session serves the conversation; receipts keep the admission-time unavailable runtime. */
 export type Runtime = UnavailableRuntime | { state: "available"; binding: { actor_id: string; generation: number; session_id: string }; reason: "central_session_active" };
-export type SupervisorLimits = { body_bytes: 16384; context_refs: 16; attachments: 4; history_page: 16 };
+/** Server-advertised bounds; each is at most the published schema value (a server may disable context refs or attachments with 0). */
+export type SupervisorLimits = { body_bytes: number; context_refs: number; attachments: number; history_page: number };
 export type Discovery = { contract: typeof SUPERVISOR_CONTRACT; conversation: Conversation; runtime: Runtime; limits: SupervisorLimits };
 export const CONTEXT_REF_TYPES = ["project", "task", "result", "review", "knowledge", "session", "playbook_run"] as const;
 export type ContextRef = { type: typeof CONTEXT_REF_TYPES[number]; id: string; revision: string | null };
@@ -29,8 +30,10 @@ export type ReceiptReason = "conversation_revision_changed" | "message_id_confli
 export type Receipt = { contract: typeof SUPERVISOR_CONTRACT; conversation: Conversation; runtime: UnavailableRuntime; operation_id: string; message_id: string; actor_id: string; request_digest: string; body_digest: string; state: "queued" | "not_queued"; cursor: string | null; reason: ReceiptReason | null; host_delivery: "not_attempted"; agent_receipt: null };
 export type FrozenSupervisorMessage = Readonly<{ conversation: string; revision: string; actor: string; operation: string; message: string; bytes: string; requestDigest: string; bodyDigest: string }>;
 const RECEIPT_REASONS: readonly string[] = ["conversation_revision_changed", "message_id_conflict", "attachment_unavailable"];
-/** The published schema fixes these values; callers bound requests by the adapted discovery limits. */
-const SCHEMA_LIMITS: SupervisorLimits = { body_bytes: 16384, context_refs: 16, attachments: 4, history_page: 16 };
+/** Published schema values, treated as maxima: callers bound requests by the adapted discovery limits. */
+const SCHEMA_LIMITS = { body_bytes: 16384, context_refs: 16, attachments: 4, history_page: 16 } as const satisfies SupervisorLimits;
+/** Lowest value a server may advertise: messages and history pages need room for one item; context refs and attachments may be disabled. */
+const LIMIT_FLOORS: SupervisorLimits = { body_bytes: 1, context_refs: 0, attachments: 0, history_page: 1 };
 export function supervisorId(v: unknown): v is string { return typeof v === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(v) && v !== "00000000-0000-0000-0000-000000000000"; }
 function check(v: unknown): asserts v { if (!v) throw new ContractError("Invalid global supervisor response"); }
 /** Closed object: every required key, optional keys only from the listed set, nothing else. */
@@ -49,7 +52,7 @@ function utf8Bytes(v: string): number { return new TextEncoder().encode(v).lengt
 export function validateSupervisorText(body: string, maxBytes: number = SCHEMA_LIMITS.body_bytes): string | null {
   if (!body.trim()) return "Enter a message.";
   if (body.includes("\0") || /\p{Cs}/u.test(body)) return "Message must contain valid Unicode without NUL characters.";
-  if (utf8Bytes(body) > maxBytes) return `Message exceeds ${maxBytes / 1024} KiB.`;
+  if (utf8Bytes(body) > maxBytes) return `Message exceeds ${maxBytes % 1024 ? `${maxBytes} bytes` : `${maxBytes / 1024} KiB`}.`;
   return null;
 }
 export async function supervisorDigest(text: string): Promise<string> {
@@ -83,7 +86,7 @@ export function adaptSupervisorDiscovery(v: unknown): Discovery {
   shape(v, "contract conversation runtime limits"); common(v);
   shape(v.limits, "body_bytes context_refs attachments history_page");
   const limits = v.limits;
-  check((Object.keys(SCHEMA_LIMITS) as (keyof SupervisorLimits)[]).every(key => limits[key] === SCHEMA_LIMITS[key]));
+  check((Object.keys(SCHEMA_LIMITS) as (keyof SupervisorLimits)[]).every(key => integer(limits[key], LIMIT_FLOORS[key], SCHEMA_LIMITS[key])));
   return v as unknown as Discovery;
 }
 /** Cursors stay unchanged on the wire; comparison only follows the published N / A.R ordering. */
