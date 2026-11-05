@@ -18,8 +18,6 @@
     "providers.configured.read",
     "results.comment",
     "results.feedback",
-    "results.media.read",
-    "results.media.upload",
     "results.read",
     "search.read",
     "session.events.read",

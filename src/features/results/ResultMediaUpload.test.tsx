@@ -45,6 +45,11 @@ test("upload capability absence preserves metadata; the new control exists only 
   const app = setup({ enabled: false }); await screen.findByText(resultRecord().conclusion); expect(screen.queryByRole("button", { name: "Add image" })).toBeNull(); expect(app.writes).toHaveLength(0);
   app.unmount(); const feed = setup({ path: "/results" }); await screen.findByText(resultRecord().conclusion); expect(screen.queryByRole("button", { name: "Add image" })).toBeNull(); expect(feed.writes).toHaveLength(0);
 });
+test("upload gate: disabled media.upload hides controls and explains why", async () => {
+  const app = setup({ enabled: false }); await screen.findByText(resultRecord().conclusion);
+  expect(await screen.findByText(/Image upload is unavailable: result media is not configured/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Add image" })).toBeNull(); expect(app.writes).toHaveLength(0);
+});
 test("one explicit submit freezes raw intent, guards duplicate clicks and refreshes an already opened gallery", async () => {
   const app = setup(); const galleryButton = await screen.findByRole("button", { name: "View supplemental images" }); await userEvent.click(galleryButton); await screen.findByText("No supplemental images are retained for this exact report.");
   await open(); choose(); const button = screen.getByRole("button", { name: "Upload image" }); fireEvent.click(button); fireEvent.click(button);
