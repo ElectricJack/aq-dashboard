@@ -106,7 +106,7 @@
       "deferred_differences": [
         "Context chips and attachments are hidden because the contract advertises none",
         "Inline result-card previews are not offered",
-        "Live docked capture is deferred: live /supervisor shows the compatibility gate (follow-up steady-cascade-45.12.1); the fixture capture is the accepted record"
+        "Live docked capture is deferred: live /supervisor shows the compatibility gate (follow-up steady-cascade-45.12.1); the fixture capture is the accepted record (fix landed on main as f8975f7 and is merged; live recapture pending a running E0 server)"
       ],
       "captures": {
         "fixture": [
@@ -215,7 +215,7 @@
       "delivered_subset": "Full-page Global supervisor with History and Dock chat, readable message width, delivery and reply states, and a text-only composer with draft notice. This is also the default at tablet widths.",
       "deferred_differences": [
         "Context chips, attachments and inline result previews are hidden because the contract offers none",
-        "Live /supervisor against E0 renders 'Dashboard update required': adaptSupervisorDiscovery requires exact schema limits and E0 advertises context_refs 0 and attachments 0. This is bundle compatibility, out of G11 scope; follow-up steady-cascade-45.12.1. The fixture captures are the accepted visual record"
+        "Live /supervisor against E0 renders 'Dashboard update required': adaptSupervisorDiscovery requires exact schema limits and E0 advertises context_refs 0 and attachments 0. This is bundle compatibility, out of G11 scope; follow-up steady-cascade-45.12.1. The fixture captures are the accepted visual record (fix landed on main as f8975f7 and is merged; live recapture pending a running E0 server)"
       ],
       "captures": {
         "fixture": [
@@ -301,7 +301,7 @@
       "deferred_differences": [
         "Context chips and attachments are hidden (contract offers none)",
         "At 320px the 'Supervisor' bottom-nav label overflows its cell by about 5px without page overflow",
-        "The live capture shows the compatibility gate (see 09; follow-up steady-cascade-45.12.1)"
+        "The live capture shows the compatibility gate (see 09; follow-up steady-cascade-45.12.1) (fix landed on main as f8975f7 and is merged; live recapture pending a running E0 server)"
       ],
       "captures": {
         "fixture": [
