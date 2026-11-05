@@ -72,6 +72,25 @@ export function DecisionAction({ detail: d, capability, refreshes, onRefresh, on
     vv.addEventListener("resize", onResize); return () => vv.removeEventListener("resize", onResize);
   }, [available]);
 
+  // WCAG 2.4.11: reserve the sticky bar's measured height as the page's bottom scroll padding
+  // so keyboard focus scrolled into view is never hidden behind the bar (desktop: whole bar;
+  // phone: only the action row is sticky).
+  const barRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const bar = barRef.current, root = document.documentElement;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const update = () => {
+      const sticky = getComputedStyle(bar).display === "contents" ? rowRef.current : bar;
+      if (!sticky) return;
+      const inset = parseFloat(getComputedStyle(sticky).insetBlockEnd) || 0;
+      root.style.scrollPaddingBlockEnd = `${Math.ceil(sticky.getBoundingClientRect().height + inset + 16)}px`;
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(bar); if (rowRef.current) observer.observe(rowRef.current);
+    window.addEventListener("resize", update); update();
+    return () => { observer.disconnect(); window.removeEventListener("resize", update); root.style.removeProperty("scroll-padding-block-end"); };
+  }, []);
+
   async function submit(choice?: "approve" | "reject") {
     if (busy || !available) return;
     if (!pending.current && new TextEncoder().encode(note.trim()).length > 2048) { setStatus("Please shorten the note before sending."); return; }
@@ -96,7 +115,7 @@ export function DecisionAction({ detail: d, capability, refreshes, onRefresh, on
   }
 
   const frozen = busy || pending.current !== null;
-  return <section className={styles.bar} data-decision-bar="" aria-label="Your decision">
+  return <section ref={barRef} className={styles.bar} data-decision-bar="" aria-label="Your decision">
     {(available || note) && <div className={styles.field}>
       <Icon icon={MessageSquare} size={20} className={styles.fieldIcon} />
       <textarea ref={noteRef} id={noteId} className={styles.note} aria-label="Decision note" aria-describedby={metaId} placeholder="Add a decision note…" rows={1}

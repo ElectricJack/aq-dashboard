@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
 import { connectInteractiveTerminal, type TerminalBinding, type TerminalState } from '../../api/interactiveTerminalClient';
+import { readPreferences } from '../../app/preferences';
 import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_FAMILY, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
@@ -85,7 +86,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   // Sticky on-screen Ctrl: the ref is read by xterm's onData, the state renders aria-pressed.
   const [ctrl, setCtrlState] = useState(false), ctrlArmed = useRef(false);
   const setCtrl = useCallback((on: boolean) => { ctrlArmed.current = on; setCtrlState(on); }, []);
-  const [fontSize, setFontSize] = useState(TERMINAL_FONT_SIZE), fontSizeRef = useRef(fontSize);
+  const [fontSize, setFontSize] = useState(() => clampTerminalFontSize(readPreferences().terminalFontSize)), fontSizeRef = useRef(fontSize);
   const relayout = useRef<(forceResize?: boolean) => void>(() => {});
   const [panColumns, setPanColumns] = useState<number | null>(null);
   const keys = useRef<HTMLDivElement>(null);

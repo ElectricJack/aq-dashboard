@@ -416,7 +416,7 @@
   .brand { padding-inline: var(--space-2); gap: var(--space-2); font-size: 18px; white-space: nowrap; }
   .top { column-gap: var(--space-3); }
   .search { flex: none; min-inline-size: 0; inline-size: var(--touch-target); padding: 0; justify-content: center; }
-  .search > span, .search .kbd { position: absolute; inline-size: 1px; block-size: 1px; clip-path: inset(50%); white-space: nowrap; }
+  .search > span, .search .kbd { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* Phone: no rail; compact header and bottom destinations. */
@@ -433,17 +433,18 @@
     display: none;
   }
 
+  /* References 12/13: brand, scope and search on one row, then a one-row quota strip.
+     Row 1 holds the mock chip (when present) and the connection state. */
   .top {
     display: grid;
-    min-block-size: 114px;
-    grid-template-columns: var(--touch-target) minmax(0, 1fr) max-content;
-    gap: var(--space-2) var(--space-1);
+    grid-template-columns: minmax(0, 1fr) var(--touch-target);
+    gap: var(--space-1) var(--space-2);
     padding: var(--space-2) var(--gutter-mobile);
   }
 
   .scopeRow {
-    grid-column: 1 / -1;
-    grid-row: 1;
+    grid-column: 1;
+    grid-row: 2;
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
@@ -467,7 +468,7 @@
   }
 
   .search {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 2;
     min-inline-size: 0;
     inline-size: var(--touch-target);
@@ -479,13 +480,17 @@
     position: absolute;
     inline-size: 1px;
     block-size: 1px;
+    overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
   }
 
   .connection {
-    grid-column: 3;
-    grid-row: 2;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    font-size: 11px;
   }
 
   .kbd {
@@ -507,10 +512,6 @@
     justify-self: start;
   }
 
-  .top:has(.mockBanner) .scopeRow { grid-row: 2; }
-  .top:has(.mockBanner) .search,
-  .top:has(.mockBanner) .connection,
-  .top:has(.mockBanner) .compactUsage { grid-row: 3; }
 
   .phoneNav {
     display: flex;
@@ -576,8 +577,8 @@
 /* Window details stay in this bounded panel rather than opening a clipped second overlay. */
 .usageReason ul { position: static; min-inline-size: 0; max-inline-size: 100%; }
 @media (max-width: 767px) {
-  .compactUsage { grid-column: 2; grid-row: 2; }
-  .scope { inline-size: 100%; }
+  .compactUsage { grid-column: 1 / -1; grid-row: 3; margin-inline-start: 0; }
+  .scope { inline-size: 100%; min-inline-size: 0; }
   .usageReason { inset-inline: var(--gutter-mobile); inline-size: auto; }
   .shell[data-focused-session] .scopeRow,
   .shell[data-focused-session] .search { display: none; }
@@ -585,15 +586,19 @@
   .shell[data-focused-session] .main > h1 { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
-/* Phone: account facts wrap as text; the header never truncates quota/reset/freshness. */
+/* 320 reflow: the mark alone carries the brand so the scope picker keeps its label. */
+@media (max-width: 359px) {
+  .phoneWordmark { display: none; }
+  /* The focused session's quota strip takes its own row below the chip and connection state. */
+  .shell[data-focused-session] .top { flex-wrap: wrap; row-gap: 0; }
+  .shell[data-focused-session] .top .compactUsage { order: 1; flex: 1 1 100%; }
+}
+
+/* Phone: account facts wrap as text inside their strip column; the header never truncates
+   quota/reset/freshness. */
 @media (max-width: 767px) {
  .compactUsage summary { white-space: normal; }
  .usageChevron { display: none; }
- .compactUsage { grid-column: 2 / -1; }
- .connection { grid-row: 1; align-self: end; font-size: 11px; }
- .scopeRow { grid-template-columns: max-content minmax(0,1fr); padding-block-end: var(--space-3); }
- .connection { grid-column: 2 / -1; justify-self: end; }
- .top:has(.mockBanner) .connection { grid-row: 2; }
  .shell[data-focused-session] .compactUsage { flex: 1; }
 }
 

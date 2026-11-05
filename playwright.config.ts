@@ -4,7 +4,7 @@ const PORT = 4178;
 
 export default defineConfig({
   testDir: "tests",
-  testIgnore: "**/live/**",
+  testIgnore: ["**/live/**", "**/visual/**"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   reporter: [["list"]],

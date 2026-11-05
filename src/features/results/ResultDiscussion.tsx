@@ -77,6 +77,8 @@ function ThreadGroup({thread,detail,feedback}:{thread:Thread;detail:ResultDetail
 export function ResultDiscussion({detail,query,sheet,onClose,onFeedback}:{detail:ResultDetail;query:CommentsQuery;sheet?:boolean;onClose():void;onFeedback?(id?:string):void}){
  const {bootstrap}=useSession(),dialog=useRef<HTMLDialogElement>(null),[body,setBody]=useState(""),[error,setError]=useState<string|null>(null),[imageMode,setImageMode]=useState(false),[pin,setPin]=useState<{artifact_id:string;digest:string}|null>(null),[region,setRegion]=useState({x:.1,y:.1,width:.3,height:.3}),[draft,setDraft]=useState(false),[attach,setAttach]=useState(false);
  const operation=useResultOperation(detail.result.project_id,"results.comment");
+ // Close the modal before it unmounts so the browser returns focus to the Comments button.
+ const close=()=>{if(sheet)dialog.current?.close();onClose();};
  const comments=query.data?.pages.flatMap(p=>p.items)??[],threads=groupThreads(comments),more=!!query.hasNextPage;
  const canFeedback=bootstrap.capability("results.feedback").enabled,canImage=bootstrap.capability("results.media.read").enabled,canUpload=bootstrap.capability("results.media.upload").enabled;
  useEffect(()=>{const element=dialog.current;if(sheet)element?.showModal();return()=>element?.close();},[sheet]);
@@ -87,7 +89,7 @@ export function ResultDiscussion({detail,query,sheet,onClose,onFeedback}:{detail
   const op=await operation.submit("POST",`/api/v1/results/${detail.result.id}/revisions/${detail.revision.revision}/comments`,payload);
   if(op?.disposition==="confirmed"){setBody("");void query.refetch();}
  }catch{setError("Enter a comment and choose a valid retained image region.");}}
- const content=<><header className={styles.panelHeader}><div><h2>Comments{query.data&&` · ${comments.length}${more?"+":""}`}</h2><p className={styles.meta}>Task {shortId(detail.result.task_id)} · <span title={`Exact result revision ${detail.revision.revision}`}>result {detail.revision.revision.slice(0,7)}</span></p></div><ActionButton className={styles.iconButton} onClick={onClose} aria-label="Close comments"><X aria-hidden="true" size={18}/></ActionButton></header>
+ const content=<><header className={styles.panelHeader}><div><h2>Comments{query.data&&` · ${comments.length}${more?"+":""}`}</h2><p className={styles.meta}>Task {shortId(detail.result.task_id)} · <span title={`Exact result revision ${detail.revision.revision}`}>result {detail.revision.revision.slice(0,7)}</span></p></div><ActionButton className={styles.iconButton} onClick={close} aria-label="Close comments"><X aria-hidden="true" size={18}/></ActionButton></header>
   {query.isPending?<p role="status">Loading comments…</p>:query.isError?<p role="alert">Comments unavailable. <ActionButton onClick={()=>void query.refetch()}>Try comments again</ActionButton></p>:<>
    <div className={styles.threads}>{threads.map(t=><ThreadGroup key={t.key} thread={t} detail={detail} feedback={canFeedback?id=>onFeedback?onFeedback(id):setDraft(true):undefined}/>)}{!comments.length&&<p className={styles.meta}>No comments on this revision.</p>}</div>
    {query.hasNextPage&&<ActionButton disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>Load more comments</ActionButton>}
@@ -107,7 +109,7 @@ export function ResultDiscussion({detail,query,sheet,onClose,onFeedback}:{detail
    <OperationStatus operation={operation} onCheck={()=>{void query.refetch();}}/>{operation.status?.disposition==="confirmed"&&<ActionButton onClick={operation.reset}>Write another comment</ActionButton>}
   </form>:<p className={styles.meta}>{capReason(bootstrap.capability("results.comment"))}</p>}
  </>;
- return <>{sheet?<dialog ref={dialog} className={styles.commentsDialog} aria-label="Result comments" onCancel={e=>{e.preventDefault();onClose();}}>{content}</dialog>:<aside className={styles.discussion} aria-label="Discussion">{content}</aside>}{draft&&<FeedbackDraft detail={detail} comments={comments} onClose={()=>setDraft(false)}/>}</>;
+ return <>{sheet?<dialog ref={dialog} className={styles.commentsDialog} aria-label="Result comments" onCancel={e=>{e.preventDefault();close();}}>{content}</dialog>:<aside className={styles.discussion} aria-label="Discussion">{content}</aside>}{draft&&<FeedbackDraft detail={detail} comments={comments} onClose={()=>setDraft(false)}/>}</>;
 }
 
 function capReason(cap:{enabled:boolean;reason?:string}){return cap.reason??"";}

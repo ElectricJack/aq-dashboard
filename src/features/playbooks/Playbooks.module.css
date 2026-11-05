@@ -65,6 +65,8 @@
 /* One back control on every phone detail page ("All runs" / "All definitions" / "All activations"), directly above the H2. */
 .mobileBack { display:none; }
 @media(max-width:850px){ .workspace[data-focused="true"] .roster { display:none; }.page[data-detail="true"] .viewBar { display:none; }.mobileBack { display:inline-flex;align-items:center;justify-self:start;min-block-size:var(--touch-target); } }
+/* 0002 §9 tablet: a selected run, definition or activation is one detail pane with the same back control. */
+@media(max-width:1199px){ .workspace[data-focused="true"] { grid-template-columns:minmax(0,1fr); }.workspace[data-focused="true"] .roster { display:none; }.page[data-detail="true"] .viewBar { display:none; }.mobileBack { display:inline-flex;align-items:center;justify-self:start;min-block-size:var(--touch-target); } }
 @media(max-width:600px){ .tabs button { padding-inline:var(--space-2);font-size:var(--font-size-meta); } }
 @media(max-width:850px){ .filters { flex:1 1 0;min-inline-size:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); }.filter select { inline-size:100%; } }
 @media(max-width:480px){ .filterIcon { display:none; }.filter select.withIcon { padding-inline-start:var(--space-3); } }
@@ -117,7 +119,8 @@
 }
 
 /* PB-D: inspector header, compact pin strip and Technical identity (reference 06). */
-.runHeading h2:focus:not(:focus-visible),.inspectorHeader h2:focus:not(:focus-visible) { outline:none; }
+/* Headings take programmatic focus (tabindex=-1) only to announce the selected item; they are not controls, so no control-style ring (G11). */
+.runHeading h2[tabindex="-1"]:focus,.inspectorHeader h2[tabindex="-1"]:focus { outline:none; }
 .inspectorHeader { display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;column-gap:var(--space-3);row-gap:var(--space-1); }
 .inspectorHeader h2 { grid-column:1;grid-row:1;margin:0;font-size:24px;min-inline-size:0;overflow-wrap:anywhere; }
 .inspectorHeader .badge { grid-column:2;grid-row:1;justify-self:end; }

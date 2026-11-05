@@ -1,8 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
+import { applyPreferences, readPreferences } from "./app/preferences";
 import "./components/tokens.css";
 import "./components/base.css";
+
+// Display preferences apply before first paint so text size and motion never flash.
+applyPreferences(readPreferences());
 
 async function start() {
   // Statically false in production builds, so mock code is never bundled.

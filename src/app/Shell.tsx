@@ -256,7 +256,7 @@ export function Shell() {
         <div className={styles.scopeRow}>
           <p className={styles.phoneBrand} aria-hidden="true">
             <span className={styles.mark}>aq</span>
-            Agent Q
+            <span className={styles.phoneWordmark}>Agent Q</span>
           </p>
           {phone && scopePicker}
         </div>

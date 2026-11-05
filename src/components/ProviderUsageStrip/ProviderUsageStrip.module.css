@@ -197,24 +197,24 @@
   white-space: nowrap;
 }
 
-/* Phone keeps the stacked per-provider summary: name, percent, window line with its own age. */
+/* Phone (references 12/13): providers side by side, "Name ▬ 42% used" over the window line with
+   its own age. Text wraps inside its column rather than truncating. */
 @media (max-width: 767px) {
   .summary {
-    flex-wrap: wrap;
-    gap: var(--space-1);
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: var(--space-3);
     inline-size: 100%;
   }
 
   .summaryEntry {
-    flex: 1 1 100%;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "name"
-      "figure"
-      "meta";
-    gap: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px var(--space-2);
     font-size: 12px;
-    line-height: inherit;
+    line-height: 1.35;
     white-space: normal;
   }
 
@@ -225,16 +225,11 @@
 
   .summaryEntry > .meta,
   .summaryStatus {
-    color: var(--color-accent);
+    flex-basis: 100%;
   }
 
-  /* Visually hidden so the 390 composition is unchanged; the progressbar stays announced. */
   .summaryEntry .bar {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+    inline-size: 40px;
   }
 
   .summary[data-shared-freshness] .summaryEntry .freshness {
