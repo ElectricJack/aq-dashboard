@@ -7,6 +7,7 @@ import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
 import { withDecisionFixtures } from "./decisionFixtures";
+import { questionHandlers, withQuestionFixtures } from "./questions";
 import { PLAYBOOK_CAPABILITIES, playbookActionHandlers, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
 function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
@@ -72,7 +73,10 @@ const FIXTURE_TERMINALS = new Map(FIXTURE_SESSIONS.flatMap((x) => (x.terminal ? 
 export function handlersFor(name: string | null | undefined, { fixtures = false }: { fixtures?: boolean } = {}) {
   const s = scenario(name);
   const sessions = fixtures ? FIXTURE_SESSIONS : SESSIONS;
-  const bootstrap = fixtures ? withDecisionFixtures(withFixtureCapabilities(s.bootstrap, s.media)) : s.bootstrap;
+  // `?scenario=questions` (fixture mode) adds the labelled F5 agent questions to the decision inbox.
+  const questions = fixtures && name === "questions";
+  const decisionBootstrap = fixtures ? withDecisionFixtures(withFixtureCapabilities(s.bootstrap, s.media)) : s.bootstrap;
+  const bootstrap = questions ? withQuestionFixtures(decisionBootstrap) : decisionBootstrap;
   const playbookNames: readonly string[] = fixtures ? PLAYBOOK_CAPABILITIES : [];
   const playbookCaps = fixtures ? playbookCapabilities(playbookMode(name)) : [];
   const coverage: Coverage =
@@ -88,6 +92,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
   return [
     ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
+    ...(questions ? questionHandlers() : []),
     ...humanGraphHandlers(s.reads, s.graph),
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),

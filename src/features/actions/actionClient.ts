@@ -12,7 +12,8 @@ export const actionCapability = (kind: ActionKind): string => ({"task.edit":"tas
 export type ActionKind = keyof typeof actionLabels;
 export type ActionContext = { project: GraphEnvelope<unknown>["project"]; data?: GraphNode };
 /** `kind` is a union kind name; feature modules (for example playbooks) freeze their own kinds through the same transport. */
-export type FrozenAction = Readonly<{ id: string; bytes: string; kind: string; subject: {type:string;id:string;revision?:string} }>;
+/** `project` is the expected operation scope when the kind's payload carries no `project_id` (for example `question.answer`). */
+export type FrozenAction = Readonly<{ id: string; bytes: string; kind: string; subject: {type:string;id:string;revision?:string}; project?: string }>;
 export type EntityRef = {type:string;id:string;revision?:string|null};
 export type ActionOperation = {
   operation_id:string; disposition:"pending"|"confirmed"|"conflict"|"rejected"|"unknown";
@@ -39,7 +40,7 @@ export function adaptActionOperation(raw:unknown, frozen:FrozenAction):ActionOpe
     !refs(n.subject_refs)||n.subject_refs.length>1||!refs(n.receipt_refs)||!refs(n.affected_entities)||
     !["none","lookup_original","refresh_and_review"].includes(String(n.recovery))||
     typeof n.created_at!=="string"||!Number.isFinite(Date.parse(n.created_at))||typeof n.updated_at!=="string"||!Number.isFinite(Date.parse(n.updated_at))||
-    !isRecord(n.scope)||!(n.scope.kind==="all_authorized"||(n.scope.kind==="project"&&n.scope.project_id===JSON.parse(frozen.bytes).payload.project_id))||
+    !isRecord(n.scope)||!(n.scope.kind==="all_authorized"||(n.scope.kind==="project"&&n.scope.project_id===(frozen.project??JSON.parse(frozen.bytes).payload.project_id)))||
     (n.current_versions!==undefined&&(!isRecord(n.current_versions)||Object.keys(n.current_versions).length>32||!Object.values(n.current_versions).every(revision))))throw new ContractError("Invalid action operation");
   if(n.subject_refs.some(s=>s.type!==frozen.subject.type||s.id!==frozen.subject.id))throw new ContractError("Action subject changed");
   if(n.disposition==="confirmed"&&!n.receipt_refs.length)throw new ContractError("Confirmation has no receipt");

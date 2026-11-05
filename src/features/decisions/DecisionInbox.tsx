@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
-import { ChevronRight, RefreshCw, TriangleAlert } from "lucide-react";
+import { ChevronRight, MessageCircleQuestion, RefreshCw, TriangleAlert } from "lucide-react";
 import type { DecisionSummary } from "../../api/adapters/decisions";
+import type { QuestionSummary } from "../../api/adapters/questions";
 import { useGraphDetail } from "../../api/humanGraphReads";
 import { useSession } from "../../app/session";
 import { useProjects } from "../../app/useProjects";
@@ -31,30 +32,41 @@ type Props = {
   fetching: boolean;
   onRefresh(): void;
   more: { available: boolean; loading: boolean; load(): void; limitReached: boolean };
+  /** F5 agent questions in the same inbox; undefined when the server does not offer them. */
+  questions?: { rows: QuestionSummary[] | undefined; error: unknown; more: boolean; serverTime: number | undefined; updatedAt: number };
   className?: string;
 };
 
 /** Left column of reference 03: Open | Resolved segmented control, refresh, and the review rows. */
-export function DecisionInbox({ state, onState, rows, error, serverTime, updatedAt, selected, project, fetching, onRefresh, more, className }: Props) {
+export function DecisionInbox({ state, onState, rows, error, serverTime, updatedAt, selected, project, fetching, onRefresh, more, questions, className }: Props) {
   const projects = useProjects();
   const names = useMemo(() => new Map((projects.data?.view ?? []).map(p => [p.id, p.label])), [projects.data]);
   const receivedAt = useMemo(() => performance.now(), [updatedAt]);
   const now = useServerNow(serverTime === undefined ? undefined : { serverTime: new Date(serverTime).toISOString(), receivedAt }, { tickMs: 15_000 });
+  const search = new URLSearchParams({ ...(project && { scope: `project:${project}` }), state }).toString();
+  const asked = questions?.rows ?? [];
+  const askedAt = useMemo(() => performance.now(), [questions?.updatedAt]);
+  const askedNow = useServerNow(questions?.serverTime === undefined ? undefined : { serverTime: new Date(questions.serverTime).toISOString(), receivedAt: askedAt }, { tickMs: 15_000 });
   return <section className={[styles.pane, className].filter(Boolean).join(" ")} aria-label="Decision inbox" data-inbox="">
     <div className={styles.header}>
       <div className={styles.segmented} role="group" aria-label="Review state">
         {(["open", "closed"] as const).map(s => <button key={s} type="button" className={styles.segment} aria-pressed={s === state} onClick={() => onState(s)}>
-          {STATE_LABEL[s]}{s === state && rows && <span className={styles.count}>{rows.length}</span>}
+          {STATE_LABEL[s]}{s === state && rows && <span className={styles.count}>{rows.length + asked.length}</span>}
         </button>)}
       </div>
       <button type="button" className={styles.refresh} aria-label="Refresh reviews" title="Refresh reviews" disabled={fetching} onClick={onRefresh}>
         <Icon icon={RefreshCw} size={18} />
       </button>
     </div>
+    {questions?.error ? <p role="status" className={styles.notice}>Agent questions could not be loaded. Refresh to try again.</p> : null}
+    {asked.length > 0 && <ul className={styles.list} aria-label="Agent questions">{asked.map(q => <li key={q.decisionId}>
+      <QuestionRow row={q} selected={selected === q.decisionId} projectName={names.get(q.projectId)} now={askedNow} search={`${search}&kind=question`} />
+    </li>)}</ul>}
+    {questions?.more && <p className={styles.notice}>More questions are waiting. Answer these, then refresh.</p>}
     {!rows ? <div className={styles.status}><QueryStatus status={error ? "error" : "pending"} error={error} label="review inbox" onRetry={onRefresh} /></div> : <>
-      {rows.length === 0 ? <p className={styles.empty}>{state === "open" ? "No open reviews" : "No resolved reviews"}</p>
+      {rows.length === 0 ? asked.length === 0 && <p className={styles.empty}>{state === "open" ? `No open reviews${questions ? " or questions" : ""}` : `No resolved reviews${questions ? " or questions" : ""}`}</p>
         : <ul className={styles.list} aria-label="Review inbox">{rows.map(r => <li key={r.decisionId}>
-          <InboxRow row={r} selected={selected === r.decisionId} projectName={names.get(r.projectId)} now={now} search={new URLSearchParams({ ...(project && { scope: `project:${project}` }), state }).toString()} />
+          <InboxRow row={r} selected={selected === r.decisionId} projectName={names.get(r.projectId)} now={now} search={search} />
         </li>)}</ul>}
       {(more.available || more.limitReached) && <div className={styles.footer}>
         {more.available && <ActionButton disabled={more.loading} onClick={more.load}>Load more reviews</ActionButton>}
@@ -81,6 +93,27 @@ function InboxRow({ row: r, selected, projectName, now, search }: { row: Decisio
       <span className={styles.meta}>{project} · Review</span>
       {timing && <span className={styles.meta}>{timing}</span>}
       {!r.current && <span className={styles.chip}><Icon icon={TriangleAlert} size={14} />Newer report exists</span>}
+    </span>
+    <Icon icon={ChevronRight} size={18} className={styles.chevron} />
+  </Link>;
+}
+
+function QuestionRow({ row: q, selected, projectName, now, search }: { row: QuestionSummary; selected: boolean; projectName: string | undefined; now: string | null; search: string }) {
+  const { bootstrap } = useSession();
+  const task = useGraphDetail(bootstrap.capability("human.graph.read").enabled ? q.projectId : "", "task", q.taskId);
+  const title = task.data?.data.title ?? `Question on task ${q.taskId.slice(0, 8)}`;
+  const project = projectName ?? `Project ${shortId(q.projectId)}`;
+  let timing: string | null = q.state === "answered" ? "Answered" : null;
+  if (q.state === "pending" && now) {
+    const until = formatUntil(now, new Date(q.expires).toISOString());
+    timing = until === "due now" ? "Expiry due now" : `Expires ${until}`;
+  }
+  return <Link className={styles.row} aria-current={selected ? "page" : undefined} to={{ pathname: `/decisions/${q.decisionId}`, search }} data-question-row="">
+    <span className={styles.body}>
+      <strong className={styles.title}>{title}</strong>
+      <span className={styles.meta}><Icon icon={MessageCircleQuestion} size={14} className={styles.kindIcon} />{project} · Question</span>
+      <span className={styles.excerpt}>{q.question}</span>
+      {timing && <span className={styles.meta}>{timing}</span>}
     </span>
     <Icon icon={ChevronRight} size={18} className={styles.chevron} />
   </Link>;
