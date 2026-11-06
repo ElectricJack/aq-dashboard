@@ -10,6 +10,7 @@ import { adaptGraphDetail, adaptGraphPage, validGraphId } from "../../api/adapte
 import { graphPath, useGraphDetail, useGraphNeighborhood } from "../../api/humanGraphReads";
 import { ActionButton } from "../../components/layout/Workspace";
 import { actionCapability, actionLabels, actionRequest, freezeAction, knowledgeActionKinds, knowledgeCategoryLabel, type ActionContext, type ActionKind, type ActionOperation, type FrozenAction } from "./actionClient";
+import { validateTitle } from "../../api/adapters/taskCreate";
 import styles from "./RecordActions.module.css";
 
 type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;confirm:boolean};
@@ -72,7 +73,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
     if(["task.edit","knowledge.author","knowledge.correct"].includes(k)){
       const labels=k==="knowledge.author"||draft.labelsEdited?[...new Set(draft.labels.split(",").map(x=>x.trim()).filter(Boolean))]:undefined;
       if(labels&&(labels.length>16||labels.some(v=>new TextEncoder().encode(v).length>128)))throw new Error("Use at most 16 labels, each up to 128 bytes.");
-      if(!draft.title.trim()||Array.from(draft.title).length>512)throw new Error("Enter a title of at most 512 characters.");
+      const titleProblem=validateTitle(draft.title,"bytes");if(titleProblem)throw new Error(titleProblem);
       if(new TextEncoder().encode(draft.body).length>32768||new TextEncoder().encode(draft.acceptance).length>8192)throw new Error("Shorten the description or acceptance criteria.");
       return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
     }
