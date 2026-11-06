@@ -61,13 +61,15 @@ section.bar[data-decision-bar] {
 
 /* Phone: evidence first. The note stays in the page flow and only the action row is
    sticky, above the shell's fixed bottom navigation (56px bar + 1px border) and the
-   safe area, so the bar never covers the note while it is being typed. */
+   safe area, so the bar never covers the note while it is being typed. The shell
+   publishes that offset as --shell-bottom-nav-height and drops it to 0 while text
+   entry has focus (the nav steps aside), so the row follows it down to the edge. */
 @media (max-width: 767px) {
   section.bar[data-decision-bar] { display: contents; }
   .field { margin-block-start: var(--space-3); }
   .row {
     position: sticky;
-    inset-block-end: calc(57px + env(safe-area-inset-bottom));
+    inset-block-end: var(--shell-bottom-nav-height, calc(57px + env(safe-area-inset-bottom)));
     z-index: 10;
     margin-block-start: var(--space-3);
     margin-inline: calc(-1 * var(--gutter-mobile));
