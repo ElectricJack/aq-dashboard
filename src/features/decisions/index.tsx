@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
+import { validGraphId } from "../../api/adapters/humanGraph";
 import { adaptDecision, adaptDecisions } from "../../api/adapters/decisions";
 import { adaptQuestion, adaptQuestions, QUESTIONS_READ, QUESTIONS_ROOT } from "../../api/adapters/questions";
 import { queryKey } from "../../api/queryKeys";
@@ -53,7 +54,9 @@ export function Component() {
           questions={questionsOffered ? { rows: questions.data?.items, error: questions.isError ? questions.error : undefined, more: !!questions.data?.cursor, serverTime: questions.data?.serverTime, updatedAt: questions.dataUpdatedAt } : undefined}
           more={{ available: inbox.hasNextPage, loading: inbox.isFetchingNextPage, load: () => void inbox.fetchNextPage(), limitReached: inbox.data?.pages.length === 4 && !!inbox.data.pages[3]?.cursor }} />
         {decisionId && <Link className={styles.back} to={{ pathname: "/decisions", search: back }}><Icon icon={ChevronLeft} size={18} />All decisions</Link>}
-        {decisionId && question ? <SelectedQuestion key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`} id={decisionId} project={project} />
+        {/* A malformed id can never load: neutral not-found, never a retryable error (WD-13). */}
+        {decisionId && !validGraphId(decisionId) ? <Panel title={question ? "Agent question" : "Decision"}><p role="status">This item does not exist or is not available to you.</p></Panel>
+        : decisionId && question ? <SelectedQuestion key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`} id={decisionId} project={project} />
         : decisionId ? <Selected key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`} id={decisionId} project={project} /> : <>
           <Panel title="Choose a review" className={styles.placeholder}><p className={styles.muted}>Select a review to inspect its exact result and evidence.</p></Panel>
           <Panel title="Decision context" className={`${styles.context} ${styles.placeholder}`}><p className={styles.muted}>Project, task and evidence for the selected review appear here.</p></Panel>

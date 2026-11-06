@@ -28,6 +28,8 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  const {queryContext,reportIncompatible,reportAccessDenied}=useSession();const client=useQueryClient();const [params,setParams]=useSearchParams();const raw=params.get("operation");const selectedOperation=validGraphId(raw)?raw:undefined;
  const [open,setOpen]=useState(!!selectedOperation);const [draft,setDraft]=useDraft(`task-create:${project}`,blank,validDraft);const [frozenIntent,setFrozen]=useState<FrozenTaskCreate|null>(null);
  const [operationStatus,setStatus]=useState<TaskOperation|null>(null);const [verifiedTask,setCreated]=useState<GraphNode|null>(null);const [error,setError]=useState<string|null>(null);const [readError,setReadError]=useState<string|null>(null);const [busy,setBusy]=useState(false);
+ // The server has no record of this operation id (404 on lookup): it was refused before it was recorded, or is still in flight (WD-06).
+ const [unrecorded,setUnrecorded]=useState<string|null>(null);
  const active=useRef(true),busyRef=useRef(false),frozenRef=useRef<FrozenTaskCreate|null>(null),request=useRef<AbortController|null>(null);const dialog=useRef<HTMLDialogElement>(null);const initialLookup=useRef<string|null>(null);const titleId=useId();
  const sequence=useRef(0),urlOperation=useRef(selectedOperation),internalUrl=useRef<{value:string|undefined}|null>(null);
  const operation=selectedOperation??(internalUrl.current?.value===frozenIntent?.operationId?frozenIntent?.operationId:undefined);
@@ -45,7 +47,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
   clearPrivate();setOpen(!!selectedOperation);
  },[selectedOperation]);
  useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current?.close();},[open]);
- function clearPrivate(){frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setDraft({...blank});setReadError(null);setError(null);initialLookup.current=null;}
+ function clearPrivate(){frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setDraft({...blank});setReadError(null);setError(null);setUnrecorded(null);initialLookup.current=null;}
  function current(ticket:number){return active.current&&sequence.current===ticket;}
  function revokeAccess(reason:ApiError){reportAccessDenied(reason);sequence.current++;active.current=false;request.current?.abort();request.current=null;busyRef.current=false;setBusy(false);clearPrivate();onAccessRevoked();void client.invalidateQueries({queryKey:["bootstrap"]});}
  function operationParam(value?:string){internalUrl.current={value};setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set("operation",value);else next.delete("operation");return next;},{replace:true});}
@@ -63,8 +65,10 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
    const path=kind==="submit"?graphPath(project,"task"):`/api/human/operations/${encodeURIComponent(id)}${kind==="recover"?"/recover":""}`;
    const raw=await taskOperationRequest(kind==="lookup"?"GET":"POST",path,kind==="submit"?intent!.bytes:kind==="recover"?"{}":undefined,controller.signal);
    const value=adaptTaskOperation(raw,{operationId:id,project,actor:queryContext.principalId,...(intent?{digest:intent.digest}:{})});
-   if(!current(ticket))return;setStatus(value);setCreated(null);setReadError(null);setError(null);if(value.state==="confirmed")setDraft({...blank});await verifyTask(value,controller.signal,ticket);
-  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}setCreated(null);setError("The operation outcome is not confirmed. Check its status before starting another task.");}}
+   if(!current(ticket))return;setStatus(value);setUnrecorded(null);setCreated(null);setReadError(null);setError(null);if(value.state==="confirmed")setDraft({...blank});await verifyTask(value,controller.signal,ticket);
+  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}setCreated(null);
+   if(kind==="lookup"&&reason instanceof ApiError&&reason.status===404){setUnrecorded(id);setError(null);return;}
+   setError("The operation outcome is not confirmed. Check its status before starting another task.");}}
   finally{if(current(ticket)){setBusy(false);busyRef.current=false;}if(request.current===controller)request.current=null;}
  }
  async function lookup(){if(!operation||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("lookup",operation,frozenRef.current?.operationId===operation?frozenRef.current:undefined);}
@@ -76,7 +80,8 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  },[selectedOperation]);
  async function submit(event:React.FormEvent){
   event.preventDefault();if(busyRef.current||operation||!context.data||context.isFetching)return;
-  const problem=validateTaskDraft(draft);if(problem){setError(problem);return;}
+  // A blank title is missing, not too long (WD-03); the rest of the rules are the server's.
+  const problem=!draft.title.trim()?"Enter a title. A title is required.":validateTaskDraft(draft);if(problem){setError(problem);return;}
   busyRef.current=true;setBusy(true);setError(null);
   const preparation=sequence.current;
   try{const intent=await freezeTaskCreate(project,queryContext.principalId,context.data.revision,draft);if(!current(preparation))return;setStatus(null);setCreated(null);setReadError(null);frozenRef.current=intent;setFrozen(intent);operationParam(intent.operationId);await execute("submit",intent.operationId,intent);}
@@ -84,6 +89,8 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  }
  async function recover(){if(!operation||busyRef.current||!status?.recovery.allowed)return;busyRef.current=true;setBusy(true);await execute("recover",operation,frozenRef.current?.operationId===operation?frozenRef.current:undefined);}
  async function retryOriginal(){if(!frozenRef.current||frozenRef.current.operationId!==operation||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("submit",frozenRef.current.operationId,frozenRef.current);}
+ /** Leave an operation AQ never recorded and return to the composer with the local draft (WD-06). */
+ function startOver(){if(!operation||unrecorded!==operation||busyRef.current)return;frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setReadError(null);setError(null);setUnrecorded(null);initialLookup.current=null;operationParam();void context.refetch();}
  function revise(){if(!status||!["conflict","rejected","confirmed"].includes(status.state)||busyRef.current)return;if(status.state==="confirmed")setDraft({...blank});frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setReadError(null);setError(null);initialLookup.current=null;operationParam();void context.refetch();}
  function leaveConfirmedTask(){setOpen(false);clearPrivate();}
  const terminal=status&&["conflict","rejected","confirmed"].includes(status.state);
@@ -95,7 +102,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
    {error&&<p role="alert" className={styles.warning}>{error}</p>}
    {(!operation||frozen)&&<form onSubmit={e=>void submit(e)}>
     <fieldset disabled={busy||!!operation} className={styles.fields}>
-     <label>Title<input value={draft.title} required maxLength={1024} onChange={e=>setDraft(v=>({...v,title:e.target.value}))}/></label>
+     <label>Title<input value={draft.title} required maxLength={512} onChange={e=>setDraft(v=>({...v,title:e.target.value}))}/></label>
      <label>Description<textarea value={draft.body} rows={6} onChange={e=>setDraft(v=>({...v,body:e.target.value}))}/></label>
      <label>Acceptance criteria<textarea value={draft.acceptance_criteria} rows={4} onChange={e=>setDraft(v=>({...v,acceptance_criteria:e.target.value}))}/></label>
      <label>Initial task state<select value={draft.task_state} onChange={e=>setDraft(v=>({...v,task_state:e.target.value as TaskDraft["task_state"]}))}><option value="draft">Draft</option><option value="active">Active</option></select></label>
@@ -112,9 +119,10 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
     </div>
    </section>}
    {operation&&<section className={styles.operation} aria-label="Task creation status">
-    <p role="status">{busy?"Checking task operation…":created?"Task created and its record verified.":status?.state==="confirmed"?"Task creation receipt confirmed.":status?.state==="conflict"?"Task creation conflicted. Your draft is preserved.":status?.state==="rejected"?"Task creation was rejected. Your draft is preserved.":status?.state==="pending"?"Task creation is pending.":"Task creation outcome is uncertain."}</p>
+    <p role="status">{busy?"Checking task operation…":created?"Task created and its record verified.":status?.state==="confirmed"?"Task creation receipt confirmed.":status?.state==="conflict"?"Task creation conflicted. Your draft is preserved.":status?.state==="rejected"?"Task creation was rejected. Your draft is preserved.":status?.state==="pending"?"Task creation is pending.":unrecorded===operation?"AQ has no record of this operation.":"Task creation outcome is uncertain."}</p>
+    {!busy&&unrecorded===operation&&!status&&<p className={styles.meta}>No task was created from it as far as AQ knows: the request was refused before it was recorded, or is still on its way. Check status again, or start over to submit your draft as a new task.</p>}
     {readError&&<p className={styles.warning}>{readError}</p>}
-    <div className={styles.footer}>{created&&<Link className={styles.openTask} onClick={e=>{if(e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey)leaveConfirmedTask();}} to={{pathname:`/work/${created.id}`,search:scopeSearch({kind:"project",project_id:project})}}>Open created task</Link>}<ActionButton disabled={busy} onClick={()=>void lookup()}>Check status</ActionButton>{status?.recovery.allowed&&<ActionButton disabled={busy} onClick={()=>void recover()}>Recover retained request</ActionButton>}{!status&&frozen&&<ActionButton disabled={busy} onClick={()=>void retryOriginal()}>Retry exact submission</ActionButton>}{terminal&&<ActionButton disabled={busy} onClick={revise}>{status.state==="confirmed"?"Start another task":"Revise draft"}</ActionButton>}</div>
+    <div className={styles.footer}>{created&&<Link className={styles.openTask} onClick={e=>{if(e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey)leaveConfirmedTask();}} to={{pathname:`/work/${created.id}`,search:scopeSearch({kind:"project",project_id:project})}}>Open created task</Link>}<ActionButton disabled={busy} onClick={()=>void lookup()}>Check status</ActionButton>{status?.recovery.allowed&&<ActionButton disabled={busy} onClick={()=>void recover()}>Recover retained request</ActionButton>}{!status&&frozen&&<ActionButton disabled={busy} onClick={()=>void retryOriginal()}>Retry exact submission</ActionButton>}{terminal&&<ActionButton disabled={busy} onClick={revise}>{status.state==="confirmed"?"Start another task":"Revise draft"}</ActionButton>}{!status&&unrecorded===operation&&<ActionButton disabled={busy} onClick={startOver}>Start over</ActionButton>}</div>
     {status&&!status.recovery.allowed&&status.recovery.reason&&<p className={styles.meta}>{status.recovery.reason}</p>}
     <details className={styles.details}><summary>Operation reference</summary><p>{operation}</p>{status&&<p>{status.request_digest}</p>}{status?.receipt&&<dl><dt>Original workspace</dt><dd>{status.receipt.workspace_id}</dd><dt>Creation change set</dt><dd>{status.receipt.change_set_id}</dd><dt>Initial record version</dt><dd>{status.receipt.version}</dd><dt>Initial content revision</dt><dd>{status.receipt.content_revision}</dd></dl>}<p>Keep this page address to inspect the same operation after a reload.</p></details>
    </section>}

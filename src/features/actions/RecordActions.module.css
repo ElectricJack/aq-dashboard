@@ -26,3 +26,8 @@
 .menuItem[aria-disabled=true] { color:var(--color-text-secondary);cursor:default; }
 .menuItem .meta { font-size:13px; }
 .unavailable { margin:var(--space-4) 0 0;color:var(--color-text-secondary);font-size:var(--font-size-meta);overflow-wrap:anywhere; }
+/* Add dependency: matching tasks as a radio list under the search field. */
+.choices { display:grid;gap:var(--space-1);margin:0;padding:0;border:0;min-inline-size:0; }
+.choices legend { padding:0;margin-block-end:var(--space-1); }
+.fields .choice { display:flex;align-items:center;gap:var(--space-3);min-block-size:var(--touch-target);padding:var(--space-1) var(--space-2);border:1px solid var(--color-border);border-radius:var(--radius-control); }
+.fields .choice input { flex:none;inline-size:20px;block-size:20px;margin:0; }

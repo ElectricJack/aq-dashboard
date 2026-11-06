@@ -80,7 +80,7 @@ export function HumanTaskGraph({project,root,selected,search}:{project:string;ro
     omitted:{nodes:0,edges:0,reason:null}}):null,[g,root]);
   // Wide and phone selection stays in the graph; tablet opens the task detail instead.
   const linkTo=useCallback((id:string):To=>({pathname:`/work/${encodeURIComponent(id)}`,
-    search:withParams(search,p=>{if(wide||phone){p.set("view","graph");p.set("root",root);}else p.delete("view");})}),[search,wide,phone,root]);
+    search:withParams(search,p=>{if(wide||phone){p.set("view","graph");p.set("root",root);}else{p.delete("view");p.delete("root");}})}),[search,wide,phone,root]);
   const listTo=graphListTarget(search);
   if(!g||!layout||query.isError){
     const status=<QueryStatus status={query.isError?"error":"pending"} error={query.error} label="task dependencies" onRetry={()=>void query.refetch()}/>;

@@ -78,3 +78,12 @@ test("resolve 426 disables answering with upgrade guidance and retains the note 
   renderApp(`/decisions/${decisionId(1)}`);await userEvent.type(await screen.findByRole("textbox",{name:"Decision note"}),"Retain this review note");await userEvent.click(screen.getByRole("button",{name:"Approve task version 3"}));
   expect(await screen.findByRole("note",{name:"Dashboard version"})).toHaveTextContent("Install compatible versions, then reload.");expect(screen.queryByRole("button",{name:"Retry same answer"})).not.toBeInTheDocument();expect(screen.getByRole("textbox",{name:"Decision note"})).toHaveValue("Retain this review note");expect(screen.getByRole("heading",{name:"Decision context"})).toBeInTheDocument();expect(writes).toBe(1);
 });
+test.each([["/decisions/not-a-uuid", "Decision"], ["/decisions/not-a-uuid?kind=question", "Agent question"]])("malformed id %s is a neutral not-found without a read or retry (WD-13)", async (path, title) => {
+  setup(); const reads: string[] = [];
+  server.events.on("request:start", ({ request }) => { const p = new URL(request.url).pathname; if (p.includes("not-a-uuid")) reads.push(p); });
+  renderApp(path);
+  expect(await screen.findByText("This item does not exist or is not available to you.")).toBeVisible();
+  expect(screen.getByRole("heading", { name: title })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  expect(reads).toEqual([]); server.events.removeAllListeners();
+});

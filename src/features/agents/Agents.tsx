@@ -30,6 +30,8 @@ import { OperationsNav, ProfileView, type OperationsView } from "./operations/Op
 import { HealthView } from "./operations/HealthView";
 import { WaitsView } from "./operations/WaitsView";
 import { NotificationsView } from "./operations/NotificationsView";
+import { MessageComposer } from "./operations/MessageComposer";
+import { MESSAGE_CAPABILITY, messageUnavailable } from "./operations/message";
 
 function providerText(s: SessionView) {
   return `${s.profile.provider ?? "Provider unknown"} · ${profileText(s.profile)}`;
@@ -39,10 +41,13 @@ function providerText(s: SessionView) {
 const ROSTER_POLL_MS = 10_000;
 const DETAIL_POLL_MS = 5_000;
 
-/** Preserve user labels; shorten only the server's UUID fallback for compact chrome. */
+/** Preserve user labels. The server's UUID fallback ("Remote session <uuid>") says nothing in a narrow tab,
+ * so compact chrome leads with the task title when one is recorded, else the short session id (RA-13). */
 function compactSessionLabel(s: SessionView): string {
   const fallback = ["Remote session", "Central session", "Session"].some(prefix => s.label === `${prefix} ${s.id}`);
-  return fallback ? s.label.slice(0, -s.id.length) + s.id.slice(0, 8) : s.label;
+  if (!fallback) return s.label;
+  const title = s.task?.title && s.task.title !== s.task.id ? s.task.title : null;
+  return title ?? `Session ${s.id.slice(0, 8)}`;
 }
 
 function LifecycleHistory({ session, serverTime }: { session: SessionView; serverTime: string }) {
@@ -79,13 +84,15 @@ function Roster({ search }: { search: string }) {
   const sessions = pages.flatMap((p) => p.page.items);
   const serverTime = pages[pages.length - 1]!.serverTime;
   const complete = pages.every((p) => p.coverage.state === "complete");
+  // The server's own words for what the roster can't see yet (RA-18).
+  const coverageReason = [...new Set(pages.map(p => p.coverage.reason?.trim().replace(/\.$/, "")).filter(Boolean))].join(". ");
 
   return (
     <div className={styles.roster}>
-      {!complete && <p className={styles.warning}>This roster has partial coverage. Some sessions may be missing.</p>}
+      {!complete && <p className={styles.warning}>This roster has partial coverage. Some sessions may be missing.{coverageReason && <> {coverageReason}.</>}</p>}
       {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
       {sessions.length === 0 ? (
-        complete && <p className={styles.muted}>No active sessions</p>
+        <p className={styles.muted}>{complete ? "No active sessions" : "No sessions returned in this scope."}</p>
       ) : (
         <ul aria-label="Sessions" className={styles.list}>
           {sessions.map((s) => (
@@ -258,7 +265,7 @@ function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: Sw
         const statusId = `${listboxId}-tab-${s.id}`;
         return <div key={s.id} className={styles.sessionTab} data-current={current || undefined}>
           <Link ref={el => { if (el) tabLinks.current.set(s.id, el); else tabLinks.current.delete(s.id); }}
-            to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }} title={s.label} aria-label={s.label}
+            to={{ pathname: `/agents/${encodeURIComponent(s.id)}`, search }} title={s.task?.title && s.task.title !== s.task.id ? `${s.label} · ${s.task.title}` : s.label} aria-label={s.label}
             aria-describedby={statusId} aria-current={current ? "page" : undefined} className={styles.tabLink}>
             <span className={styles.sessionDot} data-state={s.observation.state} aria-hidden="true" />
             <span className={styles.tabName}>{compactSessionLabel(s)}</span>
@@ -267,8 +274,9 @@ function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: Sw
           <button type="button" className={styles.tabClose} aria-label={`Close ${s.label}`} onClick={() => close(s.id)}><X size={16} aria-hidden="true" /></button>
         </div>;
       })}
-      <ActionButton {...menuProps} className={styles.addTab} aria-label="Open another session"><Plus size={18} aria-hidden="true" /></ActionButton>
-    </div></>}
+    </div>
+    {/* Outside the scrolling tab row, so it never scrolls out of reach (RA-13). */}
+    <ActionButton {...menuProps} className={styles.addTab} aria-label="Open another session"><Plus size={18} aria-hidden="true" /></ActionButton></>}
     <div className={styles.sessionMenu} hidden={!shown}>
       {sessions.length > 0
         ? <ul ref={listbox} id={listboxId} role="listbox" aria-label="Sessions" tabIndex={0} className={styles.sessionOptions}
@@ -289,8 +297,7 @@ function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: Sw
   </nav>;
 }
 
-type DrawerKind = "details" | "transcript";
-const MESSAGE_UNAVAILABLE = "Messaging unavailable on this AQ server";
+type DrawerKind = "details" | "transcript" | "message";
 
 /** Workspace view (spec §6). Split is explicit and at most two panes; Expand hides page chrome. */
 export type WorkspaceView = { layout: "focus" | "split"; expanded: boolean; secondId: string | null };
@@ -459,6 +466,8 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   const headingId = `session-${s.id}-heading`;
   const switcherId = `session-${s.id}-switcher`;
   const live = !!s.terminal && terminal.enabled;
+  // Message is offered when the server advertises session messages and this session accepts them (RA-14).
+  const messageBlocked = messageUnavailable(s, bootstrap.capability(MESSAGE_CAPABILITY));
   const facts = <><span>{OBSERVATION_LABEL[s.observation.state]}</span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></>;
   const taskLink = s.task && taskView.enabled
     ? <Link className={styles.taskLink} aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
@@ -501,9 +510,9 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
           {split && <div className={styles.paneCaption}><strong>{s.label}</strong><span>{providerText(s)}</span></div>}
           {live ? <InteractiveTerminal key={s.terminal!.id} terminalId={s.terminal!.id} name={s.label} feed={feed} facts={facts}
             label={split ? `Interactive agent terminal, ${s.label}` : undefined}
-            transcriptOpen={drawer === "transcript"} onTranscript={from => openDrawer("transcript", from)} onDetails={from => openDrawer("details", from)} messageReason={MESSAGE_UNAVAILABLE} /> : <div className={styles.terminal} role="note">
+            transcriptOpen={drawer === "transcript"} onTranscript={from => openDrawer("transcript", from)} onDetails={from => openDrawer("details", from)} messageReason={messageBlocked} onMessage={from => openDrawer("message", from)} /> : <div className={styles.terminal} role="note">
             <strong>Terminal is not available</strong>
-            <span>{terminal.enabled ? "Watching and control are not connected yet." : terminal.reason}</span>
+            <span>{!s.terminal ? "No terminal was recorded for this session." : !terminal.enabled ? terminal.reason : null}</span>
           </div>}
         </div>
         {split && second?.terminal && <div className={styles.paneSlot}>
@@ -522,10 +531,9 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
       {!live && <footer className={styles.outputFooter}>{facts}</footer>}
       {/* Phone: the terminal's pinned action bar (reference 11) carries Transcript, Message and Details instead. */}
       {!(phone && live) && <Toolbar className={styles.sessionActions} role="group" aria-label="Session actions">
-        {/* Durable Message needs a server capability; no composer is shown until one exists. */}
         <span className={styles.messageSlot}>
-          <ActionButton disabled aria-describedby={messageReason}><Icon icon={MessageSquare} size={18} />Message</ActionButton>
-          <span id={messageReason} className={styles.muted}>{MESSAGE_UNAVAILABLE}</span>
+          <ActionButton disabled={!!messageBlocked} aria-describedby={messageBlocked ? messageReason : undefined} aria-haspopup="dialog" aria-expanded={drawer === "message"} aria-controls={`session-${s.id}-message`} onClick={toggle("message")}><Icon icon={MessageSquare} size={18} />Message</ActionButton>
+          {messageBlocked && <span id={messageReason} className={styles.muted}>{messageBlocked}</span>}
         </span>
         {s.terminal && terminal.enabled && <ActionButton aria-haspopup="dialog" aria-expanded={drawer === "transcript"} aria-controls={`session-${s.id}-transcript`} onClick={toggle("transcript")}><Icon icon={FileText} size={18} />Transcript</ActionButton>}
         <ActionButton aria-label="Session details" aria-haspopup="dialog" aria-expanded={drawer === "details"} aria-controls={`session-${s.id}-details`} onClick={toggle("details")}><Icon icon={PanelRight} size={18} />Details</ActionButton>
@@ -534,6 +542,9 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
 
       {s.terminal && terminal.enabled && <SessionDrawer id={`session-${s.id}-transcript`} title="Transcript" wide open={drawer === "transcript"} onClose={closeDrawer} returnFocus={opener}>
         <TerminalTail terminalId={s.terminal.id} feed={feed} />
+      </SessionDrawer>}
+      {!messageBlocked && <SessionDrawer id={`session-${s.id}-message`} title="Message" open={drawer === "message"} onClose={closeDrawer} returnFocus={opener}>
+        <MessageComposer key={`${s.id}:${s.generation}`} session={s} />
       </SessionDrawer>}
       <SessionDrawer id={`session-${s.id}-details`} title="Session details" open={drawer === "details"} onClose={closeDrawer} returnFocus={opener}>
       <OperationsNav view={opsView} onView={setOpsView} />

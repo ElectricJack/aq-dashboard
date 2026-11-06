@@ -88,3 +88,5 @@
   .controls { flex-wrap: wrap; row-gap: var(--space-1); }
   .state { flex-basis: 100%; }
 }
+/* Why Take control is disabled (N-07): beside it on desktop, above the phone action bar. */
+.controlReason { flex: 1 1 18ch; min-inline-size: 0; margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }

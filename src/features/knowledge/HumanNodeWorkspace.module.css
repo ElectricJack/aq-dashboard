@@ -46,6 +46,7 @@
 .documentBody h4 { font-size:19px; margin-block:var(--space-5) var(--space-2); }
 .documentBody h5,.documentBody h6 { font-size:17px; margin-block:var(--space-4) var(--space-2); }
 .documentBody p { margin-block:var(--space-3); white-space:pre-wrap; }
+.documentBody :not(pre) > code { padding:1px 4px; font-family:var(--font-mono); font-size:.92em; background:var(--color-canvas); border:1px solid var(--color-border); border-radius:4px; overflow-wrap:anywhere; }
 .documentBody pre { padding:var(--space-4); background:var(--color-canvas); border:1px solid var(--color-border); border-radius:var(--radius-control); overflow:auto; max-block-size:50dvh; font-size:14px; }
 .documentBody ul,.documentBody ol { padding-inline-start:var(--space-5); }
 .documentBody li { margin-block:var(--space-1); }

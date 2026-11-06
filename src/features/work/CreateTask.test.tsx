@@ -63,7 +63,7 @@ test("response loss and lookup404 keep the frozen request and only retry identic
  enable();const sent:string[]=[];
  server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{sent.push(await request.text());return HttpResponse.error();}),http.get("/api/human/operations/:operation",()=>HttpResponse.json({error:"not_found"},{status:404})));
  renderApp(`/work${scope}`);const modal=await open();await fill(modal);await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await within(modal).findByRole("button",{name:"Retry exact submission"});
- expect(within(modal).queryByRole("button",{name:"Revise draft"})).not.toBeInTheDocument();await userEvent.click(within(modal).getByRole("button",{name:"Check status"}));await within(modal).findByText(/outcome is not confirmed/);
+ expect(within(modal).queryByRole("button",{name:"Revise draft"})).not.toBeInTheDocument();await userEvent.click(within(modal).getByRole("button",{name:"Check status"}));await within(modal).findByText("AQ has no record of this operation.");
  await userEvent.click(within(modal).getByRole("button",{name:"Retry exact submission"}));await waitFor(()=>expect(sent).toHaveLength(2));expect(sent[1]).toBe(sent[0]);expect(within(modal).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
 });
 test("reload uses pure lookup and explicit retained-request recovery without reconstructing content",async()=>{
@@ -88,7 +88,7 @@ test("identity change removes private draft and ignores a delayed prior-owner re
  const {queryClient}=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Private original-owner draft");await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await waitFor(()=>expect(posted).toBe(true));
  server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:graphId(93),authorization_revision:"2"},capabilities:[...bootstrap.data.capabilities,{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:true}]}})));
  await act(async()=>{await queryClient.invalidateQueries({queryKey:["bootstrap"]});});release();
- await waitFor(()=>expect(screen.queryByDisplayValue("Private original-owner draft")).not.toBeInTheDocument());const restored=await screen.findByRole("dialog",{name:"Task operation"});await within(restored).findByText(/outcome is not confirmed/);expect(within(restored).queryByRole("textbox",{name:"Title"})).not.toBeInTheDocument();expect(within(restored).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
+ await waitFor(()=>expect(screen.queryByDisplayValue("Private original-owner draft")).not.toBeInTheDocument());const restored=await screen.findByRole("dialog",{name:"Task operation"});await within(restored).findByText("AQ has no record of this operation.");expect(within(restored).queryByRole("textbox",{name:"Title"})).not.toBeInTheDocument();expect(within(restored).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
 });
 test("opening the confirmed task closes the modal and leaves a fresh composer",async()=>{
  enable();server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>HttpResponse.json(confirmedTaskOperation())),http.get(`/api/human/projects/${graphProject}/tasks/${taskOperationId}`,()=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:taskOperationId,title:"Actual created record"}))));
@@ -152,4 +152,23 @@ test("uncertain operation reload exposes recovered local fields without replayin
  enable();let writes=0;server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>{writes++;return HttpResponse.error();}),http.get("/api/human/operations/:operation",()=>HttpResponse.json({error:"not_found"},{status:404})));
  const app=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Recovered uncertain draft");await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await within(modal).findByRole("button",{name:"Retry exact submission"});const path=app.router.state.location.pathname+app.router.state.location.search;app.unmount();app.queryClient.clear();
  renderApp(path);const restored=await screen.findByRole("dialog",{name:"Task operation"});expect(await within(restored).findByRole("textbox",{name:"Title"})).toHaveValue("Recovered uncertain draft");expect(within(restored).getByRole("textbox",{name:"Title"})).toHaveAttribute("readonly");expect(within(restored).queryByRole("button",{name:"Retry exact submission"})).not.toBeInTheDocument();expect(writes).toBe(1);
+});
+test("an operation AQ never recorded offers Start over after checking status (WD-06)",async()=>{
+ enable();let lookups=0;const sent:string[]=[];
+ server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>{lookups++;return HttpResponse.json({error:"not_found",message:"operation not found; prior submission may still be in flight"},{status:404});}),
+  http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const bytes=await request.text();sent.push(bytes);return HttpResponse.json(forBytes(bytes));}));
+ const {router}=renderApp(`/work${scope}&operation=${taskOperationId}`);const modal=await screen.findByRole("dialog",{name:"Task operation"});
+ await within(modal).findByText("AQ has no record of this operation.");expect(lookups).toBe(1);expect(within(modal).queryByText(/outcome is uncertain/)).toBeNull();
+ await userEvent.click(within(modal).getByRole("button",{name:"Check status"}));await waitFor(()=>expect(lookups).toBe(2));
+ await userEvent.click(await within(modal).findByRole("button",{name:"Start over"}));
+ await waitFor(()=>expect(new URLSearchParams(router.state.location.search).get("operation")).toBeNull());
+ const composer=screen.getByRole("dialog",{name:"Create task"});await fill(composer,"Submitted again");
+ await waitFor(()=>expect(within(composer).getByRole("button",{name:"Create task"})).toBeEnabled());await userEvent.click(within(composer).getByRole("button",{name:"Create task"}));
+ await waitFor(()=>expect(sent).toHaveLength(1));expect(JSON.parse(sent[0]!).operation_id).not.toBe(taskOperationId);
+});
+test("a blank title says it is required and the input limit matches the 512 rule (WD-03)",async()=>{
+ enable();renderApp(`/work${scope}`);const modal=await open();const title=within(modal).getByRole("textbox",{name:"Title"});
+ expect(title).toHaveAttribute("maxLength","512");await userEvent.type(title,"   ");
+ await waitFor(()=>expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled());await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByRole("alert")).toHaveTextContent("Enter a title. A title is required.");expect(within(modal).queryByText(/at most 512/)).toBeNull();
 });

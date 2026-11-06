@@ -5,20 +5,36 @@ import { useSession } from "../../app/session";
 import { ContractError } from "../../api/adapters/contract";
 import { apiGet, ApiError } from "../../api/client";
 import { adaptGraphDetail, adaptGraphPage, validGraphId } from "../../api/adapters/humanGraph";
-import { graphPath, useGraphNeighborhood } from "../../api/humanGraphReads";
+import { graphPath, useGraphList, useGraphNeighborhood } from "../../api/humanGraphReads";
 import { ActionButton } from "../../components/layout/Workspace";
 import { actionCapability, actionLabels, actionRequest, freezeAction, type ActionContext, type ActionKind, type ActionOperation, type FrozenAction } from "./actionClient";
 import styles from "./RecordActions.module.css";
 
-type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;edge:string;successor:string;verdict:string;url:string;confirm:boolean};
-function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",edge:"",successor:"",verdict:"verified",url:"",confirm:false};}
+type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;confirm:boolean};
+function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",blockerQuery:"",edge:"",successor:"",verdict:"verified",url:"",confirm:false};}
 type Variant="default"|"compact";
+/** What the task's work read says about execution; absent while unknown. */
+export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean};
+/** AQ's own preconditions for the execution actions (aq-server task_execution.rs): cancel needs an attempt
+ * holding the task, retry needs an active task. They are stated, never guessed beyond what the reads show. */
+function executionReason(k:ActionKind,state:string|null|undefined,execution?:TaskExecutionFacts):string|undefined{
+  if(k==="task.cancel"){if(state&&state!=="active")return `No agent attempt can hold a ${state} task`;if(execution&&!execution.holding)return "No agent attempt holds this task";}
+  if(k==="task.retry"&&state&&state!=="active")return "AQ retries attempts of active tasks only";
+  if(k==="task.dependency.remove"&&execution?.complete&&execution.blockers===0)return "This task has no recorded blockers";
+  return undefined;
+}
+/** Graph titles: required, at most 512 bytes for edits (the server's limit), never "too long" when blank. */
+export function titleProblem(title:string):string|null{
+  if(!title.trim())return "Enter a title. A title is required.";
+  if(new TextEncoder().encode(title).length>512)return "Shorten the title to at most 512 bytes (512 plain-text characters, fewer for accented or non-Latin text).";
+  return null;
+}
 /** `kinds` narrows the offered actions (for example to those a compact header can show); it never adds kinds. */
-export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant}) {
+export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
   const {queryContext}=useSession();
   return <Actions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${props.record.project.id}:${props.author?"author":props.record.data?.id}`} {...props}/>;
 }
-function Actions({record,author=false,pinned,kinds:only,variant="default"}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant}) {
+function Actions({record,author=false,pinned,kinds:only,variant="default",execution}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient();
   const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:["knowledge.correct","knowledge.verify","knowledge.retire"] as ActionKind[]).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
@@ -26,6 +42,10 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
   const dependency=useGraphNeighborhood(kind==="task.dependency.remove"?record.project.id:"",record.data?.id??"");
+  // Add dependency: pick the blocker by title (the project task search) or paste its ID (WD-09).
+  const [blockerSearch,setBlockerSearch]=useState("");
+  useEffect(()=>{const q=draft.blockerQuery.trim();const t=setTimeout(()=>setBlockerSearch(q.length>=2&&!validGraphId(String(q))?q.slice(0,256):""),250);return()=>clearTimeout(t);},[draft.blockerQuery]);
+  const candidates=useGraphList(kind==="task.dependency.add"&&blockerSearch?record.project.id:"","task",blockerSearch);
   const unsettled=!!intent&&(retired||unknown||operation?.disposition==="pending"||operation?.disposition==="unknown"||!operation);
   const capability=(k:ActionKind)=>{const union=bootstrap.capability("dashboard.actions");return union.enabled?bootstrap.capability(actionCapability(k)):union;};
   useEffect(()=>{current.current=true;return()=>{current.current=false;controller.current?.abort();};},[]);
@@ -36,13 +56,13 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
       const next=await actionRequest(value,lookup,abort.signal);if(!current.current)return;
       if(operation?.request_digest&&operation.operation_id===next.operation_id&&operation.request_digest!==next.request_digest)throw new ContractError("Operation identity changed");
       setOperation(next);setUnknown(false);setError(null);
-      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","overview-task-contributions"].includes(String(q.queryKey[4]))});
+      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","overview-task-contributions"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
       if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
       else if(reason instanceof ApiError&&reason.status===426){reportIncompatible("dashboard.actions");setUnknown(true);}
       else if(reason instanceof ApiError&&reason.status===410){setRetired(true);setUnknown(false);setError(null);}
       else if(!lookup&&reason instanceof ApiError&&reason.status===409){setOperation({operation_id:value.id,disposition:"conflict",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],current_versions:reason.envelope?.current_versions,recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"The expected version has changed.");}
-      else if(!lookup&&reason instanceof ApiError&&!reason.effectUnknown&&[400,404,413,422].includes(reason.status??0)){setOperation({operation_id:value.id,disposition:"rejected",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"The server refused this action. Review the record and permissions.");}
+      else if(!lookup&&reason instanceof ApiError&&!reason.effectUnknown&&[400,404,413,422].includes(reason.status??0)){setOperation({operation_id:value.id,disposition:"rejected",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"AQ refused this action.");}
       else{setUnknown(true);setError(null);}
     }finally{lock.current=false;if(current.current)setBusy(false);if(controller.current===abort)controller.current=null;}
   }
@@ -61,11 +81,11 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
     if(["task.edit","knowledge.author","knowledge.correct"].includes(k)){
       const labels=k==="knowledge.author"||draft.labelsEdited?[...new Set(draft.labels.split(",").map(x=>x.trim()).filter(Boolean))]:undefined;
       if(labels&&(labels.length>16||labels.some(v=>new TextEncoder().encode(v).length>128)))throw new Error("Use at most 16 labels, each up to 128 bytes.");
-      if(!draft.title.trim()||Array.from(draft.title).length>512)throw new Error("Enter a title of at most 512 characters.");
+      const problem=titleProblem(draft.title);if(problem)throw new Error(problem);
       if(new TextEncoder().encode(draft.body).length>32768||new TextEncoder().encode(draft.acceptance).length>8192)throw new Error("Shorten the description or acceptance criteria.");
       return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
     }
-    if(k==="task.dependency.add"){if(!validGraphId(draft.blocker)||draft.blocker===record.data?.id)throw new Error("Choose another task's ID as the blocker.");return {payload:{blocker_id:draft.blocker}};}
+    if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
     if(k==="task.retry")return {payload:{}};
     if(!draft.reason.trim()||new TextEncoder().encode(draft.reason).length>1024)throw new Error("Enter a reason of at most 1024 bytes.");
@@ -86,10 +106,12 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
       if(!current.current)return;setBaseline({project:fresh.project,...(!author?{data:fresh.data as typeof record.data}:{})});if(kind==="task.dependency.remove")await dependency.refetch();frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setDraft(v=>({...v,confirm:false}));
     }catch{if(current.current)setError("Current versions could not be loaded. Your draft is preserved.");}finally{lock.current=false;if(current.current)setBusy(false);}
   }
-  const update=(name:keyof Draft,value:string|boolean)=>setDraft(v=>({...v,[name]:value,...(name==="labels"?{labelsEdited:true}:{})}));
+  const update=(name:keyof Draft,value:string|boolean)=>setDraft(v=>({...v,[name]:value,...(name==="labels"?{labelsEdited:true}:{}),
+    // A pasted task ID is the blocker; any other text searches titles and clears the previous choice.
+    ...(name==="blockerQuery"?{blocker:validGraphId(String(value).trim())?String(value).trim():""}:{})}));
   const editing=kind==="task.edit"||kind==="knowledge.author"||kind==="knowledge.correct";
   const status=retired?"retired":unknown?"unknown":operation?.disposition;
-  const reasonFor=(k:ActionKind)=>{const cap=capability(k);return pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:undefined;};
+  const reasonFor=(k:ActionKind)=>{const cap=capability(k);return pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:record.data?.kind==="task"?executionReason(k,record.data.task_state,execution):undefined;};
   return <div className={variant==="compact"?styles.compact:styles.actions}>
     {variant==="compact"?<CompactActions kinds={kinds} reasonFor={reasonFor} taskState={record.data?.kind==="task"?record.data.task_state:undefined} pending={unsettled?kind:null} launch={launch}/>:
     kinds.map(k=>{const reason=reasonFor(k);return <div className={styles.action} key={k}><ActionButton disabled={!!reason||(unsettled&&kind!==k)} title={reason} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span className={styles.meta}>{reason}</span>}</div>;})}
@@ -98,16 +120,17 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
       <p className={styles.meta}>{record.project.name} · {author?"Project version":"Record version"} {author?baseline.project.revision:baseline.data?.version}</p>
       {error&&<p role="alert">{error}</p>}
       {kind&&<form onSubmit={e=>void submit(e)}><fieldset className={styles.fields} disabled={busy||!!intent||accessLost}>
-        {editing&&<><label>Title<input value={draft.title} required maxLength={1024} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{["fact","decision","policy","procedure","incident","reference","note"].map(v=><option key={v}>{v}</option>)}</select></label>}</>}
-        {kind==="task.dependency.add"&&<label>Blocker task ID<input required value={draft.blocker} onChange={e=>update("blocker",e.target.value)}/></label>}
+        {editing&&<><label>Title<input value={draft.title} required maxLength={512} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{["fact","decision","policy","procedure","incident","reference","note"].map(v=><option key={v}>{v}</option>)}</select></label>}</>}
+        {kind==="task.dependency.add"&&<BlockerPicker query={draft.blockerQuery} blocker={draft.blocker} self={record.data?.id} search={blockerSearch} candidates={candidates} onQuery={v=>update("blockerQuery",v)} onPick={id=>update("blocker",id)}/>}
         {kind==="task.dependency.remove"&&<><label>Dependency<select required value={draft.edge} onChange={e=>update("edge",e.target.value)}><option value="">Choose a blocker</option>{dependency.data?.data.edges.filter(e=>e.target===record.data?.id&&e.edge_type==="blocks").map(e=><option key={e.id} value={e.id}>{dependency.data?.data.nodes.find(n=>n.id===e.source)?.title??e.source} · edge version {e.version}</option>)}</select></label>{dependency.isError&&<p role="alert">Dependencies unavailable. Close and reopen to check again.</p>}</>}
         {["task.cancel","knowledge.verify","knowledge.retire"].includes(kind)&&<label>Reason<textarea required rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label>}
         {kind==="knowledge.verify"&&<><label>Verification<select value={draft.verdict} onChange={e=>update("verdict",e.target.value)}><option value="verified">Verified</option><option value="disputed">Disputed</option></select></label><label>Evidence URL<input type="url" required value={draft.url} onChange={e=>update("url",e.target.value)}/></label><p className={styles.meta}>This records an assertion about this revision; it does not prove task completion.</p></>}
         {kind==="knowledge.retire"&&<label>Successor record ID (optional)<input value={draft.successor} onChange={e=>update("successor",e.target.value)}/></label>}
         {["task.cancel","knowledge.retire"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="task.cancel"?"Confirm cancellation request. This does not prove the process stopped.":"Confirm retirement. Historical revisions remain available."}</label>}
-        {kind==="task.retry"&&<p>Ask the server to assess a replacement attempt. Readiness and replacement admission are decided by the server.</p>}
+        {kind==="task.cancel"&&<p className={styles.meta}>Cancels the agent attempt holding this task. The task itself stays {record.data?.task_state??"in its current state"}; AQ refuses the request when no attempt holds it.</p>}
+        {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>Submit</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?"Rejected — the server did not permit this action. Review the record and permissions.":status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         <div className={styles.footer}>{unsettled&&!retired&&<><ActionButton disabled={busy||accessLost} onClick={()=>void run(intent,true)}>Check status</ActionButton><ActionButton disabled={busy||accessLost||!kind||!capability(kind).enabled} onClick={()=>void run(intent)}>Retry exact submission</ActionButton></>}{(status==="conflict"||status==="rejected")&&<ActionButton disabled={busy||accessLost} onClick={()=>void reload()}>Reload current versions</ActionButton>}</div>
@@ -118,10 +141,33 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
 }
 
 const NOT_OFFERED="Not offered by this AQ server";
+/** The dashboard actions contract carries no rejection reason (WD-08); restate the server's preconditions instead. */
+const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
+  "task.cancel":"It cancels only an agent attempt that holds this task.",
+  "task.retry":"It retries only an active task whose last attempt can be replaced.",
+  "task.dependency.add":"A dependency can't repeat an existing one or create a cycle.",
+};
+
+/** Blocker by title search or pasted ID; results come from the project's task search read. */
+function BlockerPicker({query,blocker,self,search,candidates,onQuery,onPick}:{query:string;blocker:string;self?:string;search:string;candidates:ReturnType<typeof useGraphList>;onQuery:(v:string)=>void;onPick:(id:string)=>void}){
+  const hint=useId(),legend=useId();
+  const rows=(candidates.data?.pages.flatMap(p=>p.data.items)??[]).filter(n=>n.id!==self).slice(0,8);
+  const pasted=validGraphId(query.trim());
+  return <>
+    <label>Blocker task<input type="search" required={!blocker} value={query} maxLength={256} placeholder="Search by title or paste a task ID" aria-describedby={hint} onChange={e=>onQuery(e.target.value)}/></label>
+    <span id={hint} className={styles.meta}>{pasted?`Blocker: task ${query.trim()}`:"Type at least two characters of the blocker's title."}</span>
+    {!pasted&&search&&(candidates.isError?<p role="alert" className={styles.meta}>Task search unavailable. Paste the blocker's task ID instead.</p>
+      :!candidates.data?<p role="status" className={styles.meta}>Searching tasks…</p>
+      :rows.length?<fieldset className={styles.choices} aria-labelledby={legend}><legend id={legend}>Matching tasks</legend>{rows.map(n=><label key={n.id} className={styles.choice}>
+        <input type="radio" name="blocker" value={n.id} checked={blocker===n.id} onChange={()=>onPick(n.id)}/><span>{n.title}<span className={styles.meta}> · {n.task_state??"task"} · {n.id.slice(0,8)}</span></span>
+      </label>)}</fieldset>
+      :<p role="status" className={styles.meta}>No other tasks match “{search}”.</p>)}
+  </>;
+}
 // The single most relevant action for a task's recorded state; cancellation is never promoted.
 function preferredFor(kinds:ActionKind[],taskState:string|null|undefined):ActionKind[] {
   if(taskState===undefined)return kinds;
-  return taskState==="canceled"?["task.retry"]:taskState==="completed"?[]:["task.edit"];
+  return taskState==="canceled"||taskState==="completed"?[]:["task.edit"];
 }
 /** One primary action plus a "More actions" menu; one shared reason when nothing is offered. */
 function CompactActions({kinds,reasonFor,taskState,pending,launch}:{kinds:ActionKind[];reasonFor:(k:ActionKind)=>string|undefined;taskState:string|null|undefined;pending:ActionKind|null;launch:(k:ActionKind)=>void}) {
