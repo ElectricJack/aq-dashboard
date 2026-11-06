@@ -6,6 +6,7 @@ import {
 import { statusLabel, type Effect, type Page, type Run } from "../../api/adapters/playbooks";
 import { Icon } from "../../components/icons";
 import { Panel } from "../../components/layout/Workspace";
+import { humanize } from "./RunTimeline";
 import styles from "./Playbooks.module.css";
 
 /**
@@ -56,7 +57,7 @@ export function WaitingOn({ run, effects }: { run: Run; effects: Page<Effect> })
   const kind = run.pendingKind ? waitKind(run.pendingKind) : null;
   return <Panel title="Waiting on" className={styles.relationPanel}>
     {kind
-      ? <p className={styles.waitHeading}><span className={styles.waitIcon}><Icon icon={kind.icon} size={20} /></span><strong>{kind.label}</strong><span className={styles.meta}>{run.step}</span></p>
+      ? <p className={styles.waitHeading}><span className={styles.waitIcon}><Icon icon={kind.icon} size={20} /></span><strong>{kind.label}</strong><span className={styles.meta} title={run.step}>{humanize(run.step)}</span></p>
       : <p className={styles.meta}>No pending wait recorded</p>}
     {run.reason && <p className={styles.reason}>{run.reason}</p>}
     {effects.items.length > 0 && <ul className={styles.relationRows} aria-label="Pending operations">{effects.items.map(e => <li key={e.id} className={styles.relationRow}>
@@ -79,7 +80,7 @@ export function ChildWorkflows({ run, loaded, search }: { run: Run; loaded: read
       </li>;
       return <li key={id} className={styles.relationRow}>
         <StatusGlyph status={child.status} />
-        <div className={styles.relationText}><strong>{child.entry}</strong><span className={styles.meta}>Owned child{child.outcome ? ` · outcome ${child.outcome}` : ""}</span></div>
+        <div className={styles.relationText}><strong title={child.entry}>{humanize(child.entry)}</strong><span className={styles.meta}>Owned child{child.outcome ? ` · outcome ${child.outcome}` : ""}</span></div>
         <div className={styles.relationEnd}><span className={styles.relationStatus} data-state={child.status}>{statusLabel(child.status)}</span><RunLink id={id} search={search} /></div>
       </li>;
     })}</ul>}

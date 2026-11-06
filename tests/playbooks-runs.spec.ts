@@ -44,7 +44,8 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("combobox", { name: /run state/i })).toHaveValue("all");
       const range = page.getByRole("combobox", { name: /time range/i });
       await expect(range).toHaveValue("24h");
-      await expect(page.getByText("Filtering loaded runs")).toBeVisible();
+      // The default window is named by its own control; nothing announces filtering (ISSUE-005).
+      await expect(page.getByText("Filtering loaded runs")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Refresh runs" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 

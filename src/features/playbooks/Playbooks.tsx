@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
 import { scopedKey } from "../../api/queryKeys";
 import { Calendar, ChevronRight, FileText, RefreshCw } from "lucide-react";
@@ -21,6 +21,7 @@ import { humanize, InspectorTabs, RecentEvidence, RunTimeline, type InspectorTab
 import { Digest, TechnicalIdentity } from "./identity";
 import { CancelRun } from "./RunActions";
 import { StartRun } from "./StartRun";
+import { retryableReadFailure, retryUnlessMissing } from "./playbookReads";
 import styles from "./Playbooks.module.css";
 
 const BASE = "/api/playbooks/inspection";
@@ -36,6 +37,11 @@ const RANGES: { key: string; label: string; ms: number | null }[] = [
   { key: "1h", label: "Last hour", ms: 3_600_000 }, { key: "24h", label: "Last 24 hours", ms: 86_400_000 },
   { key: "7d", label: "Last 7 days", ms: 604_800_000 }, { key: "all", label: "All loaded", ms: null },
 ];
+const DEFAULT_STATE = "all", DEFAULT_RANGE = "24h";
+/** Shown while the shared read policy retries a failed playbook read (for example a busy inspection read). */
+function Retrying({ query }: { query: { failureCount: number; isFetching: boolean } }) {
+  return query.failureCount > 0 && query.isFetching ? <p className={styles.meta}>The last attempt failed. Retrying automatically…</p> : null;
+}
 /** `run-0000000000000284` → `run-284`: the significant digits of a numeric run key; other ids are kept whole. */
 export function shortRunId(id: string) { const m = /^(.*-)0*(\d+)$/.exec(id); return m ? `${m[1]}${m[2]}` : id; }
 
@@ -46,17 +52,29 @@ export function Playbooks() {
   const { bootstrap, queryContext } = useSession();
   const [params, setParams] = useSearchParams(); const navigate = useNavigate();
   const tab: Tab = params.get("view") === "definitions" ? "definitions" : params.get("view") === "admissions" ? "admissions" : params.get("view") === "activations" ? "activations" : "runs";
-  const [filter, setFilter] = useState("all"); const [range, setRange] = useState("24h");
+  // Run filters live in the URL (spec 0002 §3); defaults are omitted and unknown values fall back to them.
+  const filter = RUN_STATES.includes(params.get("state") ?? "") ? params.get("state")! : DEFAULT_STATE;
+  const range = RANGES.some(r => r.key === params.get("range")) ? params.get("range")! : DEFAULT_RANGE;
+  // Successive changes before a re-render build on each other (the router's functional update reads the last render).
+  const latestParams = useRef(params); latestParams.current = params;
+  const setRunFilter = (key: "state" | "range", value: string, fallback: string) => { const next = new URLSearchParams(latestParams.current); if (value === fallback) next.delete(key); else next.set(key, value); latestParams.current = next; setParams(next, { replace: true }); };
+  const client = useQueryClient();
   const runs = useInfiniteQuery({ queryKey: scopedKey(queryContext, scope, "playbook-runs", {}), initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => adaptRuns(await apiGet<unknown>(url("/runs", project, pageParam), signal), project, pageParam),
-    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined, retry: false, staleTime: 5000, enabled: tab === "runs", refetchOnWindowFocus: false });
-  const admissions = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-admissions", {}), queryFn: async ({ signal }) => adaptAdmissions(await apiGet<unknown>(url("/admissions", project), signal), project), enabled: tab === "admissions", retry: false });
+    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined, staleTime: 5000, enabled: tab === "runs", refetchOnWindowFocus: false });
+  const admissions = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-admissions", {}), queryFn: async ({ signal }) => adaptAdmissions(await apiGet<unknown>(url("/admissions", project), signal), project), enabled: tab === "admissions" });
   let rows: Run[] = []; let invalid: unknown = null;
   try { rows = runs.data ? mergeRunPages(runs.data.pages) : []; } catch (e) { invalid = e; }
   // Both filters narrow loaded rows only; the age window is measured against the server clock of the first page.
   const observedAt = runs.data?.pages[0]?.observedAt, windowMs = RANGES.find(r => r.key === range)?.ms ?? null;
   const shown = rows.filter(r => (filter === "all" || r.status === filter) && (windowMs === null || observedAt === undefined || r.admittedAt >= observedAt - windowMs));
-  const filtering = filter !== "all" || windowMs !== null;
+  // Only a narrowing filter the user chose is announced; the default window is named by its own control (ISSUE-005).
+  const filtering = filter !== DEFAULT_STATE || (range !== DEFAULT_RANGE && windowMs !== null);
+  // Run links keep the list filters, so Back and "All runs" return to the same narrowed list.
+  const listSearch = (() => { const p = new URLSearchParams(search); if (filter !== DEFAULT_STATE) p.set("state", filter); if (range !== DEFAULT_RANGE) p.set("range", range); const value = p.toString(); return value ? `?${value}` : ""; })();
+  const rosterFailed = Boolean(runs.isError || invalid);
+  // One retry for both reads when the roster and a deep-linked run fail together.
+  const retryRuns = () => { void runs.refetch(); if (runId) void client.refetchQueries({ predicate: q => q.queryKey.includes("playbook-run") }); };
   const runsNow = useObservedNow(observedAt, runs.dataUpdatedAt);
   const admissionsNow = useObservedNow(admissions.data?.observedAt, admissions.dataUpdatedAt);
   // Phone detail pages (run, definition or activation) hide the view toolbar; the back control leads out.
@@ -74,27 +92,28 @@ export function Playbooks() {
     <header className={styles.header}><PageTitle>Playbooks</PageTitle><p className={styles.subtitle}>Inspect policy and follow each execution.</p></header>
     <Toolbar className={styles.viewBar}>
       <div className={styles.tabs} role="tablist" aria-label="Playbook views" onKeyDown={tabKey}>
-        {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} ref={element => { if (element) tabRefs.current.set(id, element); else tabRefs.current.delete(id); }} onClick={() => selectTab(id)}>{label}</button>)}
+        {TABS.map(([id, label]) => <button key={id} id={`playbooks-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={tab === id ? `playbooks-panel-${id}` : undefined} tabIndex={tab === id ? 0 : -1} ref={element => { if (element) tabRefs.current.set(id, element); else tabRefs.current.delete(id); }} onClick={() => selectTab(id)}>{label}</button>)}
       </div>
       {tab === "runs" && <div className={styles.filters}>
-        <label className={styles.filter}><span className="visually-hidden">Run state</span><select value={filter} onChange={e => setFilter(e.target.value)}>
+        <label className={styles.filter}><span className="visually-hidden">Run state</span><select value={filter} onChange={e => setRunFilter("state", e.target.value, DEFAULT_STATE)}>
           <option value="all">All states</option>{RUN_STATES.map(v => <option value={v} key={v}>{statusLabel(v)}</option>)}
         </select></label>
-        <label className={styles.filter}><span className="visually-hidden">Time range</span><Icon icon={Calendar} size={18} className={styles.filterIcon} /><select className={styles.withIcon} value={range} onChange={e => setRange(e.target.value)}>
+        <label className={styles.filter}><span className="visually-hidden">Time range</span><Icon icon={Calendar} size={18} className={styles.filterIcon} /><select className={styles.withIcon} value={range} onChange={e => setRunFilter("range", e.target.value, DEFAULT_RANGE)}>
           {RANGES.map(r => <option value={r.key} key={r.key}>{r.label}</option>)}
         </select></label>
       </div>}
       {(tab === "runs" || tab === "admissions") && <ActionButton className={styles.iconButton} title={tab === "runs" ? "Refresh runs" : "Refresh admissions"} onClick={() => { if (tab === "runs") void runs.refetch(); else void admissions.refetch(); }} disabled={runs.isFetching || admissions.isFetching}>
         <Icon icon={RefreshCw} size={18} /><span className="visually-hidden">{tab === "runs" ? "Refresh runs" : "Refresh admissions"}</span></ActionButton>}
     </Toolbar>
+    <div id={`playbooks-panel-${tab}`} role="tabpanel" aria-labelledby={`playbooks-tab-${tab}`} className={styles.viewPanel}>
     {tab === "definitions" ? bootstrap.capability(CATALOG_CAPABILITY).enabled ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:definitions`} kind="definitions" /> : <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} /> : tab === "activations" ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:activations`} kind="activations" /> : tab === "runs" ? <div className={styles.workspace} data-focused={Boolean(runId)}>
-      {runId && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search }}>All runs</Link>}
+      {runId && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listSearch }}>All runs</Link>}
       <Panel title="Recent runs" className={styles.roster} actions={<div className={styles.rosterActions}>{runs.data && filtering && <span className={styles.meta}>Filtering loaded runs</span>}<StartRun /></div>}>
-        {!runs.data || runs.isError || invalid ? <QueryStatus status={runs.isError || invalid ? "error" : "pending"} error={invalid ?? runs.error} label="playbook runs" onRetry={() => void runs.refetch()} /> : <>
+        {!runs.data || runs.isError || invalid ? <><QueryStatus status={rosterFailed ? "error" : "pending"} error={invalid ?? runs.error} label="playbook runs" onRetry={retryRuns} /><Retrying query={runs} /></> : <>
           {rows.length === 0 && <p>No runs recorded in this configured namespace.</p>}
           {rows.length > 0 && shown.length === 0 && <p>No loaded runs match these filters.</p>}
           <ul className={styles.runs} aria-label="Playbook runs">{shown.map(r => <li key={r.id}>
-            <Link className={styles.runLink} data-selected={r.id === runId} aria-current={r.id === runId ? "page" : undefined} to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.id)}`, search }}>
+            <Link className={styles.runLink} data-selected={r.id === runId} aria-current={r.id === runId ? "page" : undefined} to={{ pathname: `/playbooks/runs/${encodeURIComponent(r.id)}`, search: listSearch }}>
               <Icon icon={runStatusIcon(r.status)} size={24} className={styles.runGlyph} data-state={r.status} />
               <strong className={styles.runTitle} title={r.entry}>{humanize(r.entry)}</strong>
               <span className={styles.runMeta}><span title={r.id} aria-hidden="true">{shortRunId(r.id)}</span><span className="visually-hidden">{r.id}</span> · <Age at={r.admittedAt} now={runsNow} /></span>
@@ -106,40 +125,46 @@ export function Playbooks() {
           {runs.data.pages[0] && <p className={styles.meta}>{runs.data.pages[0].namespace.name} · observed <Age at={runs.data.pages[0].observedAt} now={runsNow} /> · key order</p>}
         </>}
       </Panel>
-      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} loaded={rows} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
+      {runId ? <RunInspector key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:${runId}`} id={runId} project={project} loaded={rows} retryWithRuns={rosterFailed} /> : <Panel title="Select a run" description="Open a run to inspect its pinned artifact, execution state and transition receipts."><p className={styles.meta}>Run pins remain unchanged when definitions change.</p></Panel>}
     </div> : <Panel title="Admissions" description="Retained requests and their engine admission status.">
-      {!admissions.data || admissions.isError ? <QueryStatus status={admissions.isError ? "error" : "pending"} error={admissions.error} label="playbook admissions" onRetry={() => void admissions.refetch()} /> : <>
+      {!admissions.data || admissions.isError ? <><QueryStatus status={admissions.isError ? "error" : "pending"} error={admissions.error} label="playbook admissions" onRetry={() => void admissions.refetch()} /><Retrying query={admissions} /></> : <>
         {admissions.data.items.length === 0 ? <p>No admissions recorded.</p> : <ul className={styles.admissions} aria-label="Playbook admissions">{admissions.data.items.map(a => <li key={a.requestId}><strong>{a.status.replaceAll("_", " ")}</strong> · {a.requestId}<p className={styles.meta}><Age at={a.createdAt} now={admissionsNow} /></p>{a.runId ? <Link to={{ pathname: `/playbooks/runs/${encodeURIComponent(a.runId)}`, search }}>Inspect admitted run</Link> : <span>Engine run not confirmed</span>}</li>)}</ul>}
         {admissions.data.next && <p>Showing the first 25 admissions. More are retained.</p>}
       </>}
     </Panel>}
+    </div>
   </div>;
 }
-function RunInspector({ id, project, loaded }: { id: string; project: string | null; loaded: readonly Run[] }) {
-  const { queryContext } = useSession(); const [scope] = useScope(); const search = scopeSearch(scope);
+function RunInspector({ id, project, loaded, retryWithRuns }: { id: string; project: string | null; loaded: readonly Run[]; retryWithRuns: boolean }) {
+  const { queryContext } = useSession(); const [scope] = useScope(); const search = scopeSearch(scope); const client = useQueryClient();
   const [after, setAfter] = useState<string | null>(null);
-  const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after), retry: false });
+  const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after), retry: retryUnlessMissing(client) });
   const projects = useProjects();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (query.data) heading.current?.focus(); }, [id, Boolean(query.data)]);
   const [tab, setTab] = useState<InspectorTab>("execution");
   const receivedAt = useMemo(() => performance.now(), [query.dataUpdatedAt]);
   const now = useObservedNow(query.data?.observedAt, query.dataUpdatedAt);
-  if (!query.data || query.isError) return <Panel title="Run inspection"><QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this playbook run" onRetry={() => void query.refetch()} /></Panel>;
+  if (!query.data || query.isError) return <Panel title="Run inspection">
+    {query.isError && retryWithRuns && retryableReadFailure(query.error)
+      ? <p role="alert">Couldn't load this playbook run either. Try again under Recent runs retries both.</p>
+      : <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this playbook run" onRetry={() => void query.refetch()} />}
+    <Retrying query={query} />
+  </Panel>;
   const { run: r, effects, receipts, namespace } = query.data;
   const projectLabel = projects.data?.view.find(p => p.id === namespace.projectId)?.label;
   const admittedIso = new Date(r.admittedAt).toISOString();
   const definitionSearch = (() => { const p = new URLSearchParams(search); p.set("view", "definitions"); p.set("definition", r.artifact); return `?${p}`; })();
   return <section className={styles.inspector} aria-label={`Run ${r.id}`}>
     <header className={styles.inspectorHeader}>
-      <h2 ref={heading} tabIndex={-1}>{r.entry}</h2>
+      <h2 ref={heading} tabIndex={-1} title={r.entry}>{humanize(r.entry)}</h2>
       <span className={styles.badge} data-state={r.status}>{statusLabel(r.status)}</span>
       <ActionButton className={styles.iconButton} aria-label="Refresh run" title="Refresh run" disabled={query.isFetching} onClick={() => void query.refetch()}><Icon icon={RefreshCw} size={18} /></ActionButton>
       <p className={styles.meta}><span title={r.id}>{shortRunId(r.id)}</span>{projectLabel && <> · <span>{projectLabel}</span></>} · Started <Age at={r.admittedAt} now={now} /></p>
       <CancelRun className={styles.runAction} project={namespace.projectId} run={r.id} status={r.status} />
     </header>
     <div className={styles.pinStrip}>
-      <p><Icon icon={FileText} size={18} /><span>This run: <strong>{r.entry}</strong> · <Digest value={r.artifact} /></span></p>
+      <p><Icon icon={FileText} size={18} /><span>This run: <strong title={r.entry}>{humanize(r.entry)}</strong> · <Digest value={r.artifact} /></span></p>
       <p className={styles.meta}>Current step: {humanize(r.step)}</p>
     </div>
     <TechnicalIdentity className={styles.runIdentity}>

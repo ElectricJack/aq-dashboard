@@ -29,7 +29,8 @@ test("waiting on shows the typed kind, reason and pending operations without an 
 test("child rows join loaded runs and fall back to an id-only row", () => {
   render(<MemoryRouter><ChildWorkflows run={parent} loaded={[parent, child]} search="" /></MemoryRouter>);
   const rows = within(screen.getByRole("region", { name: "Child workflows" })).getAllByRole("listitem");
-  expect(rows[0]).toHaveTextContent("validate-inputs");
+  // Entries use the same human label as the run roster; the raw entry id stays in the title (ISSUE-012).
+  expect(within(rows[0]!).getByText("Validate inputs")).toHaveAttribute("title", "validate-inputs");
   expect(rows[0]).toHaveTextContent("Owned child · outcome ok");
   expect(within(rows[0]!).getByText("Completed")).toBeInTheDocument();
   expect(within(rows[0]!).getByRole("link", { name: "run-2" })).toHaveAttribute("href", "/playbooks/runs/run-0000000000000002");

@@ -155,3 +155,32 @@ test("playbook_rollback_requires_confirmation_and_confirms", async () => {
   expect(await within(dialog).findByText("Rollback confirmed for new runs")).toBeInTheDocument();
   expect(JSON.parse(posts[0]!)).toMatchObject({ kind: "playbook.activation.rollback", subject: { ...BINDING, revision: "3" }, payload: { binding: "catalog-contract-binding", artifact: DEF_A } });
 });
+
+test("start run re-validates a shown input error when the offending input is removed (ISSUE-009)", async () => {
+  caps(); runs(); catalogs(); const posts: string[] = [];
+  server.use(http.post("/api/v1/actions", async ({ request }) => { posts.push(await request.text()); return HttpResponse.json({}, { status: 500 }); }));
+  renderApp("/playbooks");
+  const roster = await screen.findByRole("region", { name: "Recent runs" });
+  await waitFor(() => expect(within(roster).getByRole("button", { name: "Start run" })).toBeEnabled()); await userEvent.click(within(roster).getByRole("button", { name: "Start run" }));
+  const dialog = await screen.findByRole("dialog", { name: "Start run" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add input" }));
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Input 1 name" }), "qa_n");
+  await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Input 1 type" }), "number");
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Input 1 value" }), "abc");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Input qa_n must be a number.");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Remove input 1" }));
+  await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(within(dialog).getByText("No inputs. Add one for each value the entry expects.")).toBeInTheDocument(); expect(posts).toHaveLength(0);
+});
+
+test("roll back is not offered at binding revision 1 and says why (ISSUE-008)", async () => {
+  caps(); const first = catalogActivation(ACT); first.record.metadata.revision = "1";
+  server.use(http.get("/api/playbooks/inspection/catalog/:kind", ({ params }) => HttpResponse.json(params.kind === "activations" ? activationCatalog([first] as never) : definitionCatalog([catalogDefinition(DEF_A), catalogDefinition(DEF_B)] as never))));
+  renderApp(`/playbooks?view=activations&activation=${ACT}`);
+  const detail = await screen.findByRole("region", { name: "Activation catalog-contract-binding" });
+  await waitFor(() => expect(within(detail).getByRole("button", { name: "Activate definition" })).toBeEnabled());
+  const rollback = within(detail).getByRole("button", { name: "Roll back activation" });
+  expect(rollback).toBeDisabled(); expect(rollback).toHaveAttribute("title", "No earlier activation is recorded for this binding (binding revision 1)");
+  expect(within(detail).getByText("No earlier activation is recorded for this binding (binding revision 1)")).toBeInTheDocument();
+});

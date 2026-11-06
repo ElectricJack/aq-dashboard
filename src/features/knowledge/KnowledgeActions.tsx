@@ -4,7 +4,7 @@ import { useSession } from "../../app/session";
 import { type GraphEnvelope, type GraphNode } from "../../api/adapters/humanGraph";
 import { ActionButton } from "../../components/layout/Workspace";
 import { RecordActions } from "../actions/RecordActions";
-import { actionCapability, actionLabels, type ActionKind } from "../actions/actionClient";
+import { actionCapability, actionLabels, knowledgeActionKinds, type ActionKind } from "../actions/actionClient";
 import styles from "./HumanNodeWorkspace.module.css";
 
 type Availability = { enabled: true } | { enabled: false; reason: string };
@@ -41,12 +41,13 @@ export function AddRecordAction({ project, pendingReason }: { project?: GraphEnv
   return <div className={styles.headerAction}><RecordActions record={{ project }} author /></div>;
 }
 
-const documentKinds: ActionKind[] = ["knowledge.correct", "knowledge.verify", "knowledge.retire"];
-
-/** Document header slot: offered actions as buttons; unavailable ones sit in one "Actions" menu whose items carry the reasons. */
+/**
+ * Document header slot: offered actions as buttons; unavailable ones sit in one "Actions" menu whose items carry the reasons.
+ * A retired record offers only Restore (ISSUE-004); an active one Correct, Verify and Retire.
+ */
 export function DocumentActions({ record, pinned }: { record: GraphEnvelope<GraphNode>; pinned?: string }) {
   const availability = useActionAvailability();
-  const reasons = documentKinds.map(kind => {
+  const reasons = knowledgeActionKinds(record.data).map(kind => {
     const available = availability(kind);
     return { kind, reason: pinned ? "Open the current revision to act" : available.enabled ? undefined : available.reason };
   });
