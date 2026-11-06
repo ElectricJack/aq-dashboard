@@ -55,9 +55,9 @@ export function TaskHistory({ query }: { query: ReturnType<typeof useTaskHistory
     {capped && <p className={styles.meta}>This task has more than {items.length} history entries. The newest ones aren't shown here; use <code>aq task show</code> for the full history.</p>}
     {!reading && !newest.length ? <p className={styles.meta}>No history entries recorded.</p> : !reading && <>
       <ol className={styles.history} aria-label="Change history">{shown.map(h => <li key={h.entry_id}>
-        <p><strong>{humanize(h.operation)}</strong> <span className={styles.meta}>{CATEGORY[h.category]}</span></p>
+        {/* Operation, kind, who and when on one line (v1 density, 2026-11-06); what changed and why below. */}
+        <p><strong>{humanize(h.operation)}</strong> <span className={styles.meta}>{CATEGORY[h.category]} · <span>{h.actor_id}</span> · <Ago at={h.created_at} /></span></p>
         {h.change && <Change change={h.change} />}
-        <p className={styles.meta}><span>{h.actor_id}</span> · <Ago at={h.created_at} /></p>
         {h.reason && <p className={styles.historyReason}>{h.reason}</p>}
       </li>)}</ol>
       <ShowAll shown={HISTORY_PREVIEW} total={newest.length} noun="changes" expanded={all} onShowAll={setAll} />

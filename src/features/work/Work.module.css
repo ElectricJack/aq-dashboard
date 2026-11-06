@@ -12,7 +12,7 @@
 
 .toolbar select,
 .secondary {
-  min-block-size: var(--touch-target);
+  min-block-size: var(--control-height);
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -31,7 +31,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-block-size: var(--touch-target);
+  min-block-size: var(--control-height);
   padding: 0 var(--space-4);
   color: var(--color-text);
   text-decoration: none;
@@ -61,7 +61,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-block-size: var(--touch-target);
+  min-block-size: var(--control-height);
   padding: 0 var(--space-4);
   color: var(--color-text);
   text-decoration: none;
@@ -199,11 +199,11 @@
 
 .detail h3 {
   margin-block-start: var(--space-3);
-  font-size: 16px;
+  font-size: var(--font-size-body);
 }
 
 .detailTitle {
-  font-size: 22px;
+  font-size: var(--font-size-h1);
 }
 
 .detailTitle:focus {
@@ -287,7 +287,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-block-size: var(--touch-target);
+  min-block-size: var(--control-height);
   padding: 0 var(--space-4);
   color: var(--color-text);
   text-decoration: none;

@@ -7,13 +7,13 @@
 .name { overflow-wrap: anywhere; }
 .link { color: var(--color-accent); overflow-wrap: anywhere; }
 .idValue, .digest { display: inline-flex; align-items: center; gap: var(--space-1); min-inline-size: 0; }
-.idValue code, .digest code, .link code { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
+.idValue code, .digest code, .link code { font-family: var(--font-mono); font-size: var(--font-size-xs); white-space: nowrap; }
 .digest code { color: var(--color-text-secondary); }
 .copy { display: inline-flex; align-items: center; justify-content: center; flex: none; inline-size: 32px; block-size: 32px; padding: 0; color: var(--color-text-secondary); background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); cursor: pointer; }
 .copy:hover { color: var(--color-text); border-color: var(--color-border); }
 .copy:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-@media (pointer: coarse) { .copy { inline-size: var(--touch-target); block-size: var(--touch-target); } }
-.section { margin: var(--space-5) 0 var(--space-3); font-size: 18px; }
+@media (pointer: coarse) { .copy { inline-size: var(--control-height); block-size: var(--control-height); } }
+.section { margin: var(--space-5) 0 var(--space-3); font-size: var(--font-size-h3); }
 .evidence { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 .card { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
 .cardIcon { flex: none; margin-block-start: 2px; color: var(--color-text-secondary); }

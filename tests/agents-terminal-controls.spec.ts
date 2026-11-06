@@ -25,7 +25,7 @@ for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("take control shows the lease countdown; status text is at least 14px", async ({ page }) => {
+    test("take control shows the lease countdown; status text is at least 12px (the type floor since 2026-11-06)", async ({ page }) => {
       await page.goto("/agents/sess-07");
       const pane = page.getByRole("region", { name: "Interactive agent terminal" });
       await expect(pane.getByRole("status").filter({ hasText: "Watch only" })).toBeAttached();
@@ -55,9 +55,9 @@ for (const vp of VIEWPORTS) {
       await expect(pane.getByText(/^Controlled by .+ \(you\) · lease expires in \d+:\d\d$/)).toBeVisible();
       await expect(pane.getByRole("combobox", { name: "Terminal mode" })).toHaveValue("control");
       await expect(pane.getByRole("button", { name: /release control/i })).toBeInViewport({ ratio: 1 });
-      expect(await smallestFont(page, "[data-interactive-terminal] footer")).toBeGreaterThanOrEqual(14);
-      expect(await smallestFont(page, "[data-interactive-terminal] [role=status]")).toBeGreaterThanOrEqual(14);
-      expect(await smallestFont(page, "[data-interactive-terminal] [role=status] + span")).toBeGreaterThanOrEqual(14);
+      expect(await smallestFont(page, "[data-interactive-terminal] footer")).toBeGreaterThanOrEqual(12);
+      expect(await smallestFont(page, "[data-interactive-terminal] [role=status]")).toBeGreaterThanOrEqual(12);
+      expect(await smallestFont(page, "[data-interactive-terminal] [role=status] + span")).toBeGreaterThanOrEqual(12);
       await noOverflow(page);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-control-${vp.phone ? "m" : "d"}.png` });
       await axe(page);

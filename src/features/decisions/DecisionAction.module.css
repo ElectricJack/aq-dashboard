@@ -34,7 +34,7 @@ section.bar[data-decision-bar] {
 .note {
   flex: 1;
   min-inline-size: 0;
-  min-block-size: var(--touch-target);
+  min-block-size: var(--control-height);
   max-block-size: 40vh;
   field-sizing: content;
   resize: none;

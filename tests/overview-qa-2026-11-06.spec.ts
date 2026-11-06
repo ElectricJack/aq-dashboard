@@ -57,11 +57,15 @@ test.describe("desktop", () => {
   });
 
   test("SO-17: section headings scale with Settings › Text size", async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("aq.dashboard.display-preferences", JSON.stringify({ textSize: "larger", motion: "system", terminalFontSize: 14 })));
-    await page.goto("/overview");
     const heading = page.getByRole("heading", { level: 2, name: "Needs your attention" });
+    await page.goto("/overview");
     await expect(heading).toBeVisible({ timeout: 15_000 });
-    expect(await heading.evaluate((el) => getComputedStyle(el).fontSize)).toBe("24px");
+    const base = parseFloat(await heading.evaluate((el) => getComputedStyle(el).fontSize));
+    await page.evaluate(() => localStorage.setItem("aq.dashboard.display-preferences", JSON.stringify({ textSize: "larger", motion: "system", terminalFontSize: 14 })));
+    await page.reload();
+    await expect(heading).toBeVisible({ timeout: 15_000 });
+    // The type scale stepped down a size (owner request 2026-11-06); Larger still scales the heading up from it.
+    expect(parseFloat(await heading.evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(base + 4);
   });
 
   test("SO-18 and SO-19: search names what it covers and explains the length limit", async ({ page }) => {

@@ -140,7 +140,7 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
           <p className={styles.taskId}><span className="visually-hidden">Task ID </span><IdValue id={n.id} label="task ID" full /></p>
           {link && <span className={styles.copyLink}><CopyValue value={link} label="task link" icon={Link2} /></span>}
           {(n.retired || n.deleted) && <p className={styles.meta}>Record lifecycle: {n.deleted ? "Deleted" : "Retired"}</p>}
-          {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels">{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
+          {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels" title={n.labels.join(", ")}>{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
         </div>
       </div>
       {notice}

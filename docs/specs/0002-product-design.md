@@ -40,7 +40,7 @@ Use these initial tokens; check actual rendered contrast before release:
 | Attention / error / success | Amber / coral / sage, always paired with text or icon |
 | Spacing | 4, 8, 12, 16, 24, 32, 48 CSS px |
 | Radius | 8px controls, 12px panels; subtle shadows only on overlays |
-| Typography | System sans; 16px default, 14px metadata, 24–32px page titles; system monospace for terminal/code |
+| Typography | System sans; 14px default, 13px metadata, 12px minimum, 16/18/20px section headings, 22–26px page titles (owner request 2026-11-06: one step down from 16/14 for v1-like density; Settings › Display scales every step); system monospace for terminal/code (terminal keeps its own ≥14px setting) |
 | Layout | 224px desktop rail; 24px desktop gutters, 16px mobile; content width determined per surface |
 | Motion | Short opacity/position transitions; honor reduced motion; no animated live row reordering |
 
@@ -150,7 +150,7 @@ Capture only the intended application/test scenario. AQ enforces authorized uplo
 
 These breakpoints are initial design values; content fit and font scaling govern adaptations. Phone bottom destinations are Overview, Results, Supervisor, Agents and More. More includes Work, Decisions, Playbooks, Knowledge and Settings. Focused text entry may collapse bottom navigation; return restores it. At 320px, provider entries may wrap into two rows; never force whole-app horizontal scrolling. Essential two-dimensional content may scroll inside its own labelled region.
 
-Target WCAG 2.2 AA, including keyboard operation, visible/unobscured focus, semantic headings/landmarks, labelled icons, contrast, status announcements and reduced motion. Use 44px primary touch targets as a product choice; WCAG's AA minimum target criterion is 24px with defined exceptions. Reflow exceptions for terminals/graphs do not exempt the rest of the application. See [WCAG 2.2](https://www.w3.org/TR/WCAG22/) and [Reflow guidance](https://www.w3.org/WAI/WCAG21/Understanding/reflow).
+Target WCAG 2.2 AA, including keyboard operation, visible/unobscured focus, semantic headings/landmarks, labelled icons, contrast, status announcements and reduced motion. Use 44px primary touch targets as a product choice (shell navigation everywhere; every control on touch and phone layouts — secondary controls on fine-pointer desktop layouts use the 36px `--control-height`); WCAG's AA minimum target criterion is 24px with defined exceptions. Reflow exceptions for terminals/graphs do not exempt the rest of the application. See [WCAG 2.2](https://www.w3.org/TR/WCAG22/) and [Reflow guidance](https://www.w3.org/WAI/WCAG21/Understanding/reflow).
 
 Drawers/dialogs trap focus only while modal and restore it on close. Never announce every terminal frame through a live region. Provide a bounded transcript/read mode and explicit status changes. Clip instructions should have text equivalents; audio-bearing evidence needs captions/transcript when required for understanding. Color never carries a state alone. Static PNGs do not establish conformance.
 

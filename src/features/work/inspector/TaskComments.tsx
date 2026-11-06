@@ -29,10 +29,12 @@ export function TaskComments({ project, task, query, linkSearch }: { project: st
   return <>
     {composer}
     <RetainedNotice query={query} />
-    {!items.length ? <p className={styles.meta}>No comments yet.</p> : <ol className={styles.comments} aria-label="Comments">
+    {items.length > 0 && <ol className={styles.comments} aria-label="Comments">
       {shown.map(c => <CommentItem key={c.comment_id} comment={c} project={project} linkSearch={linkSearch} writable={writable} />)}
     </ol>}
-    <div className={styles.commentPaging}>
+    {/* One row: the empty-thread note (or Show all / Load older) beside Refresh, never stacked (owner request 2026-11-06). */}
+    <div className={styles.commentPaging} data-comment-paging="">
+      {!items.length && <p className={styles.meta}>No comments yet.</p>}
       <ShowAll shown={COMMENTS_PREVIEW} total={items.length} noun="loaded comments" expanded={all} onShowAll={setAll} />
       {(all || items.length <= COMMENTS_PREVIEW) && query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => { setAll(true); void query.fetchNextPage(); }}>{query.isFetchingNextPage ? "Loading older comments…" : "Load older comments"}</ActionButton>}
       <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh comments</ActionButton>

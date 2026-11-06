@@ -15,10 +15,10 @@
 .toolbar { flex-wrap:wrap; }
 .search { position:relative; display:flex; flex:1 1 280px; max-inline-size:420px; min-inline-size:0; }
 .searchIcon { position:absolute; inset-inline-start:var(--space-3); inset-block-start:50%; translate:0 -50%; color:var(--color-text-secondary); pointer-events:none; }
-.search input { flex:1; min-inline-size:0; min-block-size:var(--touch-target); padding:var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 26px); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-panel); color:var(--color-text); font:inherit; }
+.search input { flex:1; min-inline-size:0; min-block-size:var(--control-height); padding:var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 26px); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-panel); color:var(--color-text); font:inherit; }
 .search input:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 .chips { display:flex; flex-wrap:wrap; gap:var(--space-2); }
-.chip { display:inline-flex; align-items:center; gap:var(--space-2); min-block-size:var(--touch-target); padding:var(--space-2) var(--space-4); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-panel); color:var(--color-text); font:inherit; cursor:pointer; }
+.chip { display:inline-flex; align-items:center; gap:var(--space-2); min-block-size:var(--control-height); padding:var(--space-2) var(--space-4); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-panel); color:var(--color-text); font:inherit; cursor:pointer; }
 .chip::before { content:""; inline-size:10px; block-size:10px; border-radius:50%; background:var(--color-text-secondary); }
 .chip[data-state=active]::before { background:var(--color-accent); }
 .chip[data-state=completed]::before { background:var(--color-success); }
@@ -29,7 +29,7 @@
 .graphActions:empty { display:none; }
 
 /* Panes: list + inspector, or graph-first (≈62 / 38) in graph mode. */
-.panes { display:grid; grid-template-columns:minmax(300px,.8fr) minmax(0,1.2fr); gap:var(--space-4); align-items:start; }
+.panes { display:grid; grid-template-columns:minmax(300px,.8fr) minmax(0,1.2fr); gap:var(--space-3); align-items:start; }
 .mainPane,.inspector { min-inline-size:0; }
 .page[data-view=graph] .panes { grid-template-columns:minmax(0,62fr) minmax(320px,38fr); }
 @media (min-width:1200px) {
@@ -48,13 +48,13 @@
 .rows { margin:0; padding:0; list-style:none; }
 .rows li { border-block-end:1px solid var(--color-border); }
 /* One line per task (spec 0004 item 16): about twice the rows of the two-line design at 1440x900. */
-.row { display:flex; gap:var(--space-2); align-items:center; min-block-size:34px; padding:var(--space-1) var(--space-2); color:var(--color-text); text-decoration:none; border-inline-start:3px solid transparent; }
+.row { display:flex; gap:var(--space-2); align-items:center; min-block-size:30px; padding:3px var(--space-2); line-height:1.4; color:var(--color-text); text-decoration:none; border-inline-start:3px solid transparent; }
 .row:hover { background:color-mix(in srgb, var(--color-raised) 60%, transparent); }
 .row:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
 .rows li[data-selected=true] .row { background:var(--color-raised); border-inline-start-color:var(--color-accent); }
 .rowTitle { flex:1 1 auto; min-inline-size:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
 .rows li[data-selected=true] .rowTitle { font-weight:600; }
-.marker { flex:none; padding:0 var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); color:var(--color-text-secondary); font-size:12px; line-height:18px; }
+.marker { flex:none; padding:0 var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); color:var(--color-text-secondary); font-size:var(--font-size-xs); line-height:18px; }
 .meta { display:block; margin-block-start:var(--space-1); color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
 .emptyInspector { min-block-size:280px; color:var(--color-text-secondary); }
 .emptyInspector svg { color:var(--color-text-secondary); }
@@ -72,15 +72,36 @@
   .row { padding-inline:0; }
 }
 
+/* List density (owner request 2026-11-06, closer to v1): a light list panel with a small muted heading, so the rows
+   start high; pointer layouts use 36px filters and a 32px Refresh. Phones keep 44px targets (below). */
+.page[data-view=list] .mainPane > section { padding:var(--space-3); }
+.page[data-view=list] .mainPane > section > div:first-child { flex-wrap:nowrap; align-items:center; margin-block-end:var(--space-2); }
+.page[data-view=list] .mainPane > section > div:first-child > :first-child { min-inline-size:0; }
+.page[data-view=list] .mainPane > section > div:first-child h2 { font-size:var(--font-size-xs); font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--color-text-secondary); }
+.page[data-view=list] .mainPane .meta { font-size:var(--font-size-xs); }
+@media (min-width:768px) {
+  /* Search and the state chips share one toolbar line; chips scroll sideways rather than wrapping. */
+  .toolbar { flex-wrap:nowrap; }
+  .chips { flex-wrap:nowrap; min-inline-size:0; overflow-x:auto; scrollbar-width:none; }
+  .chip { flex:none; padding:var(--space-1) var(--space-3); }
+  .chip::before { inline-size:8px; block-size:8px; }
+}
+
 /* Phone (spec 0002 §9, WK-F): list first, so the first task row sits above the fold at 390x844. */
 .phoneGraphStatus { padding:var(--space-4) var(--gutter-mobile); }
 @media (max-width:767px) {
   /* Phone rows stay a full touch target. */
-  .row { min-block-size:var(--touch-target); }
+  .row { min-block-size:var(--control-height); }
   .page { gap:var(--space-3); }
   .titleBlock { gap:var(--space-1); }
   .segmented { margin-block-start:var(--space-1); }
   .toolbar { gap:var(--space-2); padding:0; border:0; background:transparent; }
   .chips { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
   .chip { flex:none; }
+}
+/* Phone task view (spec 0004 §3: the inspector is the page, with Back): Create task and the project crumb the
+   inspector repeats step aside so the task starts higher, as in v1. List | Graph stays (Graph opens from a task). */
+@media (max-width:600px) {
+  .page[data-detail=true][data-view=list] .headAction,
+  .page[data-detail=true][data-view=list] .crumb { display:none; }
 }

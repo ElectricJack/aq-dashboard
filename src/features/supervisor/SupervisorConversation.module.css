@@ -4,7 +4,7 @@
 .workspace[data-presentation=full] { flex: 1; min-block-size: 0; }
 .compactControl { display: none; }
 .header { display: flex; justify-content: space-between; align-items: start; gap: var(--space-3); }
-.header h1 { margin: 0; font-size: 28px; }
+.header h1 { margin: 0; font-size: var(--font-size-display); }
 .header p { color: var(--color-text-secondary); margin-block: var(--space-2) 0; font-size: var(--font-size-meta); }
 .runtime { margin: 0; color: var(--color-attention); font-size: var(--font-size-meta); }
 .history { flex: 1; min-block-size: 180px; overflow-y: auto; overflow-wrap: anywhere; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); scrollbar-gutter: stable; }
@@ -18,25 +18,25 @@
 .messageContent { min-inline-size: 0; }
 .message[data-author=supervisor] .metadata { margin-block: 0 var(--space-2); }
 /* The shared "aq" mark, sized for the message column. */
-.avatar { flex: none; display: inline-grid; place-items: center; inline-size: 32px; block-size: 32px; margin-block-start: var(--space-4); border-radius: var(--radius-control); background: var(--color-accent); color: var(--color-accent-contrast); font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
+.avatar { flex: none; display: inline-grid; place-items: center; inline-size: 32px; block-size: 32px; margin-block-start: var(--space-4); border-radius: var(--radius-control); background: var(--color-accent); color: var(--color-accent-contrast); font-size: var(--font-size-meta); font-weight: 700; letter-spacing: -0.02em; }
 .titleBlock { display: flex; align-items: start; gap: var(--space-3); min-inline-size: 0; }
 .titleBlock > div { min-inline-size: 0; }
 .titleIcon { flex: none; margin-block-start: var(--space-1); color: var(--color-text-secondary); }
 .historyMenu { position: relative; }
 .historyMenu:not(:last-child) { padding-inline-end: var(--space-2); border-inline-end: 1px solid var(--color-border); }
-.historyButton { min-block-size: var(--touch-target); min-inline-size: var(--touch-target); padding: var(--space-2) var(--space-3); background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-text); font: inherit; cursor: pointer; }
+.historyButton { min-block-size: var(--control-height); min-inline-size: var(--control-height); padding: var(--space-2) var(--space-3); background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-text); font: inherit; cursor: pointer; }
 .historyButton svg { vertical-align: -5px; margin-inline-end: var(--space-2); }
 .historyButton:hover, .historyActions button:hover:enabled { background: var(--color-raised); }
 .historyButton:focus-visible, .historyActions button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .historyActions { position: absolute; inset-block-start: calc(100% + var(--space-1)); inset-inline-end: 0; z-index: 5; display: grid; min-inline-size: 220px; padding: var(--space-1); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); box-shadow: 0 8px 24px rgb(0 0 0 / .35); }
 .historyActions[hidden] { display: none; }
-.historyActions button { min-block-size: var(--touch-target); padding: var(--space-2) var(--space-3); text-align: start; background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-text); font: inherit; cursor: pointer; }
+.historyActions button { min-block-size: var(--control-height); padding: var(--space-2) var(--space-3); text-align: start; background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-text); font: inherit; cursor: pointer; }
 .historyActions button:disabled { cursor: default; color: var(--color-text-secondary); }
 /* In-flow marker: sticks to the history scroller's bottom edge while the reader is above. */
 .history .newMarker { position: sticky; inset-block-end: var(--space-2); z-index: 1; display: flex; inline-size: fit-content; margin: var(--space-3) auto 0; border-radius: 999px; background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent); box-shadow: 0 4px 16px rgb(0 0 0 / .35); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); padding: var(--space-3) var(--space-4); margin: 0; line-height: 1.55; }
 .message[data-own=true] .body { background: var(--color-accent); color: #111426; border-color: var(--color-accent); }
-.metadata { margin-block: var(--space-2) 0; font-size: 12px; color: var(--color-text-secondary); }
+.metadata { margin-block: var(--space-2) 0; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
 .message[data-own=true] .metadata { text-align: end; }
 .composer { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); min-inline-size: 0; }
 .composer label { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
@@ -44,10 +44,10 @@
 .composer textarea:read-only { color: var(--color-text-secondary); }
 .composer p { margin: 0; }
 .composerActions, .recovery { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
-.composerActions > span { margin-inline-end: auto; font-size: 12px; color: var(--color-text-secondary); }
+.composerActions > span { margin-inline-end: auto; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
 .composerActions button { background: var(--color-accent); color: #111426; }
 .composerActions .send { min-inline-size: 56px; padding-inline: var(--space-3); }
-.footer { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding-inline: var(--space-2); font-size: 12px; color: var(--color-text-secondary); }
+.footer { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding-inline: var(--space-2); font-size: var(--font-size-xs); color: var(--color-text-secondary); }
 .recovery small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--color-text-secondary); }
 @media (max-width: 767px) {
  .fullControl { display: none; }
@@ -55,18 +55,18 @@
  .header { flex-wrap: nowrap; }
  .header > div { min-inline-size: 0; }
  .historyMenu:not(:last-child) { padding-inline-end: 0; border-inline-end: 0; }
- .historyButton { padding-inline: var(--space-2); font-size: 22px; line-height: 1; }
+ .historyButton { padding-inline: var(--space-2); font-size: var(--font-size-h1); line-height: 1; }
  .titleIcon { inline-size: 24px; block-size: 24px; }
  .footer { display: none; }
- .header h1 { font-size: 22px; }
- .header p { margin-block-start: var(--space-1); font-size: 12px; }
+ .header h1 { font-size: var(--font-size-h1); }
+ .header p { margin-block-start: var(--space-1); font-size: var(--font-size-xs); }
  .history { padding: var(--space-2); min-block-size: 100px; }
  .message { max-inline-size: 95%; }
  .composer { padding: var(--space-3); }
  .composer textarea { block-size: 56px; min-block-size: 56px; }
  .runtime { line-height: 1.4; }
  .workspace:has(.composer:focus-within) .header p { display: none; }
- .workspace:has(.composer:focus-within) .runtime { font-size: 12px; }
+ .workspace:has(.composer:focus-within) .runtime { font-size: var(--font-size-xs); }
  .workspace:has(.composer:focus-within) .history { min-block-size: 0; }
 }
 
@@ -84,24 +84,24 @@
 /* After every presentation display rule: [hidden] must win at equal specificity. */
 .destination[hidden], .presentation[hidden] { display: none; }
 .launcherBar { display: flex; justify-content: end; margin-block-end: var(--space-3); }
-.launcher { min-block-size: var(--touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-accent); cursor: pointer; }
+.launcher { min-block-size: var(--control-height); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-accent); cursor: pointer; }
 .headerActions { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--space-2); }
-.presentationButton { padding: var(--space-2) var(--space-3); min-block-size: var(--touch-target); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); cursor: pointer; }
-.header h2 { margin: 0; font-size: 20px; }
+.presentationButton { padding: var(--space-2) var(--space-3); min-block-size: var(--control-height); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); cursor: pointer; }
+.header h2 { margin: 0; font-size: var(--font-size-h2); }
 .history { border: 0; border-radius: 0; padding-inline: 0; }
 .messages { gap: var(--space-5); }
-.metadata { font-size: 12px; }
+.metadata { font-size: var(--font-size-xs); }
 .pending { max-inline-size: min(88%, 76ch); margin-inline-start: auto; }
 .pending .body { background: var(--color-accent); color: var(--color-accent-contrast); }
-.pending > p:last-child { font-size: 12px; color: var(--color-text-secondary); text-align: end; }
+.pending > p:last-child { font-size: var(--font-size-xs); color: var(--color-text-secondary); text-align: end; }
 .workspace[data-presentation=dock] { flex: 1; block-size: auto; min-block-size: 0; gap: var(--space-2); }
 .workspace[data-presentation=dock] .header { align-items: center; padding-block-end: var(--space-3); border-block-end: 1px solid var(--color-border); }
 .workspace[data-presentation=dock] .fullControl { display: none; }
 .workspace[data-presentation=dock] .compactControl { display: inline; }
 .workspace[data-presentation=dock] .headerActions { flex-wrap: nowrap; }
-.workspace[data-presentation=dock] .headerActions button { min-inline-size: var(--touch-target); padding-inline: var(--space-2); }
+.workspace[data-presentation=dock] .headerActions button { min-inline-size: var(--control-height); padding-inline: var(--space-2); }
 .workspace[data-presentation=dock] .message { max-inline-size: 94%; }
-.workspace[data-presentation=dock] .metadata { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.workspace[data-presentation=dock] .metadata { font-size: var(--font-size-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Short dock status; the full delivery text shows on hover or keyboard focus. */
 .delivery { border-radius: 2px; }
 .deliveryDetail { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

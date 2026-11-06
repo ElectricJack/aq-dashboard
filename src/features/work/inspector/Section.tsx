@@ -13,7 +13,7 @@ export function Section({ id, title, summary, children }: { id: SectionId; title
   return <section className={styles.section} data-section={id} data-open={open}>
     <div className={styles.sectionHead}>
       <h3><button type="button" aria-expanded={open} aria-controls={open ? body : undefined} onClick={() => setOpen(!open)}>
-        <ChevronRight size={16} aria-hidden className={styles.chevron} />{title}
+        <ChevronRight size={14} aria-hidden className={styles.chevron} />{title}
       </button></h3>
       {summary !== undefined && summary !== null && <span className={styles.sectionSummary}>{summary}</span>}
     </div>

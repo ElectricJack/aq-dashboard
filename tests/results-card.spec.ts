@@ -40,7 +40,8 @@ for (const vp of VIEWPORTS) {
             const el = node.parentElement!;
             if (!node.textContent!.trim() || !el.checkVisibility()) continue;
             const size = parseFloat(getComputedStyle(el).fontSize);
-            if (size < 14) out.push(`${size}px ${node.textContent!.trim().slice(0, 40)}`);
+            // The dashboard's type floor is 12px since the global step down (owner request 2026-11-06).
+            if (size < 12) out.push(`${size}px ${node.textContent!.trim().slice(0, 40)}`);
           }
           return out;
         });
