@@ -1,29 +1,25 @@
-/* Work's contextual task inspector (design reference 02). */
-.inspector { display:flex; flex-direction:column; min-inline-size:0; }
-.inspector > div:first-child { order:0; margin-block-end:0; }
-.inspector > div:first-child > div { display:flex; flex-direction:column; min-inline-size:0; max-inline-size:100%; }
-.inspector h2 { font-size:22px; line-height:1.3; overflow-wrap:anywhere; }
-/* Eyebrow ("TASK · REVISION N") sits above the title, as in the reference. */
-.inspector > div:first-child > div > p { order:-1; margin:0 0 var(--space-2); color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.08em; font-size:12px; }
-.back { display:none; order:-1; align-items:center; gap:var(--space-1); min-block-size:var(--touch-target); align-self:start; }
-.backAlways { display:inline-flex; order:0; }
-.identity { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); margin-block-start:var(--space-3); }
-.state { display:inline-flex; align-items:center; margin:0; padding:var(--space-1) var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-raised); font-weight:600; font-size:var(--font-size-meta); color:var(--color-accent); }
-.state[data-state=completed] { color:var(--color-success); }
-.state[data-state=canceled] { color:var(--color-text-secondary); }
+/* Work's task inspector (design reference 02; spec 0004 §3): one panel, sticky header, foldable sections. */
+.inspector { display:flex; flex-direction:column; min-inline-size:0; padding:0 var(--space-5) var(--space-5); background:var(--color-panel); border:1px solid var(--color-border); border-radius:var(--radius-panel); }
+/* The header stays pinned below the shell's sticky top bar while the sections scroll. */
+.header { position:sticky; inset-block-start:var(--inspector-sticky-top, 0px); z-index:3; display:flex; flex-direction:column; gap:var(--space-2); margin-inline:calc(-1 * var(--space-5)); padding:var(--space-4) var(--space-5) var(--space-3); background:var(--color-panel); border-block-end:1px solid var(--color-border); border-start-start-radius:var(--radius-panel); border-start-end-radius:var(--radius-panel); }
+.header h2 { margin:0; font-size:22px; line-height:1.3; overflow-wrap:anywhere; }
+/* Location, then the action menu and Expand, on one line: the title and status follow without an extra row. */
+.headTop { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:var(--space-2) var(--space-3); min-inline-size:0; }
+.crumbs { flex:1 1 12rem; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); min-inline-size:0; color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
+.crumbs svg { flex:none; }
+.expand { display:inline-flex; align-items:center; gap:var(--space-1); flex:none; min-block-size:36px; padding:var(--space-1) var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-raised); color:var(--color-text); font:inherit; font-size:var(--font-size-meta); cursor:pointer; }
+.expand[aria-pressed=true] { border-color:var(--color-accent); color:var(--color-accent); }
+.expand:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
+.back { display:none; align-items:center; gap:var(--space-1); min-block-size:var(--touch-target); align-self:start; }
+.backAlways { display:inline-flex; }
+.identity { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
 .identity .meta { margin:0; }
 /* Full task ID with copy (spec 0004 item 1): pasteable into Add dependency and `aq` commands. */
-.taskId { display:inline-flex; align-items:center; gap:var(--space-1); margin:0; min-inline-size:0; max-inline-size:100%; }
-.taskId code { font-family:var(--font-mono); font-size:13px; color:var(--color-text-secondary); overflow-wrap:anywhere; }
-.labels { list-style:none; display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-3) 0 0; padding:0; }
-.labels li { padding:2px var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); font-size:var(--font-size-meta); color:var(--color-text-secondary); overflow-wrap:anywhere; }
-.section { border-block-start:1px solid var(--color-border); padding-block-start:var(--space-4); margin-block:var(--space-4) 0; }
-.section:first-of-type { margin-block-start:var(--space-5); }
-.section h3 { font-size:16px; margin:0 0 var(--space-3); }
-.section [data-document-body] { line-height:1.55; }
-.dependencies { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-3); }
-.dependencies li { display:grid; gap:var(--space-1); }
-.dependencies a { overflow-wrap:anywhere; }
+.taskId { display:inline-flex; align-items:center; margin:0; min-inline-size:0; max-inline-size:100%; }
+.copyLink { display:inline-flex; align-items:center; }
+.actions { display:flex; align-items:center; }
+.labels { list-style:none; display:flex; flex-wrap:wrap; gap:var(--space-2); margin:0; padding:0; }
+.labels li { padding:2px var(--space-2); border:1px solid var(--color-border); border-radius:999px; font-size:var(--font-size-meta); color:var(--color-text-secondary); overflow-wrap:anywhere; }
 .disclosure { margin-block:var(--space-4) 0; border-block-start:1px solid var(--color-border); padding-block-start:var(--space-3); }
 .disclosure summary { cursor:pointer; color:var(--color-text-secondary); min-block-size:var(--touch-target); display:list-item; align-content:center; }
 .disclosure[open] summary { margin-block-end:var(--space-3); }
@@ -31,4 +27,6 @@
 .meta { display:block; margin-block:var(--space-1) 0; }
 .footer { margin:var(--space-4) 0 0; padding-block-start:var(--space-4); border-block-start:1px solid var(--color-border); }
 .footer time { text-decoration:underline dotted; text-underline-offset:3px; }
-@media(max-width:1199px) { .back { display:inline-flex; } }
+/* Expand applies only beside a list or graph (desktop); below that the inspector is already the page. */
+@media(max-width:1199px) { .back { display:inline-flex; } .expand { display:none; } }
+@media(max-width:600px) { .inspector { padding:0 var(--space-4) var(--space-4); } .header { margin-inline:calc(-1 * var(--space-4)); padding-inline:var(--space-4); } }

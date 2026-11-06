@@ -15,6 +15,7 @@ export function capabilitiesForResource(resource: string): string[] {
     "task-create-context": ["tasks.create"], "supervisor-operation": ["supervisor.message.enqueue"],
     "session-source-events": ["session.events.read"], "session-usage": ["session.usage.read"],
     "project-execution-bindings": ["projects.read"],
+    "task-attempt-session": ["sessions.read"], "task-results": ["results.read"], "task-comments": ["tasks.comments.read"],
   };
   if (exact[resource]) return exact[resource];
   if (resource.startsWith("human-graph-")) return ["human.graph.read"];

@@ -16,6 +16,16 @@
   --color-error: #ff8f80;
   --color-success: #8fd3a5;
 
+  /* Task status (spec 0004 item 16). Each status also has its own icon shape, so colour is never the only cue. */
+  --color-status-draft: var(--color-text-secondary);
+  --color-status-active: var(--color-accent);
+  --color-status-ready: var(--color-accent);
+  --color-status-running: #7cd0f0;
+  --color-status-waiting: var(--color-attention);
+  --color-status-unknown: var(--color-text-secondary);
+  --color-status-completed: var(--color-success);
+  --color-status-canceled: var(--color-error);
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

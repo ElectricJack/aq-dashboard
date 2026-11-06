@@ -41,6 +41,12 @@ const fixtureComments = (d: Detail): CommentProjection[] => [
     anchor: { kind: "image_region", ...ARTIFACT, x: 0.1, y: 0.2, width: 0.4, height: 0.25 }, history: [] },
 ];
 
+/** Work fixture project and its "Replay reconciliation" task (src/mocks/humanGraph.ts). */
+const TASK_RESULT_PROJECT = "00000000-0000-0000-0000-000000000001", TASK_RESULT_TASK = "00000000-0000-0000-0000-000000000105";
+function taskResult(): Detail {
+  const d = structuredClone(FIXTURE_RESULTS[0]!);
+  return { ...d, result: { ...d.result, project_id: TASK_RESULT_PROJECT, task_id: TASK_RESULT_TASK }, revision: { ...d.revision, attempt_id: "00000000-0000-0000-0000-000000000305", check_refs: ["00000000-0000-4000-8000-000000000070"], evidence_refs: ["00000000-0000-4000-8000-000000000071"] } };
+}
 /** Fixture server time is the same anchor, so card ages read 10m / 1h / 2h. */
 const envelope = <T,>(data: T, scoped = false) => ({ ...compat.read, server_time: new Date(NOW_MS).toISOString(), data, scope: scoped ? { kind: "project" as const, project_id: project } : { kind: "all_authorized" as const } });
 const operation = (operationId: string) => ({
@@ -56,8 +62,21 @@ export function resultsHandlers({ media }: { media: boolean }) {
   const posted = new Map<string, CommentProjection[]>();
   const feedback = new Map<string, FeedbackDraft>();
   return [
-    http.get("/api/v1/results", () => HttpResponse.json(envelope({ items: FIXTURE_RESULTS, next_cursor: null }))),
-    http.get("/api/v1/results/:id/revisions/:revision", ({ params }) => {
+    http.get("/api/v1/results", ({ request }) => {
+      // The Work inspector's task-scoped read (spec 0004 item 7): the replay fixture task has one labelled result.
+      const url = new URL(request.url), task = url.searchParams.get("task_id"), scopedProject = url.searchParams.get("project_id");
+      if (task && scopedProject === TASK_RESULT_PROJECT) {
+        const items = task === TASK_RESULT_TASK ? [taskResult()] : [];
+        return HttpResponse.json({ ...envelope({ items, next_cursor: null }), scope: { kind: "project" as const, project_id: TASK_RESULT_PROJECT } });
+      }
+      return HttpResponse.json(envelope({ items: FIXTURE_RESULTS, next_cursor: null }));
+    }),
+    http.get("/api/v1/results/:id/revisions/:revision", ({ params, request }) => {
+      // The Work inspector links its task result here in the Work fixture project.
+      if (new URL(request.url).searchParams.get("project_id") === TASK_RESULT_PROJECT) {
+        const d = taskResult();
+        return d.result.id === params.id && d.revision.revision === params.revision ? HttpResponse.json({ ...envelope(d), scope: { kind: "project" as const, project_id: TASK_RESULT_PROJECT } }) : notFound();
+      }
       const d = find(String(params.id), String(params.revision));
       return d ? HttpResponse.json(envelope(d, true)) : notFound();
     }),

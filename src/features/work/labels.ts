@@ -1,5 +1,4 @@
 import type { ReadinessView, TaskDetailView } from "../../api/adapters/inspection";
-import { nodeLabel } from "../../api/adapters/humanGraph";
 
 export const READINESS_LABEL: Record<ReadinessView["state"], string> = {
   draft: "Draft",
@@ -55,10 +54,22 @@ export const WORK_STATE_LABEL: Record<WorkStateFilter, string> = {
 export const workStateFilter = (value: string | null): WorkStateFilter | undefined =>
   (WORK_STATE_FILTERS as readonly string[]).includes(value ?? "") ? (value as WorkStateFilter) : undefined;
 
-/** Second row line: lifecycle, record retirement when present, revision ("Active · r1"). */
-export function taskRowMeta(task: { task_state: string | null; content_revision: string; retired?: boolean; deleted?: boolean }): string {
-  return [nodeLabel(task.task_state), task.deleted ? "Deleted record" : task.retired ? "Retired record" : null, `r${task.content_revision}`].filter(Boolean).join(" · ");
+/**
+ * One task status for the list bullet and the inspector badge (spec 0004 items 2, 16). The list knows only the
+ * Graph lifecycle plus "running" from the page's `executions`, so an active task there is "active", not "ready";
+ * the inspector's work read gives the readiness states.
+ */
+export type TaskStatus = "draft" | "active" | "ready" | "running" | "waiting" | "unknown" | "completed" | "canceled";
+export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  draft: "Draft", active: "Active", ready: "Ready", running: "Running", waiting: "Waiting",
+  unknown: "Readiness unknown", completed: READINESS_LABEL.done, canceled: READINESS_LABEL.canceled,
+};
+/** List status: the lifecycle state, or running when an attempt holds the task. */
+export function listStatus(task: { task_state: string | null }, held: boolean): TaskStatus {
+  if (task.task_state === "active") return held ? "running" : "active";
+  return task.task_state === "draft" || task.task_state === "completed" || task.task_state === "canceled" ? task.task_state : "unknown";
 }
-
-/** The Graph task read carries no readiness, agent or latest result; say so once. */
-export const EXECUTION_UNAVAILABLE = "Execution details unavailable";
+/** Rare record states keep a short inline marker on the one-line row. */
+export function recordMarker(task: { retired?: boolean; deleted?: boolean }): string | null {
+  return task.deleted ? "Deleted" : task.retired ? "Retired" : null;
+}

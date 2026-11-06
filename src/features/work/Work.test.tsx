@@ -31,7 +31,21 @@ test("literal task titles stay text on the served route",async()=>{
  server.use(http.get(`/api/human/projects/${task.project.id}/tasks`,()=>HttpResponse.json({...task,data:{items:[{...task.data,title:'<img src=x onerror="alert(1)">'}],next_cursor:null}})));
  renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByText('<img src=x onerror="alert(1)">')).toBeVisible();expect(list.querySelector("img")).toBeNull();
 });
-test("task rows read state and revision once, without knowledge verification terms",async()=>{renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});for(const item of within(list).getAllByRole("listitem")){expect(item.textContent).not.toMatch(/(\w+) · \1/);expect(item.textContent).not.toMatch(/Unverified|Verified|Disputed/);}expect(within(list).getAllByText(/^Active · r1$/).length).toBeGreaterThan(0);expect(screen.getByText("Execution details unavailable")).toBeVisible();});
+test("task rows are one line: a status icon with an accessible name, no status label or revision (item 16)",async()=>{
+ renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});
+ for(const item of within(list).getAllByRole("listitem")){expect(item.textContent).not.toMatch(/ · r\d|Unverified|Verified|Disputed/);const icon=within(item).getByRole("img");expect(icon).toHaveAttribute("title",icon.getAttribute("aria-label"));}
+ // The list page's executions mark the replay task running; others show their lifecycle.
+ const replay=within(list).getByRole("link",{name:/Fixture: Replay reconciliation/});expect(within(replay).getByRole("img",{name:"Running"})).toBeVisible();expect(replay).toHaveAttribute("title","Fixture: Replay reconciliation");
+ expect(within(within(list).getByRole("link",{name:/Fixture: Define lease contract/})).getByRole("img",{name:"Complete"})).toBeVisible();
+ expect(within(within(list).getByRole("link",{name:/Fixture: Implement safe recovery/})).getByRole("img",{name:"Draft"})).toBeVisible();
+ expect(within(within(list).getByRole("link",{name:/Fixture: Retire legacy lease path/})).getByRole("img",{name:"Canceled"})).toBeVisible();
+ expect(within(within(list).getByRole("link",{name:/Fixture: Approve recovery plan/})).getByRole("img",{name:"Active"})).toBeVisible();
+ expect(within(list).queryByText(/^Active$|^Completed$/)).toBeNull();
+});
+test("list rows keep a short marker for retired and deleted records",async()=>{
+ server.use(http.get(`/api/human/projects/${task.project.id}/tasks`,()=>HttpResponse.json({...task,data:{items:[{...task.data,retired:true}],next_cursor:null}})));
+ renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByText("Retired")).toBeVisible();
+});
 test("graph root resets when returning to List and follows the selection into Graph (WD-01)",async()=>{
  const tasks=`/work/00000000-0000-0000-0000-000000000104${scope}&view=graph&root=00000000-0000-0000-0000-000000000104`;
  const {router}=renderApp(tasks);const params=()=>new URLSearchParams(router.state.location.search);
@@ -49,5 +63,5 @@ test("the inspector is the single task view: full copyable task ID, no Open full
  expect(within(detail).getByText("00000000-0000-0000-0000-000000000105",{selector:"code"})).toBeVisible();
  expect(within(detail).getByRole("button",{name:"Copy task ID"})).toBeVisible();
  // The work read names the holding attempt; the mock fixture's replay task has one.
- expect(await within(detail).findByRole("link",{name:"Open session"})).toHaveAttribute("href",expect.stringContaining("/agents/00000000-0000-0000-0000-000000000302"));
+ expect(await within(detail).findByRole("link",{name:"Open terminal"})).toHaveAttribute("href",expect.stringContaining("/agents/00000000-0000-0000-0000-000000000302"));
 });

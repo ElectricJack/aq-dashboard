@@ -9,13 +9,14 @@ import { renderApp } from "../../test/renderApp";
 import { graphEnvelope, graphNode, graphProject, graphId } from "../../test/humanGraph";
 
 const actions = [
-  ["task.edit", "Edit task"], ["task.cancel", "Cancel attempt"], ["task.retry", "Retry attempt"],
+  ["task.edit", "Edit task"], ["task.reprioritize", "Reprioritize"], ["task.cancel", "Cancel attempt"], ["task.retry", "Retry attempt"],
   ["task.dependency.add", "Add dependency"], ["task.dependency.remove", "Remove dependency"],
   ["knowledge.author", "Add record"], ["knowledge.correct", "Correct record"],
   ["knowledge.verify", "Verify record"], ["knowledge.retire", "Retire record"],
 ] as const;
-const taskCapabilities:Record<string,string>={"task.edit":"tasks.edit","task.cancel":"tasks.cancel","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove"};
+const taskCapabilities:Record<string,string>={"task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.cancel":"tasks.cancel","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove"};
 const server = setupServer(...handlersFor("default"));
+const confirmedText=(kind:string)=>kind==="task.cancel"?"Cancellation requested":kind==="task.reprioritize"?"Priority set to -7":"Action confirmed";
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 let holding = true;
@@ -56,6 +57,7 @@ async function open(kind:string,label:string,labels?:string[]){
  }
  if(["task.cancel","knowledge.verify","knowledge.retire"].includes(kind))await userEvent.type(within(dialog).getByLabelText("Reason"),"Checked the source");
  if(kind==="task.dependency.add")await userEvent.type(within(dialog).getByLabelText("Blocker task"),graphId(11));
+ if(kind==="task.reprioritize")await userEvent.type(within(dialog).getByLabelText("Priority"),"-7");
  if(kind==="task.dependency.remove")await userEvent.selectOptions(within(dialog).getByLabelText("Dependency"),graphId(50));
  if(kind==="knowledge.verify")await userEvent.type(within(dialog).getByLabelText("Evidence URL"),"https://example.org/runbook");
  if(["task.cancel","knowledge.retire"].includes(kind))await userEvent.click(within(dialog).getByRole("checkbox"));
@@ -70,13 +72,14 @@ test.each(actions)("%s submits a version-bound typed action and refreshes confir
  }));
  const {node,dialog,reads}=await open(kind,label);const before=reads();
  await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
- expect(await within(dialog).findByText(kind==="task.cancel"?"Cancellation requested":"Action confirmed",{exact:true})).toBeVisible();
+ expect(await within(dialog).findByText(confirmedText(kind),{exact:true})).toBeVisible();
  expect(requests).toHaveLength(1);
  const body=requests[0]!,payload=body.payload as Record<string,unknown>;
  expect(body.kind).toBe(kind);expect(payload.operation_id).toBe(body.operation_id);expect(payload.project_id).toBe(graphProject);
  expect(body.subject).toEqual({type:kind==="knowledge.author"?"project":node.kind,id:kind==="knowledge.author"?graphProject:node.id,revision:kind==="knowledge.author"?"1":"9007199254740993"});
  expect(body.expected_versions).toEqual(kind==="knowledge.author"?{project:"1"}:{[node.kind]:"9007199254740993"});
  if(kind==="task.dependency.remove")expect(payload).toMatchObject({edge_id:graphId(50),edge_version:"2"});
+ if(kind==="task.reprioritize")expect(payload).toMatchObject({priority:-7,expected_version:"9007199254740993"});
  if(kind==="knowledge.verify")expect(payload).toMatchObject({verification:"verified",evidence:[{kind:"url",url:"https://example.org/runbook",retained:false}]});
  await waitFor(()=>expect(reads()).toBeGreaterThan(before));
 });
@@ -91,7 +94,7 @@ test.each(actions)("%s preserves an unknown effect and retries identical bytes",
  await waitFor(()=>expect(lookups).toBeGreaterThan(0));
  expect(within(dialog).queryByText("Action confirmed",{exact:true})).not.toBeInTheDocument();
  await userEvent.click(within(dialog).getByRole("button",{name:"Retry exact submission"}));
- await within(dialog).findByText(kind==="task.cancel"?"Cancellation requested":"Action confirmed",{exact:true});
+ await within(dialog).findByText(confirmedText(kind),{exact:true});
  expect(bytes).toHaveLength(2);expect(bytes[1]).toBe(bytes[0]);
 });
 
@@ -246,7 +249,7 @@ test.each([["task.edit","Edit task"],["knowledge.correct","Correct record"]])("%
 test.each(actions.filter(([kind])=>!["task.edit","knowledge.author","knowledge.correct"].includes(kind)))("%s accepts records with 17 existing labels",async(kind,label)=>{
  let posts=0;server.use(http.post("/api/v1/actions",async({request})=>{posts++;return HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id));}));
  const {dialog}=await open(kind,label,Array.from({length:17},(_,i)=>`label-${i}`));
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText(kind==="task.cancel"?"Cancellation requested":"Action confirmed",{exact:true});expect(posts).toBe(1);
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText(confirmedText(kind),{exact:true});expect(posts).toBe(1);
 });
 
 test.each(["lookup","exact retry"])("%s receipt retirement preserves uncertainty and the original identity",async(path)=>{
@@ -345,7 +348,7 @@ test("WDR-05: the picker doesn't offer a task that already blocks this one",asyn
  let posts=0;server.use(http.post("/api/v1/actions",()=>{posts++;return HttpResponse.json({});}));
  const {node}=setup("task.dependency.add");const existing={...graphNode("task",13),title:"Blocker one"},other={...graphNode("task",12),title:"Blocker two"};
  server.use(http.get(`/api/human/projects/${graphProject}/tasks`,({request})=>HttpResponse.json(graphEnvelope({items:new URL(request.url).searchParams.get("q")?[existing,other]:[node],next_cursor:null}))));
- renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByText(/An agent attempt holds this task/);await launch("Add dependency",true);
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByRole("link",{name:"Open terminal"});await launch("Add dependency",true);
  const dialog=screen.getByRole("dialog",{name:"Add dependency"});
  await userEvent.type(within(dialog).getByLabelText("Blocker task"),"blocker");
  const choices=await within(dialog).findByRole("group",{name:"Matching tasks"});
@@ -369,8 +372,17 @@ test.each([[0,true],[1,false]])("retry attempt with %i recorded attempts is disa
  if(disabled){await waitFor(()=>expect(retry).toHaveAttribute("aria-disabled","true"));expect(retry).toHaveAccessibleDescription("This task has never had an agent attempt to retry");}
  else{await new Promise(r=>setTimeout(r,50));expect(retry).not.toHaveAttribute("aria-disabled");}
 });
-test("the attempts read is skipped while an attempt holds the task",async()=>{
- let historyReads=0;const {node}=setup("task.edit");server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}/history`,()=>{historyReads++;return HttpResponse.json({});}));
- renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByText(/An agent attempt holds this task/);
- await new Promise(r=>setTimeout(r,100));expect(historyReads).toBe(0);
+test("one history read serves the Attempts section and Retry attempt's precondition",async()=>{
+ let historyReads=0;const {node}=setup("task.edit");server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}/history`,()=>{historyReads++;return HttpResponse.json(graphEnvelope({task_id:node.id,items:[],next_cursor:null,attempts:[],attempts_truncated:false}));}));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByRole("link",{name:"Open terminal"});
+ expect(await screen.findByText("This task has never had an agent attempt.")).toBeVisible();
+ await new Promise(r=>setTimeout(r,100));expect(historyReads).toBe(1);
+});
+
+test("Reprioritize refuses a priority outside AQ's range before submitting",async()=>{
+ let posts=0;server.use(http.post("/api/v1/actions",()=>{posts++;return HttpResponse.json({});}));
+ const {node}=setup("task.reprioritize");renderApp(`/work/${node.id}?scope=project:${graphProject}`);await launch("Reprioritize",true);
+ const dialog=screen.getByRole("dialog",{name:"Reprioritize"});
+ await userEvent.type(within(dialog).getByLabelText("Priority"),"1000001");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent("Enter a whole-number priority from -1000000 to 1000000.");expect(posts).toBe(0);
 });
