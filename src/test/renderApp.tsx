@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
-import { createMemoryRouter } from "react-router";
+import { createMemoryRouter, type RouteObject } from "react-router";
 import { afterEach, beforeAll } from "vitest";
 import { App } from "../app/App";
 import { appRoutes } from "../app/routes";
@@ -9,12 +9,15 @@ import { appRoutes } from "../app/routes";
 // and initial router hydration belong to setup, not application response time.
 // Keep the production route components and the normal assertion deadlines.
 const testRoutes = appRoutes.map(route => ({ ...route }));
-beforeAll(async () => {
-  testRoutes[0]!.children = await Promise.all(appRoutes[0]!.children!.map(async route => {
-    if (typeof route.lazy !== "function") return route;
+async function resolveLazy(routes: RouteObject[]): Promise<RouteObject[]> {
+  return Promise.all(routes.map(async route => {
     const { lazy, ...definition } = route;
-    return { ...definition, ...await lazy() };
+    const resolved = typeof lazy === "function" ? { ...definition, ...await lazy() } : route;
+    return resolved.children ? { ...resolved, children: await resolveLazy(resolved.children) } : resolved;
   }));
+}
+beforeAll(async () => {
+  testRoutes[0]!.children = await resolveLazy(appRoutes[0]!.children!);
 });
 
 const renderedApps = new Set<{ router: ReturnType<typeof createMemoryRouter>; queryClient: QueryClient }>();
