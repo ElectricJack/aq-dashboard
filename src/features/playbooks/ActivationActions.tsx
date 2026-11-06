@@ -31,10 +31,12 @@ export function ActivationActions({ item, project }: { item: CatalogActivation; 
         confirm="Confirm activation for new runs."
         fields={() => <label>Definition<select value={chosen?.artifact ?? ""} onChange={e => setArtifact(e.target.value)}>{choices.map(d => <option key={d.artifact} value={d.artifact}>{d.name} · {shortDigest(d.artifact)}</option>)}</select></label>}
         build={() => { if (!chosen) throw new Error("Choose a definition."); return { payload: { binding: item.binding, artifact: chosen.artifact } }; }}
+        draft={chosen?.artifact ?? ""}
         pendingText="Activation requested — awaiting confirmation." confirmedText="Activation confirmed for new runs. Refresh activations to see the new binding revision."
         onReload={reload} />
       <PlaybookAction kind="playbook.activation.rollback" project={project} subject={subject}
-        intro={<p>Restores the previous activation of <strong>{item.binding}</strong> for new runs, replacing definition {shortDigest(item.artifact)}. {FUTURE}</p>}
+        blocked={BigInt(item.revision) <= 1n ? `No earlier activation is recorded for this binding (binding revision ${item.revision})` : undefined}
+        intro={<p>Restores the previous activation of <strong>{item.binding}</strong> for new runs, replacing definition {shortDigest(item.artifact)}. If no earlier activation is recorded, the server rejects the rollback. {FUTURE}</p>}
         confirm="Confirm rollback for new runs."
         build={() => ({ payload: { binding: item.binding, artifact: item.artifact } })}
         pendingText="Rollback requested — awaiting confirmation." confirmedText="Rollback confirmed for new runs"

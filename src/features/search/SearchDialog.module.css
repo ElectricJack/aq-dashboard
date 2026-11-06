@@ -99,3 +99,8 @@ a.hit:focus-visible {
   color: var(--color-attention);
   font-size: var(--font-size-meta);
 }
+
+/* SO-20: grid items default to min-content width, so a long unbroken token (a file list in a
+   result summary) widened the dialog body. Let every result line shrink and wrap instead. */
+.results, .group, .group ul, .group li, .hit { min-inline-size: 0; }
+.hitTitle, .hit .muted, .warning, .muted { overflow-wrap: anywhere; }

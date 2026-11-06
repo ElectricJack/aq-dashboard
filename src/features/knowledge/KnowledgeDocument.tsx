@@ -6,9 +6,9 @@ import { ActionButton, DetailList, Panel } from "../../components/layout/Workspa
 import { scopeSearch } from "../../app/scope";
 import { DocumentBody, documentOutline, type DocumentOutlineEntry } from "./DocumentBody";
 import { DocumentActions } from "./KnowledgeActions";
+import { knowledgeCategoryLabel as categoryLabel } from "../actions/actionClient";
 import styles from "./HumanNodeWorkspace.module.css";
 
-const categoryLabel = (value: string | null | undefined) => value ? value.replace(/[_-]+/g, " ").replace(/^./, c => c.toUpperCase()) : "Uncategorized";
 export function RecordFacts({ node: n }: { node: GraphNode }) {
   return <DetailList><dt>Author</dt><dd>{n.created_by}</dd><dt>Created</dt><dd>{n.created_at}</dd><dt>Updated</dt><dd>{n.updated_at}</dd><dt>Record version</dt><dd>{n.version}</dd><dt>Content revision</dt><dd>{n.content_revision}</dd><dt>Verification</dt><dd>{nodeLabel(n.verification)}</dd><dt>Valid from</dt><dd>{n.valid_from ?? "Not specified"}</dd><dt>Valid until</dt><dd>{n.valid_until ?? "Not specified"}</dd>{n.retirement_reason && <><dt>Retirement reason</dt><dd>{n.retirement_reason}</dd></>}</DetailList>;
 }

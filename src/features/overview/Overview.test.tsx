@@ -100,7 +100,7 @@ test('overview_attention_renders_live_items',async()=>{
  expect(within(region).getByText('Failed process result')).toBeVisible();
  expect(within(region).getAllByText(/waiting age unknown/i)).toHaveLength(2);
  expect(within(region).getByRole('link',{name:/Inspect: Failed process result/})).toHaveAttribute('href',expect.stringMatching(/\/revisions\/[0-9a-f]{64}$/));
- expect(within(region).getByRole('button',{name:'Inspect: Worker offline'})).toBeVisible();
+ expect(within(region).getByRole('button',{name:'Inspect: Worker offline, worker c46754c8'})).toBeVisible();
  expect(screen.getByRole('region',{name:'Recent outcomes'})).toHaveTextContent('Process failed');
  expect(screen.getByText('Source coverage')).toBeInTheDocument();
  expect(screen.getByRole('table',{name:'Work in motion'})).toBeInTheDocument();
@@ -119,4 +119,107 @@ test('failed refresh of an empty read never claims nothing needs attention',asyn
  await queryClient.invalidateQueries({predicate:q=>q.queryKey.includes('overview')});
  await waitFor(()=>expect(screen.queryByText('Nothing needs your attention')).toBeNull());
  expect(within(await attention()).getByText(/may be incomplete/i)).toBeVisible();
+});
+
+/* ----- QA 2026-11-06 shell-overview regressions ----- */
+
+async function liveOverview(patch: (data: Record<string, unknown>) => Record<string, unknown>, scope?: string) {
+ const {g4Handlers}=await import('../../test/g4');const {http,HttpResponse}=await import('msw');
+ const raw=(await import('../../../contracts/pinned/dashboard-read/v1/fixtures/overview-nonempty.json')).default;
+ // The first handler in one server.use call wins, so the patched overview goes before the G4 set.
+ server.use(http.get('/api/v1/overview',()=>HttpResponse.json({...raw,...(scope&&{scope:{kind:'project',project_id:scope}}),data:patch(structuredClone(raw.data) as unknown as Record<string, unknown>)})),...g4Handlers());
+ return raw;
+}
+
+test('SO-04: successful outcomes are labelled and each outcome link has its own name',async()=>{
+ await liveOverview(data=>{
+  const [failed]=data.recent_outcomes as {subject:{id:string;revision:string}}[];
+  return {...data,recent_outcomes:[
+   {...failed,outcome:'process_success',subject:{...failed!.subject,id:'11111111-1111-4111-8111-111111111111',revision:'sha256:'+'a'.repeat(64)}},
+   {...failed,outcome:'process_success',subject:{...failed!.subject,id:'22222222-2222-4222-8222-222222222222',revision:'sha256:'+'b'.repeat(64)}},
+   failed,
+  ]};
+ });
+ renderApp('/overview');
+ const outcomes=await screen.findByRole('region',{name:'Recent outcomes'});
+ await waitFor(()=>expect(within(outcomes).getAllByText(/Process succeeded/)).toHaveLength(2));
+ expect(outcomes).not.toHaveTextContent('Unsupported outcome');
+ const names=within(outcomes).getAllByRole('link').filter(l=>l.getAttribute('href')?.startsWith('/results/')).map(l=>l.getAttribute('aria-label'));
+ expect(names).toHaveLength(3);
+ expect(new Set(names).size).toBe(3);
+ for(const name of names)expect(name).toMatch(/^Recorded process result [0-9a-f]{7}, Process (succeeded|failed), /);
+});
+
+test('SO-06: one Worker offline row per worker, not attributed to a project',async()=>{
+ await liveOverview(data=>{
+  const [worker,...rest]=data.attention as {id:string;project:unknown}[];
+  return {...data,attention:[worker,{...worker,id:`${worker!.id}:other`,project:{id:'00000000-0000-0000-0000-000000000009',label:'Other project'}},...rest]};
+ });
+ renderApp('/overview');const region=await attention();
+ await within(region).findByText('Worker offline');
+ const rows=region.querySelectorAll("[data-kind='worker_offline']");
+ expect(rows).toHaveLength(1);
+ expect(rows[0]).toHaveTextContent('Installation-wide');
+ expect(rows[0]).not.toHaveTextContent('Synthetic authority fixture');
+ expect(within(region).getByText(/Worker nodes shows every heartbeat/)).toBeVisible();
+});
+
+test('SO-07: summary and counts never claim fewer items than the attention list shows',async()=>{
+ await liveOverview(data=>({...data,counts:{...(data.counts as object),needs_you:{value:0,accuracy:'estimated'}}}));
+ renderApp('/overview');const region=await attention();
+ await within(region).findByText('Worker offline');
+ expect(screen.getByTestId('overview-summary')).toHaveTextContent('At least 3 items need you. No work is running.');
+ expect(screen.getByTestId('overview-summary')).not.toHaveTextContent(/Few or no|moving/);
+ const counts=screen.getByRole('list',{name:'Work counts'});
+ expect(within(counts).getByLabelText('at least 3')).toHaveTextContent('3+');
+ expect(within(region).getByRole('link',{name:/view all/i})).toHaveTextContent('View all 3+');
+});
+
+test('SO-07: work is moving only when a project reports running work',async()=>{
+ const {attentionSentence,motionSentence,reconcileNeedsYou}=await import('./Overview');
+ const row=(value:number|null)=>({project:{id:'p',label:'P'},running:{value,accuracy:value===null?'unknown' as const:'exact' as const},nextConstraint:null,lastProgressAt:null});
+ expect(motionSentence([row(0)],true)).toBe('No work is running.');
+ expect(motionSentence([row(0),row(2)],true)).toBe('Work is moving in 1 project.');
+ expect(motionSentence([row(null)],true)).toBe('Project movement is not reported.');
+ expect(motionSentence([],true)).toBe('No work is in motion.');
+ expect(attentionSentence(reconcileNeedsYou({value:3,accuracy:'exact'},2))).toBe('3 decisions need you.');
+ expect(attentionSentence(reconcileNeedsYou({value:null,accuracy:'unknown'},1))).toBe('At least 1 item needs you.');
+ expect(attentionSentence(reconcileNeedsYou({value:null,accuracy:'unknown'},0))).toMatch(/unknown/);
+});
+
+test('SO-09: Inspect eligibility keeps the project scope',async()=>{
+ renderApp('/overview?scope=project:quilt-trader');
+ const link=await screen.findByRole('link',{name:/Inspect eligibility/});
+ expect(link).toHaveAttribute('href','/settings?scope=project%3Aquilt-trader');
+});
+
+test('SO-11: an unknown project scope says the project is unavailable, with a way back',async()=>{
+ const {http,HttpResponse}=await import('msw');
+ server.use(http.get('/api/v1/overview',()=>HttpResponse.json({request_id:'r',code:'invalid_request',message:'Invalid request',retryable:false},{status:422})));
+ renderApp('/overview?scope=project:bogus');
+ expect(await screen.findByRole('heading',{name:'Project not available'},{timeout:15_000})).toBeVisible();
+ expect(screen.getByTestId('overview-summary')).toHaveTextContent('This project is not available.');
+ expect(screen.queryByText(/couldn't load/i)).toBeNull();
+ expect(screen.queryByRole('region',{name:'Pinned sessions'})).toBeNull();
+ expect(screen.getByRole('link',{name:/Show all projects/})).toHaveAttribute('href','/overview');
+},20_000);
+
+test('SO-16: Work in motion project rows open that project in Work',async()=>{
+ renderApp('/overview');
+ const motion=await screen.findByRole('table',{name:'Work in motion'});
+ const link=await within(motion).findByRole('link',{name:'agent-queue'});
+ expect(link).toHaveAttribute('href','/work?scope=project%3Aagent-queue');
+});
+
+test('SO-17: worker heartbeats read as ages, not raw timestamps',async()=>{
+ const {http,HttpResponse}=await import('msw');
+ await liveOverview(data=>data);
+ server.use(http.get('/api/workers',()=>HttpResponse.json([{id:'w1',name:'worker-one',status:'offline',last_seen_at:'1970-01-01T00:06:40.000Z'}])));
+ renderApp('/overview');
+ await userEvent.click(await screen.findByText('More capacity'));
+ await userEvent.click(await screen.findByText('Inspect heartbeat observations'));
+ const time=await screen.findByText('10m ago');
+ expect(time.tagName).toBe('TIME');
+ expect(time).toHaveAttribute('dateTime','1970-01-01T00:06:40.000Z');
+ expect(screen.queryByText('1970-01-01T00:06:40.000Z')).toBeNull();
 });

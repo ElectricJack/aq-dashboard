@@ -77,7 +77,8 @@ for (const vp of VIEWPORTS) {
     test("lifecycle filter hides active records when set to retired, and Enter searches", async ({ page }) => {
       await openLibrary(page);
       await page.getByRole("combobox", { name: /lifecycle/i }).selectOption("retired");
-      await expect(page.getByText("0 records loaded")).toBeVisible();
+      // A narrowed count is relative to the loaded records (ISSUE-006).
+      await expect(page.getByText("0 of 1 loaded records")).toBeVisible();
       await expect(page.getByText("No loaded records match these filters.")).toBeVisible();
       await page.getByRole("combobox", { name: /lifecycle/i }).selectOption("active");
       await page.getByRole("searchbox", { name: "Search knowledge" }).fill("ownership");

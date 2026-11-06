@@ -1,9 +1,10 @@
 .page { display:grid;gap:var(--space-5);min-inline-size:0; }
+.viewPanel { display:grid;min-inline-size:0; }
 /* Page header: the same title/subtitle rhythm as Knowledge (H1, then a 4px gap, then the subtitle). */
 .header { display:grid;gap:var(--space-1); }
 .header h1 { margin:0; }
 .subtitle { margin:0;color:var(--color-text-secondary);font-size:18px; }
-/* Segmented view switcher: one row at every width; scrolls rather than wraps if it ever overflows. */
+/* Segmented view switcher: one row where it fits; on phones the tabs share the row and wrap rather than clip. */
 .tabs { display:flex;flex-wrap:nowrap;gap:var(--space-1);padding:var(--space-1);max-inline-size:100%;overflow-x:auto;border:1px solid var(--color-border);border-radius:var(--radius-control); }
 .tabs button { flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-block-size:var(--touch-target);padding:var(--space-2) var(--space-4);font:inherit;color:var(--color-text);white-space:nowrap;background:transparent;border:1px solid transparent;border-radius:var(--radius-control);cursor:pointer; }
 .tabs button[aria-selected="true"] { background:var(--color-raised);border-color:var(--color-accent);color:var(--color-accent); }
@@ -67,7 +68,8 @@
 @media(max-width:850px){ .workspace[data-focused="true"] .roster { display:none; }.page[data-detail="true"] .viewBar { display:none; }.mobileBack { display:inline-flex;align-items:center;justify-self:start;min-block-size:var(--touch-target); } }
 /* 0002 §9 tablet: a selected run, definition or activation is one detail pane with the same back control. */
 @media(max-width:1199px){ .workspace[data-focused="true"] { grid-template-columns:minmax(0,1fr); }.workspace[data-focused="true"] .roster { display:none; }.page[data-detail="true"] .viewBar { display:none; }.mobileBack { display:inline-flex;align-items:center;justify-self:start;min-block-size:var(--touch-target); } }
-@media(max-width:600px){ .tabs button { padding-inline:var(--space-2);font-size:var(--font-size-meta); } }
+/* Phone: the four views share the row and wrap rather than clip "Admissions" (ISSUE-015), including at larger text sizes. */
+@media(max-width:600px){ .tabs { flex-wrap:wrap;overflow-x:visible; }.tabs button { flex:1 1 auto;padding-inline:var(--space-1);font-size:var(--font-size-meta); } }
 @media(max-width:850px){ .filters { flex:1 1 0;min-inline-size:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); }.filter select { inline-size:100%; } }
 @media(max-width:480px){ .filterIcon { display:none; }.filter select.withIcon { padding-inline-start:var(--space-3); } }
 @media(max-width:850px){ .runLink { grid-template-columns:24px minmax(0,1fr) auto 16px;grid-template-areas:"glyph title chip chev" "glyph meta chip chev"; }.chip { justify-self:end; }.workspace[data-focused="true"] .roster { display:none; }.mobileBack { display:inline-flex;align-items:center;min-block-size:var(--touch-target); } }

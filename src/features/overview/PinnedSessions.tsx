@@ -10,6 +10,12 @@ import { Icon } from '../../components/icons';
 import { QueryStatus } from '../../components/QueryStatus/QueryStatus';
 import styles from './Overview.module.css';
 
+/** The server's fallback label embeds the full session UUID; keep user labels, shorten only that. */
+export function sessionLabel(s: Pick<SessionView, 'id' | 'label'>): string {
+ const fallback = ['Remote session', 'Central session', 'Session'].some(prefix => s.label === `${prefix} ${s.id}`);
+ return fallback ? s.label.slice(0, -s.id.length) + s.id.slice(0, 8) : s.label;
+}
+
 /** Explicit visit-local selection. API roster membership never implies a pin or live process. */
 export function PinnedSessions() {
  const [scope]=useScope();const {bootstrap}=useSession();const capability=bootstrap.capability('sessions.read');
@@ -22,13 +28,13 @@ export function PinnedSessions() {
    {pins.length===0?<p className={styles.meta}>No pinned sessions. Choose a session for this visit.</p>:<ul className={styles.snapshotList}>{pins.map(id=>{
     const session=available.find(s=>s.id===id);
     return <li key={id} className={styles.sessionRow}>{session?<>
-      <div><strong><Icon icon={Monitor} size={16}/> {session.label}</strong><span className={styles.meta}>{session.wait?.explanation ?? (session.observation.state==='reported_running'?'Running (reported)':session.observation.state==='reported_stopped'?'Stopped (reported)':'Process observation unknown')}{session.observation.freshness==='stale'&&' · Stale observation'}</span></div>
-      <Link className={styles.action} to={{pathname:`/agents/${encodeURIComponent(id)}`,search:scopeSearch(scope)}} aria-label={`${session.wait?'Open':'Watch'}: ${session.label}`}>{session.wait?'Open':'Watch'} →</Link>
+      <div><strong><Icon icon={Monitor} size={16}/> {sessionLabel(session)}</strong><span className={styles.meta}>{session.wait?.explanation ?? (session.observation.state==='reported_running'?'Running (reported)':session.observation.state==='reported_stopped'?'Stopped (reported)':'Process observation unknown')}{session.observation.freshness==='stale'&&' · Stale observation'}</span></div>
+      <Link className={styles.action} to={{pathname:`/agents/${encodeURIComponent(id)}`,search:scopeSearch(scope)}} aria-label={`${session.wait?'Open':'Watch'}: ${sessionLabel(session)}`}>{session.wait?'Open':'Watch'} →</Link>
     </>:<span className={styles.meta}>Pinned session is outside the current snapshot. Open Agents to inspect.</span>}
-    <button className={styles.pinButton} onClick={()=>setPins(pins.filter(pin=>pin!==id))} aria-label={`Unpin ${session?.label??'session'}`}>Unpin</button></li>;
+    <button className={styles.pinButton} onClick={()=>setPins(pins.filter(pin=>pin!==id))} aria-label={`Unpin ${session?sessionLabel(session):'session'}`}>Unpin</button></li>;
    })}</ul>}
    <details className={styles.observationDetails}><summary>Choose sessions</summary>
-    {available.length===0?<p className={styles.meta}>No session records in this scope.</p>:<div className={styles.sessionChoice}><label htmlFor="overview-session-choice">Session snapshot</label><select id="overview-session-choice" value={choice} onChange={event=>setChoice(event.target.value)}><option value="">Choose a session</option>{available.filter(s=>!pins.includes(s.id)).map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select><button className={styles.pinButton} disabled={!choice||pins.includes(choice)} onClick={()=>{setPins([...pins,choice]);setChoice('');}}>Pin session</button><span className={styles.meta}>Showing up to four session records. Pins last for this visit.</span></div>}
+    {available.length===0?<p className={styles.meta}>No session records in this scope.</p>:<div className={styles.sessionChoice}><label htmlFor="overview-session-choice">Session snapshot</label><select id="overview-session-choice" value={choice} onChange={event=>setChoice(event.target.value)}><option value="">Choose a session</option>{available.filter(s=>!pins.includes(s.id)).map(s=><option key={s.id} value={s.id}>{sessionLabel(s)}</option>)}</select><button className={styles.pinButton} disabled={!choice||pins.includes(choice)} onClick={()=>{setPins([...pins,choice]);setChoice('');}}>Pin session</button><span className={styles.meta}>Showing up to four session records. Pins last for this visit.</span></div>}
    </details>
    <Link to={{pathname:'/agents',search:scopeSearch(scope)}}>All sessions →</Link>
   </>}
