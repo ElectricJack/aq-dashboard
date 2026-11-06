@@ -99,7 +99,7 @@ test('overview_attention_renders_live_items',async()=>{
  expect(within(region).getByText('Waiting decision')).toBeVisible();
  expect(within(region).getByText('Failed process result')).toBeVisible();
  expect(within(region).getAllByText(/waiting age unknown/i)).toHaveLength(2);
- expect(within(region).getByRole('link',{name:/Inspect: Failed process result/})).toHaveAttribute('href',expect.stringContaining('/revisions/sha256%3A'));
+ expect(within(region).getByRole('link',{name:/Inspect: Failed process result/})).toHaveAttribute('href',expect.stringMatching(/\/revisions\/[0-9a-f]{64}$/));
  expect(within(region).getByRole('button',{name:'Inspect: Worker offline'})).toBeVisible();
  expect(screen.getByRole('region',{name:'Recent outcomes'})).toHaveTextContent('Process failed');
  expect(screen.getByText('Source coverage')).toBeInTheDocument();
