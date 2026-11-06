@@ -1,6 +1,6 @@
 # Task view parity with v1
 
-Status: proposed specification, waiting on the owner's review. Date: 2026-11-05.
+Status: approved by the owner on 2026-11-06 ("Lets move forward with task parity now"), with the defaults in §7. Phase 1 is in progress. Date: 2026-11-05.
 
 This is the first section of the v1 → v2 dashboard parity program. Sections are delivered one at a time. The owner verifies each finished section on a running stack before work on the next one starts.
 
@@ -251,8 +251,18 @@ These wait until the owner has used the new view and asks for them:
 
 Comments (item 13) can carry pasted image links in the meantime.
 
-## 7. Open questions for the owner
+## 7. Decisions (2026-11-06)
 
-1. Is the scope right: items 1–15 in three phases, with tier D deferred?
-2. Should task comments be stored in aq-server, as proposed in §4.1, or does the owner want them in the task graph?
-3. Should Pause stop a running attempt by default, or only block new ones? The proposed default is to block new attempts only, with an explicit option to stop the running one.
+The owner approved going ahead without changing the proposed defaults:
+
+1. **Scope:** items 1–16 in three phases; tier D is deferred.
+2. **Where comments live:** aq-server (§4.1). New server code for comments goes in a new workspace crate, not the aq-server lib, so it stays within the lib-size ratchet and fits the planned crate split.
+3. **Pause:** blocks new attempts by default. Stopping the running attempt is an explicit option.
+
+Some items already landed in the QA fix PRs (aq-dashboard #74–#80):
+- item 1 in part: the task ID is shown with a copy button;
+- labels are displayed;
+- "Open full task" is removed;
+- the inspector names the attempt holding the task.
+
+Phase 1 completes them to this spec.
