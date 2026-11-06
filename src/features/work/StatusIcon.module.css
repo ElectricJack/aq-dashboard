@@ -3,6 +3,6 @@
 .icon[data-status=active] { color:var(--color-status-active); }
 .icon[data-status=ready] { color:var(--color-status-ready); }
 .icon[data-status=running] { color:var(--color-status-running); }
-.icon[data-status=waiting] { color:var(--color-status-waiting); }
+.icon[data-status=waiting],.icon[data-status=held] { color:var(--color-status-waiting); }
 .icon[data-status=completed] { color:var(--color-status-completed); }
 .icon[data-status=canceled] { color:var(--color-status-canceled); }

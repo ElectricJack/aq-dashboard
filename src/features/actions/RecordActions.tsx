@@ -47,7 +47,8 @@ function rebase(draft:Draft,before:Draft,after:Draft,fields:EditField[]):{draft:
   }
   return {draft:next,refreshed,overlapping};
 }
-type Variant="default"|"compact";
+/** `menu`: every action in one icon menu, for a narrow sticky header (the Work inspector on a phone, P1-02). */
+type Variant="default"|"compact"|"menu";
 /** What the task's reads say about execution; absent while unknown. `blockerIds` are the recorded blockers (work read);
  * `attempts` counts the task's recorded agent attempts (history read), absent while unknown. */
 export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean;blockerIds?:string[];attempts?:number};
@@ -73,7 +74,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
   const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<number|null>(null);
-  const dialog=useRef<HTMLDialogElement>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
+  const dialog=useRef<HTMLDialogElement>(null),root=useRef<HTMLDivElement>(null),opener=useRef<HTMLElement|null>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
   const blockerIds=new Set((execution?.blockerIds??[]).map(id=>id.toLowerCase()));
   const dependency=useGraphNeighborhood(kind==="task.dependency.remove"?record.project.id:"",record.data?.id??"");
   // Add dependency: pick the blocker by title (the project task search) or paste its ID (WD-09).
@@ -86,7 +87,13 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const unsettled=!!intent&&(retired||unknown||operation?.disposition==="pending"||operation?.disposition==="unknown"||!operation);
   const capability=(k:ActionKind)=>{const union=bootstrap.capability("dashboard.actions");return union.enabled?bootstrap.capability(actionCapability(k)):union;};
   useEffect(()=>{current.current=true;return()=>{current.current=false;controller.current?.abort();};},[]);
-  useEffect(()=>{if(open){if(!dialog.current?.open)dialog.current?.showModal();}else if(dialog.current?.open)dialog.current.close();},[open]);
+  // Closing returns focus to the control that opened the dialog, or to the action menu when that control is gone (P1-11).
+  useEffect(()=>{
+    if(open){if(!dialog.current?.open){const from=document.activeElement;opener.current=from instanceof HTMLElement&&from!==document.body?from:null;dialog.current?.showModal();}}
+    else if(dialog.current?.open){dialog.current.close();
+      const back=opener.current?.isConnected?opener.current:root.current?.querySelector<HTMLElement>("[aria-haspopup=menu]")??root.current?.querySelector<HTMLElement>("button");
+      opener.current=null;back?.focus();}
+  },[open]);
   async function run(value:FrozenAction,lookup=false){
     if(lock.current||accessLost)return;lock.current=true;setBusy(true);const abort=new AbortController();controller.current=abort;
     try {
@@ -173,8 +180,8 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const target=restoreTarget.data?.data;
   const restorePreview=!restoreValid?"Enter an earlier content revision.":restoreTarget.isError?`Revision ${restoreRevision} could not be read. The server checks it when you submit.`:!target?`Reading revision ${restoreRevision}…`:
     `Revision ${restoreRevision}: “${target.title}” · ${target.deleted?"Deleted":target.retired?"Retired — choose an earlier revision":"Active"}`;
-  return <div className={variant==="compact"?styles.compact:styles.actions}>
-    {variant==="compact"?<CompactActions kinds={kinds} reasonFor={reasonFor} taskState={record.data?.kind==="task"?record.data.task_state:undefined} pending={unsettled?kind:null} launch={launch}/>:
+  return <div ref={root} className={variant==="default"?styles.actions:variant==="menu"?`${styles.compact} ${styles.menuOnly}`:styles.compact}>
+    {variant!=="default"?<CompactActions kinds={kinds} reasonFor={reasonFor} taskState={record.data?.kind==="task"?record.data.task_state:undefined} pending={unsettled?kind:null} launch={launch} menuOnly={variant==="menu"}/>:
     kinds.map(k=>{const reason=reasonFor(k)??(unsettled&&kind!==k?"Settle the current operation first":undefined),hint=`${titleId}-${k}-reason`;return <div className={styles.action} key={k}><ActionButton disabled={!!reason} title={reason} aria-describedby={reason?hint:undefined} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span id={hint} className={styles.meta}>{reason}</span>}</div>;})}
     <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}>
       <header className={styles.header}><h2 id={titleId}>{kind?actionLabels[kind]:"Action"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close action">Close</ActionButton></header>
@@ -252,12 +259,12 @@ function preferredFor(kinds:ActionKind[],taskState:string|null|undefined):Action
   if(taskState===undefined)return kinds;
   return taskState==="canceled"||taskState==="completed"?[]:["task.edit"];
 }
-/** One primary action plus a "More actions" menu; one shared reason when nothing is offered. */
-function CompactActions({kinds,reasonFor,taskState,pending,launch}:{kinds:ActionKind[];reasonFor:(k:ActionKind)=>string|undefined;taskState:string|null|undefined;pending:ActionKind|null;launch:(k:ActionKind)=>void}) {
+/** One primary action plus a "More actions" menu (or, `menuOnly`, every action in a "Task actions" menu); one shared reason when nothing is offered. */
+function CompactActions({kinds,reasonFor,taskState,pending,launch,menuOnly=false}:{kinds:ActionKind[];reasonFor:(k:ActionKind)=>string|undefined;taskState:string|null|undefined;pending:ActionKind|null;launch:(k:ActionKind)=>void;menuOnly?:boolean}) {
   const [open,setOpen]=useState(false),menuId=useId(),container=useRef<HTMLDivElement>(null),menu=useRef<HTMLDivElement>(null);
   const reasons=new Map(kinds.map(k=>[k,reasonFor(k)]));
   const available=kinds.filter(k=>!reasons.get(k));
-  const primary=pending&&kinds.includes(pending)?pending:preferredFor(kinds,taskState).find(k=>available.includes(k));
+  const primary=menuOnly?undefined:pending&&kinds.includes(pending)?pending:preferredFor(kinds,taskState).find(k=>available.includes(k));
   const rest=kinds.filter(k=>k!==primary);
   const items=()=>[...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]")??[])];
   useEffect(()=>{if(!open)return;items()[0]?.focus({preventScroll:true});menu.current?.scrollIntoView?.({block:"nearest"});},[open]);
@@ -266,7 +273,8 @@ function CompactActions({kinds,reasonFor,taskState,pending,launch}:{kinds:Action
     return <p className={styles.unavailable} role="note">{reason===NOT_OFFERED?`${noun} aren't offered by this AQ server`:`${noun} unavailable · ${reason}`}</p>;
   }
   const close=(focus=true)=>{setOpen(false);if(focus)container.current?.querySelector<HTMLButtonElement>("[aria-haspopup=menu]")?.focus();};
-  const choose=(k:ActionKind)=>{if(reasons.get(k)||(pending&&pending!==k))return;close(false);launch(k);};
+  // The menu item unmounts; focus its trigger first so the dialog has a control to return to (P1-11).
+  const choose=(k:ActionKind)=>{if(reasons.get(k)||(pending&&pending!==k))return;close();launch(k);};
   const label=(k:ActionKind)=>`${actionLabels[k]}${pending===k?" · operation":""}`;
   return <>
     {primary&&<ActionButton className={styles.primary} disabled={!!reasons.get(primary)} onClick={()=>launch(primary)}>{label(primary)}</ActionButton>}
@@ -278,8 +286,9 @@ function CompactActions({kinds,reasonFor,taskState,pending,launch}:{kinds:Action
       const next=e.key==="ArrowDown"?at+1:e.key==="ArrowUp"?at-1:e.key==="Home"?0:e.key==="End"?list.length-1:null;
       if(next===null||!list.length)return;e.preventDefault();list[(next+list.length)%list.length]?.focus();
     }}>
-      <ActionButton aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined} onClick={()=>setOpen(v=>!v)}><Ellipsis size={18} aria-hidden/>More actions</ActionButton>
-      {open&&<div ref={menu} id={menuId} role="menu" aria-label="More actions" className={styles.menu}>
+      {menuOnly?<ActionButton className={styles.menuTrigger} aria-label="Task actions" title="Task actions" aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined} onClick={()=>setOpen(v=>!v)}><Ellipsis size={20} aria-hidden/></ActionButton>
+      :<ActionButton aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined} onClick={()=>setOpen(v=>!v)}><Ellipsis size={18} aria-hidden/>More actions</ActionButton>}
+      {open&&<div ref={menu} id={menuId} role="menu" aria-label={menuOnly?"Task actions":"More actions"} className={styles.menu}>
         {rest.map(k=>{const reason=reasons.get(k)??(pending&&pending!==k?"Settle the current operation first":undefined),hint=`${menuId}-${k}`;return <button key={k} type="button" role="menuitem" tabIndex={-1} className={styles.menuItem} aria-disabled={reason?true:undefined} aria-describedby={reason?hint:undefined} onClick={()=>choose(k)}>
           <span>{label(k)}</span>{reason&&<span id={hint} className={styles.meta}>{reason===NOT_OFFERED?"Not offered":reason}</span>}
         </button>;})}

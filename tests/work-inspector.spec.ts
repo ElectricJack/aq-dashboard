@@ -22,26 +22,28 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       const description = panel.getByRole("heading", { name: "Description" });
       await expect(description).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-${vp.name}.png` });
-      const descTop = (await description.boundingBox())!.y;
-      // Copy controls (spec 0004 item 1), Expand and section folds are not actions; one primary action plus More actions.
+      const statusTop = (await panel.getByRole("heading", { name: "Status" }).boundingBox())!.y;
+      // Copy controls (spec 0004 item 1), Expand and section folds are not actions; one primary action plus More
+      // actions (a phone has one Task actions menu, P1-02).
       const above = await panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => !e.getAttribute("aria-label")?.startsWith("Copy") && !e.hasAttribute("aria-expanded") && !e.hasAttribute("aria-pressed") || e.getAttribute("aria-haspopup") === "menu").filter((e) => {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && r.top < top;
-      }).length, descTop);
-      expect(above).toBeLessThanOrEqual(2);
-      // Header, then Status, then Description, all in the first desktop viewport (spec 0004 §3).
-      if (vp.name === "desktop") expect(descTop).toBeLessThan(vp.height);
+      }).length, statusTop);
+      expect(above).toBe(vp.name === "desktop" ? 2 : 1);
+      // Header, then Status, then the comment composer, all in the first desktop viewport (spec 0004 §3, P1-03).
+      if (vp.name === "desktop") await expect(panel.getByLabel("Add a comment")).toBeInViewport({ ratio: 1 });
       await expect(panel.getByText(/^Revision \d+$/)).toBeAttached();
       // The inspector is the single task view (spec 0004 §3, WD-02).
       await expect(panel.getByRole("link", { name: "Open full task" })).toHaveCount(0);
-      await panel.getByRole("button", { name: "More actions" }).click();
+      const actions = vp.name === "desktop" ? "More actions" : "Task actions";
+      await panel.getByRole("button", { name: actions }).click();
       const menu = page.getByRole("menu");
-      await expect(menu.getByRole("menuitem")).toHaveCount(5);
+      await expect(menu.getByRole("menuitem")).toHaveCount(vp.name === "desktop" ? 5 : 6);
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-menu-${vp.name}.png` });
       await axe(page);
       await page.keyboard.press("Escape");
       await expect(menu).toBeHidden();
-      await expect(panel.getByRole("button", { name: "More actions" })).toBeFocused();
+      await expect(panel.getByRole("button", { name: actions })).toBeFocused();
     });
 
     test("without task capabilities one shared reason replaces repeated hints", async ({ page }) => {
@@ -52,7 +54,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-nocaps-${vp.name}.png` });
       expect(await page.getByText("Not offered by this AQ server").count()).toBeLessThanOrEqual(1);
       await expect(panel.locator("[data-inspector-header]").getByRole("note")).toHaveText("Task actions unavailable · Fixture scenario: actions are not offered");
-      await expect(panel.getByRole("button", { name: "More actions" })).toHaveCount(0);
+      await expect(panel.getByRole("button", { name: /^(More|Task) actions$/ })).toHaveCount(0);
       await axe(page);
     });
 

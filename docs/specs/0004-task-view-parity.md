@@ -121,8 +121,8 @@ The scope is items 1–15 of the inventory, plus item 16 (compact list rows, an 
   - **Width.** In list view the inspector keeps its ~60% share (`.panes` is `0.8fr / 1.2fr` today). In graph view the graph currently takes 62% and the inspector 38%. When a task is selected, the split flips to 40% graph / 60% inspector.
   - **Expand.** An "Expand" toggle in the inspector header collapses the list or graph so the inspector takes the full width. It is reflected in the URL (`?focus=1`), so the expanded view can be linked and survives a reload. Esc or the toggle restores the split. This replaces the full-page link's purpose.
   - **Sections fold.** Each section below is collapsible. Its open or closed state is remembered per browser, using local storage guarded by try/catch. Sections that can grow long (Comments, Attempts, History) show a bounded preview and a "Show all" link, so the most-used parts (header, status, comments) are visible without scrolling at 1440×900.
-  - **Sticky header.** The inspector header, with title, ID, status chips and the action menu, stays pinned while the sections scroll.
-  - **Phone.** The inspector is a full-screen page with Back, as it is today. Expand doesn't apply there.
+  - **Sticky header.** The inspector header, with title, ID, status chips and the action menu, stays pinned while the sections scroll. Focused controls scroll clear of it.
+  - **Phone.** The inspector is a full-screen page with Back, as it is today. Expand doesn't apply there. Only a compact bar is pinned: the title on at most two lines, the status on one line, and one "Task actions" menu that holds every action. Location, ID and labels scroll away with the content (QA P1-02).
 
 Inspector sections, top to bottom:
 
@@ -134,10 +134,10 @@ Inspector sections, top to bottom:
    - the action menu: edit, reprioritize, pause/resume, retry, cancel, reopen/activate, copy link.
 2. **Status:**
    - the reason list (items 2 and 10);
-   - the holding agent with an "Open terminal" link (item 3);
+   - the holding agent with an "Open terminal" link (item 3). When the holding attempt has ended but the server still reports the task as running, the badge says "Held by a finished attempt" (or the attempt's ended status), and the link opens the session instead of a terminal;
    - the route line (item 12).
-3. **Description and acceptance criteria:** these exist today.
-4. **Comments** (item 13): open by default, because this is the section the owner reads most.
+3. **Comments** (item 13): open by default, because this is the section the owner reads most. It sits directly under Status, so at 1440×900 the composer and the newest comment are on the first screen (QA P1-03, 2026-11-06).
+4. **Description and acceptance criteria:** these exist today. Both fold, and a long description shows a bounded preview.
 5. **Attempts** (items 4 and 11).
 6. **Results** (item 7) and **Delivery** (item 14).
 7. **Dependencies and hierarchy** (item 6).

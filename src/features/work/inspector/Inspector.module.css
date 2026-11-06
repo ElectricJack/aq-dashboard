@@ -27,7 +27,7 @@
 .statusChip[data-status=draft] { color:var(--color-status-draft); }
 .statusChip[data-status=active],.statusChip[data-status=ready] { color:var(--color-status-ready); }
 .statusChip[data-status=running] { color:var(--color-status-running); }
-.statusChip[data-status=waiting] { color:var(--color-status-waiting); }
+.statusChip[data-status=waiting],.statusChip[data-status=held] { color:var(--color-status-waiting); }
 .statusChip[data-status=completed] { color:var(--color-status-completed); }
 .statusChip[data-status=canceled] { color:var(--color-status-canceled); }
 .reason { font-weight:400; color:var(--color-text); }
@@ -49,7 +49,8 @@
 .attempt:last-child,.history li:last-child,.results li:last-child { border-block-end:0; padding-block-end:0; }
 .history p,.results p { margin:0; }
 .historyReason { white-space:pre-wrap; overflow-wrap:anywhere; }
-.resultSummary { font-weight:600; overflow-wrap:anywhere; }
+/* A result's summary can be ~500 characters: three lines at normal weight, the full text on hover (P1-10). */
+.resultSummary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; font-weight:400; overflow-wrap:anywhere; text-underline-offset:3px; }
 .dependencies { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-3); }
 .dependencies li { display:grid; gap:var(--space-1); }
 .dependencies a { overflow-wrap:anywhere; }
@@ -77,5 +78,20 @@
 .commentBody { min-inline-size:0; overflow-wrap:anywhere; line-height:1.55; }
 .commentBody [data-document-body] > :first-child { margin-block-start:0; }
 .commentBody [data-document-body] > :last-child { margin-block-end:0; }
+.commentBody blockquote { margin:var(--space-2) 0; padding-inline-start:var(--space-3); border-inline-start:3px solid var(--color-border); color:var(--color-text-secondary); }
+.commentBody blockquote > :first-child { margin-block-start:0; }
+.commentBody blockquote > :last-child { margin-block-end:0; }
+.commentBody a { overflow-wrap:anywhere; text-underline-offset:3px; }
+.comment:focus { outline:none; }
+.comment:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 .tombstone { color:var(--color-text-secondary); font-style:italic; }
+/* Edit conflict: AQ's newer version beside the user's draft until one is chosen (P1-06). */
+.conflict { display:grid; gap:var(--space-2); padding:var(--space-3); border:1px solid var(--color-attention); border-radius:var(--radius-control); background:var(--color-raised); }
+.conflict .commentBody { max-block-size:12em; overflow:auto; padding:var(--space-2); background:var(--color-canvas); border-radius:var(--radius-control); }
 .commentPaging { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
+
+/* Phones: copy buttons and the comment Edit/Delete links get the full 44px touch target (P1-12). */
+@media (max-width:767px) {
+  .idChip button,.idValue button { min-inline-size:var(--touch-target); min-block-size:var(--touch-target); }
+  .commentButtons .linkButton { min-block-size:var(--touch-target); min-inline-size:var(--touch-target); }
+}

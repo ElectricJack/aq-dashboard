@@ -59,14 +59,21 @@ export const workStateFilter = (value: string | null): WorkStateFilter | undefin
  * Graph lifecycle plus "running" from the page's `executions`, so an active task there is "active", not "ready";
  * the inspector's work read gives the readiness states.
  */
-export type TaskStatus = "draft" | "active" | "ready" | "running" | "waiting" | "unknown" | "completed" | "canceled";
+export type TaskStatus = "draft" | "active" | "ready" | "running" | "held" | "waiting" | "unknown" | "completed" | "canceled";
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  draft: "Draft", active: "Active", ready: "Ready", running: "Running", waiting: "Waiting",
+  draft: "Draft", active: "Active", ready: "Ready", running: "Running", held: "Held by a finished attempt", waiting: "Waiting",
   unknown: "Readiness unknown", completed: READINESS_LABEL.done, canceled: READINESS_LABEL.canceled,
 };
-/** List status: the lifecycle state, or running when an attempt holds the task. */
-export function listStatus(task: { task_state: string | null }, held: boolean): TaskStatus {
-  if (task.task_state === "active") return held ? "running" : "active";
+/**
+ * Attempt statuses after which no agent works on the task (aq-server execution authority: `finished`, `declined`,
+ * `never_granted`; the fixture outcomes too). An attempt in one of them that still holds the task isn't "running"
+ * (P1-01): the view says the task is held by an ended attempt instead.
+ */
+const ENDED_ATTEMPT = new Set(["finished", "declined", "never_granted", "failed", "succeeded", "canceled", "cancelled", "expired", "stopped"]);
+export const attemptEnded = (status: string | null | undefined) => !!status && ENDED_ATTEMPT.has(status.toLowerCase());
+/** List status: the lifecycle state, or running when an attempt holds the task (held when that attempt has ended). */
+export function listStatus(task: { task_state: string | null }, holding: string | boolean | null | undefined): TaskStatus {
+  if (task.task_state === "active") return !holding ? "active" : typeof holding === "string" && attemptEnded(holding) ? "held" : "running";
   return task.task_state === "draft" || task.task_state === "completed" || task.task_state === "canceled" ? task.task_state : "unknown";
 }
 /** Rare record states keep a short inline marker on the one-line row. */
