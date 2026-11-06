@@ -369,3 +369,31 @@ test("compact quota follows the reported preferred window and preserves estimate
   await waitFor(() => expect(summary).toHaveTextContent(/18% used.*estimated.*partial data/));
   expect(summary).not.toHaveTextContent("42% used");
 });
+
+test("SO-21: More is marked while one of its pages is open, and an outside tap closes its sheet", async () => {
+  renderApp("/work");
+  const phone = await screen.findByRole("navigation", { name: "Primary (compact)" });
+  const more = within(phone).getByRole("button", { name: /^More/ });
+  expect(more).toHaveAttribute("data-active");
+  expect(more).toHaveAccessibleName("More, current section");
+  await userEvent.click(more);
+  expect(within(phone).getByRole("list", { name: "More destinations" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("main"));
+  await waitFor(() => expect(within(phone).queryByRole("list", { name: "More destinations" })).toBeNull());
+});
+
+test("SO-21: More is not marked on its primary siblings", async () => {
+  renderApp("/overview");
+  const phone = await screen.findByRole("navigation", { name: "Primary (compact)" });
+  expect(within(phone).getByRole("button", { name: "More" })).not.toHaveAttribute("data-active");
+});
+
+test("SO-12: the usage popover closes on an outside click", async () => {
+  renderApp("/overview");
+  const banner = await screen.findByRole("banner");
+  const details = banner.querySelector("details")!;
+  await userEvent.click(details.querySelector("summary")!);
+  expect(details.open).toBe(true);
+  await userEvent.click(await screen.findByRole("heading", { level: 1, name: "Overview" }));
+  expect(details.open).toBe(false);
+});

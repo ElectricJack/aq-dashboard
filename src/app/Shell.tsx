@@ -94,11 +94,22 @@ function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
   const listId = useId();
   const moreButton = useRef<HTMLButtonElement>(null);
   const location = useLocation();
+  const nav = useRef<HTMLElement>(null);
   useEffect(() => setOpen(false), [location.pathname]);
+  // SO-21: a tap outside the bar and its sheet closes the sheet.
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => { if (!(event.target instanceof Node) || !nav.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
   const more = DESTINATIONS.filter((d) => d.phone === "more");
+  // SO-21: More carries the active cue while one of its destinations is open.
+  const inMore = more.some((d) => location.pathname === `/${d.id}` || location.pathname.startsWith(`/${d.id}/`));
 
   return (
     <nav
+      ref={nav}
       aria-label="Primary (compact)"
       className={styles.phoneNav}
       onKeyDown={(e) => {
@@ -119,12 +130,14 @@ function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
             ref={moreButton}
             type="button"
             className={styles.navLink}
+            data-active={inMore || undefined}
             aria-expanded={open}
             aria-controls={listId}
             onClick={() => setOpen((v) => !v)}
           >
             <Icon icon={Ellipsis} />
             <span>More</span>
+            {inMore && <span className="visually-hidden">, current section</span>}
           </button>
         </li>
       </ul>
@@ -177,6 +190,15 @@ export function Shell() {
     if (usageDetails.current) usageDetails.current.open = false;
     usageSummary.current?.focus();
   };
+  // SO-12: the usage popover closes on an outside click, like the other overlays.
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      const details = usageDetails.current;
+      if (details?.open && event.target instanceof Node && !details.contains(event.target)) details.open = false;
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     searchButton.current?.focus();
@@ -199,7 +221,7 @@ export function Shell() {
   const badge = usePendingBadge(scope, bootstrap.capability("dashboard.overview").enabled);
   const name = bootstrap.principal.displayName;
   const search = scopeSearch(scope);
-  const scopePicker = <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} />;
+  const scopePicker = <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} projectsLoaded={!!projects.data} />;
   const isMock = import.meta.env.MODE === "mock";
 
   return (
