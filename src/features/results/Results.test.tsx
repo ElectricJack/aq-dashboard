@@ -156,3 +156,10 @@ test("RA-10: closing the desktop comments panel returns focus to the card's Comm
   await waitFor(()=>expect(open).toHaveFocus());
  }finally{window.matchMedia=original;}
 });
+test("a refused (403) follow says AQ refused it and can be revised, not an unknown outcome",async()=>{
+ fixtures();server.use(http.put("/api/v1/results/:id/follow",()=>HttpResponse.json({request_id:"r",code:"forbidden",message:"Following is not available for this result",retryable:false},{status:403})));
+ renderApp("/results");await userEvent.click(await screen.findByText("Result context and evidence"));
+ await userEvent.click(screen.getByRole("button",{name:"Apply follow preference"}));
+ expect(await screen.findByText("AQ refused this request. Following is not available for this result. Your draft is preserved.")).toBeVisible();
+ expect(screen.queryByText(/outcome is unknown/)).toBeNull();expect(screen.getByRole("button",{name:"Revise draft"})).toBeVisible();
+});

@@ -11,6 +11,7 @@ import type { SessionDetail as SessionDetailWire, SessionSummary } from "../../a
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { FreshnessLabel } from "../../components/QueryStatus/FreshnessLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import { formatAge } from "../../components/time/relative";
 import { scopeSearch, useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
@@ -90,7 +91,7 @@ function Roster({ search }: { search: string }) {
   return (
     <div className={styles.roster}>
       {!complete && <p className={styles.warning}>This roster has partial coverage. Some sessions may be missing.{coverageReason && <> {coverageReason}.</>}</p>}
-      {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
+      <RetainedNotice query={query} />
       {sessions.length === 0 ? (
         <p className={styles.muted}>{complete ? "No active sessions" : "No sessions returned in this scope."}</p>
       ) : (
@@ -496,7 +497,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
         {/* Phone: the listbox drops from the header row as an overlay. */}
         {phone && switcher}
       </div>
-      {query.isError && <p className={styles.warning}>Refresh failed. Showing the last successful read.</p>}
+      <RetainedNotice query={query} />
 
       {!phone && switcher}
       <div className={styles.outputWorkspace}>

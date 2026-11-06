@@ -179,7 +179,7 @@ test("an operation AQ never recorded offers Start over after checking status (WD
  server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>{lookups++;return HttpResponse.json({error:"not_found",message:"operation not found; prior submission may still be in flight"},{status:404});}),
   http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const bytes=await request.text();sent.push(bytes);return HttpResponse.json(forBytes(bytes));}));
  const {router}=renderApp(`/work${scope}&operation=${taskOperationId}`);const modal=await screen.findByRole("dialog",{name:"Task operation"});
- await within(modal).findByText("AQ has no record of this operation.");expect(lookups).toBe(1);expect(within(modal).queryByText(/outcome is uncertain/)).toBeNull();
+ await within(modal).findByText("AQ has no record of this operation.");expect(lookups).toBe(1);expect(within(modal).getByText(/operation not found; prior submission may still be in flight/)).toBeVisible();expect(within(modal).queryByText(/outcome is uncertain/)).toBeNull();
  await userEvent.click(within(modal).getByRole("button",{name:"Check status"}));await waitFor(()=>expect(lookups).toBe(2));
  await userEvent.click(await within(modal).findByRole("button",{name:"Start over"}));
  await waitFor(()=>expect(new URLSearchParams(router.state.location.search).get("operation")).toBeNull());
@@ -191,5 +191,5 @@ test("a blank title says it is required and the input limit matches the 512 rule
  enable();renderApp(`/work${scope}`);const modal=await open();const title=within(modal).getByRole("textbox",{name:"Title"});
  expect(title).toHaveAttribute("maxLength","512");await userEvent.type(title,"   ");
  await waitFor(()=>expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled());await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
- expect(await within(modal).findByRole("alert")).toHaveTextContent("Enter a title. A title is required.");expect(within(modal).queryByText(/at most 512/)).toBeNull();
+ expect(await within(modal).findByRole("alert")).toHaveTextContent("Title is required.");expect(within(modal).queryByText(/at most 512/)).toBeNull();
 });

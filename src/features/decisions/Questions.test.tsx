@@ -137,3 +137,15 @@ test("a pending question past its expiry is marked expired and cannot be answere
   expect(screen.queryByRole("textbox", { name: "Answer" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Send answer" })).toBeNull();
 });
+
+test("a refused (403) answer says AQ refused it, keeps the answer and the app (no access-changed copy)", async () => {
+  setup();
+  server.use(http.get("/api/questions/decisions", () => HttpResponse.json(page([QUESTION]))), http.get(`/api/questions/decisions/${ID}`, () => HttpResponse.json(detail(QUESTION))),
+    http.post("/api/v1/actions", () => HttpResponse.json({ request_id: "x", code: "forbidden", message: "Question is not addressed to you", retryable: false }, { status: 403 })));
+  renderApp(`/decisions/${ID}?kind=question`);
+  await userEvent.type(await screen.findByRole("textbox", { name: "Answer" }), "Kept answer");
+  await userEvent.click(screen.getByRole("button", { name: "Send answer" }));
+  expect(await screen.findByText(/AQ refused this answer\. Question is not addressed to you\. Your answer is preserved\./)).toBeVisible();
+  expect(screen.queryByText(/Access changed/)).toBeNull();
+  expect(screen.getByRole("textbox", { name: "Answer" })).toHaveValue("Kept answer");
+});

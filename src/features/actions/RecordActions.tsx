@@ -10,6 +10,7 @@ import { adaptGraphDetail, adaptGraphPage, validGraphId } from "../../api/adapte
 import { graphPath, useGraphDetail, useGraphList, useGraphNeighborhood } from "../../api/humanGraphReads";
 import { ActionButton } from "../../components/layout/Workspace";
 import { actionCapability, actionLabels, actionRequest, freezeAction, knowledgeActionKinds, knowledgeCategoryLabel, type ActionContext, type ActionKind, type ActionOperation, type FrozenAction } from "./actionClient";
+import { validateTitle } from "../../api/adapters/taskCreate";
 import styles from "./RecordActions.module.css";
 
 type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;confirm:boolean};
@@ -28,12 +29,6 @@ function executionReason(k:ActionKind,state:string|null|undefined,execution?:Tas
   if(k==="task.retry"&&state&&state!=="active")return "AQ retries attempts of active tasks only";
   if(k==="task.dependency.remove"&&execution?.complete&&execution.blockers===0)return "This task has no recorded blockers";
   return undefined;
-}
-/** Graph titles: required, at most 512 bytes for edits (the server's limit), never "too long" when blank. */
-export function titleProblem(title:string):string|null{
-  if(!title.trim())return "Enter a title. A title is required.";
-  if(new TextEncoder().encode(title).length>512)return "Shorten the title to at most 512 bytes (512 plain-text characters, fewer for accented or non-Latin text).";
-  return null;
 }
 /** `kinds` narrows the offered actions (for example to those a compact header can show); it never adds kinds. */
 export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
@@ -92,7 +87,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     if(["task.edit","knowledge.author","knowledge.correct"].includes(k)){
       const labels=k==="knowledge.author"||draft.labelsEdited?[...new Set(draft.labels.split(",").map(x=>x.trim()).filter(Boolean))]:undefined;
       if(labels&&(labels.length>16||labels.some(v=>new TextEncoder().encode(v).length>128)))throw new Error("Use at most 16 labels, each up to 128 bytes.");
-      const problem=titleProblem(draft.title);if(problem)throw new Error(problem);
+      const titleProblem=validateTitle(draft.title,"bytes");if(titleProblem)throw new Error(titleProblem);
       if(new TextEncoder().encode(draft.body).length>32768||new TextEncoder().encode(draft.acceptance).length>8192)throw new Error("Shorten the description or acceptance criteria.");
       return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
     }

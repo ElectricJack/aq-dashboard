@@ -199,7 +199,7 @@ test("edit title is required and limited like the server (WD-03)",async()=>{
  const {dialog}=await open("task.edit","Edit task");const title=within(dialog).getByLabelText("Title");
  expect(title).toHaveAttribute("maxLength","512");await userEvent.clear(title);await userEvent.type(title,"   ");
  await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
- expect(await within(dialog).findByRole("alert")).toHaveTextContent("Enter a title. A title is required.");expect(posts).toBe(0);
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent("Title is required.");expect(posts).toBe(0);
 });
 
 test("duplicate submit and close/reopen retain one unresolved operation",async()=>{
@@ -272,4 +272,10 @@ test.each([["knowledge.author","Add record"],["knowledge.correct","Correct recor
  expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
  // A resubmission is a new operation, never a replay of the refused one.
  await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await waitFor(()=>expect(ids).toHaveLength(2));expect(ids[0]).not.toBe(ids[1]);
+});
+test("WD-03: a blank edited title says it is required",async()=>{
+ const {dialog}=await open("task.edit","Edit task");
+ await userEvent.clear(within(dialog).getByLabelText("Title"));await userEvent.type(within(dialog).getByLabelText("Title"),"   ");
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByText("Title is required.")).toBeInTheDocument();
 });

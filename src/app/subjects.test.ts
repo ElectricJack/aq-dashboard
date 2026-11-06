@@ -8,3 +8,8 @@ describe("subjectPath", () => {
       .toBe(`/results/f9ccb524-8339-40ea-bbc4-0d64d3e23667/revisions/${hex}`);
   });
 });
+
+it("labels a successful process outcome for every surface (SO-04)", async () => {
+  const { FACT_LABEL } = await import("./subjects");
+  expect(FACT_LABEL.process_success).toBe("Process succeeded");
+});

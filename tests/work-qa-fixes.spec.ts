@@ -80,7 +80,7 @@ test.describe("desktop", () => {
     await expect(title).toHaveAttribute("maxlength", "512");
     await title.fill("   ");
     await dialog.getByRole("button", { name: "Create task" }).click();
-    await expect(dialog.getByRole("alert")).toHaveText("Enter a title. A title is required.");
+    await expect(dialog.getByRole("alert")).toHaveText("Title is required.");
   });
 
   test("WD-13: a malformed decision link is a neutral not-found without Try again", async ({ page }) => {

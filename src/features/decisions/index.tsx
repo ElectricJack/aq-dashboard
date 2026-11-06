@@ -34,10 +34,10 @@ export function Component() {
     queryKey: queryKey(queryContext, "decision-inbox", { project, state }), enabled: permission.enabled,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => { const q = new URLSearchParams({ state, limit: "25" }); if (project) q.set("project_id", project); if (pageParam) q.set("cursor", pageParam); return adaptDecisions(await apiGet(`${ROOT}?${q}`, signal), project); },
-    getNextPageParam: (last, pages) => pages.length < 4 ? last.cursor ?? undefined : undefined, retry: false,
+    getNextPageParam: (last, pages) => pages.length < 4 ? last.cursor ?? undefined : undefined,
   });
   const questions = useQuery({
-    queryKey: queryKey(queryContext, "question-inbox", { project, state }), enabled: questionsOffered, retry: false,
+    queryKey: queryKey(queryContext, "question-inbox", { project, state }), enabled: questionsOffered,
     queryFn: async ({ signal }) => { const q = new URLSearchParams({ state, limit: "25" }); if (project) q.set("project_id", project); return adaptQuestions(await apiGet(`${QUESTIONS_ROOT}?${q}`, signal), state === "open", project); },
   });
   const asked = questionsOffered && !questions.isError ? questions.data?.items.length ?? 0 : 0;
@@ -68,7 +68,7 @@ export function Component() {
 function Selected({ id, project }: { id: string; project: string | undefined }) {
   const { queryContext, bootstrap } = useSession();
   const client = useQueryClient();
-  const read = useQuery({ queryKey: queryKey(queryContext, "decision-detail", { id }), queryFn: async ({ signal }) => adaptDecision(await apiGet(`${ROOT}/${encodeURIComponent(id)}`, signal), id, queryContext.principalId), retry: false });
+  const read = useQuery({ queryKey: queryKey(queryContext, "decision-detail", { id }), queryFn: async ({ signal }) => adaptDecision(await apiGet(`${ROOT}/${encodeURIComponent(id)}`, signal), id, queryContext.principalId) });
   // Completed deliberate refreshes; the decision bar uses this to release a refused answer.
   const [refreshes, setRefreshes] = useState(0);
   const refresh = () => read.refetch().then(r => { if (!r.isError) setRefreshes(n => n + 1); return r; });
@@ -84,7 +84,7 @@ function SelectedQuestion({ id, project }: { id: string; project: string | undef
   const { queryContext, bootstrap } = useSession();
   const client = useQueryClient();
   const offered = bootstrap.capability(QUESTIONS_READ);
-  const read = useQuery({ queryKey: queryKey(queryContext, "question-detail", { id }), enabled: offered.enabled, retry: false,
+  const read = useQuery({ queryKey: queryKey(queryContext, "question-detail", { id }), enabled: offered.enabled,
     queryFn: async ({ signal }) => adaptQuestion(await apiGet(`${QUESTIONS_ROOT}/${encodeURIComponent(id)}`, signal), id) });
   const [refreshes, setRefreshes] = useState(0);
   const refresh = () => read.refetch().then(r => { if (!r.isError) setRefreshes(n => n + 1); return r; });
