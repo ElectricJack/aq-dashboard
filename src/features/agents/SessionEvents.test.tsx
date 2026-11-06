@@ -95,7 +95,7 @@ test.each([401, 403])("authorization refusal %i clears prior reports even while 
   setup(); const region = await load(); await within(region).findByText("Tool started · fixture-tool");
   server.use(http.get("/api/v1/bootstrap", () => new HttpResponse(null, { status: 503 })), http.get("/api/observations/sessions/:attempt/events", () => new HttpResponse(null, { status })));
   await userEvent.click(within(region).getByRole("button", { name: "Refresh snapshot" }));
-  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" }); expect(screen.queryByText("Tool started · fixture-tool")).toBeNull();
+  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access not confirmed" }); expect(screen.queryByText("Tool started · fixture-tool")).toBeNull();
 });
 test("late reports from a different session never appear after navigation", async () => {
   let release!: () => void;

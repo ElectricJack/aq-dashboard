@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { appRoutes } from "./routes";
-import { isProtectedReadFailure } from "../api/client";
+import { readRetry } from "../api/retry";
 import { SessionProvider } from "./session";
 
 type Router = ReturnType<typeof createBrowserRouter>;
@@ -13,7 +13,8 @@ export function App(props: { router?: Router; queryClient?: QueryClient }) {
     () =>
       props.queryClient ??
       new QueryClient({
-        defaultOptions: { queries: { refetchIntervalInBackground: false, staleTime: 5_000, retry: (count, error) => !isProtectedReadFailure(error) && count < 3 } },
+        // Reads retry only failures that can clear by themselves, with backoff (src/api/retry.ts).
+        defaultOptions: { queries: { refetchIntervalInBackground: false, staleTime: 5_000, ...readRetry } },
       }),
   );
   return (

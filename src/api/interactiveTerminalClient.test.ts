@@ -2,7 +2,8 @@ import type { TerminalIdentity } from './wire/terminalTail';
 import { terminalJson } from './terminalClient';
 import { describe, expect, it, vi } from 'vitest';
 import { adaptInteractiveInfo, adaptInputReceipt } from './adapters/terminalControl';
-import { connectInteractiveTerminal } from './interactiveTerminalClient';
+import { connectInteractiveTerminal, MAX_AUTOMATIC_RECONNECTS, TERMINAL_CADENCE } from './interactiveTerminalClient';
+import { ApiError } from './client';
 vi.mock('./terminalClient', () => ({ terminalJson: vi.fn() }));
 const terminal: TerminalIdentity = { terminal_id: '10000000-0000-4000-8000-000000000001', epoch: 1, session: { kind: 'central', authority_id: '10000000-0000-4000-8000-000000000002', session_id: '10000000-0000-4000-8000-000000000003', generation: 1 } };
 const info = { terminal, session_revision: 2, input_mode: 'finite_v1', terminal_policy: { input_enabled: true }, disconnected: false, control: { terminal, session_revision: 2, generation: 0, lease: null, fence_acknowledged: false, input_paused: false } };
@@ -74,5 +75,80 @@ describe('reconnect binding (U11)', () => {
     const bindings: unknown[] = [];
     const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, expect: { terminal, session_revision: 2 }, read, write: async () => {}, reset: vi.fn(), state: s => bindings.push(s.binding) });
     try { await vi.waitFor(() => expect(bindings).toContainEqual({ terminal, session_revision: 2 })); } finally { c.close(); }
+  });
+});
+
+describe('watch resilience and cadence (QA N-01, N-02)', () => {
+  const subscription = '10000000-0000-4000-8000-000000000004';
+  function fake(options: { tail?: (n: number) => unknown | Error; disconnected?: boolean }) {
+    let expiry = 14000, tails = 0, watches = 0, infos = 0;
+    vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
+      const doc = body as { kind?: string; body?: { operation_id?: string; expires_at_ms?: number } } | undefined;
+      if (doc?.kind === 'watch') { watches++; expiry = doc.body!.expires_at_ms!; return { body: { kind: 'watch', body: { terminal, operation_id: doc.body!.operation_id, subscription_id: subscription, session_revision: 2, expires_at_ms: expiry } }, serverTime: 1000 }; }
+      if (path.includes('/tail?')) { const value = options.tail?.(++tails); if (value instanceof Error) throw value; return { body: { ...(value as object), expires_at_ms: expiry }, serverTime: 1000 }; }
+      infos++; return { body: { ...info, disconnected: options.disconnected ?? false }, serverTime: 1000 };
+    });
+    return { read: ((_part: string, fetcher: () => ReturnType<typeof terminalJson>) => fetcher()) as never, counts: () => ({ tails, watches, infos }) };
+  }
+  const retained = (n: number, extra: Record<string, unknown> = {}) => ({ terminal, subscription_id: subscription, session_revision: 2, expires_at_ms: 14000, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, frames: [], gaps: [], next_sequence: n, more: false, ...extra });
+  const unavailable = () => new ApiError('http', 'AQ responded 503', { status: 503, envelope: { request_id: 'r', code: 'unavailable', message: 'temporarily unavailable', retryable: true } });
+
+  it('reconnects automatically after a retryable 503 tail instead of stopping', async () => {
+    const t = fake({ tail: n => n === 2 ? unavailable() : retained(0) });
+    const messages: string[] = []; const connected: boolean[] = [];
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, read: t.read, write: async () => {}, reset: vi.fn(), state: s => { messages.push(s.message); connected.push(s.connected); }, reconnectDelay: () => 1 });
+    try {
+      await vi.waitFor(() => expect(messages.some(m => m.startsWith('Reconnecting… (attempt 1 of 6)'))).toBe(true));
+      await vi.waitFor(() => expect(t.counts().tails).toBeGreaterThanOrEqual(3));
+      expect(t.counts().watches).toBeGreaterThanOrEqual(2);
+      expect(connected.at(-1)).toBe(true);
+      expect(messages.some(m => m.startsWith('Disconnected'))).toBe(false);
+    } finally { c.close(); }
+  });
+
+  it('a non-retryable failure stops for an explicit Reconnect', async () => {
+    const t = fake({ tail: () => new ApiError('http', 'AQ responded 403', { status: 403 }) });
+    const messages: string[] = [];
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, read: t.read, write: async () => {}, reset: vi.fn(), state: s => messages.push(s.message), reconnectDelay: () => 1 });
+    try {
+      await vi.waitFor(() => expect(messages.at(-1)).toBe('Disconnected — reconnect to watch; control released'));
+      expect(messages.some(m => m.startsWith('Reconnecting'))).toBe(false);
+      expect(t.counts().watches).toBe(1);
+    } finally { c.close(); }
+  });
+
+  it('gives up after the bounded number of automatic reconnects', async () => {
+    const t = fake({ tail: () => unavailable() });
+    const messages: string[] = [];
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, read: t.read, write: async () => {}, reset: vi.fn(), state: s => messages.push(s.message), reconnectDelay: () => 1 });
+    try {
+      await vi.waitFor(() => expect(messages.at(-1)).toBe('Disconnected — reconnect to watch; control released'));
+      expect(t.counts().tails).toBe(MAX_AUTOMATIC_RECONNECTS + 1);
+    } finally { c.close(); }
+  });
+
+  it('backs off while idle instead of polling every 200 ms', async () => {
+    const t = fake({ tail: () => retained(0) });
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, read: t.read, write: async () => {}, reset: vi.fn(), state: () => {} });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1600));
+      // 200 ms fixed polling would be ~8 tails; idle backoff (400, 800, 1600…) gives at most 4.
+      expect(t.counts().tails).toBeLessThanOrEqual(4);
+      expect(t.counts().infos).toBe(1);
+    } finally { c.close(); }
+  });
+
+  it('stops tailing a disconnected terminal with nothing retained, and restarts its screen once', async () => {
+    const reset = vi.fn(); const messages: string[] = [];
+    const t = fake({ disconnected: true, tail: () => retained(0, { availability: 'not_retained', disconnected: true }) });
+    const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: false, read: t.read, write: async () => {}, reset, state: s => messages.push(s.message) });
+    try {
+      await vi.waitFor(() => expect(t.counts().tails).toBe(1));
+      await new Promise(resolve => setTimeout(resolve, 600));
+      expect(t.counts()).toMatchObject({ tails: 1, watches: 1 });
+      expect(reset).toHaveBeenCalledTimes(1);
+      expect(messages.at(-1)).toBe('Output not retained');
+      expect(TERMINAL_CADENCE.dormantMin).toBeGreaterThanOrEqual(5000);
+    } finally { c.close(); }
   });
 });

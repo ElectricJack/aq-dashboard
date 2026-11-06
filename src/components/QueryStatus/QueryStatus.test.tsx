@@ -62,3 +62,25 @@ test("FreshnessLabel shows age, and a stale value says so", () => {
   rerender(<FreshnessLabel serverTime="2026-10-31T12:00:00.000Z" observedAt="2026-10-31T11:00:00.000Z" stale />);
   expect(screen.getByText(/stale, observed 1h ago/i)).toBeInTheDocument();
 });
+
+test.each([403, 404, 410, 422])("an item read answered %i gets the neutral not-found view without retry (WD-12, WD-13, SO-10)", (status) => {
+  render(<QueryStatus status="error" error={new ApiError("http", "x", { status })} subject="item" label="decision evidence" onRetry={() => {}} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("This item does not exist or is not available to you.");
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
+
+test("a label starting with 'this' is an item by default", () => {
+  render(<QueryStatus status="error" error={new ApiError("http", "x", { status: 422 })} label="this session" onRetry={() => {}} />);
+  expect(screen.getByRole("alert")).toHaveTextContent(/does not exist or is not available/);
+});
+
+test("a refused collection filter says so and does not offer a retry that cannot succeed (RA-05)", () => {
+  render(<QueryStatus status="error" error={new ApiError("http", "x", { status: 422 })} label="results" onRetry={() => {}} />);
+  expect(screen.getByRole("alert")).toHaveTextContent(/AQ can't read results with these settings/);
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
+
+test("capacity and unavailability stay retryable", () => {
+  render(<QueryStatus status="error" error={new ApiError("http", "x", { status: 429 })} label="playbook runs" onRetry={() => {}} />);
+  expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+});

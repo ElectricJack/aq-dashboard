@@ -58,14 +58,15 @@ test("loaded state filter describes only loaded rows", async () => {
   expect(screen.getByText("Filtering loaded runs")).toBeInTheDocument();
   expect(screen.queryByText("No runs recorded in this configured namespace.")).toBeNull();
 });
-test("run labels render as literal text and forbidden reads clear the protected page", async () => {
+test("run labels render as literal text and a forbidden read clears only its panel", async () => {
   enabled(); const badLabel = "<img src=x onerror=alert(1)>";
   server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json(playbookPage([{ ...runRecord(), entry: badLabel }]))));
   const { queryClient } = renderApp("/playbooks");
   await screen.findByText(badLabel); expect(document.querySelector('img[src="x"]')).toBeNull();
   server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json({}, { status: 403 })));
   await queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("playbook-runs") });
-  await screen.findByRole("heading", { name: "Access denied" }); expect(screen.queryByText(badLabel)).toBeNull();
+  await screen.findByText("Viewing playbook runs is not permitted for your account."); expect(screen.queryByText(badLabel)).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Access denied" })).toBeNull(); expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
 });
 test("run rows show a short id, relative age and a loaded-rows time range", async () => {
   enabled(); const old = { ...runRecord("run-0000000000000002", "completed"), admitted_at_ms: PLAYBOOK_TIME - 2 * 86_400_000 };

@@ -84,7 +84,7 @@ test("finalizing busy permits lookup only; actor drift cannot inspect or mutate 
 });
 test.each([401, 403])("%s during upload fences all private state while bootstrap is offline", async status => {
   const app = setup(); await open(); choose(); server.use(http.post(`${media}-uploads`, () => new HttpResponse(null, { status })), http.get("/api/v1/bootstrap", () => new HttpResponse(null, { status: 503 })));
-  await userEvent.click(screen.getByRole("button", { name: "Upload image" })); await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
+  await userEvent.click(screen.getByRole("button", { name: "Upload image" })); await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access not confirmed" });
   await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); expect(screen.queryByText("Human example.png")).toBeNull(); expect(screen.queryByText(resultRecord().conclusion)).toBeNull();
 });
 test("held preparation cannot create an intent after leaving the exact report", async () => {

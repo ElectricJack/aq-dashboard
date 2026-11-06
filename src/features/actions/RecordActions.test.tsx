@@ -206,3 +206,16 @@ test.each(["lookup","exact retry"])("%s receipt retirement preserves uncertainty
  await userEvent.click(within(dialog).getByText("Operation reference and receipts"));expect(within(dialog).getByText(id,{exact:true})).toBeVisible();
  await userEvent.click(within(dialog).getByRole("button",{name:"Close action"}));await userEvent.click(screen.getByRole("button",{name:"Edit task · operation"}));expect(within(dialog).queryByRole("button",{name:"Submit"})).not.toBeInTheDocument();
 });
+// SO-03 / ISSUE-003: one refused action stays in its dialog; the draft and the dashboard remain.
+test.each([["knowledge.author","Add record"],["knowledge.correct","Correct record"],["task.edit","Edit task"]] as const)("a 403 on %s keeps the dialog, the draft and the shell",async(kind,label)=>{
+ const ids:string[]=[];
+ server.use(http.post("/api/v1/actions",async({request})=>{ids.push(String(((await request.json()) as {operation_id?:string}).operation_id));return HttpResponse.json({request_id:"r",code:"forbidden",message:"This request is not available to your account",retryable:false},{status:403});}));
+ const {dialog}=await open(kind,label);
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByText(/AQ refused this action\. This request is not available to your account\. Nothing was changed\. Your draft is preserved\./)).toBeInTheDocument();
+ expect(within(dialog).getByLabelText("Title")).toHaveValue("A revised title");
+ expect(screen.queryByRole("heading",{name:/Access denied|Access not confirmed/})).not.toBeInTheDocument();
+ expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
+ // A resubmission is a new operation, never a replay of the refused one.
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await waitFor(()=>expect(ids).toHaveLength(2));expect(ids[0]).not.toBe(ids[1]);
+});

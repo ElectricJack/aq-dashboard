@@ -49,8 +49,8 @@ export function Playbooks() {
   const [filter, setFilter] = useState("all"); const [range, setRange] = useState("24h");
   const runs = useInfiniteQuery({ queryKey: scopedKey(queryContext, scope, "playbook-runs", {}), initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => adaptRuns(await apiGet<unknown>(url("/runs", project, pageParam), signal), project, pageParam),
-    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined, retry: false, staleTime: 5000, enabled: tab === "runs", refetchOnWindowFocus: false });
-  const admissions = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-admissions", {}), queryFn: async ({ signal }) => adaptAdmissions(await apiGet<unknown>(url("/admissions", project), signal), project), enabled: tab === "admissions", retry: false });
+    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined, staleTime: 5000, enabled: tab === "runs", refetchOnWindowFocus: false });
+  const admissions = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-admissions", {}), queryFn: async ({ signal }) => adaptAdmissions(await apiGet<unknown>(url("/admissions", project), signal), project), enabled: tab === "admissions" });
   let rows: Run[] = []; let invalid: unknown = null;
   try { rows = runs.data ? mergeRunPages(runs.data.pages) : []; } catch (e) { invalid = e; }
   // Both filters narrow loaded rows only; the age window is measured against the server clock of the first page.
@@ -118,7 +118,7 @@ export function Playbooks() {
 function RunInspector({ id, project, loaded }: { id: string; project: string | null; loaded: readonly Run[] }) {
   const { queryContext } = useSession(); const [scope] = useScope(); const search = scopeSearch(scope);
   const [after, setAfter] = useState<string | null>(null);
-  const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after), retry: false });
+  const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-run", { id, after }), queryFn: async ({ signal }) => adaptRunDetail(await apiGet<unknown>(url(`/runs/${encodeURIComponent(id)}`, project, after), signal), project, id, after) });
   const projects = useProjects();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (query.data) heading.current?.focus(); }, [id, Boolean(query.data)]);

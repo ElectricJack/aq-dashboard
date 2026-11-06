@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode, type RefObject } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigationType } from "react-router";
+import { returnsFocusOnBack } from "./focusReturn";
 import { destination, type DestinationId } from "./destinations";
+import { useDocumentTitle } from "./documentTitle";
 import { useSession } from "./session";
 import styles from "./Shell.module.css";
 
@@ -10,16 +12,20 @@ export const TitleFocusContext = createContext<RefObject<string | null> | null>(
 /** Page title that receives focus after in-app navigation, for screen readers. */
 export function PageTitle({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLHeadingElement>(null);
-  const destination = useLocation().pathname.split("/")[1] ?? "";
+  const location = useLocation();
+  const navigation = useNavigationType();
+  const destination = location.pathname.split("/")[1] ?? "";
   const shared = useContext(TitleFocusContext);
   const local = useRef<string | null>(null);
   const previous = shared ?? local;
   useEffect(() => {
     // Focus only when the destination changes. Search-param updates (scope, filters) and
     // in-destination navigation (list -> detail) manage their own focus.
-    if (previous.current !== null && previous.current !== destination) ref.current?.focus();
+    // Back/Forward to an entry left through a link returns focus to that link instead.
+    const restoring = navigation === "POP" && returnsFocusOnBack(location.key);
+    if (previous.current !== null && previous.current !== destination && !restoring) ref.current?.focus();
     previous.current = destination;
-  }, [destination, previous]);
+  }, [destination, previous, navigation, location.key]);
   return (
     <h1 ref={ref} tabIndex={-1} className={styles.title}>
       {children}
@@ -60,6 +66,7 @@ export function DestinationPage({ id, children }: { id: DestinationId; children?
 }
 
 export function NotFoundPage() {
+  useDocumentTitle("Page not found");
   return (
     <>
       <PageTitle>Page not found</PageTitle>

@@ -5,6 +5,7 @@ import { adaptControl, adaptInputReceipt, adaptInteractiveInfo, type TerminalInf
 import { adaptTerminalTail, adaptWatch, sameTerminal } from './adapters/terminalTail';
 import { isRecord, ContractError } from './adapters/contract';
 import { terminalJson } from './terminalClient';
+import { isRetryableError, retryDelayMs } from './retry';
 export interface TerminalLease { mine: boolean; expiresAtMs: number }
 /** `clock` maps the last server time header onto `performance.now()` so a view can count down server-time facts. */
 export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean;
@@ -15,8 +16,18 @@ export interface TerminalBinding { terminal: TerminalInfo['terminal']; session_r
 class EpochChanged extends Error {}
 class NotDelivered extends Error {}
 type Read = (part: string, fetcher: () => ReturnType<typeof terminalJson>) => ReturnType<typeof terminalJson>;
+/** Consecutive retryable failures before the watch stops and waits for an explicit Reconnect. */
+export const MAX_AUTOMATIC_RECONNECTS = 6;
+/**
+ * Poll cadence (N-02). Output arriving: fast. Watch-only and idle: back off to
+ * 2 s. Controlling: stay at 200 ms so typed input echoes promptly. Nothing
+ * retained on a disconnected terminal: stop tailing, re-check its info slowly.
+ */
+export const TERMINAL_CADENCE = { more: 50, output: 200, idleMax: 2000, inspectWatching: 3000, inspectControlling: 750, dormantMin: 5000, dormantMax: 30000 } as const;
 /** `expect` pins a reconnect to the identity and epoch seen before: a changed binding is reported, never watched. */
-export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void }) {
+export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void;
+  /** Wait before automatic reconnect `attempt` (0-based); tests shorten it. */
+  reconnectDelay?: (attempt: number, error: unknown) => number }) {
   const abort = new AbortController(), { signal } = abort;
   const path = `/api/v1/terminals/${encodeURIComponent(options.terminalId)}`;
   let info: TerminalInfo | undefined, clock = 0, clockAt = 0, owned: string | null = null;
@@ -38,10 +49,14 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     clock = value.serverTime; clockAt = performance.now(); return value;
   };
   const json = (part: string, suffix = '', body?: unknown) => request(part, () => terminalJson(path + suffix, signal, body));
+  // `wake` ends the current poll wait early, e.g. after control is acquired.
+  const sleeping = new Set<() => void>(); let inspectNow = false;
+  const wake = () => { inspectNow = true; for (const end of [...sleeping]) end(); };
   const delay = (ms: number) => new Promise<void>(resolve => {
-    const end = () => { clearTimeout(timer); signal.removeEventListener('abort', end); resolve(); };
-    const timer = setTimeout(end, ms); signal.addEventListener('abort', end, { once: true });
+    const end = () => { clearTimeout(timer); signal.removeEventListener('abort', end); sleeping.delete(end); resolve(); };
+    const timer = setTimeout(end, ms); signal.addEventListener('abort', end, { once: true }); sleeping.add(end);
   });
+  const reconnectDelay = options.reconnectDelay ?? ((attempt: number, error: unknown) => retryDelayMs(attempt + 1, error));
   async function inspect() {
     const raw = await json('info'); const next = adaptInteractiveInfo(raw.body, options.terminalId);
     const pinned = !info && options.expect;
@@ -114,45 +129,71 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       if (!status.lease || status.lease.expires_at_ms <= now()) throw new ContractError('Control expiry');
       owned = status.lease.lease_id; acquired.add(owned); info.control = status;
       if (kind === 'control') resizeSequence = 0;
-      emit('Waiting for worker control acknowledgement…');
+      emit('Waiting for worker control acknowledgement…'); wake();
     } catch { owned = null; queue = []; queued = 0; emit('Control unavailable — select Take control to try again'); }
     finally { renewing = false; }
   }
-  async function run() {
-    try {
-      await inspect(); let after = 0, lastInspect = performance.now();
-      while (!signal.aborted) {
-        const operation = crypto.randomUUID(); const requestedUntil = Math.floor(now() + 14000);
-        const raw = await json('watch', '/mutations', { kind: 'watch', body: { terminal: info!.terminal, operation_id: operation, expected_session_revision: info!.session_revision, expires_at_ms: requestedUntil, after_sequence: after } });
-        const subscription = adaptWatch(raw.body, info!.terminal, operation);
-        if (subscription.session_revision !== info!.session_revision || subscription.expires_at_ms > requestedUntil || subscription.expires_at_ms <= now()) throw new ContractError('Watch binding');
-        while (!signal.aborted && now() + 1000 < subscription.expires_at_ms) {
-          const rawTail = await json('tail', `/tail?subscription_id=${encodeURIComponent(subscription.subscription_id)}&after_sequence=${after}`);
-          const tail = await adaptTerminalTail(rawTail.body, info!.terminal, subscription.subscription_id, after);
-          if (tail.server_time_ms !== rawTail.serverTime || tail.session_revision !== info!.session_revision || tail.expires_at_ms !== subscription.expires_at_ms) throw new ContractError('Tail binding');
-          // Tail retention describes output coverage, not the controller peer.
-          // TerminalInfo is the authority for live input connectivity.
-          let discontinuity = tail.gaps.length > 0;
-          let previous = after;
-          for (const frame of tail.frames) { if (frame.sequence !== previous + 1) discontinuity = true; previous = frame.sequence; }
-          if (discontinuity || tail.availability === 'not_retained') options.reset();
-          for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
-          after = tail.next_sequence;
-          outputObservedAtMs = tail.last_observed_at_ms;
-          emit(tail.availability === 'not_retained' ? 'Output not retained' : discontinuity ? 'Output gap — screen restarted' : tail.disconnected ? 'Output stream disconnected' : undefined);
-          if (performance.now() - lastInspect >= 750) {
-            await inspect(); lastInspect = performance.now();
-            if (owned && info!.control.lease && info!.control.lease.expires_at_ms - now() < 6000) await control('renew');
-          }
-          await delay(tail.more ? 50 : 200);
-        }
+  let after = 0, failures = 0, availability: string | undefined;
+  async function watch() {
+    await inspect(); let lastInspect = performance.now(), idle = 0, dormant = false, dormantMs: number = TERMINAL_CADENCE.dormantMin;
+    while (!signal.aborted) {
+      if (dormant) {
+        // Nothing is retained and the terminal is gone: no tail can return output, so only re-check its info.
+        emit('Output not retained');
+        await delay(dormantMs); dormantMs = Math.min(TERMINAL_CADENCE.dormantMax, dormantMs * 2);
+        if (signal.aborted) return;
+        await inspect(); lastInspect = performance.now(); inspectNow = false;
+        if (info!.disconnected) continue;
+        dormant = false; dormantMs = TERMINAL_CADENCE.dormantMin;
       }
-    } catch (error) {
-      if (signal.aborted) return;
-      connected = false; owned = null; queue = []; queued = 0;
-      // A changed epoch is a different terminal: keep the last observation and do not attach to it.
-      if (error instanceof EpochChanged) { emit('Terminal epoch changed — this is no longer the terminal you were watching; open the session again'); return; }
-      options.reset(); emit('Disconnected — reconnect to watch; control released');
+      const operation = crypto.randomUUID(); const requestedUntil = Math.floor(now() + 14000);
+      const raw = await json('watch', '/mutations', { kind: 'watch', body: { terminal: info!.terminal, operation_id: operation, expected_session_revision: info!.session_revision, expires_at_ms: requestedUntil, after_sequence: after } });
+      const subscription = adaptWatch(raw.body, info!.terminal, operation);
+      if (subscription.session_revision !== info!.session_revision || subscription.expires_at_ms > requestedUntil || subscription.expires_at_ms <= now()) throw new ContractError('Watch binding');
+      while (!signal.aborted && now() + 1000 < subscription.expires_at_ms) {
+        const rawTail = await json('tail', `/tail?subscription_id=${encodeURIComponent(subscription.subscription_id)}&after_sequence=${after}`);
+        const tail = await adaptTerminalTail(rawTail.body, info!.terminal, subscription.subscription_id, after);
+        if (tail.server_time_ms !== rawTail.serverTime || tail.session_revision !== info!.session_revision || tail.expires_at_ms !== subscription.expires_at_ms) throw new ContractError('Tail binding');
+        failures = 0;
+        // Tail retention describes output coverage, not the controller peer.
+        // TerminalInfo is the authority for live input connectivity.
+        let discontinuity = tail.gaps.length > 0;
+        let previous = after;
+        for (const frame of tail.frames) { if (frame.sequence !== previous + 1) discontinuity = true; previous = frame.sequence; }
+        const retained = tail.availability !== 'not_retained';
+        // Restart the screen when coverage breaks, not on every tail that still has nothing retained.
+        if (discontinuity || (!retained && availability !== 'not_retained')) options.reset();
+        availability = tail.availability;
+        for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
+        after = tail.next_sequence;
+        outputObservedAtMs = tail.last_observed_at_ms;
+        emit(!retained ? 'Output not retained' : discontinuity ? 'Output gap — screen restarted' : tail.disconnected ? 'Output stream disconnected' : undefined);
+        if (inspectNow || performance.now() - lastInspect >= (owned ? TERMINAL_CADENCE.inspectControlling : TERMINAL_CADENCE.inspectWatching)) {
+          inspectNow = false; await inspect(); lastInspect = performance.now();
+          if (owned && info!.control.lease && info!.control.lease.expires_at_ms - now() < 6000) await control('renew');
+        }
+        if (!retained && !owned && (tail.disconnected || info!.disconnected)) { dormant = true; break; }
+        idle = tail.frames.length ? 0 : idle + 1;
+        await delay(tail.more ? TERMINAL_CADENCE.more : tail.frames.length || owned ? TERMINAL_CADENCE.output : Math.min(TERMINAL_CADENCE.idleMax, TERMINAL_CADENCE.output * 2 ** idle));
+      }
+    }
+  }
+  async function run() {
+    while (!signal.aborted) {
+      try { await watch(); return; }
+      catch (error) {
+        if (signal.aborted) return;
+        connected = false; owned = null; queue = []; queued = 0;
+        // A changed epoch is a different terminal: keep the last observation and do not attach to it.
+        if (error instanceof EpochChanged) { emit('Terminal epoch changed — this is no longer the terminal you were watching; open the session again'); return; }
+        // N-01: capacity and unavailability clear by themselves; reattach the same terminal with backoff.
+        if (isRetryableError(error) && failures < MAX_AUTOMATIC_RECONNECTS) {
+          const wait = reconnectDelay(failures++, error);
+          emit(`Reconnecting… (attempt ${failures} of ${MAX_AUTOMATIC_RECONNECTS}); control released`);
+          await delay(wait); continue;
+        }
+        options.reset(); emit('Disconnected — reconnect to watch; control released'); return;
+      }
     }
   }
   void run();

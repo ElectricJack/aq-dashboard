@@ -1,6 +1,7 @@
 import { validateReadEnvelope } from "../api/adapters/envelope";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../api/client";
+import { pollUnlessSettled } from "../api/retry";
 import { queryKey, scopedKey } from "../api/queryKeys";
 import type { Coverage, Envelope, Scope } from "../api/wire/proposed";
 import { scopeParam } from "./scope";
@@ -45,7 +46,8 @@ export function useRead<W, V>(opts: {
       validateReadEnvelope(env, queryContext.contractVersion, opts.scope);
       return { view: opts.adapt(env.data, env.server_time), serverTime: env.server_time, coverage: env.coverage };
     },
-    ...(opts.pollMs !== undefined && { refetchInterval: opts.pollMs }),
+    // A missing or refused resource stops polling; a transient failure keeps it.
+    ...(opts.pollMs !== undefined && { refetchInterval: pollUnlessSettled(opts.pollMs) }),
     ...(opts.enabled !== undefined && { enabled: opts.enabled }),
   });
 }

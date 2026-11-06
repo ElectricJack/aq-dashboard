@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { SupervisorWorkspace } from "../features/supervisor/SupervisorWorkspace";
 import { SearchDialog } from "../features/search/SearchDialog";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
@@ -7,10 +7,13 @@ import { adaptOverview, type OverviewView } from "../api/adapters/inspection";
 import type { Overview as OverviewWire } from "../api/wire/overview";
 import type { Scope } from "../api/wire/proposed";
 import { useMediaQuery } from "../components/useMediaQuery";
+import { useOnline } from "../components/useOnline";
 import { DESTINATION_ICON, Icon } from "../components/icons";
 import { ProviderUsageStrip, ProviderUsageSummary } from "../components/ProviderUsageStrip/ProviderUsageStrip";
 import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
+import { DocumentTitleProvider } from "./documentTitle";
+import { useBackFocusRestore } from "./focusReturn";
 import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
 import { scopeSearch, useScope } from "./scope";
 import { useSession } from "./session";
@@ -65,15 +68,6 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-function subscribeOnline(notify: () => void) {
-  window.addEventListener("online", notify);
-  window.addEventListener("offline", notify);
-  return () => {
-    window.removeEventListener("online", notify);
-    window.removeEventListener("offline", notify);
-  };
-}
-const browserOnline = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
 function DestinationLink({ dest, search, badge }: { dest: Destination; search: string; badge?: Badge | null }) {
   return (
@@ -173,6 +167,8 @@ export function Shell() {
   const projects = useProjects();
   const canSearch = bootstrap.capability("search.read").enabled;
   const lastTitlePath = useRef<string | null>(null);
+  const content = useRef<HTMLElement>(null);
+  useBackFocusRestore(useCallback(() => content.current, []));
   const [searchOpen, setSearchOpen] = useState(false);
   const searchButton = useRef<HTMLButtonElement>(null);
   const usageDetails = useRef<HTMLDetailsElement>(null);
@@ -196,7 +192,7 @@ export function Shell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [canSearch]);
   const compactUsage = usage.state.status !== "ready" && !(usage.state.status === "configured" && usage.state.data.accounts.length > 0);
-  const online = useSyncExternalStore(subscribeOnline, browserOnline, () => true);
+  const online = useOnline();
   const reachable = connection === "connected" && !usage.unreachable;
   const status: ConnectionState = connection === "signed_out" ? "signed_out" : !online ? "offline" : reachable ? "connected" : "reconnecting";
   const phone = useMediaQuery(PHONE_QUERY);
@@ -293,10 +289,12 @@ export function Shell() {
           <span className={styles.srOnly}>Settings, signed in as {name}</span>
         </Link>
       </header>
-      <main id="content" className={styles.main}>
+      <main id="content" ref={content} className={styles.main}>
         <BundleNotice />
         <TitleFocusContext value={lastTitlePath}>
-          <SupervisorWorkspace><Outlet /></SupervisorWorkspace>
+          <DocumentTitleProvider>
+            <SupervisorWorkspace><Outlet /></SupervisorWorkspace>
+          </DocumentTitleProvider>
         </TitleFocusContext>
       </main>
       <PhoneNav search={search} badge={badge} />
