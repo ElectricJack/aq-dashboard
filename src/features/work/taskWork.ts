@@ -28,18 +28,39 @@ const time = (v: unknown): v is string => typeof v === "string" && v.length <= 4
 
 /** The attempt holding a task, from `GET …/tasks/{t}/work` (`execution`, null when none holds it). */
 export type TaskExecution = { attempt_id: string; session_id: string; status: string };
-export const READINESS_STATES = ["draft", "completed", "canceled", "running", "waiting", "unknown", "ready"] as const;
-export type WorkReadiness = (typeof READINESS_STATES)[number];
+/** The readiness states this bundle knows (human-graph-1 X8; `held` since aq-server #99, QA P1-01). */
+export const READINESS_STATES = ["draft", "completed", "canceled", "running", "held", "waiting", "unknown", "ready"] as const;
+/** A known readiness state, or `unrecognized` for a value a newer server sends that this bundle doesn't know (W77). */
+export type WorkReadiness = (typeof READINESS_STATES)[number] | "unrecognized";
+/** Codes AQ gives for a hold; a newer code is kept as reported and its message still shown. */
+export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed"] as const;
+/** Why a stopped or finished attempt still holds the task (`readiness.reasons`, at most 4). */
+export type HoldReason = { code: string; attempt_id: string; status: string; message: string };
 /** `satisfied` is true only for a completed blocker, null when the blocker isn't in the read Context. */
 export type TaskBlocker = { edge_id: string; id: string; title: string | null; task_state: string | null; satisfied: boolean | null };
-export type TaskWork = { state: WorkReadiness; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null };
+/** `reported` is the server's readiness value as sent: for `unrecognized`, the value to show. */
+export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null };
+
+/**
+ * An open enum value (W77): a short identifier a newer server may add. Unknown values degrade to a neutral
+ * "Unknown (value)" instead of failing the read; anything that isn't a bounded identifier still fails it.
+ */
+export const openEnumValue = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(v);
 
 export function adaptTaskWork(raw: unknown, project: string, id: string) {
   return adaptGraphEnvelope(raw, project, (value): TaskWork => {
     check(isRecord(value) && value.task_id === id && isRecord(value.readiness) && Array.isArray(value.readiness.blockers) && value.readiness.blockers.length <= 64 && typeof value.readiness.complete === "boolean");
     // An older server without `readiness.state` reads as unknown, never as ready.
-    const state = value.readiness.state === undefined ? "unknown" : value.readiness.state;
-    check((READINESS_STATES as readonly unknown[]).includes(state));
+    const reported = value.readiness.state === undefined ? "unknown" : value.readiness.state;
+    check(openEnumValue(reported));
+    const state: WorkReadiness = (READINESS_STATES as readonly string[]).includes(reported) ? reported as WorkReadiness : "unrecognized";
+    // `reasons` is required from aq-server #99; an older server omits it.
+    const rawReasons = value.readiness.reasons === undefined ? [] : value.readiness.reasons;
+    check(Array.isArray(rawReasons) && rawReasons.length <= 4);
+    const reasons = rawReasons.map((r): HoldReason => {
+      check(isRecord(r) && openEnumValue(r.code) && validGraphId(r.attempt_id) && text(r.status, 64) && text(r.message, 512));
+      return { code: r.code as string, attempt_id: r.attempt_id as string, status: r.status as string, message: r.message as string };
+    });
     const e = value.execution;
     check(e === null || (isRecord(e) && validGraphId(e.attempt_id) && validGraphId(e.session_id) && text(e.status, 64)));
     const blockers = value.readiness.blockers.map((b): TaskBlocker => {
@@ -48,7 +69,7 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
       check(b.task_state === undefined || b.task_state === null || TASK_STATES.includes(b.task_state as string));
       return { edge_id: b.edge_id, id: b.id, title: (b.title as string | null | undefined) ?? null, task_state: (b.task_state as string | null | undefined) ?? null, satisfied: b.satisfied as boolean | null };
     });
-    return { state: state as WorkReadiness, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent) };
+    return { state, reported, reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent) };
   });
 }
 
@@ -63,9 +84,29 @@ export function useTaskWork(project: string, id: string) {
 
 /* ----- History: change timeline and recorded attempts (X13) ----- */
 
-export type HistoryEntry = { sequence: string; entry_id: string; category: "revision" | "lifecycle" | "edge"; operation: string; actor_id: string; reason: string | null; created_at: string };
+/**
+ * What one history entry changed (aq-server #99), or null when AQ can't describe it. `from`/`to` are given only
+ * for task state, priority, content type, retired and deleted; `complete` is false when AQ couldn't compare a
+ * revision with the previous one (then `fields` is empty).
+ */
+export type HistoryChange = { summary: string; fields: { field: string; from: string | null; to: string | null }[]; edge: { edge_type: string; direction: "incoming" | "outgoing"; node_id: string } | null; complete: boolean };
+export type HistoryEntry = { sequence: string; entry_id: string; category: "revision" | "lifecycle" | "edge"; operation: string; actor_id: string; reason: string | null; created_at: string; change: HistoryChange | null };
 export type TaskAttempt = { attempt_id: string; session_id: string; holds_task: boolean; status: string };
 export type TaskHistoryPage = { items: HistoryEntry[]; next_cursor: string | null; attempts: TaskAttempt[]; attempts_truncated: boolean };
+
+const changeValue = (v: unknown) => v === null || (typeof v === "string" && v.length <= 64);
+/** A history entry's `change`; absent (an older server) reads as null. Field names are an open enum (W77). */
+export function adaptHistoryChange(c: unknown): HistoryChange | null {
+  if (c === undefined || c === null) return null;
+  check(isRecord(c) && typeof c.summary === "string" && c.summary.length <= 512 && Array.isArray(c.fields) && c.fields.length <= 16 && typeof c.complete === "boolean");
+  const fields = c.fields.map(f => {
+    check(isRecord(f) && openEnumValue(f.field) && changeValue(f.from) && changeValue(f.to));
+    return { field: f.field as string, from: f.from as string | null, to: f.to as string | null };
+  });
+  const e = c.edge;
+  check(e === null || (isRecord(e) && text(e.edge_type, 64) && (e.direction === "incoming" || e.direction === "outgoing") && validGraphId(e.node_id)));
+  return { summary: c.summary, fields, edge: e === null ? null : { edge_type: e.edge_type as string, direction: e.direction as "incoming" | "outgoing", node_id: e.node_id as string }, complete: c.complete };
+}
 
 export function adaptTaskHistory(raw: unknown, project: string, id: string) {
   return adaptGraphEnvelope(raw, project, (value): TaskHistoryPage => {
@@ -74,7 +115,7 @@ export function adaptTaskHistory(raw: unknown, project: string, id: string) {
     const items = value.items.map((h): HistoryEntry => {
       check(isRecord(h) && typeof h.sequence === "string" && /^[1-9][0-9]{0,18}$/.test(h.sequence) && validGraphId(h.entry_id));
       check(["revision", "lifecycle", "edge"].includes(h.category as string) && text(h.operation, 128) && text(h.actor_id, 512) && (h.reason === null || (typeof h.reason === "string" && h.reason.length <= 4096)) && time(h.created_at));
-      return { sequence: h.sequence, entry_id: h.entry_id, category: h.category as HistoryEntry["category"], operation: h.operation, actor_id: h.actor_id, reason: h.reason as string | null, created_at: h.created_at };
+      return { sequence: h.sequence, entry_id: h.entry_id, category: h.category as HistoryEntry["category"], operation: h.operation, actor_id: h.actor_id, reason: h.reason as string | null, created_at: h.created_at, change: adaptHistoryChange(h.change) };
     });
     const attempts = value.attempts.map((a): TaskAttempt => {
       check(isRecord(a) && validGraphId(a.attempt_id) && validGraphId(a.session_id) && typeof a.holds_task === "boolean" && text(a.status, 64));

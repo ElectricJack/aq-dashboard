@@ -41,8 +41,21 @@ function matches(v: unknown, rule: Rule, defs: Record<string,Rule>): boolean {
   if (rule.type==="boolean") return typeof v==="boolean";
   return true;
 }
+/** The process outcomes this bundle knows (results-feedback-1.1 `ProcessOutcome`). */
+export const PROCESS_OUTCOMES = (schema.$defs as unknown as Record<string,Rule>).ProcessOutcome?.enum as readonly string[] ?? [];
+/**
+ * Open enums (lesson W77): a value a newer server adds must not fail the whole Results read. These enums are read
+ * as bounded identifiers instead, and the view shows an unknown one as "Unknown (value)". Every other enum stays closed.
+ */
+const OPEN_ENUMS: Record<string,Rule> = { ProcessOutcome: { type: "string", pattern: "^[A-Za-z][A-Za-z0-9_.:-]{0,63}$" } };
+const RESULT_DEFS: Record<string,Rule> = { ...(schema.$defs as unknown as Record<string,Rule>), ...OPEN_ENUMS };
+/** The worker-reported process outcome: null when the server doesn't report one (older servers omit it). */
+export function processOutcome(revision: { process_outcome?: string | null }): { value: string; known: boolean } | null {
+  const v = revision.process_outcome;
+  return typeof v === "string" ? { value: v, known: PROCESS_OUTCOMES.includes(v) } : null;
+}
 export function validateResultPayload(kind: string, value: unknown): void {
-  const defs = schema.$defs as unknown as Record<string,Rule>;
+  const defs = RESULT_DEFS;
   check(!!defs[kind] && matches(value,defs[kind]!,defs));
   if (!isRecord(value)) return;
   if ("operation_id" in value) check(value.operation_id!=="00000000-0000-0000-0000-000000000000" && typeof value.expected_version==="string" && BigInt(value.expected_version)<=9223372036854775807n);

@@ -56,7 +56,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("P1-01: a task held by a finished attempt never reads Running, in the list or the inspector", async ({ page }) => {
+    test("P1-01 fallback (server without held): a task held by a finished attempt never reads Running, in the list or the inspector", async ({ page }) => {
       await rewrite(page, FINISHED);
       await page.goto(`/work/${replay}?${scope}`);
       const badge = inspector(page).locator("[data-task-status]");
@@ -69,7 +69,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(status.getByRole("link", { name: "Open terminal" })).toHaveCount(0);
       if (desktop) {
         const row = page.getByRole("list", { name: "Tasks" }).getByRole("link").filter({ hasText: "Fixture: Replay reconciliation" });
-        await expect(row.getByRole("img", { name: "Held by a finished attempt" })).toBeVisible();
+        await expect(row.getByRole("img", { name: "Held" })).toBeVisible();
         await expect(row.getByRole("img", { name: "Running" })).toHaveCount(0);
       }
       if (evidence) await page.screenshot({ path: `${evidence}/p1fix-01-held-${vp.name}.png` });

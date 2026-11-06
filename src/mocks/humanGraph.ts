@@ -81,7 +81,17 @@ function historyFor(node:GraphNode){
   return Array.from({length:count},(_,i)=>({sequence:String(1000+i),entry_id:id(0x400000+parseInt(node.id.slice(-6),16)*64+i),
     category:i===0?"revision":i%5===4?"lifecycle":i%3===2?"edge":"revision",operation:i===0?"create_node":i%5===4?"set_task_state":i%3===2?"add_edge":"update_node",
     actor_id:i%2?"fixture-agent-session":"owner@example.test",reason:i===0?"Fixture: created from the recovery plan":i%4===1?`Fixture edit ${i}: tightened the acceptance criteria`:null,
-    created_at:new Date(base+i*37*60_000).toISOString()}));
+    created_at:new Date(base+i*37*60_000).toISOString(),change:historyChange(i)}));
+}
+/** What each fixture entry changed (aq-server #99 `change`): values only for state and priority; one partial, one undescribed. */
+function historyChange(i:number){
+  const c=(summary:string,fields:{field:string;from:string|null;to:string|null}[]=[],edge:unknown=null,complete=true)=>({summary,fields,edge,complete});
+  if(i===0)return c("created");
+  if(i===7)return null;
+  if(i%5===4)return c("draft → active",[{field:"task_state",from:"draft",to:"active"}]);
+  if(i%3===2)return c(`added blocks from ${ID.fixtures.slice(0,8)}`,[],{edge_type:"blocks",direction:"incoming",node_id:ID.fixtures});
+  if(i===1)return c("revision changed",[],null,false);
+  return i%2?c("acceptance criteria",[{field:"acceptance_criteria",from:null,to:null}]):c(`priority ${i-2} → ${i}; title`,[{field:"priority",from:String(i-2),to:String(i)},{field:"title",from:null,to:null}]);
 }
 /* Task comments (spec 0004 §4.1): "Replay reconciliation" has 57 (two pages of 50) from an agent, the supervisor,
  * the system and the owner, including a deleted one; "Approve recovery plan" has one owner comment. */
@@ -128,7 +138,10 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
    const blockers=edges.filter(e=>e.target===node.id&&e.edge_type==="blocks").map(e=>{const b=tasks.find(n=>n.id===e.source);return {edge_id:e.id,id:e.source,title:b?.title??null,task_state:b?.task_state??null,satisfied:b?b.task_state==="completed":null};});
    const held=FIXTURE_ATTEMPTS[node.id]?.find(a=>a.holds_task),execution=held?{task_id:node.id,attempt_id:held.attempt_id,session_id:held.session_id,status:held.status}:null;
-   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state:node.task_state!=="active"?node.task_state:execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",blockers,complete:true},parent:parentOf(node.id,tasks,edges),execution}));
+   // aq-server #99: an attempt that has finished but still holds the task makes it "held", with AQ's reason.
+   const stopped=!!execution&&["finished","declined","never_granted"].includes(execution.status);
+   const reasons=stopped?[{code:"attempt_stopped_not_released",attempt_id:execution!.attempt_id,status:execution!.status,message:"Fixture: the attempt finished and stopped; the claim stays until its result is settled, the task is retried or the attempt is abandoned."}]:[];
+   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state:node.task_state!=="active"?node.task_state:stopped?"held":execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",blockers,complete:true,reasons},parent:parentOf(node.id,tasks,edges),execution}));
  }),http.get(`${path}/tasks/:id/history`,({params,request})=>{
    // Recorded attempts (history read): "Replay reconciliation" holds one; "Worker recovery" had one that ended; the rest never had one.
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();

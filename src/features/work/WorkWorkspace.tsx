@@ -14,6 +14,7 @@ import { HumanTaskGraph, PHONE_QUERY, PhoneGraphView, graphListTarget } from "./
 import { HumanTaskInspector, TaskInspectorUnavailable } from "./HumanTaskInspector";
 import { WORK_STATE_FILTERS, WORK_STATE_LABEL, listStatus, recordMarker, workStateFilter } from "./labels";
 import { StatusIcon } from "./StatusIcon";
+import { useTaskWork } from "./taskWork";
 import styles from "./WorkWorkspace.module.css";
 
 /** Work destination: a task workspace (design reference 02), not a generic record inspector. */
@@ -51,6 +52,8 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   try { rows = mergeGraphPages(query.data?.pages ?? []); } catch (e) { mergeError = e; }
   // The attempt status per held task: an ended attempt that still holds the task reads as held, not running (P1-01).
   const held = new Map((query.data?.pages ?? []).flatMap(page => page.data.executions.map(e => [e.task_id, e.status] as const)));
+  // The inspected task's work read (shared with the inspector, no extra request): its row follows AQ's `held`.
+  const selectedWork = useTaskWork(project, id ?? "").data?.data;
   // Expand (spec 0004 §3): the inspector takes the full width; `?focus=1` keeps it linkable across reloads.
   const focused = !!id && params.get("focus") === "1";
   const filtered = rows.filter(n => !state || n.task_state === state);
@@ -140,7 +143,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
             {/* One line per task (spec 0004 item 16): the bullet carries the status, the title truncates and shows in full on hover. */}
             <ul className={styles.rows} aria-label="Tasks">{filtered.map(n => { const marker = recordMarker(n); return <li key={n.id} data-selected={id === n.id}>
               <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} title={n.title} to={{ pathname: pathFor("task", n.id), search: withoutRoot(withoutRevision(search)) }}>
-                <StatusIcon status={listStatus(n, held.get(n.id))}/><span className={styles.rowTitle}>{n.title}</span>{marker && <span className={styles.marker}>{marker}</span>}
+                <StatusIcon status={listStatus(n, held.get(n.id), id === n.id ? selectedWork?.reported : undefined)}/><span className={styles.rowTitle}>{n.title}</span>{marker && <span className={styles.marker}>{marker}</span>}
               </Link>
             </li>; })}</ul>
             {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more tasks</ActionButton>}

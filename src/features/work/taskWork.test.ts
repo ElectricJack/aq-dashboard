@@ -1,5 +1,7 @@
 import task from "../../../contracts/live/human-graph/examples/task.json";
 import comments from "../../../contracts/live/human-graph/examples/comments.json";
+import workExample from "../../../contracts/live/human-graph/examples/work.json";
+import historyExample from "../../../contracts/live/human-graph/examples/history.json";
 import commentAdd from "../../../contracts/live/dashboard-actions/fixtures/request-task-comment-add.json";
 import commentEdit from "../../../contracts/live/dashboard-actions/fixtures/request-task-comment-edit.json";
 import commentDelete from "../../../contracts/live/dashboard-actions/fixtures/request-task-comment-delete.json";
@@ -39,6 +41,10 @@ test("list pages keep executions so a held task reads running (item 16)", () => 
   for (const ended of ["finished", "declined", "never_granted", "Finished"]) expect(listStatus({ task_state: "active" }, ended)).toBe("held");
   expect(listStatus({ task_state: "active" }, undefined)).toBe("active");
   expect(listStatus({ task_state: "completed" }, "finished")).toBe("completed");
+  // aq-server #99: the inspected task's work read says held; that wins over a holder status that looks live.
+  expect(listStatus({ task_state: "active" }, "running", "held")).toBe("held");
+  expect(listStatus({ task_state: "active" }, "running", "running")).toBe("running");
+  expect(listStatus({ task_state: "completed" }, "finished", "held")).toBe("completed");
   expect(() => adaptGraphPage(env({ items: [task.data], next_cursor: null, executions: [execution, execution] }), project, "task")).toThrow();
 });
 
@@ -48,7 +54,43 @@ test("work read: readiness state, blocker titles and parent; an older server rea
   expect(w.state).toBe("waiting"); expect(w.blockers[0]!.title).toBe("Lease"); expect(w.parent?.title).toBeNull();
   const { state: _state, ...readiness } = work.readiness;
   expect(adaptTaskWork(env({ ...work, readiness }), project, id).data.state).toBe("unknown");
-  expect(() => adaptTaskWork(env({ ...work, readiness: { ...work.readiness, state: "blocked" } }), project, id)).toThrow();
+  // Lesson W77: a readiness value a newer server adds reads as unrecognized ("Unknown (blocked)"), never fails the read.
+  const future = adaptTaskWork(env({ ...work, readiness: { ...work.readiness, state: "blocked" } }), project, id).data;
+  expect([future.state, future.reported]).toEqual(["unrecognized", "blocked"]);
+  // Anything that isn't a bounded identifier still fails.
+  for (const state of [5, null, "", "x".repeat(65), "<b>held</b>", "held now"]) expect(() => adaptTaskWork(env({ ...work, readiness: { ...work.readiness, state } }), project, id), String(state)).toThrow();
+  // An older server has no `reasons`: none.
+  expect(w.reasons).toEqual([]);
+});
+
+test("work read: the server's held example (aq-server #99) keeps the state and AQ's hold reason", () => {
+  const w = adaptTaskWork(workExample, workExample.project.id, workExample.data.task_id).data;
+  expect(w.state).toBe("held"); expect(w.reported).toBe("held");
+  expect(w.reasons).toEqual(workExample.data.readiness.reasons);
+  expect(w.execution?.status).toBe("finished");
+  const readiness = workExample.data.readiness, reason = readiness.reasons[0]!;
+  const withReasons = (reasons: unknown) => ({ ...workExample, data: { ...workExample.data, readiness: { ...readiness, reasons } } });
+  // A hold code this bundle doesn't know still shows AQ's message.
+  expect(adaptTaskWork(withReasons([{ ...reason, code: "attempt_parked" }]), project, id).data.reasons[0]!.code).toBe("attempt_parked");
+  for (const bad of [null, [{ ...reason, message: "" }], [{ ...reason, message: "m".repeat(513) }], [{ ...reason, attempt_id: "x" }], [{ ...reason, code: 3 }], Array(5).fill(reason)])
+    expect(() => adaptTaskWork(withReasons(bad), project, id)).toThrow();
+});
+
+test("history read: the server's example changes (aq-server #99); an older server has none", () => {
+  const page = adaptTaskHistory(historyExample, historyExample.project.id, historyExample.data.task_id).data;
+  expect(page.items.map(i => i.change?.summary ?? null)).toEqual(["created", "created as active", "priority 0 → 5", "added blocks from 00000000", "links changed", "active → completed", null]);
+  expect(page.items[2]!.change!.fields).toEqual([{ field: "priority", from: "0", to: "5" }]);
+  expect(page.items[3]!.change!.edge).toEqual({ edge_type: "blocks", direction: "incoming", node_id: uuid(6) });
+  expect(page.items[0]!.actor_id).toBe("owner@localhost");
+  const item = historyExample.data.items[2]! as (typeof historyExample.data.items)[number] & { change: NonNullable<(typeof historyExample.data.items)[2]['change']> }, withChange = (change: unknown) => ({ ...historyExample, data: { ...historyExample.data, items: [{ ...item, change }] } });
+  const { change: _change, ...older } = item;
+  expect(adaptTaskHistory({ ...historyExample, data: { ...historyExample.data, items: [older] } }, project, id).data.items[0]!.change).toBeNull();
+  // A field name a newer server adds is kept; a partial change keeps complete=false.
+  expect(adaptTaskHistory(withChange({ summary: "", fields: [{ field: "deadline", from: null, to: null }], edge: null, complete: false }), project, id).data.items[0]!.change)
+    .toEqual({ summary: "", fields: [{ field: "deadline", from: null, to: null }], edge: null, complete: false });
+  for (const bad of [{ ...item.change, summary: "s".repeat(513) }, { ...item.change, fields: [{ field: "priority", from: 0, to: "5" }] }, { ...item.change, complete: "yes" },
+    { ...item.change, edge: { edge_type: "blocks", direction: "sideways", node_id: uuid(6) } }, { ...item.change, fields: Array(17).fill(item.change!.fields[0]) }, "changed"])
+    expect(() => adaptTaskHistory(withChange(bad), project, id)).toThrow();
 });
 
 test("history read: entries and attempts (items 4, 5)", () => {

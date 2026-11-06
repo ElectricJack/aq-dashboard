@@ -3,11 +3,21 @@ import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../../components/QueryStatus/RetainedNotice";
 import { useSession } from "../../../app/session";
 import { scopeSearch } from "../../../app/scope";
+import { processOutcome } from "../../../api/adapters/resultsFeedback";
+import { unrecognizedLabel } from "../labels";
 import { useTaskResults } from "../taskWork";
 import { Ago, IdValue, NotOffered, humanize } from "./common";
 import styles from "./Inspector.module.css";
 
 const REFS = 3;
+const OUTCOME: Record<string, string> = { success: "Succeeded", failed: "Failed", cancelled: "Cancelled", expired: "Expired", unknown: "Unknown" };
+/** The worker's own report of how its process ended (aq-server #99); a value this bundle doesn't know reads "Unknown (value)". */
+function ProcessOutcome({ revision }: { revision: { process_outcome?: string | null } }) {
+  const outcome = processOutcome(revision);
+  if (!outcome) return null;
+  return <> · <span data-process-outcome={outcome.known ? outcome.value : "unrecognized"} title="The worker's report of how its process ended. It is not acceptance or task completion.">
+    Process: {outcome.known ? OUTCOME[outcome.value] ?? outcome.value : unrecognizedLabel(outcome.value)}</span></>;
+}
 /** The task's results from the Results feed (item 7); each opens on the Results page. */
 export function TaskResults({ project, task }: { project: string; task: string }) {
   const { bootstrap } = useSession();
@@ -26,7 +36,7 @@ export function TaskResults({ project, task }: { project: string; task: string }
       return <li key={d.result.id} data-result={d.result.id}>
         <Link className={styles.resultSummary} title={r.summary} to={{ pathname: `/results/${encodeURIComponent(d.result.id)}/revisions/${encodeURIComponent(r.revision)}`, search: scope }}>{r.summary}</Link>
         <p className={styles.meta}>
-          Submitted <Ago at={at} /> · Acceptance: {humanize(a.acceptance)}{a.unresolved_review && " · Needs review"}
+          Submitted <Ago at={at} /><ProcessOutcome revision={r} /> · Acceptance: {humanize(a.acceptance)}{a.unresolved_review && " · Needs review"}
           {" · "}{evidence.length ? `${attached} of ${evidence.length} required captures` : "No required captures"}
         </p>
         {(r.check_refs.length > 0 || r.evidence_refs.length > 0) && <p className={styles.meta} data-result-refs="">

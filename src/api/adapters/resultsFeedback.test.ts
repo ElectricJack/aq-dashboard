@@ -6,7 +6,7 @@ import replay from "../../../contracts/pinned/results-feedback/v1/fixtures/repla
 import compat from "../../../contracts/pinned/results-feedback/v1/fixtures/compatibility.json";
 import operation from "../../../contracts/pinned/dashboard-actions/v1/fixtures/operation-confirmed.json";
 import source from "../../../contracts/pinned/source.json";
-import { adaptResultDetail, adaptResultsFeed, adaptResultOperation, validateResultPayload, viewScoped, ResultsViewError } from "./resultsFeedback";
+import { adaptResultDetail, adaptResultsFeed, adaptResultOperation, processOutcome, PROCESS_OUTCOMES, validateResultPayload, viewScoped, ResultsViewError } from "./resultsFeedback";
 import { ContractError } from "./contract";
 import { isProtectedReadFailure } from "../client";
 
@@ -20,7 +20,11 @@ test("pinned G6 valid, invalid, replay and compatibility cases", () => {
     if (videoComment(f)) expect(() => validateResultPayload(f.type, f.value)).toThrow();
     else expect(() => validateResultPayload(f.type, f.value)).not.toThrow();
   }
-  for (const f of invalid) expect(() => validateResultPayload(f.type, f.value), f.name).toThrow();
+  // Lesson W77: the dashboard reads ProcessOutcome as an open enum, so the server's "unknown outcome value" case
+  // is admitted here on purpose (shown as "Unknown (value)"; see the process outcome tests below).
+  const openEnum = new Set(["process-outcome-is-enumerated"]);
+  for (const f of invalid) if (!openEnum.has(f.name)) expect(() => validateResultPayload(f.type, f.value), f.name).toThrow();
+  expect(invalid.filter(f => openEnum.has(f.name))).toHaveLength(openEnum.size);
   expect(() => validateResultPayload("Comment", replay.original)).not.toThrow();
   expect(replay.original).toEqual(replay.identical);
   expect(replay.original).not.toEqual(replay.changed);
@@ -58,5 +62,28 @@ describe("additive Results feedback fields (results-feedback-1.1)", () => {
     expect(caught).toBeInstanceOf(ResultsViewError);
     expect(caught).not.toBeInstanceOf(ContractError);
     expect(isProtectedReadFailure(caught)).toBe(false);
+  });
+});
+
+describe("process outcome (aq-server #99, results-feedback-1.1 additive field)", () => {
+  type Revision = { process_outcome?: unknown };
+  const withOutcome = (process_outcome: unknown) => { const d = structuredClone(detail) as { revision: Revision }; if (process_outcome === undefined) delete d.revision.process_outcome; else d.revision.process_outcome = process_outcome; return d; };
+  const page = (d: unknown) => envelope({ items: [d], next_cursor: null });
+  const scope = { kind: "project" as const, project_id: "00000000-0000-4000-8000-000000000005" };
+  test("the pinned valid detail reports success; every known outcome reads as known", () => {
+    expect((detail as { revision: Revision }).revision.process_outcome).toBe("success");
+    expect(PROCESS_OUTCOMES).toEqual(["success", "failed", "cancelled", "expired", "unknown"]);
+    for (const v of PROCESS_OUTCOMES) expect(processOutcome(adaptResultsFeed(page(withOutcome(v)), scope).items[0]!.revision)).toEqual({ value: v, known: true });
+  });
+  test("an older server without the field, or null, reports no outcome", () => {
+    expect(processOutcome(adaptResultsFeed(page(withOutcome(undefined)), scope).items[0]!.revision)).toBeNull();
+    expect(processOutcome(adaptResultsFeed(page(withOutcome(null)), scope).items[0]!.revision)).toBeNull();
+  });
+  test("lesson W77: a future outcome value is kept as unknown instead of failing the Results read", () => {
+    const invalidCase = invalid.find(f => f.name === "process-outcome-is-enumerated")!;
+    expect(() => validateResultPayload("Detail", invalidCase.value)).not.toThrow();
+    expect(processOutcome(adaptResultsFeed(page(withOutcome("passed")), scope).items[0]!.revision)).toEqual({ value: "passed", known: false });
+    // Only bounded identifiers are admitted; other values still fail the read.
+    for (const bad of [5, true, "", "<script>", "two words", "x".repeat(65), {}]) expect(() => adaptResultsFeed(page(withOutcome(bad)), scope), String(bad)).toThrow(ContractError);
   });
 });
