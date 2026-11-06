@@ -113,12 +113,12 @@
 }
 
 /* Hold reasons (aq-server #99): AQ's message, then the attempt it names. */
-.reasons .holdReasons li { display:grid; gap:var(--space-1); }
+.reasons .holdReasons li { display:grid; gap:2px; }
 .statusChip[data-status=unrecognized] { color:var(--color-status-unknown); }
 /* History change (aq-server #99): summary, from → to values, partial marker. */
-.historyChange { display:grid; gap:var(--space-1); min-inline-size:0; }
+.historyChange { display:grid; gap:2px; min-inline-size:0; }
 .historyChange p { margin:0; overflow-wrap:anywhere; }
-.historyValues { display:flex; flex-wrap:wrap; gap:var(--space-1) var(--space-3); font-size:var(--font-size-meta); }
+.historyValues { display:flex; flex-wrap:wrap; gap:2px var(--space-3); font-size:var(--inspector-meta, 13px); }
 .historyValues > span { display:inline-flex; flex-wrap:wrap; gap:var(--space-1); overflow-wrap:anywhere; }
 .historyValues > span > span:first-child { color:var(--color-text-secondary); }
-.partial { margin-inline-start:var(--space-2); padding:0 var(--space-2); border:1px solid var(--color-attention); border-radius:var(--radius-control); color:var(--color-attention); font-size:var(--font-size-meta); font-weight:600; }
+.partial { margin-inline-start:var(--space-2); padding:0 6px; border:1px solid var(--color-attention); border-radius:4px; color:var(--color-attention); font-size:var(--inspector-small, 12px); line-height:18px; font-weight:600; }
