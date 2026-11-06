@@ -25,7 +25,7 @@ for (const vp of VIEWPORTS) {
     // The inspection read supplies no decision target, so no "Open decision" action is drawn.
     await expect(wait.getByRole("link")).toHaveCount(0);
 
-    await expect(children.getByText("validate-recovery-inputs")).toBeVisible();
+    await expect(children.getByText("Validate recovery inputs")).toBeVisible();
     await expect(children.getByText(/Owned child/)).toBeVisible();
     await expect(children.getByRole("link", { name: /run-285/ })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);

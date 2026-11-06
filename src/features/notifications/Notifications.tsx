@@ -6,13 +6,14 @@ import { adaptNotificationDetail, adaptNotificationPage, mergeNotificationPages,
 import { useSession } from "../../app/session";
 import { ActionButton, DetailList, Panel, Toolbar } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { Timestamp } from "../settings/Timestamp";
 import styles from "./Notifications.module.css";
 
-export function Notifications() {
+export function Notifications({ className }: { className?: string }) {
   const { queryContext } = useSession();
-  return <Inbox key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${queryContext.contractVersion}`} />;
+  return <Inbox key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${queryContext.contractVersion}`} className={className} />;
 }
-function Inbox() {
+function Inbox({ className }: { className?: string | undefined }) {
   const { bootstrap, queryContext } = useSession();
   const capability = bootstrap.capability("notifications.read");
   const [selected, setSelected] = useState<string | null>(null);
@@ -31,14 +32,14 @@ function Inbox() {
   let rows: NotificationItem[] = [], pageError: unknown;
   try { rows = mergeNotificationPages(query.data?.pages ?? []); } catch (e) { pageError = e; }
   const item = rows.find(row => row.message.id === selected);
-  return <div className={styles.section}><Panel title="Your notifications" description="Messages addressed to this account and their recorded delivery status."
+  return <div className={`${styles.section} ${className ?? ""}`}><Panel title="Your notifications" description="Messages addressed to this account and their recorded delivery status."
     actions={capability.enabled && <ActionButton disabled={query.isFetching} onClick={() => { setSelected(null); void query.refetch(); }}>Refresh inbox</ActionButton>}>
     {!capability.enabled ? <p>{capability.reason}</p> : query.isError || pageError || !query.data ? <QueryStatus status={query.isError || pageError ? "error" : "pending"} error={pageError ?? query.error} label="notifications" onRetry={() => void query.refetch()} /> : <>
       <p className={styles.meta}>Current account · oldest first</p>
       {rows.length === 0 ? <p>No notifications in this inbox.</p> : <div className={styles.panes} data-selected={!!item}>
         <div><ul ref={list} className={styles.messages} aria-label="Notification inbox">{rows.map(row => <li key={row.message.id}><button type="button" data-message-id={row.message.id} aria-pressed={selected === row.message.id} className={styles.message} onClick={() => setSelected(row.message.id)}>
           <strong>{row.message.summary.trim().split("\n")[0]!.slice(0, 160)}</strong>
-          <span className={styles.meta}><time dateTime={row.message.created}>{row.message.created}</time></span>
+          <span className={styles.meta}><Timestamp iso={row.message.created} /></span>
           <span className={styles.meta}>{row.routing === "routed" ? "External route configured" : "No external route"}</span>
         </button></li>)}</ul>
         {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more notifications</ActionButton>}
@@ -60,13 +61,13 @@ function NotificationDetail({ item, onBack }: { item: NotificationItem; onBack()
       {query.data.deliveries.length === 0 ? <p>No external route was recorded for this message.</p> : <>
         <p className={styles.meta}>Transport acceptance, human acknowledgment and a human decision are separate.</p>
         <ul className={styles.deliveries} aria-label="Recorded deliveries">{query.data.deliveries.map(d => <li key={d.id} data-delivery-id={d.id} data-status={d.kind}><h4>{d.label}</h4>
-          {d.reason && <p>{d.reason}</p>}{d.at && <p className={styles.meta}>Recorded time <time dateTime={d.at}>{d.at}</time></p>}
+          {d.reason && <p>{d.reason}</p>}{d.at && <p className={styles.meta}>Recorded time <Timestamp iso={d.at} /></p>}
           <p>{d.human} · {d.decision}</p>
           <p className={styles.meta}>Attempts: {d.attempts} · Duplicate-risk retries: {d.duplicateRiskRetries}</p>
           {d.kind === "delivery_unknown" && <p>External receipt is uncertain.</p>}
         </li>)}</ul>
       </>}
-      <details><summary>Message identifiers and expiry</summary><DetailList><dt>Message ID</dt><dd>{query.data.message.id}</dd><dt>Revision</dt><dd>{query.data.message.revision}</dd><dt>Project ID</dt><dd>{query.data.message.project}</dd><dt>Workspace ID</dt><dd>{query.data.message.workspace}</dd><dt>Recipient</dt><dd>{query.data.message.recipient}</dd><dt>Created</dt><dd>{query.data.message.created}</dd><dt>Message expiry</dt><dd>{query.data.message.expires}</dd></DetailList></details>
+      <details><summary>Message identifiers and expiry</summary><DetailList><dt>Message ID</dt><dd>{query.data.message.id}</dd><dt>Revision</dt><dd>{query.data.message.revision}</dd><dt>Project ID</dt><dd>{query.data.message.project}</dd><dt>Workspace ID</dt><dd>{query.data.message.workspace}</dd><dt>Recipient</dt><dd>{query.data.message.recipient}</dd><dt>Created</dt><dd><Timestamp iso={query.data.message.created} /></dd><dt>Message expiry</dt><dd><Timestamp iso={query.data.message.expires} /></dd></DetailList></details>
     </>}
   </section>;
 }

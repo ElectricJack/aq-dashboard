@@ -26,7 +26,7 @@ for (const vp of VIEWPORTS) {
       // A mouse click loads the route, so the programmatically focused H2 must not draw a ring.
       await page.getByRole("link", { name: new RegExp(`Worker recovery ${waiting}`) }).click({ timeout: 30_000 });
       const inspector = page.getByRole("region", { name: `Run ${waiting}` });
-      const h2 = inspector.getByRole("heading", { level: 2, name: "worker-recovery" });
+      const h2 = inspector.getByRole("heading", { level: 2, name: "Worker recovery" });
       await expect(h2).toBeFocused({ timeout: 30_000 });
       expect(await h2.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none");
 
@@ -41,7 +41,7 @@ for (const vp of VIEWPORTS) {
         expect(chipBox.x).toBeGreaterThan(h2Box.x + h2Box.width);
       }
 
-      const strip = inspector.getByText(/This run:\s*worker-recovery · a81c9e$/);
+      const strip = inspector.getByText(/This run:\s*Worker recovery · a81c9e$/);
       await expect(strip).toBeVisible();
       await expect(inspector.getByText("Current step: Request review")).toBeVisible();
 

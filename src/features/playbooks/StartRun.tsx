@@ -48,5 +48,6 @@ export function StartRun() {
       return { payload: { binding: chosen.binding, artifact: chosen.artifact, entry: entryValue.trim(), inputs: parseInputs(rows) } };
     }}
     pendingText="Run start requested — awaiting confirmation." confirmedText="Run start confirmed"
-    onConfirmed={refresh} onReload={() => activations.refetch()} onStart={() => { setRows([]); setEntry(""); }} />;
+    onConfirmed={refresh} onReload={() => activations.refetch()} onStart={() => { setRows([]); setEntry(""); }}
+    draft={JSON.stringify([chosen?.binding ?? "", entryValue, rows])} />;
 }

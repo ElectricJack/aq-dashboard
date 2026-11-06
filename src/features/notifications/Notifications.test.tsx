@@ -60,3 +60,10 @@ test("foreign-recipient response is a protected contract failure", async () => {
   server.use(http.get("/api/notifications", () => HttpResponse.json({ items: [row], next_after: null })));
   renderApp("/settings"); await waitFor(() => expect(screen.getByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument()); expect(screen.queryByRole("list", { name: "Notification inbox" })).toBeNull();
 });
+test("inbox times are readable with the exact instant in the title (ISSUE-014)", async () => {
+  setup(); server.use(http.get("/api/notifications", () => HttpResponse.json({ items: [notificationRow()], next_after: null })));
+  renderApp("/settings"); const inbox = await screen.findByRole("list", { name: "Notification inbox" });
+  const time = inbox.querySelector("time")!;
+  expect(time.getAttribute("title")).toBe(time.getAttribute("dateTime")); expect(time.getAttribute("title")).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  expect(inbox.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+});

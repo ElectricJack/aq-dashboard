@@ -15,12 +15,19 @@ import { KnowledgeDocument } from "./KnowledgeDocument";
 import { AddRecordAction } from "./KnowledgeActions";
 import { HumanTaskInspector, TaskInspectorUnavailable } from "../work/HumanTaskInspector";
 import { Icon, knowledgeCategoryIcon } from "../../components/icons";
+import { knowledgeCategoryLabel as categoryLabel } from "../actions/actionClient";
 import styles from "./HumanNodeWorkspace.module.css";
 
 type Lifecycle = "active"|"retired"|"deleted";
 const lifecycleOf=(n:GraphNode):Lifecycle=>n.deleted?"deleted":n.retired?"retired":"active";
 const LIFECYCLE_LABEL:Record<Lifecycle,string>={active:"Active",retired:"Retired",deleted:"Deleted"};
-const categoryLabel=(value:string|null)=>value?value.replace(/[_-]+/g," ").replace(/^./,c=>c.toUpperCase()):"Uncategorized";
+const LIFECYCLES=["active","retired","deleted","all"],VERIFICATIONS=["verified","unverified","disputed"],SORTS=["updated","title"];
+/** Knowledge list filters live in the URL (spec 0002 §3); defaults are omitted and unknown values fall back to them. */
+function knowledgeFilters(params:URLSearchParams) {
+  const pick=(key:string,allowed:string[],fallback:string)=>{const v=params.get(key);return v&&allowed.includes(v)?v:fallback;};
+  const category=params.get("category")??"";
+  return {category:category.length<=64?category:"",lifecycle:pick("lifecycle",LIFECYCLES,"active"),verification:pick("verification",VERIFICATIONS,""),sort:pick("sort",SORTS,"updated")};
+}
 const updated=(n:GraphNode)=>Date.parse(n.updated_at);
 /** Short UTC calendar date ("Oct 28"), matching the document header; the exact instant stays in the title. */
 function shortDate(value:string) {
@@ -84,7 +91,10 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const [params,setParams]=useSearchParams();
   const [draft,setDraft]=useState(params.get("q")??"");const q=(params.get("q")??"").slice(0,256);
   const [taskState,setTaskState]=useState("");
-  const [category,setCategory]=useState("");const [lifecycle,setLifecycle]=useState("active");const [verification,setVerification]=useState("");const [sort,setSort]=useState("updated");
+  const {category,lifecycle,verification,sort}=knowledgeFilters(params);
+  // Successive changes before a re-render build on each other (the router's functional update reads the last render).
+  const latestParams=useRef(params);latestParams.current=params;
+  const setFilter=(key:string,value:string,fallback:string)=>{const n=new URLSearchParams(latestParams.current);if(value&&value!==fallback)n.set(key,value);else n.delete(key);latestParams.current=n;setParams(n,{replace:true});};
   const query=useGraphList(project,kind,q);let rows:GraphNode[]=[],mergeError:unknown;
   try{rows=mergeGraphPages(query.data?.pages??[]);}catch(e){mergeError=e;}
   const search=params.toString()?`?${params}`:"";const graph=kind === "task" && params.get("view")==="graph";const phone=useMediaQuery(PHONE_QUERY);
@@ -113,10 +123,14 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const filtered=rows.filter(n=>(!taskState || n.task_state===taskState)&&(!knowledge || ((!category || n.content_type===category)&&(lifecycle==="all" || lifecycleOf(n)===lifecycle)&&(!verification || n.verification===verification))));
   if(knowledge)filtered.sort(sort==="title"?(a,b)=>a.title.localeCompare(b.title):(a,b)=>updated(b)-updated(a));
   const noun=kind==="task"?(filtered.length===1?"task":"tasks"):(filtered.length===1?"record":"records");
-  const categories=[...new Set(rows.map(n=>n.content_type).filter((v):v is string=>!!v))].sort();
+  // A linked category stays choosable while its records are still loading or absent.
+  const categories=[...new Set([...rows.map(n=>n.content_type).filter((v):v is string=>!!v),...(category?[category]:[])])].sort();
   const projectName=query.data?.pages[0]?.project.name;
   // A failed or pending read has no count; never present it as "0 loaded" (spec 0002 §10).
-  const listTitle=query.isError || mergeError ? `${kind==="task"?"Tasks":"Records"} unavailable` : !query.data ? (kind==="task"?"Tasks":"Records") : `${filtered.length} ${noun} loaded`;
+  // Knowledge filters narrow loaded records, so a narrowed count says so ("1 of 3 loaded records").
+  const narrowed=knowledge&&filtered.length!==rows.length;
+  const listTitle=query.isError || mergeError ? `${kind==="task"?"Tasks":"Records"} unavailable` : !query.data ? (kind==="task"?"Tasks":"Records") : narrowed ? `${filtered.length} of ${rows.length} loaded ${rows.length===1?"record":"records"}` : `${filtered.length} ${noun} loaded`;
+  const emptyText=rows.length?"No loaded records match these filters.":!knowledge?"No records returned for this search.":q?"No knowledge records match this search.":"No knowledge records in this project yet.";
   const update=(key:string,value:string)=>setParams(p=>{const n=new URLSearchParams(p);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);return n;});
   return <div ref={workspace} className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
     {kind==="task" && <p className={styles.subtitle}>Inspect project tasks and their recorded dependencies.{projectName && <span> · {projectName}</span>}</p>}
@@ -129,9 +143,9 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
         {!knowledge && <ActionButton type="submit">Search</ActionButton>}
       </form>
       {knowledge && <>
-        <FilterSelect icon={Tag} label="Category" value={category} onChange={setCategory}><option value="">All categories</option>{categories.map(c=><option key={c} value={c}>{categoryLabel(c)}</option>)}</FilterSelect>
-        <FilterSelect icon={Circle} label="Lifecycle" value={lifecycle} onChange={setLifecycle}><option value="active">Active records</option><option value="retired">Retired records</option><option value="deleted">Deleted records</option><option value="all">Any lifecycle</option></FilterSelect>
-        <FilterSelect icon={Shield} label="Verification" value={verification} onChange={setVerification}><option value="">Any verification</option><option value="verified">Verified</option><option value="unverified">Unverified</option><option value="disputed">Disputed</option></FilterSelect>
+        <FilterSelect icon={Tag} label="Category" value={category} onChange={v=>setFilter("category",v,"")}><option value="">All categories</option>{categories.map(c=><option key={c} value={c}>{categoryLabel(c)}</option>)}</FilterSelect>
+        <FilterSelect icon={Circle} label="Lifecycle" value={lifecycle} onChange={v=>setFilter("lifecycle",v,"active")}><option value="active">Active records</option><option value="retired">Retired records</option><option value="deleted">Deleted records</option><option value="all">Any lifecycle</option></FilterSelect>
+        <FilterSelect icon={Shield} label="Verification" value={verification} onChange={v=>setFilter("verification",v,"")}><option value="">Any verification</option><option value="verified">Verified</option><option value="unverified">Unverified</option><option value="disputed">Disputed</option></FilterSelect>
         <div role="group" aria-label="Knowledge view" className={styles.segmented}>
           <button type="button" aria-pressed="true"><Icon icon={List} size={18}/>List</button>
           <button type="button" disabled title="Relationship browsing is not offered by this read contract"><Icon icon={Network} size={18}/>Relationships</button>
@@ -145,11 +159,11 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
       {graph && phone && !id ? <PhoneTaskGraph project={project} root={graphRoot??filtered[0]?.id} search={search} status={query.isError||mergeError?"error":!query.data?"pending":undefined} error={mergeError??query.error} onRetry={()=>void query.refetch()}/> :
       graph ? id ? <HumanTaskGraph project={project} root={graphRoot!} selected={id} search={search}/> : <Panel title="Dependency graph"><p>Select a task from the list to open its neighborhood.</p><ActionButton onClick={()=>update("view","")}>Choose a task</ActionButton></Panel> :
       <Panel title={listTitle} className={styles.listPanel} actions={knowledge ? <div className={styles.listActions}>
-          <label><span className="visually-hidden">Sort records</span><select value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">Updated recently</option><option value="title">Title A–Z</option></select></label>
+          <label><span className="visually-hidden">Sort records</span><select value={sort} onChange={e=>setFilter("sort",e.target.value,"updated")}><option value="updated">Updated recently</option><option value="title">Title A–Z</option></select></label>
           <ActionButton className={styles.iconButton} aria-label="Refresh list" title="Refresh list" disabled={query.isFetching} onClick={()=>void query.refetch()}><Icon icon={RefreshCw} size={18}/></ActionButton>
         </div> : <ActionButton disabled={query.isFetching} onClick={()=>void query.refetch()}>Refresh list</ActionButton>}>
         {query.isError || mergeError || !query.data ? <QueryStatus status={query.isError||mergeError?"error":"pending"} error={mergeError??query.error} label={kind==="task"?"tasks":"knowledge records"} onRetry={()=>void query.refetch()}/> : <>
-          {!filtered.length && <p>{rows.length?"No loaded records match these filters.":"No records returned for this search."}</p>}
+          {!filtered.length && <p>{emptyText}</p>}
           <ul className={styles.records} aria-label={kind==="task"?"Tasks":"Knowledge records"}>{filtered.map(n=><li key={n.id} data-selected={id===n.id}><Link className={styles.record} aria-current={id===n.id?"page":undefined} to={{pathname:pathFor(kind,n.id),search:withoutRevision(search)}}>{knowledge ? <KnowledgeRow node={n}/> : <><ListChecks size={21} aria-hidden/><span><strong>{n.title}</strong><span className={styles.meta}>{nodeLabel(n.task_state)} · {LIFECYCLE_LABEL[lifecycleOf(n)]} · {nodeLabel(n.verification)}</span></span><span className={styles.revision}>r{n.content_revision}</span></>}</Link></li>)}</ul>
           {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>Load more {kind==="task"?"tasks":"records"}</ActionButton>}
           {query.data.pages.length===GRAPH_MAX_PAGES && query.data.pages.at(-1)?.data.next_cursor && <p className={styles.meta}>Showing at most 100 records. Refine your search for more.</p>}

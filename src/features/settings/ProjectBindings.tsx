@@ -5,6 +5,7 @@ import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { Timestamp } from "./Timestamp";
 import styles from "./ProjectBindings.module.css";
 
 const MAX_PAGES = 4;
@@ -48,16 +49,16 @@ export function ProjectBindings() {
           </dl>
           <h4>Recorded external checks</h4>
           <p>Repository: {validationLabel(p.validation.repository)} · Graph: {validationLabel(p.validation.graph)}</p>
-          <p>Observed <time dateTime={p.validation.observedAt}>{p.validation.observedAt}</time></p>
+          <p>Observed <Timestamp iso={p.validation.observedAt} /></p>
           <details><summary>Identifiers and check times</summary>
           <dl className={styles.facts}>
             <dt>Project ID</dt><dd>{p.id}</dd>
             <dt>Repository binding generation</dt><dd>{p.repositoryGeneration}</dd>
             <dt>Explicitly allowed worker node IDs</dt><dd>{p.nodeIds.join(", ") || "None individually listed"}</dd>
             <dt>Catalog digest</dt><dd>{p.catalogDigest}</dd>
-            <dt>Check observed at</dt><dd><time dateTime={p.validation.observedAt}>{p.validation.observedAt}</time></dd>
-            <dt>Check expiry</dt><dd><time dateTime={p.validation.expiresAt}>{p.validation.expiresAt}</time></dd>
-            <dt>Binding validated at</dt><dd><time dateTime={p.validation.recordedAt}>{p.validation.recordedAt}</time></dd>
+            <dt>Check observed at</dt><dd><Timestamp iso={p.validation.observedAt} /></dd>
+            <dt>Check expiry</dt><dd><Timestamp iso={p.validation.expiresAt} /></dd>
+            <dt>Binding validated at</dt><dd><Timestamp iso={p.validation.recordedAt} /></dd>
           </dl>
           <p>Worker admission uses listed node IDs or configured group membership.</p>
           </details>

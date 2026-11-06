@@ -33,3 +33,11 @@ test("unknown health is reported verbatim without a success dot; empty roster is
   await screen.findByText("Daemon: degraded"); expect(await daemon()).toHaveAttribute("data-state", "unknown");
   expect(await screen.findByText("No worker nodes enrolled.")).toBeInTheDocument();
 });
+test("worker heartbeats are readable times with the exact instant in the title (ISSUE-014)", async () => {
+  enable("workers.read");
+  server.use(http.get("/api/workers", () => HttpResponse.json([{ id: "w1", name: "ms1-node", worker_version: "0.5.1", status: "offline", last_seen_at: "2026-11-06T02:36:26.400064Z" }]))); renderApp("/settings");
+  const list = await screen.findByRole("list", { name: "Worker nodes" });
+  const time = list.querySelector("time")!;
+  expect(time).toHaveAttribute("title", "2026-11-06T02:36:26.400064Z"); expect(time).toHaveAttribute("dateTime", "2026-11-06T02:36:26.400064Z");
+  expect(list.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+});
