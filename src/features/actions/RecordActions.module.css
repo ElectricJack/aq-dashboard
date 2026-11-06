@@ -31,3 +31,8 @@
 .choices legend { padding:0;margin-block-end:var(--space-1); }
 .fields .choice { display:flex;align-items:center;gap:var(--space-3);min-block-size:var(--touch-target);padding:var(--space-1) var(--space-2);border:1px solid var(--color-border);border-radius:var(--radius-control); }
 .fields .choice input { flex:none;inline-size:20px;block-size:20px;margin:0; }
+/* Conflict reload (WDR-01): what came from AQ, and AQ's value for fields both sides changed. */
+.rebase { display:grid;gap:var(--space-2);margin-block:var(--space-3);padding:var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-control);background:var(--color-raised); }
+.rebase p { margin:0; }
+.overlap { display:grid;gap:var(--space-2);justify-items:start; }
+.current { white-space:pre-wrap;max-block-size:12em;overflow:auto;inline-size:100%;box-sizing:border-box;padding:var(--space-2);background:var(--color-canvas);border-radius:var(--radius-control); }

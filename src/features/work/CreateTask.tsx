@@ -10,7 +10,7 @@ import {apiGet,ApiError} from "../../api/client";
 import {queryKey} from "../../api/queryKeys";
 import {graphPath} from "../../api/humanGraphReads";
 import {adaptGraphPage,adaptGraphDetail,validGraphId,type GraphNode} from "../../api/adapters/humanGraph";
-import {adaptTaskOperation,freezeTaskCreate,validateTaskDraft,type FrozenTaskCreate,type TaskDraft,type TaskOperation} from "../../api/adapters/taskCreate";
+import {adaptTaskOperation,freezeTaskCreate,validateTaskDraft,validateTitle,type FrozenTaskCreate,type TaskDraft,type TaskOperation} from "../../api/adapters/taskCreate";
 import {taskOperationRequest} from "../../api/taskCreateClient";
 import {ActionButton} from "../../components/layout/Workspace";
 import styles from "./CreateTask.module.css";
@@ -51,6 +51,9 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  function current(ticket:number){return active.current&&sequence.current===ticket;}
  /** A 403 is one refused request, not a sign-out (WD-05): keep the draft and say so in the dialog. A refused submission was never admitted, so the draft is editable again. */
  function refused(reason:ApiError,submission:boolean){reportAccessDenied(reason);const why=reason.envelope?.message?` ${reason.envelope.message}.`:"";if(submission){frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);operationParam();setError(`AQ refused this request; no task was created.${why} Your draft is preserved.`);}else setError(`AQ refused checking this operation.${why}`);}
+ /** A definitive 4xx on submit (WDR-03): AQ refused the request as invalid before admitting it, so nothing was created and
+  * the same bytes can only fail again. Show AQ's reason and make the draft editable, never "outcome uncertain". */
+ function invalid(reason:ApiError){const why=reason.serverMessage?` AQ: “${reason.serverMessage}”.`:"";frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setUnrecorded(null);operationParam();setError(`AQ refused this task as invalid; no task was created.${why} Check the fields and submit again. Your draft is preserved.`);}
  function revokeAccess(reason:ApiError){reportAccessDenied(reason);sequence.current++;active.current=false;request.current?.abort();request.current=null;busyRef.current=false;setBusy(false);clearPrivate();onAccessRevoked();void client.invalidateQueries({queryKey:["bootstrap"]});}
  function operationParam(value?:string){internalUrl.current={value};setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set("operation",value);else next.delete("operation");return next;},{replace:true});}
  async function verifyTask(value:TaskOperation,signal:AbortSignal,ticket:number){
@@ -68,7 +71,8 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
    const raw=await taskOperationRequest(kind==="lookup"?"GET":"POST",path,kind==="submit"?intent!.bytes:kind==="recover"?"{}":undefined,controller.signal);
    const value=adaptTaskOperation(raw,{operationId:id,project,actor:queryContext.principalId,...(intent?{digest:intent.digest}:{})});
    if(!current(ticket))return;setStatus(value);setUnrecorded(null);setCreated(null);setReadError(null);setError(null);if(value.state==="confirmed")setDraft({...blank});await verifyTask(value,controller.signal,ticket);
-  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&reason.status===401){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===403){refused(reason,kind==="submit");return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}setCreated(null);
+  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&reason.status===401){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===403){refused(reason,kind==="submit");return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}
+   if(kind==="submit"&&reason instanceof ApiError&&reason.kind==="http"&&[400,413,422].includes(reason.status??0)){invalid(reason);return;}setCreated(null);
    if(kind==="lookup"&&reason instanceof ApiError&&reason.status===404){setUnrecorded({id,message:reason.serverMessage});setError(null);return;}
    setError("The operation outcome is not confirmed. Check its status before starting another task.");}}
   finally{if(current(ticket)){setBusy(false);busyRef.current=false;}if(request.current===controller)request.current=null;}
@@ -82,7 +86,8 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  },[selectedOperation]);
  async function submit(event:React.FormEvent){
   event.preventDefault();if(busyRef.current||operation||!context.data||context.isFetching)return;
-  const problem=validateTaskDraft(draft);if(problem){setError(problem);return;}
+  // AQ counts the (trimmed) title in UTF-8 bytes, like Edit (WDR-03): accented letters and emoji take 2 to 4.
+  const problem=validateTitle(draft.title.trim(),"bytes")??validateTaskDraft(draft);if(problem){setError(problem);return;}
   busyRef.current=true;setBusy(true);setError(null);
   const preparation=sequence.current;
   try{const intent=await freezeTaskCreate(project,queryContext.principalId,context.data.revision,draft);if(!current(preparation))return;setStatus(null);setCreated(null);setReadError(null);frozenRef.current=intent;setFrozen(intent);operationParam(intent.operationId);await execute("submit",intent.operationId,intent);}

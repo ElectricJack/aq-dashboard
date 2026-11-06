@@ -10,7 +10,7 @@ import { formatAge } from "../../components/time/relative";
 import { DocumentBody } from "../knowledge/DocumentBody";
 import { RecordFacts } from "../knowledge/KnowledgeDocument";
 import { CopyValue } from "../decisions/DecisionContext";
-import { useTaskWork, type TaskWork } from "./taskWork";
+import { useTaskAttempts, useTaskWork, type TaskWork } from "./taskWork";
 import styles from "./HumanTaskInspector.module.css";
 
 const classes = (...names: (string | undefined)[]) => names.filter(Boolean).join(" ");
@@ -50,6 +50,8 @@ function TaskExecution({ work, failed, search }: { work: TaskWork | undefined; f
 export function HumanTaskInspector({ record, search, notice, className }: { record: GraphEnvelope<GraphNode>; search: string; notice?: ReactNode; className?: string }) {
   const n = record.data;
   const work = useTaskWork(record.project.id, n.id);
+  // Whether Retry attempt has an attempt to replace matters only for an active task that no attempt holds (WD-11).
+  const attempts = useTaskAttempts(record.project.id, n.id, n.task_state === "active" && !!work.data && !work.data.data.execution);
   return <Panel title={n.title} className={classes(styles.inspector, className)} data-task-inspector=""
     description={`Task · revision ${n.content_revision}`}>
     <BackToTasks search={search} />
@@ -60,7 +62,7 @@ export function HumanTaskInspector({ record, search, notice, className }: { reco
     </div>
     {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels">{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
     {notice}
-    <RecordActions record={record} variant="compact" execution={work.data ? { holding: !!work.data.data.execution, blockers: work.data.data.blockers.length, complete: work.data.data.complete } : undefined} />
+    <RecordActions record={record} variant="compact" execution={work.data ? { holding: !!work.data.data.execution, blockers: work.data.data.blockers.length, complete: work.data.data.complete, blockerIds: work.data.data.blockers.map(b => b.id), ...(typeof attempts.data === "number" ? { attempts: attempts.data } : {}) } : undefined} />
     <section className={styles.section}><h3>Description</h3><DocumentBody body={n.body} /></section>
     <section className={styles.section}><h3>Acceptance criteria</h3>{n.acceptance_criteria ? <DocumentBody body={n.acceptance_criteria} /> : <p className={styles.meta}>No acceptance criteria recorded.</p>}</section>
     <section className={styles.section}><h3>Dependencies</h3><TaskDependencies project={record.project.id} node={n} search={search} /></section>
