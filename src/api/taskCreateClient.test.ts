@@ -22,3 +22,7 @@ test("rejects oversized and invalid responses and preserves nonJSON access denia
  await expect(taskOperationRequest("GET","/api/human/operations/example")).rejects.toThrow(/bound/);
  await expect(taskOperationRequest("POST","/api/human/projects/example/tasks","{}")).rejects.toMatchObject({status:403,effectUnknown:true});
 });
+test("WD-06: a 404 lookup keeps the server's explanation for the dialog",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({error:"not_found",message:"operation not found; prior submission may still be in flight"}),{status:404,headers:{"Content-Type":"application/json"}})));
+ await expect(taskOperationRequest("GET","/api/human/operations/x")).rejects.toMatchObject({status:404,serverMessage:"operation not found; prior submission may still be in flight"});
+});

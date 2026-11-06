@@ -1,4 +1,4 @@
-import {ApiError} from "./client";
+import {ApiError,isErrorEnvelope} from "./client";
 import {ContractError,isRecord} from "./adapters/contract";
 /** Specialized owner status replies retain typed409/422 bodies and exact POST bytes. */
 export async function taskOperationRequest(method:"GET"|"POST",path:string,bytes?:string,signal?:AbortSignal):Promise<unknown>{
@@ -13,7 +13,9 @@ export async function taskOperationRequest(method:"GET"|"POST",path:string,bytes
   const data=new Uint8Array(length);let offset=0;for(const part of chunks){data.set(part,offset);offset+=part.byteLength;}
   let raw:unknown;try{raw=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(data));}catch{throw new ContractError("Task operation response is malformed");}
   if([200,202,409,422].includes(response.status)&&isRecord(raw)&&raw.contract==="human-task-create-1")return raw;
-  throw new ApiError("http",`AQ responded ${response.status}`,{status:response.status,effectUnknown:method==="POST"});
+  // Keep the server's explanation (e.g. 404 "operation not found; prior submission may still be in flight").
+  const message=isRecord(raw)&&typeof raw.message==="string"&&raw.message.length<=1024?raw.message:undefined;
+  throw new ApiError("http",`AQ responded ${response.status}`,{status:response.status,effectUnknown:method==="POST",...(isErrorEnvelope(raw)&&{envelope:raw}),...(message!==undefined&&{serverMessage:message})});
  }catch(error){if(error instanceof ApiError||error instanceof ContractError)throw error;throw new ApiError("transport","Task operation response was not received",{effectUnknown:method==="POST"});}
  finally{clearTimeout(timer);signal?.removeEventListener("abort",abort);}
 }

@@ -94,3 +94,26 @@ test("ISSUE-013: the header search icon keeps its size at the Larger text size",
   expect(box.width).toBeGreaterThanOrEqual(17);
   expect(box.height).toBeGreaterThanOrEqual(17);
 });
+
+test("SO-12: the usage dropdown closes on an outside click", async ({ page }) => {
+  await page.goto("/overview");
+  const details = page.getByRole("banner").locator("details");
+  await details.locator("summary").click();
+  await expect(details).toHaveAttribute("open", "");
+  await page.getByRole("heading", { level: 1, name: "Overview" }).click();
+  await expect(details).not.toHaveAttribute("open", "");
+});
+
+test.describe("phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test("SO-21: More is highlighted on its pages and its sheet closes on an outside tap", async ({ page }) => {
+    await page.goto("/work");
+    const nav = page.getByRole("navigation", { name: "Primary (compact)" });
+    const more = nav.getByRole("button", { name: /^More/ });
+    await expect(more).toHaveAttribute("data-active", "true");
+    await more.click();
+    await expect(nav.getByRole("list", { name: "More destinations" })).toBeVisible();
+    await page.getByRole("heading", { level: 1 }).click();
+    await expect(nav.getByRole("list", { name: "More destinations" })).toHaveCount(0);
+  });
+});

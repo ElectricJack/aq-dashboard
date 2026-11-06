@@ -3,7 +3,7 @@ import {afterEach,expect,test,vi} from "vitest";
 import {graphProject} from "../../test/humanGraph";
 import {confirmedTaskOperation,taskActor,taskDigest,taskOperation,taskOperationId} from "../../test/taskCreate";
 import publicExample from "../../test/task-create.contract.json";
-import {adaptTaskOperation,freezeTaskCreate,validateTaskDraft} from "./taskCreate";
+import {adaptTaskOperation,freezeTaskCreate,validateTaskDraft,validateTitle} from "./taskCreate";
 afterEach(()=>vi.unstubAllGlobals());
 const expected={operationId:taskOperationId,project:graphProject,actor:taskActor,digest:taskDigest};
 test("accepts the source-owned published API10 example without remapping identity",()=>{
@@ -21,7 +21,7 @@ test("freezes canonical bytes once and hashes those exact UTF8 bytes",async()=>{
 test("validates Unicode character and UTF8 byte bounds",()=>{
  const draft={title:"🚀".repeat(512),body:"",acceptance_criteria:"",task_state:"draft" as const};
  expect(validateTaskDraft(draft)).toBeNull();
- expect(validateTaskDraft({...draft,title:draft.title+"x"})).toMatch(/title/);
+ expect(validateTaskDraft({...draft,title:draft.title+"x"})).toMatch(/title/i);
  expect(validateTaskDraft({...draft,body:"é".repeat(16385)})).toMatch(/Description/);
  expect(validateTaskDraft({...draft,acceptance_criteria:"✓".repeat(2731)})).toMatch(/Acceptance/);
  expect(validateTaskDraft({...draft,body:"cannot\0store"})).toMatch(/NUL/);
@@ -38,4 +38,11 @@ test("terminal refusals cannot imply a possible or confirmed effect",()=>{
  expect(adaptTaskOperation(taskOperation({state:"conflict",effect:"not_dispatched",recovery:{allowed:false,reason:"project_binding_changed_before_dispatch"}}),expected).state).toBe("conflict");
  expect(()=>adaptTaskOperation(taskOperation({state:"conflict",effect:"possible"}),expected)).toThrow();
  expect(()=>adaptTaskOperation(taskOperation({state:"unknown",receipt:confirmedTaskOperation().receipt}),expected)).toThrow();
+});
+test("WD-03: a blank title is required, not too long; each path uses AQ's own unit",()=>{
+ expect(validateTaskDraft({title:"   ",body:"",acceptance_criteria:"",task_state:"draft"})).toBe("Title is required.");
+ expect(validateTaskDraft({title:"x".repeat(513),body:"",acceptance_criteria:"",task_state:"draft"})).toBe("Title is too long. Use at most 512 characters.");
+ expect(validateTitle("é".repeat(256),"bytes")).toBeNull();
+ expect(validateTitle("é".repeat(257),"bytes")).toMatch(/^Title is too long\. Use at most 512 bytes/);
+ expect(validateTitle("é".repeat(257),"characters")).toBeNull();
 });

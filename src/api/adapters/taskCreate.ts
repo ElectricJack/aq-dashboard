@@ -6,9 +6,23 @@ export type FrozenTaskCreate=Readonly<{project:string;actor:string;operationId:s
 export type TaskOperation={contract:"human-task-create-1";operation_id:string;project_id:string;actor_id:string;task_id:string;request_digest:string;state:"pending"|"unknown"|"confirmed"|"conflict"|"rejected";effect:"not_dispatched"|"possible"|"confirmed"|"not_applied";receipt:null|{workspace_id:string;change_set_id:string;task_id:string;version:string;content_revision:string};recovery:{allowed:boolean;reason:string|null};created_at_ms:number};
 function check(v:unknown):asserts v{if(!v)throw new ContractError("Invalid task operation");}
 function revision(v:unknown):v is string{return typeof v==="string"&&/^[1-9][0-9]{0,18}$/.test(v)&&BigInt(v)<=9223372036854775807n;}
+/**
+ * Title rule shared by task create, task edit and knowledge (WD-03). Blank and
+ * too long are different problems with different fixes. AQ counts the limit
+ * differently per path: task create (`commands.rs`) allows 512 characters,
+ * graph actions (edit/correct/author, `graph_actions.rs`) allow 512 UTF-8 bytes.
+ */
+export const TITLE_MAX=512;
+export function validateTitle(title:string,unit:"characters"|"bytes"):string|null{
+ const trimmed=title.trim();
+ if(!trimmed)return "Title is required.";
+ const size=unit==="bytes"?new TextEncoder().encode(title).length:[...trimmed].length;
+ if(size>TITLE_MAX)return unit==="bytes"?`Title is too long. Use at most ${TITLE_MAX} bytes; accented letters and emoji count as 2 to 4.`:`Title is too long. Use at most ${TITLE_MAX} characters.`;
+ return null;
+}
 export function validateTaskDraft(draft:TaskDraft):string|null{
  if([draft.title,draft.body,draft.acceptance_criteria].some(v=>/[\uD800-\uDFFF]/u.test(v)))return "Task text must contain valid Unicode characters.";
- if(!draft.title.trim()||[...draft.title.trim()].length>512)return "Enter a title of at most 512 characters.";
+ const title=validateTitle(draft.title,"characters");if(title)return title;
  if(/\p{Cc}/u.test(draft.title.trim()))return "Title cannot contain control characters.";
  if(draft.body.includes("\0")||draft.acceptance_criteria.includes("\0"))return "Task text cannot contain NUL characters.";
  if(new TextEncoder().encode(draft.body).length>32768)return "Description exceeds 32 KiB.";

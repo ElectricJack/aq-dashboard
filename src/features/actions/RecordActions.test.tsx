@@ -219,3 +219,9 @@ test.each([["knowledge.author","Add record"],["knowledge.correct","Correct recor
  // A resubmission is a new operation, never a replay of the refused one.
  await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await waitFor(()=>expect(ids).toHaveLength(2));expect(ids[0]).not.toBe(ids[1]);
 });
+test("WD-03: a blank edited title says it is required",async()=>{
+ const {dialog}=await open("task.edit","Edit task");
+ await userEvent.clear(within(dialog).getByLabelText("Title"));await userEvent.type(within(dialog).getByLabelText("Title"),"   ");
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByText("Title is required.")).toBeInTheDocument();
+});

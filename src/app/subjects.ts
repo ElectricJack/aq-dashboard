@@ -22,8 +22,15 @@ export function subjectPath(ref: EntityRef): string | null {
   }
 }
 
+/** Outcome/fact labels shared by every surface (SO-04: `process_success` is a real outcome). */
 export const FACT_LABEL: Record<string, string> = {
+  process_success: "Process succeeded",
   process_failed: "Process failed",
+  process_cancelled: "Process cancelled",
+  process_expired: "Process expired",
+  process_unknown: "Process outcome unknown",
+  settlement_stale: "Settlement stale",
+  settlement_needs_reconciliation: "Settlement needs reconciliation",
   settlement_accepted: "Settlement accepted",
   settlement_rejected: "Settlement rejected",
   source_retained: "Source retained",

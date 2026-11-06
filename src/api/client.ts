@@ -20,6 +20,8 @@ export class ApiError extends Error {
       effectUnknown?: boolean;
       /** Server-requested wait before a retry (`Retry-After` or `retry_after_ms`). */
       retryAfterMs?: number;
+      /** A bounded `message` from a non-envelope error body (e.g. human API `{error, message}`), safe to show as text. */
+      serverMessage?: string;
     } = {},
   ) {
     super(message);
@@ -32,6 +34,10 @@ export class ApiError extends Error {
   }
   get effectUnknown() {
     return this.details.effectUnknown ?? false;
+  }
+  /** The server's own explanation, when it sent one. */
+  get serverMessage() {
+    return this.details.serverMessage ?? this.details.envelope?.message;
   }
   get retryAfterMs() {
     return this.details.retryAfterMs ?? this.details.envelope?.retry_after_ms;
