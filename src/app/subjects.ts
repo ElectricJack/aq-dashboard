@@ -15,7 +15,8 @@ export function subjectPath(ref: EntityRef): string | null {
     case "playbook_run":
       return `/playbooks/runs/${id}`;
     case "result":
-      return ref.revision ? `/results/${id}/revisions/${encodeURIComponent(ref.revision)}` : null;
+      // Overview references carry digests as `sha256:<hex>`; the results routes use the bare hex revision.
+      return ref.revision ? `/results/${id}/revisions/${encodeURIComponent(ref.revision.replace(/^sha256:/, ""))}` : null;
     default:
       return null;
   }
