@@ -21,7 +21,7 @@ export function SessionEvents({ binding }: { binding: UsageBinding }) {
       mergeEventPages([...previous, page]); return page;
     },
     getNextPageParam: (last, pages): EventsCursor | undefined => pages.length < 4 && last.next !== null ? { after: last.next, through: last.through } : undefined,
-    retry: false, staleTime: Infinity, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    staleTime: Infinity, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
   });
   const pages = query.data?.pages, rows = pages ? mergeEventPages(pages) : [], last = pages?.at(-1);
   const refresh = () => setSnapshot(value => value + 1);

@@ -54,8 +54,10 @@ export interface TerminalPaneProps {
   onTranscript?: (opener: HTMLElement) => void;
   /** Opens Session details from the phone More menu. */
   onDetails?: (opener: HTMLElement) => void;
-  /** Why the Message slot is unavailable (AG-C); shown in the phone action bar's description. */
-  messageReason?: string;
+  /** Why the Message slot is unavailable (AG-C), or null when Message is offered; shown in the phone action bar's description. */
+  messageReason?: string | null;
+  /** Opens the Message drawer from the phone action bar. */
+  onMessage?: (opener: HTMLElement) => void;
   /** Session facts appended to the one-row status footer. */
   facts?: ReactNode;
   /** Names the region when several panes share a page (split view). */
@@ -66,10 +68,10 @@ export function InteractiveTerminal(props: TerminalPaneProps) {
   return <TerminalPane key={`${props.terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} {...props} />;
 }
 /** The pane reports `data-cols` (rendered) and `data-fit-cols` (what its width fits, before the 80-column floor). */
-function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Messaging unavailable on this AQ server', facts, label = 'Interactive agent terminal' }: TerminalPaneProps) {
+function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal' }: TerminalPaneProps) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
-  const allowControl = bootstrap.capability('terminal.control').enabled;
+  const controlCapability = bootstrap.capability('terminal.control'), allowControl = controlCapability.enabled;
   const phone = useMediaQuery('(max-width: 767px)');
   const ids = useId(), helpId = `${ids}-help`, menuId = `${ids}-more`, messageNoteId = `${ids}-message-note`;
   const actions = useRef<HTMLDivElement>(null);
@@ -199,6 +201,13 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   }
   const toggleControl = () => { if (state.controlling) void connection.current?.release(); else void connection.current?.takeControl(); };
   const controlBlocked = !state.controlling && (!state.canControl || state.paused);
+  // Why Take control is disabled (N-07), from what this pane knows: capability, delivery pause, connection, policy.
+  const controlReason = !controlBlocked ? null
+    : !allowControl ? controlCapability.enabled ? 'Terminal control is not offered by this AQ server' : controlCapability.reason
+    : state.paused ? 'Input delivery is uncertain, so typing is paused. Reconnect to check this terminal again.'
+    : !state.connected ? 'Connect to the terminal to take control.'
+    : 'This terminal does not accept input: its AQ terminal policy has input turned off.';
+  const controlReasonId = `${ids}-control-reason`;
   const reconnect = () => { setWatching(true); setAttempt(n => n + 1); };
   const disconnect = () => { void connection.current?.release(); setWatching(false); setState({ message: 'Disconnected', controlling: false, connected: false, canControl: false, paused: state.paused }); };
   const phase = state.connected ? 'connected' : watching && state.message === 'Connecting…' ? 'connecting' : 'disconnected';
@@ -208,8 +217,9 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   // The lease line restates the default mode message, so keep that message for assistive technology only.
   const routineMessage = state.message === 'You have control' || state.message === 'Watch only';
   const viewSwitch = onTranscript && <OutputViewSwitch transcript={transcriptOpen} onTranscript={onTranscript} />;
-  const controlButton = <ActionButton className={phone ? styles.primary : state.controlling ? undefined : styles.primaryOutline} disabled={controlBlocked} onClick={toggleControl}>{state.controlling ? 'Release control' : 'Take control'}</ActionButton>;
-  const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-haspopup]') ?? undefined;
+  // A disabled Take control never wears the primary fill (N-07).
+  const controlButton = <ActionButton className={controlBlocked ? undefined : phone ? styles.primary : state.controlling ? undefined : styles.primaryOutline} disabled={controlBlocked} title={controlReason ?? undefined} aria-describedby={controlReason ? controlReasonId : undefined} onClick={toggleControl}>{state.controlling ? 'Release control' : 'Take control'}</ActionButton>;
+  const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-label="More terminal actions"]') ?? undefined;
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
   return <section ref={pane} className={styles.pane} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
@@ -233,6 +243,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         </label>
         {!phone && controlButton}
         {!phone && phase === 'disconnected' && <ActionButton onClick={reconnect} disabled={state.paused}>Reconnect</ActionButton>}
+        {!phone && controlReason && <span id={controlReasonId} className={styles.controlReason}>{controlReason}</span>}
       </div>
     </div>
     <>
@@ -266,11 +277,12 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     </>
     {phone && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}
+      {controlReason && <p id={controlReasonId} className={styles.controlReason}>{controlReason}</p>}
       <div className={styles.actionBar}>
         {controlButton}
-        {/* Message slot (AG-C): no durable session-message capability exists yet. */}
-        <ActionButton disabled aria-describedby={messageNoteId}>Message</ActionButton>
-        <span id={messageNoteId} className="visually-hidden">{messageReason}</span>
+        {/* Message slot (AG-C): the session's durable mailbox message, when offered. */}
+        <ActionButton disabled={!!messageReason || !onMessage} aria-describedby={messageReason ? messageNoteId : undefined} aria-haspopup="dialog" onClick={event => onMessage?.(event.currentTarget)}>Message</ActionButton>
+        {messageReason && <span id={messageNoteId} className="visually-hidden">{messageReason}</span>}
         <ActionButton aria-label="More terminal actions" aria-haspopup="true" aria-expanded={moreOpen} aria-controls={menuId} onClick={() => setMoreOpen(v => !v)}>…</ActionButton>
         {moreOpen && <div id={menuId} className={styles.more} role="group" aria-label="More terminal actions" onKeyDown={event => { if (event.key === 'Escape') closeMore(); }}>
           <ActionButton autoFocus disabled={state.paused} onClick={() => { closeMore(); reconnect(); }}>Reconnect</ActionButton>

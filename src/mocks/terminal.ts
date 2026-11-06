@@ -37,6 +37,8 @@ async function digest(bytes: Uint8Array) {
  */
 export function terminalHandlers(terminals: ReadonlyMap<string, string>) {
   const states = new Map<string, State>();
+  // The last fixture terminal's policy accepts no input, so Take control is disabled with its reason (N-07).
+  const readOnly = new Set([...terminals.keys()].slice(-1));
   const stateOf = (id: string) => {
     let s = states.get(id);
     if (!s) states.set(id, (s = { generation: 0, lease: null, subscriptions: new Map(), leases: 0 }));
@@ -60,7 +62,7 @@ export function terminalHandlers(terminals: ReadonlyMap<string, string>) {
     http.get("/api/v1/terminals/:id", ({ params }) => {
       const id = String(params.id);
       if (!known(id)) return missing();
-      return json({ terminal: identity(id), session_revision: SESSION_REVISION, input_mode: "finite_v1", terminal_policy: { input_enabled: true }, disconnected: false, control: control(id) });
+      return json({ terminal: identity(id), session_revision: SESSION_REVISION, input_mode: "finite_v1", terminal_policy: { input_enabled: !readOnly.has(id) }, disconnected: false, control: control(id) });
     }),
     http.get("/api/v1/terminals/:id/receipts/:operation", ({ params }) =>
       known(String(params.id)) ? json(receipt(String(params.id), String(params.operation))) : missing(),

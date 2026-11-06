@@ -59,7 +59,9 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   const update = (key: string, value: string) => setParams(p => {
     const n = new URLSearchParams(p);
     if (value) n.set(key, value); else n.delete(key);
-    if (key === "view" && value === "graph" && id && !n.has("root")) n.set("root", id);
+    // The graph root belongs to one graph visit: List drops it, and opening Graph re-roots on the selection (WD-01).
+    if (key === "view" && !value) n.delete("root");
+    if (key === "view" && value === "graph" && id) n.set("root", id);
     return n;
   });
 
@@ -119,7 +121,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
           {unavailable || !query.data ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/> : <>
             {!filtered.length && <p>{rows.length ? "No loaded tasks match this state." : "No records returned for this search."}</p>}
             <ul className={styles.rows} aria-label="Tasks">{filtered.map(n => <li key={n.id} data-selected={id === n.id}>
-              <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} to={{ pathname: pathFor("task", n.id), search: withoutRevision(search) }}>
+              <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} to={{ pathname: pathFor("task", n.id), search: withoutRoot(withoutRevision(search)) }}>
                 <ListChecks size={20} aria-hidden/><span><strong>{n.title}</strong><span className={styles.meta}>{taskRowMeta(n)}</span></span>
               </Link>
             </li>)}</ul>
@@ -134,6 +136,14 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
       </div>
     </div>
   </div>;
+}
+
+/** List rows never carry a graph root: the next Graph visit roots on the row's task. */
+function withoutRoot(search: string) {
+  const params = new URLSearchParams(search);
+  params.delete("root");
+  const value = params.toString();
+  return value ? `?${value}` : "";
 }
 
 function TaskDetail({ project, id, search }: { project: string; id: string; search: string }) {

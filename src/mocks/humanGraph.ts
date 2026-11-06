@@ -71,6 +71,12 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id||!tasks.some(n=>n.id===params.id))return missing();
    const result=neighborhood(String(params.id),tasks,edges);
    return HttpResponse.json(wrap({...result,truncated:result.truncated||reads==="partial"}));
+ }),http.get(`${path}/tasks/:id/work`,({params})=>{
+   // Work read: readiness blockers and the attempt holding the task. Only "Replay reconciliation" has one.
+   if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
+   const blockers=edges.filter(e=>e.target===node.id&&e.edge_type==="blocks").map(e=>{const b=tasks.find(n=>n.id===e.source);return {edge_id:e.id,id:e.source,title:b?.title??null,task_state:b?.task_state??null,satisfied:b?b.task_state==="completed":null};});
+   const execution=node.id===ID.replay?{task_id:node.id,attempt_id:id(0x301),session_id:id(0x302),status:"running"}:null;
+   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state:node.task_state!=="active"?node.task_state:execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",blockers,complete:true},parent:null,execution}));
  }),http.get(`${path}/:collection/:id`,({params,request})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id)return missing();
    const node=(params.collection==="tasks"?tasks:params.collection==="knowledge"?[knowledge]:[]).find(n=>n.id===params.id);

@@ -12,6 +12,11 @@
 .state[data-state=completed] { color:var(--color-success); }
 .state[data-state=canceled] { color:var(--color-text-secondary); }
 .identity .meta { margin:0; }
+/* Full task ID with copy (spec 0004 item 1): pasteable into Add dependency and `aq` commands. */
+.taskId { display:inline-flex; align-items:center; gap:var(--space-1); margin:0; min-inline-size:0; max-inline-size:100%; }
+.taskId code { font-family:var(--font-mono); font-size:13px; color:var(--color-text-secondary); overflow-wrap:anywhere; }
+.labels { list-style:none; display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-3) 0 0; padding:0; }
+.labels li { padding:2px var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); font-size:var(--font-size-meta); color:var(--color-text-secondary); overflow-wrap:anywhere; }
 .section { border-block-start:1px solid var(--color-border); padding-block-start:var(--space-4); margin-block:var(--space-4) 0; }
 .section:first-of-type { margin-block-start:var(--space-5); }
 .section h3 { font-size:16px; margin:0 0 var(--space-3); }
@@ -26,12 +31,4 @@
 .meta { display:block; margin-block:var(--space-1) 0; }
 .footer { margin:var(--space-4) 0 0; padding-block-start:var(--space-4); border-block-start:1px solid var(--color-border); }
 .footer time { text-decoration:underline dotted; text-underline-offset:3px; }
-/* Desktop side pane: the bottom action stays reachable while the inspector scrolls.
-   Below 1200px the inspector is the page, so the link sits in flow and never covers the action row. */
-.sticky { margin:var(--space-4) calc(-1 * var(--space-5)) calc(-1 * var(--space-5)); padding:var(--space-3) var(--space-5) var(--space-5); background:var(--color-panel); border-block-start:1px solid var(--color-border); border-end-start-radius:var(--radius-panel); border-end-end-radius:var(--radius-panel); }
-.openTask { display:flex; align-items:center; justify-content:center; min-block-size:var(--touch-target); padding:var(--space-2) var(--space-4); border:1px solid var(--color-border); border-radius:var(--radius-control); color:var(--color-text); text-decoration:none; font-weight:600; }
-.openTask:hover { background:var(--color-raised); }
-.openTask:focus-visible { outline:3px solid var(--color-focus); outline-offset:3px; }
 @media(max-width:1199px) { .back { display:inline-flex; } }
-@media(min-width:1200px) { .sticky { position:sticky; inset-block-end:0; z-index:1; } }
-@media(max-width:600px) { .sticky { margin-inline:calc(-1 * var(--space-4)); margin-block-end:calc(-1 * var(--space-4)); padding:var(--space-3) var(--space-4) var(--space-4); } }

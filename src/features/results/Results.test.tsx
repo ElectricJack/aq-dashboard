@@ -23,7 +23,7 @@ test("disabled results capability makes no data request",async()=>{
 test("pinned feed renders text safely and keeps source base separate from acceptance",async()=>{
  fixtures();server.use(http.get("/api/v1/results",()=>HttpResponse.json(feedbackEnvelope({items:[{...detail,revision:{...detail.revision,summary:"<script>worker text</script>"}}]}))));renderApp("/results");
  const list=await screen.findByRole("list",{name:"Results feed"});expect(within(list).getByText("<script>worker text</script>")).toBeInTheDocument();expect(list.querySelector("script")).toBeNull();
- expect(within(list).getByRole("link",{name:"Exact revision"})).toHaveAttribute("href",`/results/${detail.result.id}/revisions/${detail.revision.revision}`);expect(list).toHaveTextContent("Acceptance: Unreviewed");expect(within(list).queryByRole("button",{name:"Create feedback task"})).toBeNull();expect(within(list).getAllByRole("link",{name:/review result/i}).length).toBeGreaterThan(0);expect(within(list).getByText("Source base")).toBeInTheDocument();
+ expect(within(list).getByRole("link",{name:"Exact revision"})).toHaveAttribute("href",`/results/${detail.result.id}/revisions/${detail.revision.revision}`);expect(list).toHaveTextContent("Acceptance: Unreviewed");expect(within(list).queryByRole("button",{name:"Create feedback task"})).toBeNull();expect(within(list).queryByRole("link",{name:/review result/i})).toBeNull();expect(within(list).getByText("Source base")).toBeInTheDocument();
 });
 test("feed filters use G6 modes; paging is explicit and new arrivals do not replace cards",async()=>{
  fixtures();const urls:URL[]=[];let fresh=false;
@@ -49,7 +49,7 @@ test("results_mobile_review_flow_completes",async()=>{
  renderApp("/results");await screen.findByText(detail.revision.summary);await userEvent.click(await screen.findByRole("button",{name:"Comments 1"}));const sheet=await screen.findByRole("dialog",{name:"Result comments"});
  await userEvent.type(within(sheet).getByLabelText("Comment"),"Please fix this caption.");await userEvent.click(within(sheet).getByRole("button",{name:"Post comment"}));await within(sheet).findByText("Please fix this caption.");expect(writes).toBe(1);expect(created).toBeUndefined();
  await userEvent.click(within(sheet).getAllByRole("button",{name:"Create feedback task"}).at(-1)!);const draft=await screen.findByRole("dialog",{name:"Create feedback task"});await userEvent.type(within(draft).getByLabelText("Acceptance criteria"),"Caption readable at 320 px.");await userEvent.click(within(draft).getByRole("button",{name:"Create linked task"}));await within(draft).findByText("Feedback task created and linked. Thread remains open.");expect(created).toMatchObject({comment_id:feedbackId(23),revision:detail.revision.revision});await userEvent.click(within(draft).getByRole("button",{name:"Close draft"}));
- await userEvent.click(within(sheet).getByRole("button",{name:"Close comments"}));expect(screen.getByRole("link",{name:"Review result"})).toHaveAttribute("href",expect.stringContaining("/decisions"));expect(screen.queryByRole("dialog",{name:"Result comments"})).toBeNull();
+ await userEvent.click(within(sheet).getByRole("button",{name:"Close comments"}));expect(screen.getByText(/^Acceptance:/)).toBeVisible();expect(screen.queryByRole("dialog",{name:"Result comments"})).toBeNull();
 });
 test("uncertain feedback retains the original operation and recovers without a second create",async()=>{
  fixtures();let creates=0,recoveries=0;let draft:Record<string,unknown>={};let id="";
@@ -86,6 +86,62 @@ test("revising conflicted feedback refreshes thread and project guards while pre
  server.use(http.get("/api/v1/results/:id/revisions/:revision/comments",()=>HttpResponse.json(feedbackEnvelope({items:[{...feedbackComment(),thread_version:version}]},project))),http.get(`/api/human/projects/${project}/tasks`,()=>HttpResponse.json({...graphEnvelope({items:[],next_cursor:null}),project:{...graphEnvelope(null).project,id:project,revision:version}})),http.post("/api/v1/feedback-tasks",async({request})=>{const body=await request.json() as Record<string,unknown>;bodies.push(body);version="2";return HttpResponse.json(feedbackOperation(String(body.operation_id),"conflict"));}));
  renderApp("/results");await screen.findByText(detail.revision.summary);await userEvent.click((await screen.findAllByRole("button",{name:"Create feedback task"}))[0]!);const draft=await screen.findByRole("dialog",{name:"Create feedback task"});await userEvent.type(within(draft).getByLabelText("Acceptance criteria"),"Readable caption");await userEvent.click(within(draft).getByRole("button",{name:"Create linked task"}));await within(draft).findByText("Operation conflict.");await userEvent.click(within(draft).getByRole("button",{name:"Revise draft"}));await waitFor(()=>expect(within(draft).getByLabelText("Title")).toBeEnabled());await userEvent.click(within(draft).getByRole("button",{name:"Create linked task"}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[0]).toMatchObject({expected_version:"1",expected_project_revision:"1"});expect(bodies[1]).toMatchObject({expected_version:"2",expected_project_revision:"2",comment_id:feedbackComment().id,comment_revision:"1",revision:detail.revision.revision});expect(bodies[0]!.operation_id).not.toBe(bodies[1]!.operation_id);
 });
+test("empty Needs review and Following tabs explain what belongs there (RA-08)",async()=>{
+ fixtures();server.use(http.get("/api/v1/results",()=>HttpResponse.json(feedbackEnvelope({items:[],next_cursor:null}))));
+ renderApp("/results?mode=needs_review");expect(await screen.findByText(/Nothing needs review\. A result appears here while it has an open comment thread, a pending review decision, or required evidence/)).toBeVisible();
+ await userEvent.click(screen.getByRole("tab",{name:"Following"}));expect(await screen.findByText(/You aren't following any results in this scope/)).toBeVisible();
+});
+test("feed tabs follow the ARIA tabs pattern and keep focus across a mode change (RA-06, RA-07)",async()=>{
+ fixtures();const modes:string[]=[];server.use(http.get("/api/v1/results",({request})=>{modes.push(new URL(request.url).searchParams.get("mode")!);return HttpResponse.json(feedbackEnvelope({items:[detail],next_cursor:null}));}));
+ renderApp("/results");await screen.findByText(detail.revision.summary);
+ const tabs=screen.getAllByRole("tab");expect(tabs.map(t=>t.tabIndex)).toEqual([0,-1,-1]);
+ expect(tabs[0]).toHaveAttribute("aria-controls","results-feed-panel");expect(screen.getByRole("tabpanel",{name:"Latest"})).toBeInTheDocument();
+ tabs[0]!.focus();await userEvent.keyboard("{ArrowRight}");
+ await waitFor(()=>expect(modes.at(-1)).toBe("needs_review"));await screen.findByText(detail.revision.summary);
+ const selected=screen.getByRole("tab",{name:"Needs review"});expect(selected).toHaveAttribute("aria-selected","true");expect(selected).toHaveFocus();expect(selected.tabIndex).toBe(0);
+ await userEvent.keyboard("{End}");await waitFor(()=>expect(screen.getByRole("tab",{name:"Following"})).toHaveFocus());
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Media type"}),"image");
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"Media type"})).toHaveFocus());
+});
+test("follow control uses the server's directly_following (RA-09)",async()=>{
+ fixtures();server.use(http.get("/api/v1/results",()=>HttpResponse.json(feedbackEnvelope({items:[{...detail,result:{...detail.result,directly_following:true}}],next_cursor:null}))));
+ renderApp("/results");await userEvent.click(await screen.findByText("Result context and evidence"));
+ expect(screen.getByRole("button",{name:"Unfollow"})).toHaveAttribute("aria-pressed","true");expect(screen.queryByText("Direct follow state unavailable")).toBeNull();
+});
+test("card meta names the result id and the revision separately (RA-11)",async()=>{
+ fixtures();renderApp("/results");const card=await screen.findByRole("article",{name:`Result ${detail.result.id}`});
+ expect(within(card).getByText(`Result ${detail.result.id.slice(-8)}`)).toHaveAttribute("title",detail.result.id);
+ expect(within(card).getByText(`revision ${detail.revision.revision.slice(0,7)}`)).toHaveAttribute("title",detail.revision.revision);
+});
+test("long summaries are clamped with an expand control and wrap after path separators (RA-12)",async()=>{
+ const summary=Array.from({length:30},(_,i)=>`target/debug/.fingerprint/notes/${i}.md`).join(", ");
+ fixtures();server.use(http.get("/api/v1/results",()=>HttpResponse.json(feedbackEnvelope({items:[{...detail,revision:{...detail.revision,summary}}],next_cursor:null}))));
+ renderApp("/results");const heading=await screen.findByRole("heading",{name:summary});
+ expect(heading).toHaveAttribute("data-clamped","true");expect(heading.querySelectorAll("wbr").length).toBeGreaterThan(30);
+ await userEvent.click(screen.getByRole("button",{name:"Show full summary"}));expect(heading).not.toHaveAttribute("data-clamped");
+ expect(screen.getByRole("button",{name:"Show less"})).toHaveAttribute("aria-expanded","true");
+});
+test("Custom… without dates is not an active filter (RA-19)",async()=>{
+ fixtures();const {router}=renderApp("/results");await screen.findByText(detail.revision.summary);
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Time range"}),"custom");
+ await userEvent.click(await screen.findByRole("button",{name:"Apply filters"}));
+ await waitFor(()=>expect(new URLSearchParams(router.state.location.search).get("range")).toBeNull());
+ expect(screen.getByRole("button",{name:/More filters/})).not.toHaveTextContent("active");expect(screen.getByRole("combobox",{name:"Time range"})).toHaveValue("any");
+});
+test("a stale range=custom link without dates reads as Any time (RA-19)",async()=>{
+ fixtures();renderApp("/results?range=custom");await screen.findByText(detail.revision.summary);
+ expect(screen.getByRole("combobox",{name:"Time range"})).toHaveValue("any");expect(screen.getByRole("button",{name:/More filters/})).not.toHaveTextContent("active");
+});
+test.each([["malformed ids","/results/not-a-uuid/revisions/abc"],["an unknown result",`/results/${feedbackId(77)}/revisions/${"a".repeat(64)}`]])("result detail for %s is neutral and keeps Back to results (RA-20)",async(_,path)=>{
+ fixtures();let reads=0;server.use(http.get("/api/v1/results/:id/revisions/:revision",()=>{reads++;return HttpResponse.json({request_id:"r",code:"not_found",message:"Resource not found",retryable:false},{status:404});}));
+ renderApp(path);expect(await screen.findByText("This item does not exist or is not available to you.")).toBeVisible();
+ expect(screen.getByRole("link",{name:"Back to results"})).toHaveAttribute("href","/results");expect(screen.queryByRole("button",{name:"Try again"})).toBeNull();
+ if(path.includes("not-a-uuid"))expect(reads).toBe(0);
+});
+test("a result outside the selected project scope says so and keeps Back to results (RA-20)",async()=>{
+ fixtures();renderApp(`/results/${detail.result.id}/revisions/${detail.revision.revision}?scope=project:${feedbackId(88)}`);
+ expect(await screen.findByText(/This result is not in the selected project/)).toBeVisible();expect(screen.getByRole("link",{name:"Back to results"})).toBeVisible();
+});
 test("RA-05: a refused Task ID filter keeps the toolbar so it can be corrected, and is not retried",async()=>{
  fixtures();let reads=0;server.use(http.get("/api/v1/results",({request})=>{reads++;return new URL(request.url).searchParams.has("task_id")?HttpResponse.json({request_id:"r",code:"invalid_request",message:"task_id is invalid",retryable:false},{status:422}):HttpResponse.json(feedbackEnvelope({items:[detail],next_cursor:null}));}));
  renderApp("/results?task=not-a-task");
@@ -99,4 +155,11 @@ test("RA-10: closing the desktop comments panel returns focus to the card's Comm
   await userEvent.click(await screen.findByRole("button",{name:"Close comments"}));
   await waitFor(()=>expect(open).toHaveFocus());
  }finally{window.matchMedia=original;}
+});
+test("a refused (403) follow says AQ refused it and can be revised, not an unknown outcome",async()=>{
+ fixtures();server.use(http.put("/api/v1/results/:id/follow",()=>HttpResponse.json({request_id:"r",code:"forbidden",message:"Following is not available for this result",retryable:false},{status:403})));
+ renderApp("/results");await userEvent.click(await screen.findByText("Result context and evidence"));
+ await userEvent.click(screen.getByRole("button",{name:"Apply follow preference"}));
+ expect(await screen.findByText("AQ refused this request. Following is not available for this result. Your draft is preserved.")).toBeVisible();
+ expect(screen.queryByText(/outcome is unknown/)).toBeNull();expect(screen.getByRole("button",{name:"Revise draft"})).toBeVisible();
 });

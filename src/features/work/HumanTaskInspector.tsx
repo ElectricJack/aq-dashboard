@@ -9,10 +9,12 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { formatAge } from "../../components/time/relative";
 import { DocumentBody } from "../knowledge/DocumentBody";
 import { RecordFacts } from "../knowledge/KnowledgeDocument";
+import { CopyValue } from "../decisions/DecisionContext";
+import { useTaskWork, type TaskWork } from "./taskWork";
 import styles from "./HumanTaskInspector.module.css";
 
 const classes = (...names: (string | undefined)[]) => names.filter(Boolean).join(" ");
-/** The full task opens in list mode: graph view and graph root are inspector context only. */
+/** Links out of the inspector open in list mode: graph view and graph root are inspector context only. */
 function listSearch(search: string) {
   const params = new URLSearchParams(search);
   params.delete("view"); params.delete("root");
@@ -35,30 +37,39 @@ function TaskDependencies({ project, node, search }: { project: string; node: Gr
   })}</ul> : <p className={styles.meta}>No relationships among the tasks returned in this neighborhood.</p>}</>;
 }
 
-/** Work's contextual task inspector (design reference 02): identity, one action row, then the task's content. */
+/** The attempt holding the task, from the work read; nothing is claimed while it is unknown. */
+function TaskExecution({ work, failed, search }: { work: TaskWork | undefined; failed: boolean; search: string }) {
+  if (!work) return <p className={styles.meta}>{failed ? "Agent attempt state unavailable for this task." : "Checking for an agent attempt…"}</p>;
+  if (!work.execution) return <p className={styles.meta}>No agent attempt holds this task.</p>;
+  const e = work.execution;
+  return <p className={styles.meta}>An agent attempt holds this task · {e.status.replace(/_/g, " ")} · <Link to={{ pathname: `/agents/${encodeURIComponent(e.session_id)}`, search: listSearch(search) }}>Open session</Link></p>;
+}
+
+/** Work's contextual task inspector (design reference 02): identity, one action row, then the task's content.
+ * It is the single task view (spec 0004 §3); there is no separate full-task page. */
 export function HumanTaskInspector({ record, search, notice, className }: { record: GraphEnvelope<GraphNode>; search: string; notice?: ReactNode; className?: string }) {
   const n = record.data;
+  const work = useTaskWork(record.project.id, n.id);
   return <Panel title={n.title} className={classes(styles.inspector, className)} data-task-inspector=""
     description={`Task · revision ${n.content_revision}`}>
     <BackToTasks search={search} />
     <div className={styles.identity}>
       <p className={styles.state} data-state={n.task_state}>{nodeLabel(n.task_state)}</p>
+      <p className={styles.taskId}><span className="visually-hidden">Task ID </span><code data-task-id="">{n.id}</code><CopyValue value={n.id} label="task ID" /></p>
       {(n.retired || n.deleted) && <p className={styles.meta}>Record lifecycle: {n.deleted ? "Deleted" : "Retired"}</p>}
     </div>
+    {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels">{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
     {notice}
-    <RecordActions record={record} variant="compact" />
+    <RecordActions record={record} variant="compact" execution={work.data ? { holding: !!work.data.data.execution, blockers: work.data.data.blockers.length, complete: work.data.data.complete } : undefined} />
     <section className={styles.section}><h3>Description</h3><DocumentBody body={n.body} /></section>
     <section className={styles.section}><h3>Acceptance criteria</h3>{n.acceptance_criteria ? <DocumentBody body={n.acceptance_criteria} /> : <p className={styles.meta}>No acceptance criteria recorded.</p>}</section>
     <section className={styles.section}><h3>Dependencies</h3><TaskDependencies project={record.project.id} node={n} search={search} /></section>
-    <section className={styles.section}><h3>Execution</h3><p className={styles.meta}>Execution readiness and agent assignment are not included in this task read.</p></section>
+    <section className={styles.section}><h3>Execution</h3><TaskExecution work={work.data?.data} failed={work.isError} search={search} /></section>
     <details className={styles.disclosure}><summary>Record details and verification</summary><RecordFacts node={n} /></details>
     <p className={styles.footer}>
       <span>Revision {n.content_revision}</span> · <span>Updated <time dateTime={n.updated_at} title={n.updated_at}>{formatAge(record.observed_at, n.updated_at)}</time></span>
       {" "}· <span>Observed <time dateTime={record.observed_at} title={record.observed_at}>{record.observed_at}</time></span>
     </p>
-    <div className={styles.sticky}>
-      <Link to={{ pathname: `/work/${encodeURIComponent(n.id)}`, search: listSearch(search) }} className={styles.openTask}>Open full task</Link>
-    </div>
   </Panel>;
 }
 

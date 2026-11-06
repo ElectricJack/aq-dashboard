@@ -164,17 +164,17 @@
 .switcher .sessionsButton { flex: 0 0 auto; align-self: center; gap: var(--space-2); }
 .sessionCount { display: inline-block; min-inline-size: 2ch; padding: 0 var(--space-2); margin-inline-start: var(--space-1); border-radius: var(--radius-control); background: var(--color-raised); text-align: center; }
 .tabs { display: flex; align-items: flex-end; gap: var(--space-2); min-inline-size: 0; overflow-x: auto; padding: var(--space-1) var(--space-1) 0; }
-.sessionTab { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; max-inline-size: 36ch; min-block-size: var(--touch-target); border: 1px solid var(--color-border); border-block-end: none; border-radius: var(--radius-control) var(--radius-control) 0 0; background: var(--color-panel); color: var(--color-text-secondary); }
+.sessionTab { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; max-inline-size: 46ch; min-block-size: var(--touch-target); border: 1px solid var(--color-border); border-block-end: none; border-radius: var(--radius-control) var(--radius-control) 0 0; background: var(--color-panel); color: var(--color-text-secondary); }
 .sessionTab[data-current] { border-color: var(--color-accent); color: var(--color-text); background: var(--color-raised); box-shadow: inset 0 -2px var(--color-accent); }
 .tabLink { display: inline-flex; align-items: center; gap: var(--space-2); min-inline-size: 0; min-block-size: var(--touch-target); padding-inline: var(--space-4) var(--space-2); color: inherit; text-decoration: none; white-space: nowrap; }
 /* The whole tab (name and status) opens the session; Close stays above the stretched link. */
 .tabLink::after { content: ""; position: absolute; inset: 0; }
-.tabName { overflow: hidden; text-overflow: ellipsis; }
+.tabName { overflow: hidden; text-overflow: ellipsis; min-inline-size: min(16ch, 100%); }
 .sessionTab[data-current] .tabName { font-weight: 600; }
 .tabStatus { flex: 0 0 auto; padding-inline-end: var(--space-2); color: var(--color-text-secondary); white-space: nowrap; }
 .tabClose { position: relative; z-index: 1; display: inline-grid; place-items: center; flex: 0 0 auto; inline-size: 32px; block-size: 32px; margin-inline-end: var(--space-2); padding: 0; border: none; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
 .tabClose:hover { background: var(--color-canvas); color: var(--color-text); }
-.switcher .addTab { flex: 0 0 auto; inline-size: var(--touch-target); padding: 0; justify-content: center; border-block-end: none; border-end-start-radius: 0; border-end-end-radius: 0; }
+.switcher .addTab { flex: 0 0 auto; align-self: flex-end; inline-size: var(--touch-target); padding: 0; justify-content: center; border-block-end: none; border-end-start-radius: 0; border-end-end-radius: 0; }
 /* Tabs scroll inside their row; keep focus rings inside it so they are not clipped. */
 .switcher .tabs :focus-visible { outline-offset: -3px; }
 .sessionDot { flex: 0 0 auto; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--color-text-secondary); }

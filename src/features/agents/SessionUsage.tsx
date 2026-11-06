@@ -30,7 +30,7 @@ export function SessionUsage({ binding }: { binding: UsageBinding }) {
   const query = useQuery({
     queryKey: queryKey(queryContext, "session-usage", { binding }),
     queryFn: async ({ signal }) => adaptSessionUsage(await sessionUsageJson(binding.attempt_id, signal), binding),
-    retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
   });
   return <section className={styles.usage} aria-label="Session usage">
     <h3>Session usage</h3>

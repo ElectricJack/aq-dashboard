@@ -136,7 +136,9 @@ export function QuestionAnswer({ question: q, serverTime, updatedAt, refreshes, 
       else if (op.disposition === "rejected") { setOutcome("refused"); setStatus("The server refused this answer. Your answer is preserved; refresh the question before answering again."); }
       else { setOutcome("unknown"); setStatus("The answer is not confirmed yet. Check its status or retry the same answer; no second answer is created."); }
     } catch (error) {
-      if (error instanceof ApiError && [401, 403].includes(error.status ?? 0)) { reportAccessDenied(error); setOutcome("refused"); setStatus("Access changed. Your answer is preserved."); }
+      if (error instanceof ApiError && error.status === 401) { reportAccessDenied(error); setOutcome("refused"); setStatus("Your sign-in has expired. Your answer is preserved; sign in through AQ, then reload."); }
+      // A 403 refuses this one answer (the app keeps working); say so with AQ's own reason when it gives one.
+      else if (error instanceof ApiError && error.status === 403) { reportAccessDenied(error); setOutcome("refused"); setStatus(`AQ refused this answer.${error.serverMessage ? ` ${error.serverMessage}.` : ""} Your answer is preserved.`); }
       else if (error instanceof ApiError && error.status === 426) { reportIncompatible(QUESTIONS_ANSWER); setOutcome(null); setStatus("Answering requires a compatible AQ API. Your answer is preserved."); }
       else if (!lookup && error instanceof ApiError && error.status === 409) { setOutcome("refused"); setStatus("The question changed or was already answered. Your answer is preserved; refresh the question before answering again."); }
       else if (!lookup && error instanceof ApiError && !error.effectUnknown && [400, 404, 413, 422].includes(error.status ?? 0)) { setOutcome("refused"); setStatus("The server refused this answer. Your answer is preserved; refresh the question before answering again."); }

@@ -3,7 +3,8 @@ import { ContractError, isRecord } from "../../api/adapters/contract";
 import { validGraphId, type GraphEnvelope, type GraphNode } from "../../api/adapters/humanGraph";
 
 export const actionLabels = {
-  "task.edit": "Edit task", "task.cancel": "Cancel task", "task.retry": "Retry task",
+  // Cancel and retry act on the agent attempt, never on the task lifecycle (WD-11).
+  "task.edit": "Edit task", "task.cancel": "Cancel attempt", "task.retry": "Retry attempt",
   "task.dependency.add": "Add dependency", "task.dependency.remove": "Remove dependency",
   "knowledge.author": "Add record", "knowledge.correct": "Correct record",
   "knowledge.verify": "Verify record", "knowledge.retire": "Retire record",

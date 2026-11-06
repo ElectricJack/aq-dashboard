@@ -32,3 +32,22 @@ test("literal task titles stay text on the served route",async()=>{
  renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByText('<img src=x onerror="alert(1)">')).toBeVisible();expect(list.querySelector("img")).toBeNull();
 });
 test("task rows read state and revision once, without knowledge verification terms",async()=>{renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});for(const item of within(list).getAllByRole("listitem")){expect(item.textContent).not.toMatch(/(\w+) · \1/);expect(item.textContent).not.toMatch(/Unverified|Verified|Disputed/);}expect(within(list).getAllByText(/^Active · r1$/).length).toBeGreaterThan(0);expect(screen.getByText("Execution details unavailable")).toBeVisible();});
+test("graph root resets when returning to List and follows the selection into Graph (WD-01)",async()=>{
+ const tasks=`/work/00000000-0000-0000-0000-000000000104${scope}&view=graph&root=00000000-0000-0000-0000-000000000104`;
+ const {router}=renderApp(tasks);const params=()=>new URLSearchParams(router.state.location.search);
+ await userEvent.click(await screen.findByRole("button",{name:"List"}));
+ await waitFor(()=>expect(params().get("view")).toBeNull());expect(params().get("root")).toBeNull();
+ const list=await screen.findByRole("list",{name:"Tasks"});const row=within(list).getByRole("link",{name:/Fixture: Replay reconciliation/});
+ expect(new URL(row.getAttribute("href")!,"http://x").searchParams.get("root")).toBeNull();await userEvent.click(row);
+ await screen.findByRole("region",{name:"Fixture: Replay reconciliation"});
+ await userEvent.click(screen.getByRole("button",{name:"Graph"}));
+ await waitFor(()=>expect(params().get("root")).toBe("00000000-0000-0000-0000-000000000105"));expect(params().get("view")).toBe("graph");
+});
+test("the inspector is the single task view: full copyable task ID, no Open full task link (WD-02, WD-09)",async()=>{
+ renderApp(`/work/00000000-0000-0000-0000-000000000105${scope}`);const detail=await screen.findByRole("region",{name:"Fixture: Replay reconciliation"});
+ expect(within(detail).queryByRole("link",{name:"Open full task"})).toBeNull();
+ expect(within(detail).getByText("00000000-0000-0000-0000-000000000105",{selector:"code"})).toBeVisible();
+ expect(within(detail).getByRole("button",{name:"Copy task ID"})).toBeVisible();
+ // The work read names the holding attempt; the mock fixture's replay task has one.
+ expect(await within(detail).findByRole("link",{name:"Open session"})).toHaveAttribute("href",expect.stringContaining("/agents/00000000-0000-0000-0000-000000000302"));
+});

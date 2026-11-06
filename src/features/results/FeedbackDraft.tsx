@@ -41,7 +41,7 @@ export function FeedbackDraft({detail,comments,initial,open=true,onClose,onRefre
     if(data.operation_id!==id||data.task_id!==id||data.result_id!==detail.result.id||data.revision!==detail.revision.revision||!origin.current||Object.entries(origin.current).some(([k,v])=>JSON.stringify(v)!==JSON.stringify((data.origin as unknown as Record<string,unknown>)[k])))throw new ContractError("Feedback receipt pins changed");
    }
    if(data.creation_disposition==="confirmed"&&data.link_confirmed){setLinked(data.task_id);setError(null);}else setError("Task creation or linking is not yet confirmed. Check the original operation.");
-  }catch(reason){if(controller.signal.aborted)return;if(reason instanceof ApiError&&[401,403].includes(reason.status??0))reportAccessDenied(reason);else if(reason instanceof ApiError&&reason.status===426)reportIncompatible("results.feedback");setError("The feedback task link could not be verified. Check the original operation.");}
+  }catch(reason){if(controller.signal.aborted)return;if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){reportAccessDenied(reason);if(reason.status===403){setError(`AQ refused this request.${reason.serverMessage?` ${reason.serverMessage}.`:""} Your draft is preserved.`);return;}}else if(reason instanceof ApiError&&reason.status===426)reportIncompatible("results.feedback");setError("The feedback task link could not be verified. Check the original operation.");}
  }
  async function submit(event:React.FormEvent){
   event.preventDefault();if(!enabled||operation.id||!comment||mode==="create"&&!context.data)return;setError(null);

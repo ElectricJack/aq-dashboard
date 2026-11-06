@@ -23,14 +23,16 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(description).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-${vp.name}.png` });
       const descTop = (await description.boundingBox())!.y;
-      const above = await panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => {
+      // The task ID's copy control (spec 0004 item 1) is part of the identity line, not an action.
+      const above = await panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => !e.getAttribute("aria-label")?.startsWith("Copy")).filter((e) => {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && r.top < top;
       }).length, descTop);
       expect(above).toBeLessThanOrEqual(2);
       if (vp.name === "desktop") expect(descTop - (await panel.boundingBox())!.y).toBeLessThan(260);
       await expect(panel.getByText(/^Task · revision \d+$/i)).toBeVisible();
-      await expect(panel.getByRole("link", { name: "Open full task" })).toBeVisible();
+      // The inspector is the single task view (spec 0004 §3, WD-02).
+      await expect(panel.getByRole("link", { name: "Open full task" })).toHaveCount(0);
       await panel.getByRole("button", { name: "More actions" }).click();
       const menu = page.getByRole("menu");
       await expect(menu.getByRole("menuitem")).toHaveCount(4);

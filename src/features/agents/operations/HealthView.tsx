@@ -17,7 +17,7 @@ export function HealthView({ session: s, serverTime }: { session: SessionDetailV
   return <section aria-label="Health" className={styles.view}>
     <h3>Health</h3>
     <ul aria-label="Health observations" className={styles.facts}>
-      <li><strong>Heartbeat</strong><span>{OBSERVATION_LABEL[s.observation.state]} · observed {time(serverTime, s.observation.observedAt)}{s.observation.freshness === "stale" && " · stale"}</span></li>
+      <li><strong>Heartbeat</strong><span>{OBSERVATION_LABEL[s.observation.state]} · {s.observation.state === "unknown" ? "not reported" : <>observed {time(serverTime, s.observation.observedAt)}{s.observation.freshness === "stale" && " · stale"}</>}</span></li>
       <li><strong>Provider output</strong><span>{s.lastOutputAt ? <>Last output {time(serverTime, s.lastOutputAt)}</> : NOT_REPORTED}</span></li>
       <li><strong>Semantic progress</strong><span>{NOT_REPORTED}</span></li>
       <li><strong>Wait observation</strong><span>{s.wait ? <>{s.wait.explanation} · wait {s.wait.id.slice(0, 8)} · observation time not reported</> : "No wait observed"}</span></li>

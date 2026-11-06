@@ -9,7 +9,7 @@ import { renderApp } from "../../test/renderApp";
 import { graphEnvelope, graphNode, graphProject, graphId } from "../../test/humanGraph";
 
 const actions = [
-  ["task.edit", "Edit task"], ["task.cancel", "Cancel task"], ["task.retry", "Retry task"],
+  ["task.edit", "Edit task"], ["task.cancel", "Cancel attempt"], ["task.retry", "Retry attempt"],
   ["task.dependency.add", "Add dependency"], ["task.dependency.remove", "Remove dependency"],
   ["knowledge.author", "Add record"], ["knowledge.correct", "Correct record"],
   ["knowledge.verify", "Verify record"], ["knowledge.retire", "Retire record"],
@@ -18,6 +18,8 @@ const taskCapabilities:Record<string,string>={"task.edit":"tasks.edit","task.can
 const server = setupServer(...handlersFor("default"));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers()); afterAll(() => server.close());
+let holding = true;
+afterEach(() => { holding = true; });
 function setup(kind: string, disabled?: string, labels?:string[]) {
   const type = kind.startsWith("task.") ? "task" : "knowledge", node = {...graphNode(type),...(labels?{labels}:{})};
   let version = node.version, detailReads = 0;
@@ -28,6 +30,7 @@ function setup(kind: string, disabled?: string, labels?:string[]) {
   const base = `/api/human/projects/${graphProject}/${type==="task"?"tasks":"knowledge"}`;
   server.use(http.get(base, () => HttpResponse.json(graphEnvelope({items:[{...node,version}],next_cursor:null}))),
     http.get(`${base}/${node.id}`, () => { detailReads++; return HttpResponse.json(graphEnvelope({...node,version})); }),
+    http.get(`${base}/${node.id}/work`, () => HttpResponse.json(graphEnvelope({task_id:node.id,task_state:node.task_state,version,readiness:{state:"running",blockers:[{edge_id:graphId(50),id:graphId(11),title:"Blocker",task_state:"active",satisfied:false}],complete:true},parent:null,execution:holding?{task_id:node.id,attempt_id:graphId(60),session_id:graphId(61),status:"running"}:null}))),
     http.get(`${base}/${node.id}/graph`, () => HttpResponse.json(graphEnvelope({root_id:node.id,nodes:[node,graphNode("task",11)],edges:[{id:graphId(50),source:graphId(11),target:node.id,edge_type:"blocks",description:"must precede",version:"2",source_revision:null,target_revision:null}],truncated:false}))));
   return {node, changeVersion: (v:string)=>{version=v;}, reads:()=>detailReads};
 }
@@ -52,7 +55,7 @@ async function open(kind:string,label:string,labels?:string[]){
   const title=within(dialog).getByLabelText("Title"); await userEvent.clear(title);await userEvent.type(title,"A revised title");
  }
  if(["task.cancel","knowledge.verify","knowledge.retire"].includes(kind))await userEvent.type(within(dialog).getByLabelText("Reason"),"Checked the source");
- if(kind==="task.dependency.add")await userEvent.type(within(dialog).getByLabelText("Blocker task ID"),graphId(11));
+ if(kind==="task.dependency.add")await userEvent.type(within(dialog).getByLabelText("Blocker task"),graphId(11));
  if(kind==="task.dependency.remove")await userEvent.selectOptions(within(dialog).getByLabelText("Dependency"),graphId(50));
  if(kind==="knowledge.verify")await userEvent.type(within(dialog).getByLabelText("Evidence URL"),"https://example.org/runbook");
  if(["task.cancel","knowledge.retire"].includes(kind))await userEvent.click(within(dialog).getByRole("checkbox"));
@@ -137,15 +140,66 @@ test("pending cancellation is an intent and polls without optimistic task lifecy
  let id="",lookup=0;
  server.use(http.post("/api/v1/actions",async({request})=>{id=(await request.json() as {operation_id:string}).operation_id;return HttpResponse.json(operation(id,"pending"),{status:202});}),
   http.get("/api/v1/operations/:id",()=>{lookup++;return HttpResponse.json(operation(id));}));
- const {dialog}=await open("task.cancel","Cancel task");
+ const {dialog}=await open("task.cancel","Cancel attempt");
  await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
  await within(dialog).findByText("Cancellation requested",{exact:true});expect(lookup).toBeGreaterThan(0);expect(screen.getAllByText("Active",{exact:true}).length).toBeGreaterThan(0);
 });
 
 test("rejection gives a definite safe explanation",async()=>{
  server.use(http.post("/api/v1/actions",async({request})=>HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id,"rejected"))));
- const {dialog}=await open("task.retry","Retry task");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ const {dialog}=await open("task.retry","Retry attempt");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
  expect(await within(dialog).findByText(/Rejected/)).toBeVisible();expect(within(dialog).queryByText("Action confirmed",{exact:true})).not.toBeInTheDocument();
+ // WD-08: no reason in the contract, so AQ's refusal is stated without blaming permissions.
+ expect(within(dialog).getByRole("status")).toHaveTextContent("Rejected — AQ refused this action. It retries only an active task whose last attempt can be replaced.");
+ expect(within(dialog).queryByText(/permissions/)).toBeNull();
+});
+
+test("an HTTP refusal shows the server's own message when it sends one (WD-08)",async()=>{
+ server.use(http.post("/api/v1/actions",()=>HttpResponse.json({request_id:"r",code:"invalid_request",message:"Blocker would create a dependency cycle",retryable:false},{status:422})));
+ const {dialog}=await open("task.dependency.add","Add dependency");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent("Blocker would create a dependency cycle");expect(within(dialog).queryByText(/permissions/)).toBeNull();
+});
+
+test("cancel attempt is disabled with AQ's precondition when no attempt holds the task (WD-11)",async()=>{
+ holding=false;const {node}=setup("task.edit");renderApp(`/work/${node.id}?scope=project:${graphProject}`);
+ await screen.findByText("No agent attempt holds this task.");
+ await userEvent.click(await screen.findByRole("button",{name:"More actions"}));
+ const cancel=within(screen.getByRole("menu")).getByRole("menuitem",{name:/Cancel attempt/});
+ expect(cancel).toHaveAttribute("aria-disabled","true");expect(cancel).toHaveAccessibleDescription("No agent attempt holds this task");
+ expect(within(screen.getByRole("menu")).getByRole("menuitem",{name:/Retry attempt/})).not.toHaveAttribute("aria-disabled");
+ await userEvent.click(cancel);expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+test("retry and cancel are disabled for a task no attempt can hold (WD-11)",async()=>{
+ const {node}=setup("task.edit");server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}`,()=>HttpResponse.json(graphEnvelope({...node,task_state:"draft"}))));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await userEvent.click(await screen.findByRole("button",{name:"More actions"}));
+ const menu=screen.getByRole("menu");
+ expect(within(menu).getByRole("menuitem",{name:/Retry attempt/})).toHaveAccessibleDescription("AQ retries attempts of active tasks only");
+ expect(within(menu).getByRole("menuitem",{name:/Cancel attempt/})).toHaveAccessibleDescription("No agent attempt can hold a draft task");
+});
+
+test("add dependency picks the blocker by title search (WD-09)",async()=>{
+ const posts:Record<string,unknown>[]=[];const searches:string[]=[];
+ server.use(http.post("/api/v1/actions",async({request})=>{const body=await request.json() as Record<string,unknown>;posts.push(body);return HttpResponse.json(operation(String(body.operation_id)));}));
+ const {node}=setup("task.dependency.add");const blocker={...graphNode("task",11),title:"Define lease contract"};
+ server.use(http.get(`/api/human/projects/${graphProject}/tasks`,({request})=>{const q=new URL(request.url).searchParams.get("q");if(q)searches.push(q);return HttpResponse.json(graphEnvelope({items:q?[blocker,node]:[node],next_cursor:null}));}));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await launch("Add dependency",true);
+ const dialog=screen.getByRole("dialog",{name:"Add dependency"});
+ await userEvent.type(within(dialog).getByLabelText("Blocker task"),"lease");
+ const choices=await within(dialog).findByRole("group",{name:"Matching tasks"});expect(searches).toContain("lease");
+ // The task itself is never offered as its own blocker.
+ expect(within(choices).getAllByRole("radio")).toHaveLength(1);
+ await userEvent.click(within(choices).getByRole("radio",{name:/Define lease contract/}));
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ expect((posts[0]!.payload as Record<string,unknown>).blocker_id).toBe(blocker.id);
+});
+
+test("edit title is required and limited like the server (WD-03)",async()=>{
+ let posts=0;server.use(http.post("/api/v1/actions",()=>{posts++;return HttpResponse.json({});}));
+ const {dialog}=await open("task.edit","Edit task");const title=within(dialog).getByLabelText("Title");
+ expect(title).toHaveAttribute("maxLength","512");await userEvent.clear(title);await userEvent.type(title,"   ");
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent("Title is required.");expect(posts).toBe(0);
 });
 
 test("duplicate submit and close/reopen retain one unresolved operation",async()=>{

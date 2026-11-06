@@ -41,8 +41,9 @@ for (const vp of VIEWPORTS) {
       const actions = page.getByRole("group", { name: "Session actions" });
       const message = (vp.phone ? terminal : actions).getByRole("button", { name: "Message" });
       await expect(message).toBeDisabled();
-      if (vp.phone) await expect(message).toHaveAccessibleDescription("Messaging unavailable on this AQ server");
-      else await expect(actions.getByText("Messaging unavailable on this AQ server")).toBeVisible();
+      // The fixture server doesn't advertise session.message.enqueue, so Message states that reason (RA-14).
+      if (vp.phone) await expect(message).toHaveAccessibleDescription("Not offered by this AQ server");
+      else await expect(actions.getByText("Not offered by this AQ server")).toBeVisible();
       await noOverflow(page);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-focus-${vp.name}.png` });
       await axe(page);

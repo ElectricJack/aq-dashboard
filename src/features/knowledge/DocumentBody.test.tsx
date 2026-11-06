@@ -31,3 +31,20 @@ test("headings get stable unique ids that match the section outline", () => {
   const { container: plain } = render(<DocumentBody body={body} />);
   expect(plain.querySelector("[id]")).toBeNull();
 });
+test("inline code, strong and emphasis render while other inline syntax stays literal (WD-10)", () => {
+  const { container } = render(<DocumentBody body={"add `pub fn hello() -> &'static str` returning **Bold** and *soft* text\n\n- a `code` item with __strong__\n\nsnake_case_name, 2 * 3 * 4 and [link](https://example.org) <b>x</b>"} />);
+  expect(screen.getByText("pub fn hello() -> &'static str").tagName).toBe("CODE");
+  expect(screen.getByText("Bold").tagName).toBe("STRONG");
+  expect(screen.getByText("soft").tagName).toBe("EM");
+  expect(screen.getByText("code").tagName).toBe("CODE");
+  expect(screen.getByText("strong").tagName).toBe("STRONG");
+  expect(container.querySelectorAll("em")).toHaveLength(1);
+  expect(container.querySelector("a,b")).toBeNull();
+  expect(container).toHaveTextContent("snake_case_name, 2 * 3 * 4 and [link](https://example.org) <b>x</b>");
+  expect(container).not.toHaveTextContent("`");
+});
+test("inline parsing stays bounded on pathological input", () => {
+  const started = performance.now();
+  render(<DocumentBody body={"`".repeat(16000) + "*".repeat(16000)} />);
+  expect(performance.now() - started).toBeLessThan(2000);
+});

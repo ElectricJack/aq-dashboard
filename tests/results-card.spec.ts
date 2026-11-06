@@ -21,8 +21,8 @@ for (const vp of VIEWPORTS) {
 
       for (const card of await cards.all()) {
         const footer = card.locator("footer");
-        // Primary action is Review result; feedback creation lives in the discussion.
-        await expect(footer.getByRole("link").last()).toHaveAccessibleName(/review result/i);
+        // No review flow exists for results yet, so no "Review result" dead end (RA-04); feedback creation lives in the discussion.
+        await expect(footer.getByRole("link", { name: /review result/i })).toHaveCount(0);
         await expect(footer.getByRole("button", { name: "Create feedback task" })).toHaveCount(0);
         await expect(footer.getByText(/^Acceptance:/)).toBeVisible();
         // Relative time keeps the absolute timestamp in its title.
