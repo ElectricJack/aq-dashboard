@@ -47,7 +47,9 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
       setOperation(next);setUnknown(false);setError(null);
       if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","overview-task-contributions"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
-      if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
+      if(reason instanceof ApiError&&reason.status===401){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
+      // A 403 refuses this one request (SO-03, ISSUE-003): the dialog and its draft stay; a resubmission gets a new operation identity.
+      else if(reason instanceof ApiError&&reason.status===403){reportAccessDenied(reason);if(lookup)setAccessLost(true);else{frozen.current=null;setIntent(null);setOperation(null);}setUnknown(false);setError(`AQ refused this ${lookup?"status check":"action"}.${reason.envelope?.message?` ${reason.envelope.message}.`:""}${lookup?"":" Nothing was changed. Your draft is preserved."}`);}
       else if(reason instanceof ApiError&&reason.status===426){reportIncompatible("dashboard.actions");setUnknown(true);}
       else if(reason instanceof ApiError&&reason.status===410){setRetired(true);setUnknown(false);setError(null);}
       else if(!lookup&&reason instanceof ApiError&&reason.status===409){setOperation({operation_id:value.id,disposition:"conflict",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],current_versions:reason.envelope?.current_versions,recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"The expected version has changed.");}

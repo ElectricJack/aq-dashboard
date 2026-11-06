@@ -11,6 +11,7 @@ import { ApiError } from "../../api/client";
 import { scopeSearch, useScope } from "../../app/scope";
 import { FACT_LABEL, subjectPath } from "../../app/subjects";
 import { useRead } from "../../app/useRead";
+import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import styles from "./Overview.module.css";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
@@ -326,11 +327,8 @@ export function Overview() {
   return (
     <div className={styles.layout}>
       <OverviewHeader>{attentionSentence(needsYou)} {motionSentence(view.inMotion, complete)}</OverviewHeader>
-      {query.isError && (
-        <p className={styles.warning} role="status">
-          Refresh failed. Showing the last successful read, which may be out of date.
-        </p>
-      )}
+      {/* SO-13: a failed refresh or an offline browser marks the kept read with its age. */}
+      <RetainedNotice query={query} className={styles.warning} />
       <ul className={styles.counts} aria-label="Work counts">
         {(
           [

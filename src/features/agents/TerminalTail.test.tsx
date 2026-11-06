@@ -89,7 +89,9 @@ test.each([401, 403, 404, 503])("a subsequent %s clears previously visible outpu
   await screen.findByText("private worker bytes");
   held.release();
   await waitFor(() => expect(screen.queryByText("private worker bytes")).toBeNull());
-  if (status === 401 || status === 403) expect(screen.getByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" })).toBeInTheDocument();
+  if (status === 401) expect(screen.getByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
+  // QA §2A: one refused read stays in its view; the dashboard shell remains.
+  else expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
 });
 test("Watch expiry clears output without automatic renewal", async () => {
   const q = setup(() => ({ text: "temporary bytes" })); await transcript();

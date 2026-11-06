@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { ApiError, apiGet, apiSend } from "./client";
+import { ApiError, apiGet, apiSend, retryAfterMs } from "./client";
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
@@ -64,4 +64,12 @@ test("a failed GET has no unknown effect", async () => {
     kind: "transport",
     effectUnknown: false,
   });
+});
+
+test("Retry-After seconds and dates become a bounded retry hint", async () => {
+  server.use(http.get("/api/v1/thing", () => HttpResponse.json({ request_id: "r", code: "busy", message: "Busy", retryable: true }, { status: 429, headers: { "Retry-After": "2" } })));
+  await expect(apiGet("/api/v1/thing")).rejects.toMatchObject({ status: 429, retryAfterMs: 2000 });
+  const at = new Date(Date.now() + 3600_000).toUTCString();
+  expect(retryAfterMs({ headers: new Headers({ "Retry-After": at }) })).toBe(60_000);
+  expect(retryAfterMs({ headers: new Headers({ "Retry-After": "soon" }) })).toBeUndefined();
 });

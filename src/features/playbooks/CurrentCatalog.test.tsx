@@ -89,7 +89,7 @@ test.each([401, 403])("held %s headers clear prior catalog even with bootstrap50
     ? Promise.resolve(new Response(new ReadableStream({ cancel() { cancelled = true; return new Promise(() => undefined); } }), { status, headers: { "content-type": "application/json" } }))
     : originalFetch(input, init));
   await userEvent.click(screen.getByRole("button", { name: "Refresh definitions" }));
-  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
+  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access not confirmed" });
   await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] }));
   expect(screen.queryByRole("region", { name: "Definition contract-fixture" })).toBeNull(); expect(screen.queryByRole("list", { name: "Current playbook definitions" })).toBeNull(); expect(historical).toBe(0); expect(cancelled).toBe(true);
 });

@@ -157,7 +157,7 @@ test('G4 continuation preserves group/query/scope and deduplicates replayed refe
  expect(within(dialog).queryByRole('heading',{name:'Sessions'})).toBeNull();
  expect(within(dialog).queryByRole('heading',{name:'Playbooks'})).toBeNull();
 });
-test('expired G4 cursor requires explicit restart; authorization failure clears results',async()=>{
+test('expired G4 cursor requires explicit restart; a refused continuation stays in its group',async()=>{
  const {g4Handlers}=await import('../../test/g4');server.use(...g4Handlers());
  const source=(await import('../../../contracts/pinned/dashboard-read/v1/fixtures/search-nonempty.json')).default;
  const fixture={...source,scope:{kind:'all_authorized'}};
@@ -171,7 +171,7 @@ test('expired G4 cursor requires explicit restart; authorization failure clears 
  const restart=await within(dialog).findByRole('button',{name:'Restart search'});expect(firstReads).toBe(1);
  await userEvent.click(restart);await waitFor(()=>expect(firstReads).toBe(2));forbidden=true;
  await userEvent.click(await within(dialog).findByRole('button',{name:'More tasks'}));
- expect(await screen.findByRole('heading',{name:/access denied/i})).toBeVisible();expect(screen.queryByRole('dialog',{name:'Search'})).toBeNull();
+ expect(await within(dialog).findByText(/tasks continuation is not permitted/i)).toBeVisible();expect(screen.queryByRole('heading',{name:/access denied/i})).toBeNull();expect(screen.getByRole('dialog',{name:'Search'})).toBeVisible();
 });
 
 /* ----- QA 2026-11-06 shell-overview regressions ----- */

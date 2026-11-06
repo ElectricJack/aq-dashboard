@@ -117,7 +117,7 @@ test("late confirmed A task read cannot repopulate B or clear B busy state",asyn
  const {router}=renderApp(`/work${scope}&operation=${taskOperationId}`);await waitFor(()=>expect(aRead).toBe(true));await act(async()=>{await router.navigate(`/work${scope}&operation=${other}`);});await waitFor(()=>expect(bRead).toBe(true));
  await act(async()=>{releaseA(graphEnvelope({...graphNode("task"),id:taskOperationId}));await heldA;});const modal=screen.getByRole("dialog",{name:"Task operation"});expect(within(modal).getByRole("button",{name:"Check status"})).toBeDisabled();expect(within(modal).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();releaseB();await within(modal).findByText("Task creation outcome is uncertain.");expect(within(modal).queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();
 });
-test.each([401,403])("denied submission %i clears private state and stays latched when bootstrap is unreachable",async(code)=>{
+test.each([401])("denied submission %i clears private state and stays latched when bootstrap is unreachable",async(code)=>{
  enable();let writes=0;
  server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>{writes++;server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({error:"unreachable"},{status:503})));return HttpResponse.json({error:"denied"},{status:code});}));
  const {router,queryClient}=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Private denied draft");await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await screen.findByRole("heading",{name:code===401?"Sign in required":"Access denied"});await waitFor(()=>expect(queryClient.getQueryState(["bootstrap"])?.status).toBe("error"));
@@ -125,7 +125,28 @@ test.each([401,403])("denied submission %i clears private state and stays latche
 });
 test("denied current-record read clears confirmed receipt even if bootstrap refresh fails",async()=>{
  enable();server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>HttpResponse.json(confirmedTaskOperation())),http.get(`/api/human/projects/${graphProject}/tasks/${taskOperationId}`,()=>{server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({error:"unreachable"},{status:503})));return HttpResponse.json({error:"denied"},{status:403});}));
- const {queryClient}=renderApp(`/work${scope}&operation=${taskOperationId}`);await screen.findByRole("heading",{name:"Access denied"});await waitFor(()=>expect(queryClient.getQueryState(["bootstrap"])?.status).toBe("error"));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByText(confirmedTaskOperation().request_digest)).not.toBeInTheDocument();expect(screen.queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Start another task"})).not.toBeInTheDocument();
+ const {queryClient}=renderApp(`/work${scope}&operation=${taskOperationId}`);await screen.findByRole("heading",{name:"Access not confirmed"});await waitFor(()=>expect(queryClient.getQueryState(["bootstrap"])?.status).toBe("error"));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByText(confirmedTaskOperation().request_digest)).not.toBeInTheDocument();expect(screen.queryByRole("link",{name:"Open created task"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Start another task"})).not.toBeInTheDocument();
+});
+test("WD-05: a 403 on Create task is refused in the dialog, keeps the draft and the shell, and allows a new submission",async()=>{
+ enable();let writes=0;const ids:string[]=[];
+ server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{writes++;ids.push(String(((await request.json()) as {operation_id?:string}).operation_id));return HttpResponse.json({error:"csrf_rejected",message:"request origin is not allowed"},{status:403});}));
+ const {router}=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Draft kept after a refusal");
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByText(/AQ refused this request; no task was created\..*Your draft is preserved\./)).toBeInTheDocument();
+ expect(screen.queryByRole("heading",{name:/Access denied|Access not confirmed/})).not.toBeInTheDocument();
+ expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
+ expect(within(modal).getByDisplayValue("Draft kept after a refusal")).toBeInTheDocument();
+ expect(new URLSearchParams(router.state.location.search).get("operation")).toBeNull();
+ await waitFor(()=>expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled());
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await waitFor(()=>expect(writes).toBe(2));
+ expect(ids[0]).not.toBe(ids[1]);expect(JSON.stringify(sessionStorage)).toMatch(/Draft kept after a refusal/);
+});
+test("a 403 whose bootstrap re-check fails holds the app closed without erasing drafts",async()=>{
+ enable();server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>{server.use(http.get("/api/v1/bootstrap",()=>new HttpResponse(null,{status:503})));return new HttpResponse(null,{status:403});}));
+ renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Current private task");
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ await screen.findByRole("heading",{name:"Access not confirmed"});expect(screen.queryByDisplayValue("Current private task")).not.toBeInTheDocument();
+ expect(JSON.stringify(sessionStorage)).toMatch(/Current private task/);
 });
 test("a new unknown observation for the same operation clears its previously verified task",async()=>{
  enable();let unknown=false;server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>HttpResponse.json(unknown?taskOperation({state:"unknown",effect:"possible"}):confirmedTaskOperation())),http.get(`/api/human/projects/${graphProject}/tasks/${taskOperationId}`,()=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:taskOperationId}))));
@@ -138,7 +159,7 @@ test("426 task creation keeps the stored draft and blocks further creation witho
  expect(screen.getByRole("note",{name:"Dashboard version"})).toHaveTextContent("Install compatible versions, then reload.");expect(JSON.stringify(sessionStorage)).toContain("Upgrade-safe task draft");expect(writes).toBe(1);
  app.unmount();app.queryClient.clear();renderApp(`/work${scope}`);const restored=await open();expect(within(restored).getByRole("textbox",{name:"Title"})).toHaveValue("Upgrade-safe task draft");expect(writes).toBe(1);
 });
-test.each([401,403])("direct task %i erases every composer draft even when bootstrap fails",async code=>{
+test.each([401])("direct task %i erases every composer draft even when bootstrap fails",async code=>{
  enable();server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>{server.use(http.get("/api/v1/bootstrap",()=>new HttpResponse(null,{status:503})));return new HttpResponse(null,{status:code});}));
  renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Current private task");
  sessionStorage.setItem('aq.dashboard.draft:["other-project","1","task-create:other"]','"Other private task"');sessionStorage.setItem('aq.dashboard.draft:["owner","1","supervisor-global"]','"Private supervisor draft"');

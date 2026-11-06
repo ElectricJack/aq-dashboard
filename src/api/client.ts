@@ -18,6 +18,8 @@ export class ApiError extends Error {
       status?: number;
       envelope?: ErrorEnvelope;
       effectUnknown?: boolean;
+      /** Server-requested wait before a retry (`Retry-After` or `retry_after_ms`). */
+      retryAfterMs?: number;
     } = {},
   ) {
     super(message);
@@ -31,9 +33,33 @@ export class ApiError extends Error {
   get effectUnknown() {
     return this.details.effectUnknown ?? false;
   }
+  get retryAfterMs() {
+    return this.details.retryAfterMs ?? this.details.envelope?.retry_after_ms;
+  }
 }
 
-function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
+const MAX_RETRY_AFTER_MS = 60_000;
+
+/** `Retry-After` as delta-seconds or an HTTP date, bounded so a bad header cannot stall a view. */
+export function retryAfterMs(response: Pick<Response, "headers">, now = Date.now()): number | undefined {
+  const raw = response.headers.get("Retry-After")?.trim();
+  if (!raw) return undefined;
+  const ms = /^\d{1,6}$/.test(raw) ? Number(raw) * 1000 : Date.parse(raw) - now;
+  return Number.isFinite(ms) ? Math.min(MAX_RETRY_AFTER_MS, Math.max(0, ms)) : undefined;
+}
+
+/** HTTP failure with the parsed envelope (when the body is one) and any retry hint. */
+export function httpError(response: Pick<Response, "status" | "headers">, payload?: unknown, message = `AQ responded ${response.status}`): ApiError {
+  const envelope = isErrorEnvelope(payload) ? payload : undefined;
+  const after = retryAfterMs(response);
+  return new ApiError("http", message, {
+    status: response.status,
+    ...(envelope && { envelope }),
+    ...(after !== undefined && { retryAfterMs: after }),
+  });
+}
+
+export function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   return (
     isRecord(value) &&
     typeof value.request_id === "string" &&
@@ -65,12 +91,7 @@ async function request<T>(method: Method, path: string, body?: unknown, signal?:
   const isJson = response.headers.get("Content-Type")?.includes("application/json") ?? false;
   const payload: unknown = isJson ? await response.json().catch(() => undefined) : undefined;
 
-  if (!response.ok) {
-    throw new ApiError("http", `AQ responded ${response.status}`, {
-      status: response.status,
-      ...(isErrorEnvelope(payload) && { envelope: payload }),
-    });
-  }
+  if (!response.ok) throw httpError(response, payload);
   if (!isJson || payload === undefined) {
     throw new ApiError("contract", "AQ returned a non-JSON response", { status: response.status });
   }
@@ -94,4 +115,22 @@ export function apiSend<T>(
 export function isProtectedReadFailure(error: unknown): error is Error {
   return error instanceof ContractError || (error instanceof ApiError &&
     (error.kind === "contract" || error.status === 401 || error.status === 403 || error.status === 426));
+}
+
+/** The sign-in itself is gone: the only per-request failure that may take over the shell. */
+export function isAuthenticationFailure(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 401;
+}
+
+/** A refusal of one request or resource. It stays in the view that asked (QA §2A). */
+export function isAccessRefusal(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 403;
+}
+
+/**
+ * The addressed item is missing, malformed or not visible to this principal.
+ * Retrying or polling cannot change the answer; show the neutral not-found view.
+ */
+export function isMissingResource(error: unknown): error is ApiError {
+  return error instanceof ApiError && [403, 404, 410, 422].includes(error.status ?? 0);
 }

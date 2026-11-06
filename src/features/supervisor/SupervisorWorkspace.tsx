@@ -17,8 +17,23 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
   const [returnable, setReturnable] = useState(false);
   useEffect(() => { if (!full) setReturnable(false); }, [full]);
   const returnFocus = useRef<HTMLElement | null>(null), launcher = useRef<HTMLButtonElement>(null);
-  const surfaces = useRef<HTMLDivElement>(null);
+  const surfaces = useRef<HTMLDivElement>(null), presentation = useRef<HTMLDivElement>(null), focusDock = useRef(false);
   const docked = dock && desktop && !full;
+  // Opening the dock moves focus into it (the launcher it replaces unmounts): the
+  // composer, else the dock heading (SO-14, ISSUE-007). Close returns it below.
+  useEffect(() => {
+    if (!docked || !focusDock.current) return;
+    let frame = 0, tries = 0;
+    const attempt = () => {
+      const pane = presentation.current;
+      const target = pane?.querySelector<HTMLElement>("textarea:not([disabled])") ?? pane?.querySelector<HTMLElement>("h2");
+      if (target) { focusDock.current = false; if (target.tagName === "H2" && !target.hasAttribute("tabindex")) target.tabIndex = -1; target.focus(); }
+      else if (++tries < 30) frame = requestAnimationFrame(attempt);
+      else focusDock.current = false;
+    };
+    frame = requestAnimationFrame(attempt);
+    return () => cancelAnimationFrame(frame);
+  }, [docked]);
   useEffect(() => { if (full) setOpened(true); }, [full]);
   useEffect(() => {
     const resize = () => setDesktop(window.innerWidth >= 1200);
@@ -48,9 +63,9 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
   const close = () => { setDock(false); requestAnimationFrame(() => (returnFocus.current?.isConnected ? returnFocus.current : launcher.current)?.focus()); };
   return <div ref={surfaces} className={styles.surfaces} data-docked={docked || undefined}>
     {/* In normal flow above the page, never floating over page content (gap SV-E). */}
-    {!full && !dock && <div className={styles.launcherBar}><button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) setDock(true); else void navigate("/supervisor"); }}>Open supervisor</button></div>}
+    {!full && !dock && <div className={styles.launcherBar}><button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) { focusDock.current = true; setDock(true); } else void navigate("/supervisor"); }}>Open supervisor</button></div>}
     <div className={styles.destination} data-supervisor-destination="" hidden={full}>{children}</div>
-    <div className={styles.presentation} hidden={!full && !(dock && desktop)} data-mode={full ? "full" : "dock"}>
+    <div ref={presentation} className={styles.presentation} hidden={!full && !(dock && desktop)} data-mode={full ? "full" : "dock"}>
       {(opened || full) && <SupervisorConversation key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${queryContext.contractVersion}`} presentation={full ? "full" : "dock"} visible={full || dock && desktop} controls={full ? <>
         {desktop ? <button type="button" className={styles.presentationButton} onClick={() => { setOpened(true); setDock(true); void navigate(returnTo.current); }}>Dock chat</button> : returnable && <button type="button" className={styles.presentationButton} onClick={() => void navigate(returnTo.current)}>Back</button>}
       </> : <>

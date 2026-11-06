@@ -40,5 +40,7 @@ test("a revoked read never leaves cached configured accounts visible", async () 
   server.use(http.get("/api/human/provider-accounts", () => HttpResponse.json({}, { status: 403 })));
   await act(async () => { await queryClient.refetchQueries({ queryKey: ["aq"], type: "active" }); });
   await waitFor(() => expect(screen.queryByText("OpenAI", { selector: "summary span span:first-child" })).not.toBeInTheDocument());
-  expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+  // QA §2A: a refused header read stays in the header; the rest of the dashboard remains.
+  expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Access denied" })).not.toBeInTheDocument();
 });

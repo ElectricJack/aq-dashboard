@@ -47,6 +47,8 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current?.close();},[open]);
  function clearPrivate(){frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setDraft({...blank});setReadError(null);setError(null);initialLookup.current=null;}
  function current(ticket:number){return active.current&&sequence.current===ticket;}
+ /** A 403 is one refused request, not a sign-out (WD-05): keep the draft and say so in the dialog. A refused submission was never admitted, so the draft is editable again. */
+ function refused(reason:ApiError,submission:boolean){reportAccessDenied(reason);const why=reason.envelope?.message?` ${reason.envelope.message}.`:"";if(submission){frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);operationParam();setError(`AQ refused this request; no task was created.${why} Your draft is preserved.`);}else setError(`AQ refused checking this operation.${why}`);}
  function revokeAccess(reason:ApiError){reportAccessDenied(reason);sequence.current++;active.current=false;request.current?.abort();request.current=null;busyRef.current=false;setBusy(false);clearPrivate();onAccessRevoked();void client.invalidateQueries({queryKey:["bootstrap"]});}
  function operationParam(value?:string){internalUrl.current={value};setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set("operation",value);else next.delete("operation");return next;},{replace:true});}
  async function verifyTask(value:TaskOperation,signal:AbortSignal,ticket:number){
@@ -55,7 +57,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
    const record=adaptGraphDetail(await apiGet<unknown>(graphPath(project,"task",value.task_id),signal),project,"task",value.task_id);
    if(record.project.workspace_id!==value.receipt.workspace_id)throw new Error("Task workspace changed");
    if(current(ticket)){setCreated(record.data);setReadError(null);void client.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","overview-task-contributions"].includes(String(q.queryKey[4]))});}
-  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}setCreated(null);setReadError("The creation receipt is confirmed, but the task record could not be read. Check the task record again.");}}
+  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&reason.status===401){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}if(reason instanceof ApiError&&reason.status===403)reportAccessDenied(reason);setCreated(null);setReadError(reason instanceof ApiError&&reason.status===403?"The creation receipt is confirmed, but AQ refused reading the task record.":"The creation receipt is confirmed, but the task record could not be read. Check the task record again.");}}
  }
  async function execute(kind:"submit"|"lookup"|"recover",id:string,intent?:FrozenTaskCreate){
   const ticket=++sequence.current;const controller=new AbortController();request.current=controller;
@@ -64,7 +66,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
    const raw=await taskOperationRequest(kind==="lookup"?"GET":"POST",path,kind==="submit"?intent!.bytes:kind==="recover"?"{}":undefined,controller.signal);
    const value=adaptTaskOperation(raw,{operationId:id,project,actor:queryContext.principalId,...(intent?{digest:intent.digest}:{})});
    if(!current(ticket))return;setStatus(value);setCreated(null);setReadError(null);setError(null);if(value.state==="confirmed")setDraft({...blank});await verifyTask(value,controller.signal,ticket);
-  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&[401,403].includes(reason.status??0)){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}setCreated(null);setError("The operation outcome is not confirmed. Check its status before starting another task.");}}
+  }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&reason.status===401){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===403){refused(reason,kind==="submit");return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}setCreated(null);setError("The operation outcome is not confirmed. Check its status before starting another task.");}}
   finally{if(current(ticket)){setBusy(false);busyRef.current=false;}if(request.current===controller)request.current=null;}
  }
  async function lookup(){if(!operation||busyRef.current)return;busyRef.current=true;setBusy(true);await execute("lookup",operation,frozenRef.current?.operationId===operation?frozenRef.current:undefined);}
