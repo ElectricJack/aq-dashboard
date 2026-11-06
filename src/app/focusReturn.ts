@@ -61,6 +61,9 @@ export function useBackFocusRestore(container: () => HTMLElement | null) {
     document.addEventListener("focusin", onFocus);
     const attempt = () => {
       const root = container();
+      // A page that restores its own focus (Work's graph node, a selected row) wins.
+      const active = document.activeElement;
+      if (root && active instanceof HTMLElement && active !== document.body && active.tagName !== "H1" && root.contains(active)) return finish();
       const links = root ? linksTo(root, origin.href) : [];
       const target = links[origin.index] ?? links[0];
       if (target) {
