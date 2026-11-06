@@ -47,7 +47,8 @@ for (const vp of VIEWPORTS) {
     test("header stacks title over summary with a visible Create task", async ({ page }) => {
       await page.goto("/overview");
       await expect(page.getByRole("region", { name: "Needs your attention" }).getByRole("listitem").first()).toBeVisible({ timeout: 15_000 });
-      await expect(summary(page)).toHaveText("3 decisions need you. Work is moving in 4 projects.");
+      // SO-07: only projects reporting running work count as moving (one of the four mock projects runs nothing).
+      await expect(summary(page)).toHaveText("3 decisions need you. Work is moving in 3 projects.");
       await expectStackedHeader(page);
       // All projects: the existing Work path asks for a project first.
       const create = page.getByRole("button", { name: /create task/i });
