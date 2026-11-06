@@ -3,6 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import task from "../../../contracts/live/human-graph/examples/task.json";
+import workExample from "../../../contracts/live/human-graph/examples/work.json";
+import historyExample from "../../../contracts/live/human-graph/examples/history.json";
+import resultsValid from "../../../contracts/pinned/results-feedback/v1/fixtures/valid.json";
+import resultsCompat from "../../../contracts/pinned/results-feedback/v1/fixtures/compatibility.json";
 import { handlersFor } from "../../mocks/handlers";
 import { FIXTURE_IDS } from "../../mocks/humanGraph";
 import { renderApp } from "../../test/renderApp";
@@ -396,7 +400,90 @@ test("item 13: a comment read this bundle can't adapt fails only its section", a
 const workRead = (id: string, execution: { attempt_id: string; session_id: string; status: string } | null, state = "running") =>
   http.get(`${graph}/${id}/work`, () => HttpResponse.json({ ...task, data: { task_id: id, task_state: "active", version: "1", readiness: { state, blockers: [], complete: true }, parent: null, execution: execution && { task_id: id, ...execution } } }));
 
-test("P1-01: 'running' held by a finished attempt is qualified, never shown as Running", async () => {
+test("aq-server #99: the server's held example reads Held with AQ's reason, in the badge, Status and the list row", async () => {
+  // work.json is the base fixture task's work read (same project and task IDs).
+  server.use(http.get(`${graph}/${workExample.data.task_id}/work`, () => HttpResponse.json(workExample)));
+  const { region } = await open(workExample.data.task_id);
+  const badge = await within(region).findByText(/^Held/, { selector: "[data-task-status] span" });
+  expect(badge).toHaveTextContent("Held · cancelled attempt holds it");
+  expect(badge).not.toHaveTextContent(/Held by a/);
+  const chip = badge.closest("[data-task-status]")!;
+  expect(chip).toHaveAttribute("data-status", "held"); expect(chip).toHaveAttribute("data-readiness", "held");
+  expect(chip).toHaveAttribute("title", workExample.data.readiness.reasons[0]!.message);
+  const status = section(region, "Status");
+  const reasons = within(status).getByRole("list", { name: "Why the task is held" });
+  expect(within(reasons).getByText(workExample.data.readiness.reasons[0]!.message)).toBeVisible();
+  expect(reasons.querySelector("[data-hold-reason=cancelled_attempt_holds_task]")).not.toBeNull();
+  // The reason names the holding attempt shown below, so it isn't repeated.
+  expect(within(reasons).queryByRole("button", { name: "Copy held attempt ID" })).toBeNull();
+  expect(within(status).getByText(/AQ isn't running this task/)).toBeVisible();
+  // The client-side fallback sentence is not used when AQ itself says held.
+  expect(status.querySelector("[data-held-reason]")).toBeNull();
+  expect(within(status).getByRole("link", { name: "Open session" })).toHaveAttribute("href", expect.stringContaining(`/agents/${workExample.data.execution.session_id}`));
+  expect(within(status).queryByRole("link", { name: "Open terminal" })).toBeNull();
+  // The list row of the inspected task follows AQ's held (the list page itself carries no readiness).
+  const row = within(screen.getByRole("list", { name: "Tasks" })).getByRole("link", { name: new RegExp(task.data.title) });
+  expect(within(row).getByRole("img", { name: "Held" })).toBeVisible();
+});
+
+test("W77: a readiness value this bundle doesn't know reads as a neutral Unknown (value), not a failed read", async () => {
+  server.use(workRead(FIXTURE_IDS.approve, null, "paused"));
+  const { region } = await open(FIXTURE_IDS.approve);
+  const badge = await within(region).findByText("Unknown (paused)", { selector: "[data-task-status] span" });
+  expect(badge.closest("[data-task-status]")).toHaveAttribute("data-status", "unrecognized");
+  expect(within(section(region, "Status")).getByText(/AQ reported the readiness “paused”, which this dashboard version doesn't know/)).toBeVisible();
+  expect(within(section(region, "Status")).queryByRole("button", { name: /Retry task readiness/ })).toBeNull();
+});
+
+test("aq-server #99: History shows each change's summary and from → to values from the server's example", async () => {
+  let example: object = historyExample;
+  server.use(http.get(`${graph}/${historyExample.data.task_id}/history`, () => HttpResponse.json(example)));
+  const first = await open(historyExample.data.task_id);
+  const history = section(first.region, "History");
+  await userEvent.click(within(history).getByRole("button", { name: "History" }));
+  const list = await within(history).findByRole("list", { name: "Change history" });
+  await userEvent.click(within(history).getByRole("button", { name: "Show all 7 changes" }));
+  const items = entries(list);
+  // Newest first: the undescribed legacy entry (change null) shows only its operation.
+  expect(items[0]!.querySelector("[data-history-change]")).toBeNull();
+  expect(items[1]).toHaveTextContent("active → completed");
+  expect(items[1]!.querySelector("[data-field=task_state]")).toHaveTextContent(/^State active →\s*to completed$/);
+  expect(items[4]).toHaveTextContent("priority 0 → 5");
+  expect(items[4]!.querySelector("[data-field=priority]")).toHaveTextContent(/^Priority 0 →\s*to 5$/);
+  expect(items[3]).toHaveTextContent("added blocks from 00000000");
+  expect(within(items[3]!).getByRole("button", { name: "Copy related node ID" })).toBeVisible();
+  expect(items[5]!.querySelector("[data-field=task_state]")).toHaveTextContent(/^State active$/);
+  expect(within(list).queryByText("Partial")).toBeNull();
+  first.unmount();
+  // A revision AQ couldn't compare with the previous one is marked partial.
+  const partial = structuredClone(historyExample);
+  partial.data.items[2]!.change = { summary: "revision changed", fields: [], edge: null, complete: false };
+  example = partial;
+  const { region } = await open(historyExample.data.task_id);
+  const h2 = section(region, "History");
+  // The section stays open from the first visit (section memory).
+  expect(within(h2).getByRole("button", { name: "History" })).toHaveAttribute("aria-expanded", "true");
+  const l2 = await within(h2).findByRole("list", { name: "Change history" });
+  await userEvent.click(within(h2).getByRole("button", { name: "Show all 7 changes" }));
+  expect(entries(l2)[4]).toHaveTextContent("revision changed Partial");
+});
+
+test("aq-server #99: task Results show the worker's process outcome; an unknown value reads Unknown (value)", async () => {
+  const { region, unmount } = await open(FIXTURE_IDS.replay);
+  const results = section(region, "Results");
+  await within(results).findByRole("link", { name: /Replay reconciliation now merges/ });
+  expect(within(results).getByText("Process: Succeeded")).toHaveAttribute("data-process-outcome", "success");
+  unmount();
+  const d = structuredClone(resultsValid.find(f => f.type === "Detail")!.value) as { result: { project_id: string; task_id: string }; revision: { process_outcome?: string; summary: string } };
+  d.result.project_id = project; d.result.task_id = FIXTURE_IDS.replay; d.revision.process_outcome = "passed"; d.revision.summary = "Fixture: a future outcome";
+  server.use(http.get("/api/v1/results", () => HttpResponse.json({ ...resultsCompat.read, data: { items: [d], next_cursor: null }, scope: { kind: "project", project_id: project } })));
+  const other = await open(FIXTURE_IDS.replay);
+  const r2 = section(other.region, "Results");
+  await within(r2).findByRole("link", { name: "Fixture: a future outcome" });
+  expect(within(r2).getByText("Process: Unknown (passed)")).toHaveAttribute("data-process-outcome", "unrecognized");
+});
+
+test("P1-01 fallback (server without held): 'running' held by a finished attempt is qualified, never shown as Running", async () => {
   server.use(workRead(FIXTURE_IDS.replay, { attempt_id: fixtureId(0x301), session_id: fixtureId(0x302), status: "finished" }));
   const { region } = await open(FIXTURE_IDS.replay);
   const badge = await within(region).findByText(/^Held by/, { selector: "[data-task-status] span" });
@@ -410,7 +497,7 @@ test("P1-01: 'running' held by a finished attempt is qualified, never shown as R
   expect(within(status).queryByRole("link", { name: "Open terminal" })).toBeNull();
 });
 
-test("P1-01: the history read's attempt status qualifies a work read that still says running", async () => {
+test("P1-01 fallback: the history read's attempt status qualifies a work read that still says running", async () => {
   server.use(http.get(`${graph}/${FIXTURE_IDS.replay}/history`, () => HttpResponse.json({ ...task, data: { task_id: FIXTURE_IDS.replay, items: [], next_cursor: null, attempts_truncated: false,
     attempts: [{ attempt_id: fixtureId(0x301), session_id: fixtureId(0x302), holds_task: true, status: "finished" }] } })));
   const { region } = await open(FIXTURE_IDS.replay);

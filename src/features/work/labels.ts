@@ -59,11 +59,14 @@ export const workStateFilter = (value: string | null): WorkStateFilter | undefin
  * Graph lifecycle plus "running" from the page's `executions`, so an active task there is "active", not "ready";
  * the inspector's work read gives the readiness states.
  */
-export type TaskStatus = "draft" | "active" | "ready" | "running" | "held" | "waiting" | "unknown" | "completed" | "canceled";
+export type TaskStatus = "draft" | "active" | "ready" | "running" | "held" | "waiting" | "unknown" | "unrecognized" | "completed" | "canceled";
+/** `unrecognized` is a readiness value from a newer server; the badge shows it as "Unknown (value)" (W77). */
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  draft: "Draft", active: "Active", ready: "Ready", running: "Running", held: "Held by a finished attempt", waiting: "Waiting",
-  unknown: "Readiness unknown", completed: READINESS_LABEL.done, canceled: READINESS_LABEL.canceled,
+  draft: "Draft", active: "Active", ready: "Ready", running: "Running", held: "Held", waiting: "Waiting",
+  unknown: "Readiness unknown", unrecognized: "Unknown state", completed: READINESS_LABEL.done, canceled: READINESS_LABEL.canceled,
 };
+/** "Unknown (value)": a neutral label for an open-enum value this bundle doesn't know (W77). */
+export const unrecognizedLabel = (value: string) => `Unknown (${value})`;
 /**
  * Attempt statuses after which no agent works on the task (aq-server execution authority: `finished`, `declined`,
  * `never_granted`; the fixture outcomes too). An attempt in one of them that still holds the task isn't "running"
@@ -71,8 +74,13 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
  */
 const ENDED_ATTEMPT = new Set(["finished", "declined", "never_granted", "failed", "succeeded", "canceled", "cancelled", "expired", "stopped"]);
 export const attemptEnded = (status: string | null | undefined) => !!status && ENDED_ATTEMPT.has(status.toLowerCase());
-/** List status: the lifecycle state, or running when an attempt holds the task (held when that attempt has ended). */
-export function listStatus(task: { task_state: string | null }, holding: string | boolean | null | undefined): TaskStatus {
+/**
+ * List status: the lifecycle state, or running when an attempt holds the task (held when that attempt has ended).
+ * List pages carry no readiness, so the ended-attempt rule is the list's own; `readiness`, the task's work read
+ * when it is loaded (the inspected task), wins when the server says the task is held (aq-server #99).
+ */
+export function listStatus(task: { task_state: string | null }, holding: string | boolean | null | undefined, readiness?: string): TaskStatus {
+  if (task.task_state === "active" && readiness === "held") return "held";
   if (task.task_state === "active") return !holding ? "active" : typeof holding === "string" && attemptEnded(holding) ? "held" : "running";
   return task.task_state === "draft" || task.task_state === "completed" || task.task_state === "canceled" ? task.task_state : "unknown";
 }
