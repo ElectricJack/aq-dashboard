@@ -1,10 +1,12 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
+  "commit": "7b1be60cbb418a00266579b9a2fd438c02df2640",
   "path": "protocol/human-graph/v1",
   "files": {
-    "README.md": "18b427b3bc80720600bd1ea4a9e98659f2b33823bf5e1c542436c6405bc528f3",
+    "README.md": "54e7d87fe29ca8dbb458a923908bda2ad0f399a40472edb94bc15e89548afbe0",
+    "examples/comments.json": "b334a762abcacb991c96d163f5c0abbccb4924be61443f8480c725d062ebafc7",
     "examples/task.json": "f257d9d95ce90ea69259151a016df79df728c190a8084acbfd516d1076307914",
-    "schema.json": "c56cf4f4fee67088bf964dda5566628284ca6110963c7f95b9718885e7fa3265"
-  }
+    "schema.json": "5e4b55e93f58b4bc06c068b70f44e0820f110929e5b167327abcaeeae07a7e91"
+  },
+  "note": "Pinned to aq-server branch parity/p1-comments (task comments, spec 0004 §4.1) until it merges to main."
 }

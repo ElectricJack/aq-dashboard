@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
+  "commit": "7b1be60cbb418a00266579b9a2fd438c02df2640",
   "path": "protocol/dashboard-actions/v1",
   "files": {
-    "README.md": "2988f871dfa53fe43fe64d5cb98ce1005798272e5ff20e27b528fca0d1c65fbc",
-    "check.py": "4455f11db1436ebaee690d1706d18c6fa44ec64b278347b5667f470c5cec2e18",
-    "fixtures/compatibility.json": "5005bc5401d079774e1d323d676d45eb1df33b9c8f9aadfba41af79b2dbf1520",
+    "README.md": "a9ad9442e91dbee56fa915ca7150942f64e501932fa08cf2ce91b49fa096738f",
+    "check.py": "9a2d6d03b078db19d65f4d29b8b20c0968cd818a713e9ac125e080053ebddd61",
+    "fixtures/compatibility.json": "cfade0ed9a9042162ca508b2355c5f72249a45253724881ab33f2e4d617e3db2",
     "fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -17,12 +17,13 @@
     "fixtures/error-429.json": "1597ae5d23dbd1f1b0144d0000d57d8d525b9b0c0eb97afa39465fe0aebd29e7",
     "fixtures/error-503.json": "e1003a4e028bb92211d2ef07e03693e3a31e7d84841edf07ed193bc3b37ee1e7",
     "fixtures/expired-cursor.json": "c88a692183565d08e896ab954985023b2ca4faa271c391e7724d6203e5bba971",
-    "fixtures/invalid.json": "b57613f1c627c9c965196142e7b9b5dddbeef0349d884f5c95741c6429d59739",
+    "fixtures/invalid.json": "0345c702827bd97846258d9b824735cd0f82f3ee6dd314e44abe3ddbf06c4801",
     "fixtures/operation-confirmed.json": "00acd7d41385a635ac638f48e052a525aff666b5167fc7daed5024584ffdc3c4",
     "fixtures/operation-conflict-current-versions.json": "baa1b625034e1005eaeb6a82f7367769393595ba60ae092c696d2a209147e000",
     "fixtures/operation-conflict.json": "d5a7167ec55064893b8c8911bb3d7d190d22f903e37ddb46932fe17a57a57cfe",
     "fixtures/operation-pending.json": "d25e55f8a16384c86caafd0d38373d1c08e58fc291be9619b5aa7e64f34d0830",
     "fixtures/operation-rejected.json": "90e120fbd98d8eeac943b87920839ad990d350fb92373a1e638b6f191b9da3e5",
+    "fixtures/operation-task-comment-conflict.json": "e10d62b43b45245189ac61f278ce95e2db02eba6e359c6b66f353666bd528cfd",
     "fixtures/operation-unknown.json": "2806bcf51dcb2c537e5f28400cddc8962ee22072348ed1cfd828c9bff80dd594",
     "fixtures/replay-task-graph-create.json": "657c5e903574861629270f968f330989fb89d1b2db7d20ac6955bbec6c9208f2",
     "fixtures/replay.json": "b5a7753b22c88828a560537068d1d3c633ef932b0f83abf7afa376cb911c5caf",
@@ -39,6 +40,9 @@
     "fixtures/request-session-message-send.json": "2d53f5324f010334ea3b8a4cd496a5f55abe0ed0a9948e612f81b7891ecd5464",
     "fixtures/request-supervisor-message-send.json": "18c2a8a37e89bc9a71c632403392d0609f518bc8d8d986abca23d2167adebe80",
     "fixtures/request-task-cancel.json": "b586aef7b6d990f23359969fac2995ce3a1b4ab93d347a8425029d14f578648c",
+    "fixtures/request-task-comment-add.json": "2883f2e724f32fbee85c6f52fdaf8c3f63080a193ec34ccce5f68e96bfc0b15d",
+    "fixtures/request-task-comment-delete.json": "3cbc259a42d9a2852311cb21c49b9ec590622012a41371decf596ea8fe098107",
+    "fixtures/request-task-comment-edit.json": "da143a5657c92318782b0d4b64fb2b5340ba938b0a44a165966765799344d46b",
     "fixtures/request-task-create-metadata.json": "9bb66914d76af754ac3b263fe19a6bfe2a200f7c5ac77eff8f85579575a36c46",
     "fixtures/request-task-create.json": "74e509719353a518acdbde71125aca2d4b25ba989fd3219244254ae2ce1e6699",
     "fixtures/request-task-dependency-add.json": "2e38bb567b63a66697ba59d6bda902d0372850ae834cb82a70bd8c82c68be39e",
@@ -47,6 +51,7 @@
     "fixtures/request-task-graph-create.json": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d",
     "fixtures/request-task-reprioritize.json": "d435fe266bad6e9588f68b89672fd66d59537b9bb1eba9bc770a4685432341dc",
     "fixtures/request-task-retry.json": "1b3a7ee5eec647c046c5e888bd2b3fda08542ec34d7e26c6612057cd0ccf96d8",
-    "schema.json": "0e613001a16fe9474db5ac04d18192f3f3d6a3023f78ef025e989652910b03ad"
-  }
+    "schema.json": "6b8c255bb66190705fa13df23f2cb7761e409f8c3bbb705cac09f7f3635df9ec"
+  },
+  "note": "Pinned to aq-server branch parity/p1-comments (task comments, spec 0004 §4.1) until it merges to main."
 }
