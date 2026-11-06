@@ -16,6 +16,8 @@ type Props = {
    * label starts with "this ".
    */
   subject?: "item" | "collection";
+  /** Distinguishes several retry buttons on one page: "Try again" plus this hidden suffix, e.g. "playbook runs". */
+  retryLabel?: string;
 };
 
 export const NOT_FOUND_TEXT = "This item does not exist or is not available to you.";
@@ -46,7 +48,7 @@ function describe(error: unknown, label: string, item: boolean): { text: string;
  * Loading and failure presentation for a read. Neither state may resemble
  * an empty successful result (docs/specs/0002 §10).
  */
-export function QueryStatus({ status, error, label, onRetry, subject }: Props) {
+export function QueryStatus({ status, error, label, onRetry, subject, retryLabel }: Props) {
   if (status === "pending") {
     return (
       <p className={styles.status} role="status">
@@ -60,7 +62,7 @@ export function QueryStatus({ status, error, label, onRetry, subject }: Props) {
       <p>{text}</p>
       {retry && (
         <button type="button" className={styles.retry} onClick={onRetry}>
-          Try again
+          Try again{retryLabel && " "}{retryLabel && <span className="visually-hidden">{retryLabel}</span>}
         </button>
       )}
     </div>

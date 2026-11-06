@@ -64,7 +64,7 @@ for (const vp of VIEWPORTS) {
 
     test("run detail and activation detail share one back control above the H2", async ({ page }) => {
       await page.goto(run);
-      const runHeading = page.getByRole("heading", { level: 2, name: "worker-recovery" });
+      const runHeading = page.getByRole("heading", { level: 2, name: "Worker recovery" });
       await expect(runHeading).toBeVisible({ timeout: 30_000 });
       const tablist = page.getByRole("tablist", { name: "Playbook views" });
       if (vp.phone) {

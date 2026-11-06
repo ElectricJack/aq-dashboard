@@ -7,6 +7,7 @@ import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { formatAge, formatElapsed } from "../../components/time/relative";
+import { ApiError } from "../../api/client";
 import { scopeSearch, useScope } from "../../app/scope";
 import { FACT_LABEL, subjectPath } from "../../app/subjects";
 import { useRead } from "../../app/useRead";
@@ -30,6 +31,62 @@ const ACTION_LABEL: Record<AttentionView["kind"], string> = {
   uncertain_operation: "Reconcile",
   unsupported: "Open",
 };
+
+/**
+ * Recent outcome labels. The server sends `process_<outcome>` for recorded
+ * results and `settlement_<disposition>` for settlement evaluations; the shared
+ * FACT_LABEL covers the rest. Anything else stays "Unsupported outcome".
+ */
+const OUTCOME_LABEL: Record<string, string> = {
+  ...FACT_LABEL,
+  process_success: "Process succeeded",
+  process_failed: "Process failed",
+  process_cancelled: "Process cancelled",
+  process_expired: "Process expired",
+  process_unknown: "Process outcome unknown",
+  settlement_stale: "Settlement stale",
+  settlement_needs_reconciliation: "Settlement needs reconciliation",
+};
+type OutcomeTone = "success" | "error" | "neutral";
+const OUTCOME_TONE: Record<string, OutcomeTone> = {
+  process_success: "success",
+  settlement_accepted: "success",
+  result_accepted: "success",
+  task_completed: "success",
+  merged: "success",
+  deployed: "success",
+  candidate_published: "success",
+  result_submitted: "success",
+  source_retained: "success",
+  process_failed: "error",
+  settlement_rejected: "error",
+};
+const OUTCOME_ICON: Record<OutcomeTone, LucideIcon> = { success: CircleCheck, error: TriangleAlert, neutral: CircleHelp };
+
+export function outcomeLabel(outcome: string): string {
+  return OUTCOME_LABEL[outcome] ?? "Unsupported outcome";
+}
+
+/** Short, stable reference for links that share a server title (WCAG 2.4.4). */
+function shortRef(ref: { id: string; revision?: string | null }): string {
+  const revision = ref.revision?.replace(/^sha256:/, "");
+  return revision && /^[0-9a-f]{12,}$/i.test(revision) ? revision.slice(0, 7) : ref.id.slice(0, 8);
+}
+
+/**
+ * The server may report one offline worker once per project it ran attempts for.
+ * A worker is installation-wide, so keep one row per worker.
+ */
+export function dedupeAttention(items: readonly AttentionView[]): AttentionView[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (item.kind !== "worker_offline") return true;
+    const key = `${item.subject.type}:${item.subject.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 type ConstraintTone = "attention" | "error" | "success" | "unknown";
 
@@ -76,8 +133,13 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   const path = item.kind === "unsupported" ? null : subjectPath(item.subject);
   const label = ACTION_LABEL[item.kind];
   const age = item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown";
+  const worker = item.kind === "worker_offline";
+  // Workers are installation-wide; a project association is not ownership.
+  const where = worker ? "Installation-wide" : item.project?.label ?? "Installation";
+  const name = worker ? `${item.title}, worker ${shortRef({ id: item.subject.id })}` : item.title;
   const secondary = [
-    item.project?.label ?? "Installation",
+    where,
+    worker ? `worker ${shortRef({ id: item.subject.id })}` : null,
     age,
     item.reason,
     item.action && !item.action.allowed ? item.action.explanation : null,
@@ -87,16 +149,16 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
     <li className={styles.attentionRow} data-attention-row="" data-kind={item.kind}>
       <Icon icon={ATTENTION_ICON[item.kind]} size={28} className={styles.kindIcon} />
       <div className={styles.attentionMain}>
-        <span className={styles.rowTitle} title={item.title}>{item.title}</span>
+        <span className={styles.rowTitle}>{item.title}</span>
         <span className={styles.rowSecondary} title={secondary}>{secondary}</span>
       </div>
-      <span className={styles.impact} title={item.impact}>{item.impact}</span>
+      <span className={styles.impact}>{item.impact}</span>
       {path ? (
-        <Link className={styles.action} to={{ pathname: path, search }} aria-label={`${label}: ${item.title}`}>
+        <Link className={styles.action} to={{ pathname: path, search }} aria-label={`${label}: ${name}`}>
           {actionContent}
         </Link>
       ) : item.kind === "worker_offline" || item.kind === "uncertain_operation" ? (
-        <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${item.title}`} onClick={() => setInspect(!inspect)}>{actionContent}</button>
+        <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${name}`} onClick={() => setInspect(!inspect)}>{actionContent}</button>
       ) : (
         <span className={styles.meta}>{item.kind === "unsupported" ? "Unsupported item type" : "Inspection unavailable"}</span>
       )}
@@ -105,8 +167,25 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   );
 }
 
+type NeedsYou = TotalView & { atLeast?: boolean };
+
+/**
+ * The needs-you total never claims fewer items than the attention list shows.
+ * When the server total is lower or unknown, the shown rows are a lower bound.
+ */
+export function reconcileNeedsYou(total: TotalView, shown: number): NeedsYou {
+  if (shown > 0 && (total.value === null || shown > total.value)) return { value: shown, accuracy: "estimated", atLeast: true };
+  return total;
+}
+
+function NeedsYouCount({ total }: { total: NeedsYou }) {
+  if (total.atLeast) return <span aria-label={`at least ${total.value}`}>{total.value}+</span>;
+  return <CountLabel total={total} />;
+}
+
 /** Plain-language attention count: estimated counts say "About", unknown never reads as zero. */
-function attentionSentence(total: TotalView): string {
+export function attentionSentence(total: NeedsYou): string {
+  if (total.atLeast) return `At least ${total.value} ${total.value === 1 ? "item needs" : "items need"} you.`;
   if (total.value === null) return "The number of decisions that need you is unknown.";
   const n = total.value;
   if (n === 0) return total.accuracy === "estimated" ? "Few or no decisions need you." : "No decisions need you.";
@@ -114,13 +193,17 @@ function attentionSentence(total: TotalView): string {
   return total.accuracy === "estimated" ? `About ${phrase}` : phrase;
 }
 
-function motionSentence(projects: number, complete: boolean): string {
+/** "Moving" means a reported running count above zero, not merely a listed project. */
+export function motionSentence(inMotion: OverviewView["inMotion"], complete: boolean): string {
+  const projects = inMotion.filter((m) => (m.running.value ?? 0) > 0).length;
   if (projects > 0) return `Work is moving in ${projects} ${projects === 1 ? "project" : "projects"}.`;
+  if (inMotion.some((m) => m.running.value === null)) return "Project movement is not reported.";
+  if (inMotion.length > 0) return "No work is running.";
   return complete ? "No work is in motion." : "Project movement is not reported.";
 }
 
 /** Title and summary on the left, the primary Create task action on the right (reference 01). */
-function OverviewHeader({ children }: { children: ReactNode }) {
+function OverviewHeader({ children, action = true }: { children: ReactNode; action?: boolean }) {
   const { bootstrap } = useSession();
   return (
     <div className={styles.header}>
@@ -128,7 +211,7 @@ function OverviewHeader({ children }: { children: ReactNode }) {
         <PageTitle>Overview</PageTitle>
         <p className={styles.summary} data-testid="overview-summary">{children}</p>
       </div>
-      {bootstrap.capability("tasks.create").enabled && (
+      {action && bootstrap.capability("tasks.create").enabled && (
         <div className={styles.headerAction}>
           <CreateTaskAction />
         </div>
@@ -137,35 +220,59 @@ function OverviewHeader({ children }: { children: ReactNode }) {
   );
 }
 
-function Attention({ view, serverTime, complete, search }: {
+function Attention({ view, attention, total, serverTime, complete, search }: {
   view: OverviewView;
+  attention: AttentionView[];
+  total: NeedsYou;
   serverTime: string;
   complete: boolean;
   search: string;
 }) {
-  const total = view.counts.needs_you;
+  const workers = view.sources.find((source) => source.source === "workers");
+  const partialWorkers = attention.some((a) => a.kind === "worker_offline") && workers !== undefined && workers.coverage.state !== "complete";
   return (
     <section className={styles.panel} aria-labelledby="attention-heading">
       <div className={styles.panelHeading}>
         <h2 id="attention-heading">Needs your attention</h2>
         <Link className={styles.viewAll} to={{ pathname: "/decisions", search }}>
-          View all{total.value !== null && <> <CountLabel total={total} /></>}
+          View all{total.value !== null && <> <NeedsYouCount total={total} /></>}
           <Icon icon={ArrowRight} size={16} />
         </Link>
       </div>
       {!complete && (
         <p className={styles.warning}>Attention may be incomplete.</p>
       )}
-      {view.attention.length > 0 ? (
+      {attention.length > 0 ? (
         <ul className={styles.attentionList}>
-          {view.attention.map((a) => (
+          {attention.map((a) => (
             <AttentionRow key={a.id} item={a} serverTime={serverTime} search={search} />
           ))}
         </ul>
       ) : (
         complete && <p className={styles.empty}>Nothing needs your attention</p>
       )}
+      {partialWorkers && (
+        <p className={styles.meta}>Offline workers are listed here only when the server can relate them to recorded work. Capacity › More capacity › Worker nodes shows every heartbeat.</p>
+      )}
     </section>
+  );
+}
+
+/** A project-scoped read the server refuses as invalid or unknown (not a transient failure). */
+function unavailableProject(scopeKind: string, error: unknown): boolean {
+  return scopeKind === "project" && error instanceof ApiError && [400, 404, 422].includes(error.status ?? 0);
+}
+
+function ProjectUnavailable() {
+  return (
+    <div className={styles.layout}>
+      <OverviewHeader action={false}>This project is not available.</OverviewHeader>
+      <section className={styles.panel} aria-labelledby="project-unavailable-heading">
+        <h2 id="project-unavailable-heading">Project not available</h2>
+        <p>This project does not exist or is not available to you.</p>
+        <Link to={{ pathname: "/overview" }}>Show all projects →</Link>
+      </section>
+    </div>
   );
 }
 
@@ -182,6 +289,7 @@ export function Overview() {
     pollMs: OVERVIEW_POLL_MS,
   });
 
+  if (!query.data && unavailableProject(scope.kind, query.error)) return <ProjectUnavailable />;
   if (!query.data && !query.isError) return (
     <div className={styles.layout}>
       <OverviewHeader>Checking what needs you…</OverviewHeader>
@@ -213,9 +321,12 @@ export function Overview() {
 
   const { view, serverTime, coverage } = query.data;
   const complete = coverage.state === "complete" && !query.isError && view.sources.every(source => source.coverage.state === "complete");
+  const attention = dedupeAttention(view.attention);
+  const needsYou = reconcileNeedsYou(view.counts.needs_you, attention.length);
+  const canOpenWork = bootstrap.capability("tasks.read").enabled;
   return (
     <div className={styles.layout}>
-      <OverviewHeader>{attentionSentence(view.counts.needs_you)} {motionSentence(view.inMotion.length, complete)}</OverviewHeader>
+      <OverviewHeader>{attentionSentence(needsYou)} {motionSentence(view.inMotion, complete)}</OverviewHeader>
       {/* SO-13: a failed refresh or an offline browser marks the kept read with its age. */}
       <RetainedNotice query={query} className={styles.warning} />
       <ul className={styles.counts} aria-label="Work counts">
@@ -230,7 +341,7 @@ export function Overview() {
           <li key={key} data-count={key}>
             <Icon icon={COUNT_ICON[key]} size={24} className={styles.countIcon} />
             <strong>
-              <CountLabel total={view.counts[key]} />
+              {key === "needs_you" ? <NeedsYouCount total={needsYou} /> : <CountLabel total={view.counts[key]} />}
             </strong>{" "}
             <span>{label}</span>
           </li>
@@ -239,7 +350,7 @@ export function Overview() {
       {coverage.reason && view.sources.length === 0 && <details className={styles.coverageDisclosure}><summary>Partial overview</summary><p>{coverage.reason}</p></details>}
       {view.sources.length > 0 && <details className={styles.coverageDisclosure}><summary>Source coverage</summary><ul className={styles.sourceList}>{view.sources.map((source,index)=><li key={`${source.source}:${source.project?.id??index}`}><strong>{source.source.replaceAll('_',' ')}</strong> · {source.coverage.state} · <CountLabel total={source.total} /> records · {source.observation ? formatAge(serverTime,source.observation.observed_at) : 'Observation unavailable'}{source.project && ` · ${source.project.label}`}{source.coverage.reason && <span>{source.coverage.reason.replaceAll('_',' ')}</span>}</li>)}</ul></details>}
       <div className={styles.columns}><div className={styles.primary}>
-      <Attention view={view} serverTime={serverTime} complete={complete} search={search} />
+      <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
         {<div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
@@ -255,7 +366,11 @@ export function Overview() {
             <tbody>
               {view.inMotion.map((m) => (
                 <tr key={m.project.id} className={styles.motionRow}>
-                  <th scope="row" className={styles.motionProject}>{m.project.label}</th>
+                  <th scope="row" className={styles.motionProject}>
+                    {canOpenWork ? (
+                      <Link to={{ pathname: "/work", search: scopeSearch({ kind: "project", project_id: m.project.id }) }}>{m.project.label}</Link>
+                    ) : m.project.label}
+                  </th>
                   <td className={styles.motionNow}>
                     <CountLabel total={m.running} /> running
                   </td>
@@ -267,7 +382,7 @@ export function Overview() {
           </table>
         </div>}
         {view.inMotion.length === 0 && <p className={styles.meta}>{complete ? "No work in motion" : "Project movement not reported"}</p>}
-        {taskContributions && <details className={styles.observationDetails}><summary>Recorded task details</summary><RecordedTasks embedded /></details>}
+        {taskContributions && <details className={styles.observationDetails}><summary>Recorded task details</summary><RecordedTasks embedded serverTime={serverTime} /></details>}
       <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
         <h2 id="outcomes-heading">Recent outcomes</h2>
         {view.recentOutcomes.length === 0 ? (
@@ -276,12 +391,19 @@ export function Overview() {
           <ul className={styles.outcomes}>
             {view.recentOutcomes.map((r) => {
               const path = subjectPath(r.subject);
+              const tone = OUTCOME_TONE[r.outcome] ?? "neutral";
+              const label = outcomeLabel(r.outcome);
+              const age = formatAge(serverTime, r.at);
               return (
-                <li key={`${r.subject.id}:${r.outcome}`}>
-                  <Icon icon={r.outcome === "process_failed" ? TriangleAlert : CircleCheck} size={20} className={r.outcome === "process_failed" ? styles.kindIcon : styles.outcomeIcon} />
-                  {path ? <Link to={{ pathname: path, search }}>{r.subject.title}</Link> : <span>{r.subject.title}</span>}
+                <li key={`${r.subject.id}:${r.outcome}`} data-outcome-tone={tone}>
+                  <Icon icon={OUTCOME_ICON[tone]} size={20} className={styles.outcomeIcon} />
+                  {path ? (
+                    <Link to={{ pathname: path, search }} aria-label={`${r.subject.title} ${shortRef(r.subject)}, ${label}, ${age}`}>
+                      {r.subject.title} <span className={styles.meta}>{shortRef(r.subject)}</span>
+                    </Link>
+                  ) : <span>{r.subject.title}</span>}
                   <span className={styles.meta}>
-                    {FACT_LABEL[r.outcome] ?? "Unsupported outcome"} · {r.project.label} · {formatAge(serverTime, r.at)}
+                    {label} · {r.project.label} · {age}
                   </span>
                 </li>
               );
@@ -291,7 +413,7 @@ export function Overview() {
         <Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link>
       </section>
       </section>
-      </div><Infrastructure /></div>
+      </div><Infrastructure serverTime={serverTime} /></div>
     </div>
   );
 }

@@ -6,14 +6,21 @@ type Props = {
   onChange(scope: Scope): void;
   /** Authorized projects; empty until a projects read model is published (D01). */
   projects: readonly { id: string; label: string }[];
+  /** The project list has loaded; a selected project missing from it is then unavailable. */
+  projectsLoaded?: boolean;
   className?: string;
 };
 
-export function ScopePicker({ scope, onChange, projects, className }: Props) {
+/** Never present a raw id from the URL as a project name. */
+export function unlistedProjectLabel(projectsLoaded: boolean | undefined): string {
+  return projectsLoaded ? "Unavailable project" : "Selected project";
+}
+
+export function ScopePicker({ scope, onChange, projects, projectsLoaded, className }: Props) {
   const current = scopeParam(scope) ?? "all";
   const options = [...projects];
   if (scope.kind === "project" && !options.some((p) => p.id === scope.project_id)) {
-    options.push({ id: scope.project_id, label: scope.project_id });
+    options.push({ id: scope.project_id, label: unlistedProjectLabel(projectsLoaded) });
   }
   return (
     <label className={className}>

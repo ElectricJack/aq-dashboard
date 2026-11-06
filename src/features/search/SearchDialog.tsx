@@ -18,6 +18,33 @@ import styles from "./SearchDialog.module.css";
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 250;
+/** AQ refuses a query longer than 256 UTF-8 bytes (aq-server dashboard_api/search.rs). */
+export const MAX_QUERY_BYTES = 256;
+/** AQ cuts hit titles at 256 characters; a cut title ends at a word with an ellipsis. */
+const SERVER_TITLE_CHARS = 256;
+
+/** Control characters are refused by AQ; a pasted tab or line break is a space. */
+export function normalizeQuery(text: string): string {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").trim();
+}
+
+export function queryTooLong(q: string): boolean {
+  return new TextEncoder().encode(q).length > MAX_QUERY_BYTES;
+}
+
+/** A title the server cut at its limit ends at the last whole word, marked with an ellipsis. */
+export function displayTitle(title: string): string {
+  const chars = Array.from(title);
+  if (chars.length < SERVER_TITLE_CHARS) return title;
+  const cut = title.replace(/\s+\S*$/, "").replace(/[\s.,;:]+$/, "");
+  return `${cut || title}…`;
+}
+
+/** Work and Knowledge open a record only inside its project, so those links carry the hit's project. */
+const PROJECT_ROUTES = new Set(["task", "knowledge"]);
+export function hitScope(hit: { ref: { type: string }; project?: { id: string } }, scope: Scope): Scope {
+  return scope.kind !== "project" && hit.project && PROJECT_ROUTES.has(hit.ref.type) ? { kind: "project", project_id: hit.project.id } : scope;
+}
 
 const GROUP_LABEL: Record<string, string> = {
   task: "Tasks",
@@ -40,7 +67,6 @@ type Group = SearchView['groups'][number];
 
 function SearchGroup({ group, snapshot, q, scope, generation, onChoose, onRestart }: { group:Group; snapshot:string|null; q:string; scope:Scope; generation:number; onChoose():void; onRestart():void }) {
   const {queryContext}=useSession();
-  const search=scopeSearch(scope);
   const label=GROUP_LABEL[group.type]??'Other results';
   const query=useInfiniteQuery({
     queryKey:scopedKey(queryContext,scope,'search',{q,type:group.type,snapshot,generation}),
@@ -60,14 +86,16 @@ function SearchGroup({ group, snapshot, q, scope, generation, onChoose, onRestar
   });
   const hits=[...new Map(query.data.pages.flatMap(page=>page.hits).map(hit=>[JSON.stringify(hit.ref),hit])).values()];
   const expired=query.error instanceof ApiError&&query.error.status===410;
+  // Empty groups are noise; the dialog says when nothing matched at all.
+  if(hits.length===0&&!group.hasMore&&!query.isError)return null;
   return <section className={styles.group}>
     <h3 id={`search-group-${group.type}`}>{label}</h3>
     {expired?<p role="alert" className={styles.warning}>Search snapshot expired. <button type="button" className={styles.close} onClick={onRestart}>Restart search</button></p>:<>
     <ul aria-labelledby={`search-group-${group.type}`}>
       {hits.map(h=>{
         const path=subjectPath(h.ref);
-        const body=<><span className={styles.hitTitle}>{h.title}</span><span className={styles.muted}>{h.project?.label}{h.project&&h.excerpt&&' · '}{h.excerpt}</span></>;
-        return <li key={JSON.stringify(h.ref)}>{path?<Link to={{pathname:path,search}} className={styles.hit} onClick={onChoose} data-search-result>{body}</Link>:<span className={styles.hit}>{body}</span>}</li>;
+        const body=<><span className={styles.hitTitle}>{displayTitle(h.title)}</span><span className={styles.muted}>{h.project?.label}{h.project&&h.excerpt&&' · '}{h.excerpt}</span></>;
+        return <li key={JSON.stringify(h.ref)}>{path?<Link to={{pathname:path,search:scopeSearch(hitScope(h,scope))}} className={styles.hit} onClick={onChoose} data-search-result>{body}</Link>:<span className={styles.hit}>{body}</span>}</li>;
       })}
     </ul>
     {query.isError?<QueryStatus status="error" error={query.error} label={`${label.toLowerCase()} continuation`} onRetry={()=>void query.fetchNextPage()}/>:query.hasNextPage?<button type="button" className={styles.close} disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>{query.isFetchingNextPage?'Loading…':`More ${label.toLowerCase()}`}</button>:group.hasMore&&!group.nextCursor&&<p className={styles.muted}>More {label.toLowerCase()} match. Refine your search.</p>}
@@ -95,7 +123,8 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
-  const q = useDebounced(text.trim(), DEBOUNCE_MS);
+  const q = useDebounced(normalizeQuery(text), DEBOUNCE_MS);
+  const tooLong = queryTooLong(normalizeQuery(text));
   const { bootstrap, queryContext } = useSession();
   const legacyGraph = (import.meta.env.MODE === "test" || import.meta.env.MODE === "mock") && queryContext.contractVersion !== "dashboard-read-1" && bootstrap.capability("human.graph.read").enabled;
   const capability = bootstrap.capability("search.read");
@@ -133,7 +162,9 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
           ref={input}
           type="search"
           aria-label="Search"
-          placeholder="Search tasks and sessions…"
+          placeholder="Search tasks, results, knowledge and more…"
+          aria-invalid={tooLong || undefined}
+          aria-describedby={tooLong ? "search-too-long" : undefined}
           className={styles.input}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -145,7 +176,9 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
       <div className={styles.body}>
         {!capability.enabled ? (
           <p className={styles.muted}>{capability.reason}</p>
-        ) : q.length < MIN_CHARS ? (
+        ) : tooLong ? (
+          <p id="search-too-long" className={styles.warning} role="alert">Search is limited to {MAX_QUERY_BYTES} characters. Shorten your search.</p>
+        ) : queryTooLong(q) ? null : q.length < MIN_CHARS ? (
           <p className={styles.muted}>Type at least {MIN_CHARS} characters to search.</p>
         ) : (
           legacyGraph ? <HumanSearchResults q={q} onChoose={() => dialog.current?.close()} /> : <Results q={q} generation={generation} onRestart={()=>setGeneration(n=>n+1)} onChoose={() => dialog.current?.close()} />

@@ -28,8 +28,9 @@ export function Component() {
         </Panel>
         <DisplayPreferences />
         <FrameworkStatus />
-        <Notifications />
         <ProjectBindings />
+        {/* Full width so the inbox list and delivery details each get a readable column (ISSUE-014). */}
+        <Notifications className={styles.wide} />
       </div>
     </DestinationPage>
   );

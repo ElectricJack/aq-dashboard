@@ -5,6 +5,7 @@ import { ContractError, isRecord } from "../../api/adapters/contract";
 import { useSession } from "../../app/session";
 import { Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { Timestamp } from "./Timestamp";
 import styles from "./Settings.module.css";
 
 type Worker = { id: string; name: string; worker_version: string; status: string; last_seen_at: string | null };
@@ -63,7 +64,7 @@ export function FrameworkStatus() {
               {roster.data.map((worker) => (
                 <li key={worker.id}>
                   <span><strong>{worker.name}</strong> · {["online", "offline", "revoked"].includes(worker.status) ? worker.status : "Unknown status"} · version {worker.worker_version}</span>
-                  <span className={styles.meta}>Last heartbeat: {worker.last_seen_at ?? "Never reported"}</span>
+                  <span className={styles.meta}>Last heartbeat: {worker.last_seen_at ? <Timestamp iso={worker.last_seen_at} /> : "Never reported"}</span>
                 </li>
               ))}
             </ul>

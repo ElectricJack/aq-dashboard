@@ -349,6 +349,11 @@
   cursor: pointer;
 }
 
+/* ISSUE-013: at larger text sizes the label grows; the icon keeps its size. */
+.search > svg {
+  flex: none;
+}
+
 .main {
   grid-area: main;
   display: grid;

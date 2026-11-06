@@ -6,9 +6,10 @@ import { scopedKey } from "../../api/queryKeys";
 import { useScope, scopeSearch } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { ObservedTime } from "./ObservedTime";
 import styles from "./Overview.module.css";
 const STATES = ["draft", "active", "completed", "canceled"] as const;
-function Project({ row }: { row: OverviewTaskProject }) {
+function Project({ row, serverTime }: { row: OverviewTaskProject; serverTime?: string }) {
  const { bootstrap } = useSession();
  const search=scopeSearch({kind:"project",project_id:row.project.id});
  return <li className={styles.projectCard}>
@@ -16,11 +17,11 @@ function Project({ row }: { row: OverviewTaskProject }) {
   {row.source_status === "unavailable" ? <p className={styles.warning}>{row.reason ?? "Task records unavailable for this project"}</p> : <>
    <ul className={styles.taskCounts} aria-label={`${row.project.name} recorded task states`}>{STATES.filter(state=>(row.task_counts?.[state]??0)>0).map(state=><li key={state}><strong>{row.task_counts?.[state]}</strong> {state}</li>)}{STATES.every(state=>row.task_counts?.[state]===0)&&<li>0 observed task records</li>}</ul>
    {row.tasks.length === 0 ? <p className={styles.meta}>No task records in this observation.</p> : <ul className={styles.taskList}>{row.tasks.slice(0,1).map(task=><li key={task.id}><span>{bootstrap.capability("tasks.read").enabled ? <Link to={{pathname:`/work/${task.id}`,search}}>{task.title}</Link> : task.title}</span><span className={styles.meta}>{task.task_state ?? "State unknown"}</span></li>)}</ul>}
-   <details className={styles.observationDetails}><summary>Observation details{row.count_accuracy === "lower_bound" ? " · partial" : ""}</summary><p className={styles.meta}>{row.observed_at && <time dateTime={row.observed_at}>{row.observed_at}</time>} · {row.count_accuracy === "lower_bound" ? "Sampled task records" : "Observed task records"}</p>{row.tasks.length>1&&<ul className={styles.taskList}>{row.tasks.slice(1,5).map(task=><li key={task.id}>{bootstrap.capability("tasks.read").enabled?<Link to={{pathname:`/work/${task.id}`,search}}>{task.title}</Link>:task.title}<span className={styles.meta}>{task.task_state??"State unknown"}</span></li>)}</ul>}{(row.more_tasks||row.tasks.length>5)&&<p className={styles.meta}>More records are available in Work.</p>}</details>
+   <details className={styles.observationDetails}><summary>Observation details{row.count_accuracy === "lower_bound" ? " · partial" : ""}</summary><p className={styles.meta}>{row.observed_at && <>Observed <ObservedTime at={row.observed_at} serverTime={serverTime}/></>} · {row.count_accuracy === "lower_bound" ? "Sampled task records" : "Observed task records"}</p>{row.tasks.length>1&&<ul className={styles.taskList}>{row.tasks.slice(1,5).map(task=><li key={task.id}>{bootstrap.capability("tasks.read").enabled?<Link to={{pathname:`/work/${task.id}`,search}}>{task.title}</Link>:task.title}<span className={styles.meta}>{task.task_state??"State unknown"}</span></li>)}</ul>}{(row.more_tasks||row.tasks.length>5)&&<p className={styles.meta}>More records are available in Work.</p>}</details>
   </>}
  </li>;
 }
-export function RecordedTasks({embedded=false}:{embedded?:boolean}) {
+export function RecordedTasks({embedded=false,serverTime}:{embedded?:boolean;serverTime?:string}) {
  const [scope]=useScope(); const {bootstrap,queryContext}=useSession();
  const capability=bootstrap.capability("human.overview.tasks.read");
  const project=scope.kind==="project"?scope.project_id:undefined;
@@ -32,7 +33,7 @@ export function RecordedTasks({embedded=false}:{embedded?:boolean}) {
  return <section className={embedded?styles.recordedTasks:styles.panel} aria-labelledby="recorded-tasks-heading">
   <div className={styles.recordedHeader}>{embedded?<h3 id="recorded-tasks-heading">Recorded tasks</h3>:<h2 id="recorded-tasks-heading">Recorded tasks</h2>}<details className={styles.scopeDisclosure}><summary>About these records</summary><p>Observed task lifecycle, excluding retired or disputed records. Active records do not establish running agents or execution readiness.</p></details></div>
   {!query.data || query.isError ? <QueryStatus status={query.isError?"error":"pending"} error={query.error} label="project task records" onRetry={()=>void query.refetch()} /> : <>
-   {query.data.projects.length===0 ? <p>No configured projects in this scope.</p> : <ul className={styles.projectList} aria-label="Project task observations">{query.data.projects.map(row=><Project row={row} key={row.project.id}/>)}</ul>}
+   {query.data.projects.length===0 ? <p>No configured projects in this scope.</p> : <ul className={styles.projectList} aria-label="Project task observations">{query.data.projects.map(row=><Project row={row} serverTime={serverTime ?? query.data.observed_at} key={row.project.id}/>)}</ul>}
    {query.data.coverage==="partial" && <p className={styles.meta}>Partial coverage · More records or unavailable sources may exist.</p>}
    {query.data.next_after && bootstrap.capability("tasks.read").enabled && <Link to={{pathname:"/work",search:scopeSearch(scope)}}>Browse projects in Work →</Link>}
   </>}

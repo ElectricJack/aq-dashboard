@@ -32,6 +32,8 @@ export type PlaybookActionProps = {
   className?: string;
   /** Identity of this control's draft; defaults to the subject. Start passes a stable value so changing the binding keeps the dialog. */
   instance?: string;
+  /** A value that changes whenever the parent-owned draft changes; a shown validation error is re-checked against the new draft. */
+  draft?: string;
 };
 
 export function PlaybookAction(props: PlaybookActionProps) {
@@ -40,7 +42,7 @@ export function PlaybookAction(props: PlaybookActionProps) {
 }
 
 type Status = ActionOperation["disposition"] | "retired";
-function Action({ kind, project, subject, blocked, intro, confirm, fields, build, pendingText, confirmedText, onConfirmed, onReload, onStart, className }: PlaybookActionProps) {
+function Action({ kind, project, subject, blocked, intro, confirm, fields, build, pendingText, confirmedText, onConfirmed, onReload, onStart, className, draft }: PlaybookActionProps) {
   const { bootstrap, reportAccessDenied, reportIncompatible } = useSession();
   const [open, setOpen] = useState(false), [confirmed, setConfirmed] = useState(false);
   const [intent, setIntent] = useState<FrozenAction | null>(null), [operation, setOperation] = useState<ActionOperation | null>(null);
@@ -50,6 +52,13 @@ function Action({ kind, project, subject, blocked, intro, confirm, fields, build
   const unsettled = !!intent && (retired || unknown || !operation || operation.disposition === "pending" || operation.disposition === "unknown");
   const reason = accessLost ? "Access changed. Reload access" : !capability.enabled ? capability.reason : unsettled ? undefined : blocked;
   const label = playbookLabels[kind];
+  // A validation error describes the draft, not the server: re-check it when the draft changes so it never goes stale.
+  const validation = useRef(false), latestBuild = useRef(build); latestBuild.current = build;
+  function validate() { latestBuild.current(); if (confirm && !confirmed) throw new Error("Confirm this action before submitting."); }
+  useEffect(() => {
+    if (!validation.current || intent) return;
+    try { validate(); validation.current = false; setError(null); } catch (failure) { setError(failure instanceof Error ? failure.message : "Review the form."); }
+  }, [draft, confirmed]);
   useEffect(() => { current.current = true; return () => { current.current = false; controller.current?.abort(); }; }, []);
   useEffect(() => { if (open) { if (!dialog.current?.open) dialog.current?.showModal(); } else if (dialog.current?.open) dialog.current.close(); }, [open]);
   async function run(value: FrozenAction, lookup = false) {
@@ -77,15 +86,17 @@ function Action({ kind, project, subject, blocked, intro, confirm, fields, build
     const delay = firstLookup.current === intent.id ? 2000 : 0; firstLookup.current = intent.id;
     const timer = setTimeout(() => void run(intent, true), delay); return () => clearTimeout(timer);
   }, [intent, unsettled, busy, accessLost, retired]);
-  function reset() { setIntent(null); setOperation(null); setRetired(false); setUnknown(false); setError(null); setConfirmed(false); }
+  function reset() { validation.current = false; setIntent(null); setOperation(null); setRetired(false); setUnknown(false); setError(null); setConfirmed(false); }
   function launch() { if (!unsettled) { reset(); onStart?.(); } setOpen(true); }
   async function submit(event: React.FormEvent) {
     event.preventDefault(); if (lock.current || intent || !capability.enabled || blocked) return;
+    let value: FrozenAction;
     try {
       const { payload, reason: why } = build();
       if (confirm && !confirmed) throw new Error("Confirm this action before submitting.");
-      const value = freezePlaybookAction(kind, project, subject, payload, why); setIntent(value); setError(null); await run(value);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : "Review the form."); }
+      value = freezePlaybookAction(kind, project, subject, payload, why);
+    } catch (failure) { validation.current = true; setError(failure instanceof Error ? failure.message : "Review the form."); return; }
+    validation.current = false; setIntent(value); setError(null); await run(value);
   }
   async function reload() {
     if (lock.current) return; lock.current = true; setBusy(true);

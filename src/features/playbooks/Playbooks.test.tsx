@@ -81,3 +81,45 @@ test("run rows show a short id, relative age and a loaded-rows time range", asyn
   expect(screen.getByRole("button", { name: "Refresh runs" })).toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
 });
+
+test("default filters announce nothing; a chosen state is kept in the URL and restored (ISSUE-005, ISSUE-011)", async () => {
+  responses(); const { router } = renderApp("/playbooks"); const list = await screen.findByRole("list", { name: "Playbook runs" });
+  expect(screen.queryByText("Filtering loaded runs")).toBeNull();
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Run state" }), "waiting");
+  expect(screen.getByText("Filtering loaded runs")).toBeInTheDocument();
+  expect(new URLSearchParams(router.state.location.search).get("state")).toBe("waiting");
+  // Run links carry the filters so the list comes back narrowed.
+  expect(within(list).getByRole("link")).toHaveAttribute("href", "/playbooks/runs/run-0000000000000001?state=waiting");
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Time range" }), "7d");
+  expect(new URLSearchParams(router.state.location.search).get("range")).toBe("7d");
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Run state" }), "all");
+  expect(new URLSearchParams(router.state.location.search).has("state")).toBe(false);
+});
+test("filters from a shared URL are applied on load (ISSUE-011)", async () => {
+  responses(); renderApp("/playbooks?state=completed&range=all"); await screen.findByText("No loaded runs match these filters.");
+  expect(screen.getByRole("combobox", { name: "Run state" })).toHaveValue("completed"); expect(screen.getByRole("combobox", { name: "Time range" })).toHaveValue("all");
+});
+test("view tabs control a tabpanel (ISSUE-010)", async () => {
+  responses(); renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" });
+  const tab = screen.getByRole("tab", { name: "Runs" }), panel = screen.getByRole("tabpanel", { name: "Runs" });
+  expect(tab).toHaveAttribute("aria-controls", panel.id); expect(within(panel).getByRole("region", { name: "Recent runs" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Admissions" })).not.toHaveAttribute("aria-controls");
+});
+test("a run deep link with both reads failing offers one retry that reloads both (ISSUE-010)", async () => {
+  enabled(); let list = 0, detail = 0;
+  server.use(http.get("/api/playbooks/inspection/runs", () => ++list === 1 ? HttpResponse.json({}, { status: 503 }) : HttpResponse.json(playbookPage([runRecord()]))),
+    http.get("/api/playbooks/inspection/runs/:id", ({ params }) => ++detail === 1 ? HttpResponse.json({}, { status: 503 }) : HttpResponse.json(runDetail(String(params.id)))));
+  renderApp("/playbooks/runs/run-0000000000000001");
+  await screen.findByText(/Couldn't load this playbook run either/);
+  expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByRole("region", { name: "Run run-0000000000000001" }); expect(list).toBe(2); expect(detail).toBe(2);
+});
+test("the run inspector names the entry as the roster does and keeps the raw id (ISSUE-012)", async () => {
+  enabled(); server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json(playbookPage([]))),
+    http.get("/api/playbooks/inspection/runs/:id", ({ params }) => { const d = runDetail(String(params.id)); return HttpResponse.json({ ...d, run: { ...d.run, entry: "build_artifact" } }); }));
+  renderApp("/playbooks/runs/run-0000000000000001");
+  const detail = await screen.findByRole("region", { name: "Run run-0000000000000001" });
+  expect(within(detail).getByRole("heading", { level: 2, name: "Build artifact" })).toHaveAttribute("title", "build_artifact");
+  expect(within(detail).getByText(/This run:/)).toHaveTextContent("This run: Build artifact");
+});

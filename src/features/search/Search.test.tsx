@@ -39,7 +39,8 @@ test("results are grouped by type and link to their subject", async () => {
   await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
   const tasks = await within(dialog).findByRole("list", { name: "Tasks" });
   const link = within(tasks).getByRole("link", { name: /^Fixture: Approve recovery plan/ });
-  expect(link).toHaveAttribute("href", "/work/00000000-0000-0000-0000-000000000104");
+  // SO-05: with All projects selected, a task link carries the hit's project so Work can open it.
+  expect(link).toHaveAttribute("href", "/work/00000000-0000-0000-0000-000000000104?scope=project%3Aagent-queue");
 });
 
 test("search is scoped to the selected project", async () => {
@@ -152,6 +153,9 @@ test('G4 continuation preserves group/query/scope and deduplicates replayed refe
  expect(within(dialog).getAllByRole('link',{name:/example task 1/})).toHaveLength(1);
  const p=requests.find(p=>p.has('cursor'))!;expect(p.get('types')).toBe('task');expect(p.get('q')).toBe('example');expect(p.get('cursor')).toBe(fixture.data.groups[0]!.next_cursor);expect(p.get('scope')).toBeNull();
  expect(within(dialog).getByRole('heading',{name:'Knowledge'})).toBeInTheDocument();
+ // SO-18: groups without hits are not rendered as bare headings.
+ expect(within(dialog).queryByRole('heading',{name:'Sessions'})).toBeNull();
+ expect(within(dialog).queryByRole('heading',{name:'Playbooks'})).toBeNull();
 });
 test('expired G4 cursor requires explicit restart; a refused continuation stays in its group',async()=>{
  const {g4Handlers}=await import('../../test/g4');server.use(...g4Handlers());
@@ -168,4 +172,78 @@ test('expired G4 cursor requires explicit restart; a refused continuation stays 
  await userEvent.click(restart);await waitFor(()=>expect(firstReads).toBe(2));forbidden=true;
  await userEvent.click(await within(dialog).findByRole('button',{name:'More tasks'}));
  expect(await within(dialog).findByText(/tasks continuation is not permitted/i)).toBeVisible();expect(screen.queryByRole('heading',{name:/access denied/i})).toBeNull();expect(screen.getByRole('dialog',{name:'Search'})).toBeVisible();
+});
+
+/* ----- QA 2026-11-06 shell-overview regressions ----- */
+
+test("SO-05: a task hit in a project scope keeps that scope", async () => {
+  renderApp("/overview?scope=project:agent-queue");
+  const dialog = await openSearch();
+  await userEvent.type(within(dialog).getByRole("searchbox"), "recovery");
+  const tasks = await within(dialog).findByRole("list", { name: "Tasks" });
+  expect(within(tasks).getByRole("link", { name: /^Fixture: Approve recovery plan/ })).toHaveAttribute("href", "/work/00000000-0000-0000-0000-000000000104?scope=project%3Aagent-queue");
+});
+
+test("SO-05: only routes that need a project switch scope", async () => {
+  const { hitScope } = await import("./SearchDialog");
+  const all = { kind: "all_authorized" } as const;
+  const project = { id: "p1", label: "P1" };
+  expect(hitScope({ ref: { type: "task" }, project }, all)).toEqual({ kind: "project", project_id: "p1" });
+  expect(hitScope({ ref: { type: "knowledge" }, project }, all)).toEqual({ kind: "project", project_id: "p1" });
+  expect(hitScope({ ref: { type: "result" }, project }, all)).toEqual(all);
+  expect(hitScope({ ref: { type: "task" } }, all)).toEqual(all);
+  const scoped = { kind: "project", project_id: "p2" } as const;
+  expect(hitScope({ ref: { type: "task" }, project }, scoped)).toEqual(scoped);
+});
+
+test("SO-19: a query over the server limit is explained and never sent", async () => {
+  let requests = 0;
+  server.use(http.get("/api/v1/search", () => { requests++; return HttpResponse.json({}, { status: 422 }); }));
+  renderApp("/overview");
+  const dialog = await openSearch();
+  const box = within(dialog).getByRole("searchbox");
+  await userEvent.click(box);
+  await userEvent.paste("x".repeat(600));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Search is limited to 256 characters");
+  expect(box).toHaveAttribute("aria-invalid", "true");
+  await new Promise((r) => setTimeout(r, 400));
+  expect(requests).toBe(0);
+  expect(within(dialog).queryByText(/couldn't load/i)).toBeNull();
+});
+
+test("SO-19: the limit counts UTF-8 bytes like the server and ignores control characters", async () => {
+  const { queryTooLong, normalizeQuery } = await import("./SearchDialog");
+  expect(queryTooLong("a".repeat(256))).toBe(false);
+  expect(queryTooLong("a".repeat(257))).toBe(true);
+  expect(queryTooLong("é".repeat(129))).toBe(true);
+  expect(normalizeQuery(" step\t2\n ")).toBe("step 2");
+});
+
+test("SO-18: placeholder names more than tasks and sessions; cut titles end at a word", async () => {
+  const { displayTitle } = await import("./SearchDialog");
+  renderApp("/overview");
+  const dialog = await openSearch();
+  expect(within(dialog).getByRole("searchbox")).toHaveAttribute("placeholder", expect.stringMatching(/results, knowledge/));
+  const cut = `${"word ".repeat(50)}plus a unit test, and a .`.slice(0, 256);
+  expect(Array.from(cut)).toHaveLength(256);
+  expect(displayTitle(cut)).toMatch(/[a-z]…$/);
+  expect(displayTitle(cut)).not.toMatch(/ \.…$/);
+  expect(displayTitle("Short title")).toBe("Short title");
+});
+
+test("SO-18: a group without hits is hidden", async () => {
+  server.use(http.get("/api/v1/search", () => HttpResponse.json({
+    api_version: "proposed-0", request_id: "r", server_time: "2026-10-31T12:00:00.000Z", scope: { kind: "all_authorized" },
+    observation: { observed_at: "2026-10-31T12:00:00.000Z", fresh_until: "2026-10-31T12:01:00.000Z", source: "t", quality: "reported", coverage: "complete" },
+    pending_operations: [], coverage: { state: "complete" },
+    data: { groups: [
+      { type: "task", hits: [{ ref: { type: "task", id: "t1" }, title: "Only task", project: { id: "p1", label: "P1" } }], has_more: false },
+      { type: "session", hits: [], has_more: false },
+    ] },
+  })));
+  renderApp("/overview");
+  const dialog = await openSearch();
+  await userEvent.type(within(dialog).getByRole("searchbox"), "only");
+  expect(await within(dialog).findByRole("link", { name: /Only task/ })).toBeVisible();
+  expect(within(dialog).queryByRole("heading", { name: "Sessions" })).toBeNull();
 });

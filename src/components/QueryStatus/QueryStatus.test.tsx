@@ -84,3 +84,8 @@ test("capacity and unavailability stay retryable", () => {
   render(<QueryStatus status="error" error={new ApiError("http", "x", { status: 429 })} label="playbook runs" onRetry={() => {}} />);
   expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
 });
+
+test("retryLabel gives each retry button a distinct accessible name that starts with the visible text", () => {
+  render(<QueryStatus status="error" error={new ApiError("transport", "x")} label="playbook runs" retryLabel="playbook runs" onRetry={() => {}} />);
+  expect(screen.getByRole("button", { name: "Try again playbook runs" })).toBeInTheDocument();
+});

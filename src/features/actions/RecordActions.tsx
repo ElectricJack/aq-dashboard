@@ -1,17 +1,23 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { Ellipsis } from "lucide-react";
 import { useSession } from "../../app/session";
+import { scopeSearch } from "../../app/scope";
 import { ContractError } from "../../api/adapters/contract";
 import { apiGet, ApiError } from "../../api/client";
 import { adaptGraphDetail, adaptGraphPage, validGraphId } from "../../api/adapters/humanGraph";
-import { graphPath, useGraphNeighborhood } from "../../api/humanGraphReads";
+import { graphPath, useGraphDetail, useGraphNeighborhood } from "../../api/humanGraphReads";
 import { ActionButton } from "../../components/layout/Workspace";
-import { actionCapability, actionLabels, actionRequest, freezeAction, type ActionContext, type ActionKind, type ActionOperation, type FrozenAction } from "./actionClient";
+import { actionCapability, actionLabels, actionRequest, freezeAction, knowledgeActionKinds, knowledgeCategoryLabel, type ActionContext, type ActionKind, type ActionOperation, type FrozenAction } from "./actionClient";
 import styles from "./RecordActions.module.css";
 
-type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;edge:string;successor:string;verdict:string;url:string;confirm:boolean};
-function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",edge:"",successor:"",verdict:"verified",url:"",confirm:false};}
+type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;confirm:boolean};
+const CATEGORIES=["fact","decision","policy","procedure","incident","reference","note"];
+/** The content revision before the current one: for a just-retired record, the last active revision. */
+const previousRevision=(current:string|undefined)=>current&&/^[1-9][0-9]*$/.test(current)?String(BigInt(current)>1n?BigInt(current)-1n:1n):"";
+const RESTORE_REVISION=/^[1-9][0-9]{0,15}$/;
+function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",edge:"",successor:"",verdict:"verified",url:"",restoreRevision:previousRevision(n?.content_revision),confirm:false};}
 type Variant="default"|"compact";
 /** `kinds` narrows the offered actions (for example to those a compact header can show); it never adds kinds. */
 export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant}) {
@@ -20,12 +26,15 @@ export function RecordActions(props:{record:ActionContext;author?:boolean;pinned
 }
 function Actions({record,author=false,pinned,kinds:only,variant="default"}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient();
-  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:["knowledge.correct","knowledge.verify","knowledge.retire"] as ActionKind[]).filter(k=>!only||only.includes(k));
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
   const dependency=useGraphNeighborhood(kind==="task.dependency.remove"?record.project.id:"",record.data?.id??"");
+  // Restore previews the chosen revision so a retired target is caught before submission.
+  const restoreRevision=draft.restoreRevision.trim(),restoreValid=RESTORE_REVISION.test(restoreRevision)&&Number.isSafeInteger(Number(restoreRevision));
+  const restoreTarget=useGraphDetail(kind==="knowledge.restore"&&open&&restoreValid?record.project.id:"","knowledge",record.data?.id??"",restoreValid?restoreRevision:undefined);
   const unsettled=!!intent&&(retired||unknown||operation?.disposition==="pending"||operation?.disposition==="unknown"||!operation);
   const capability=(k:ActionKind)=>{const union=bootstrap.capability("dashboard.actions");return union.enabled?bootstrap.capability(actionCapability(k)):union;};
   useEffect(()=>{current.current=true;return()=>{current.current=false;controller.current?.abort();};},[]);
@@ -70,6 +79,16 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker)||draft.blocker===record.data?.id)throw new Error("Choose another task's ID as the blocker.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
     if(k==="task.retry")return {payload:{}};
+    if(k==="knowledge.restore"){
+      if(!restoreValid)throw new Error("Enter the content revision to restore.");
+      const current=baseline.data?.content_revision;
+      if(current&&BigInt(restoreRevision)>=BigInt(current))throw new Error(`Choose a revision earlier than the current revision ${current}.`);
+      const target=restoreTarget.data?.data;
+      if(target&&(target.retired||target.deleted))throw new Error(`Revision ${restoreRevision} is also ${target.deleted?"deleted":"retired"}. Choose an earlier active revision.`);
+      if(new TextEncoder().encode(draft.reason).length>1024)throw new Error("Enter a reason of at most 1024 bytes.");
+      if(!draft.confirm)throw new Error("Confirm this action before submitting.");
+      return {...(draft.reason.trim()?{reason:draft.reason}:{}),payload:{revision:Number(restoreRevision),include_lifecycle:true}};
+    }
     if(!draft.reason.trim()||new TextEncoder().encode(draft.reason).length>1024)throw new Error("Enter a reason of at most 1024 bytes.");
     if(k==="knowledge.verify"){
       let url:URL;try{url=new URL(draft.url);}catch{throw new Error("Enter the evidence URL.");}
@@ -92,26 +111,36 @@ function Actions({record,author=false,pinned,kinds:only,variant="default"}:{reco
   const editing=kind==="task.edit"||kind==="knowledge.author"||kind==="knowledge.correct";
   const status=retired?"retired":unknown?"unknown":operation?.disposition;
   const reasonFor=(k:ActionKind)=>{const cap=capability(k);return pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:undefined;};
+  // A confirmed author operation creates the record under the operation ID; link straight to it.
+  const created=kind==="knowledge.author"&&status==="confirmed"&&intent?operation?.affected_entities.find(r=>r.type==="knowledge"&&validGraphId(r.id))?.id??(validGraphId(intent.id)?intent.id:undefined):undefined;
+  const target=restoreTarget.data?.data;
+  const restorePreview=!restoreValid?"Enter an earlier content revision.":restoreTarget.isError?`Revision ${restoreRevision} could not be read. The server checks it when you submit.`:!target?`Reading revision ${restoreRevision}…`:
+    `Revision ${restoreRevision}: “${target.title}” · ${target.deleted?"Deleted":target.retired?"Retired — choose an earlier revision":"Active"}`;
   return <div className={variant==="compact"?styles.compact:styles.actions}>
     {variant==="compact"?<CompactActions kinds={kinds} reasonFor={reasonFor} taskState={record.data?.kind==="task"?record.data.task_state:undefined} pending={unsettled?kind:null} launch={launch}/>:
-    kinds.map(k=>{const reason=reasonFor(k);return <div className={styles.action} key={k}><ActionButton disabled={!!reason||(unsettled&&kind!==k)} title={reason} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span className={styles.meta}>{reason}</span>}</div>;})}
+    kinds.map(k=>{const reason=reasonFor(k)??(unsettled&&kind!==k?"Settle the current operation first":undefined),hint=`${titleId}-${k}-reason`;return <div className={styles.action} key={k}><ActionButton disabled={!!reason} title={reason} aria-describedby={reason?hint:undefined} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span id={hint} className={styles.meta}>{reason}</span>}</div>;})}
     <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}>
       <header className={styles.header}><h2 id={titleId}>{kind?actionLabels[kind]:"Action"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close action">Close</ActionButton></header>
       <p className={styles.meta}>{record.project.name} · {author?"Project version":"Record version"} {author?baseline.project.revision:baseline.data?.version}</p>
       {error&&<p role="alert">{error}</p>}
       {kind&&<form onSubmit={e=>void submit(e)}><fieldset className={styles.fields} disabled={busy||!!intent||accessLost}>
-        {editing&&<><label>Title<input value={draft.title} required maxLength={1024} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{["fact","decision","policy","procedure","incident","reference","note"].map(v=><option key={v}>{v}</option>)}</select></label>}</>}
+        {editing&&<><label>Title<input value={draft.title} required maxLength={1024} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{(CATEGORIES.includes(draft.category)?CATEGORIES:[...CATEGORIES,draft.category]).map(v=><option key={v} value={v}>{knowledgeCategoryLabel(v)}</option>)}</select></label>}</>}
         {kind==="task.dependency.add"&&<label>Blocker task ID<input required value={draft.blocker} onChange={e=>update("blocker",e.target.value)}/></label>}
         {kind==="task.dependency.remove"&&<><label>Dependency<select required value={draft.edge} onChange={e=>update("edge",e.target.value)}><option value="">Choose a blocker</option>{dependency.data?.data.edges.filter(e=>e.target===record.data?.id&&e.edge_type==="blocks").map(e=><option key={e.id} value={e.id}>{dependency.data?.data.nodes.find(n=>n.id===e.source)?.title??e.source} · edge version {e.version}</option>)}</select></label>{dependency.isError&&<p role="alert">Dependencies unavailable. Close and reopen to check again.</p>}</>}
         {["task.cancel","knowledge.verify","knowledge.retire"].includes(kind)&&<label>Reason<textarea required rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label>}
         {kind==="knowledge.verify"&&<><label>Verification<select value={draft.verdict} onChange={e=>update("verdict",e.target.value)}><option value="verified">Verified</option><option value="disputed">Disputed</option></select></label><label>Evidence URL<input type="url" required value={draft.url} onChange={e=>update("url",e.target.value)}/></label><p className={styles.meta}>This records an assertion about this revision; it does not prove task completion.</p></>}
         {kind==="knowledge.retire"&&<label>Successor record ID (optional)<input value={draft.successor} onChange={e=>update("successor",e.target.value)}/></label>}
-        {["task.cancel","knowledge.retire"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="task.cancel"?"Confirm cancellation request. This does not prove the process stopped.":"Confirm retirement. Historical revisions remain available."}</label>}
+        {kind==="knowledge.restore"&&<><p>Restores the content and active lifecycle of an earlier content revision as a new revision. The retirement stays in the record's history.</p>
+          <label>Content revision to restore<input required inputMode="numeric" maxLength={16} value={draft.restoreRevision} onChange={e=>update("restoreRevision",e.target.value)}/></label>
+          <p className={styles.meta} aria-live="polite">{restorePreview}</p>
+          <label>Reason (optional)<textarea rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label></>}
+        {["task.cancel","knowledge.retire","knowledge.restore"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="task.cancel"?"Confirm cancellation request. This does not prove the process stopped.":kind==="knowledge.restore"?"Confirm restore. Verification resets to unverified on the new revision.":"Confirm retirement. Historical revisions remain available."}</label>}
         {kind==="task.retry"&&<p>Ask the server to assess a replacement attempt. Readiness and replacement admission are decided by the server.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>Submit</ActionButton>}</form>}
       {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?"Rejected — the server did not permit this action. Review the record and permissions.":status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
+        {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
         <div className={styles.footer}>{unsettled&&!retired&&<><ActionButton disabled={busy||accessLost} onClick={()=>void run(intent,true)}>Check status</ActionButton><ActionButton disabled={busy||accessLost||!kind||!capability(kind).enabled} onClick={()=>void run(intent)}>Retry exact submission</ActionButton></>}{(status==="conflict"||status==="rejected")&&<ActionButton disabled={busy||accessLost} onClick={()=>void reload()}>Reload current versions</ActionButton>}</div>
         <details className={styles.reference}><summary>Operation reference and receipts</summary><p>{intent.id}</p>{operation?.request_digest&&<p>{operation.request_digest}</p>}{operation?.receipt_refs.map((r,i)=><p key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</p>)}</details>
       </section>}

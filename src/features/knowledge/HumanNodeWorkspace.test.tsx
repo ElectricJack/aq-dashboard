@@ -99,3 +99,30 @@ test("a missing feature record stays scoped and keeps dashboard navigation avail
  expect(screen.queryByRole("heading",{name:"Dashboard update required"})).not.toBeInTheDocument();
  expect(screen.getByRole("heading",{name:"Knowledge",level:1})).toBeInTheDocument();
 });
+
+test("an empty project and an empty search say different things (ISSUE-006)",async()=>{
+ enable();server.use(http.get(`/api/human/projects/${graphProject}/knowledge`,()=>HttpResponse.json(graphEnvelope({items:[],next_cursor:null}))));
+ const {unmount}=renderApp(`/knowledge${scope}`);expect(await screen.findByText("No knowledge records in this project yet.")).toBeInTheDocument();unmount();
+ renderApp(`/knowledge${scope}&q=nothing`);expect(await screen.findByText("No knowledge records match this search.")).toBeInTheDocument();
+});
+test("a narrowed list counts against the loaded records (ISSUE-006)",async()=>{
+ enable();const active=graphNode("knowledge",10),old={...graphNode("knowledge",11),title:"Old model",retired:true},other={...graphNode("knowledge",12),title:"Third"};
+ server.use(http.get(`/api/human/projects/${graphProject}/knowledge`,()=>HttpResponse.json(graphEnvelope({items:[active,old,other],next_cursor:null}))));
+ renderApp(`/knowledge${scope}`);expect(await screen.findByRole("heading",{name:"2 of 3 loaded records"})).toBeInTheDocument();
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Lifecycle"}),"all");expect(screen.getByRole("heading",{name:"3 records loaded"})).toBeInTheDocument();
+});
+test("knowledge filters are kept in the URL and restored from it (ISSUE-011)",async()=>{
+ enable();const n=graphNode("knowledge"),old={...graphNode("knowledge",11),title:"Old model",retired:true,content_type:"reference"};
+ server.use(http.get(`/api/human/projects/${graphProject}/knowledge`,()=>HttpResponse.json(graphEnvelope({items:[n,old],next_cursor:null}))));
+ const {router,unmount}=renderApp(`/knowledge${scope}`);await screen.findByRole("list",{name:"Knowledge records"});
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Lifecycle"}),"retired");
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Category"}),"reference");
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Verification"}),"verified");
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Sort records"}),"title");
+ const search=new URLSearchParams(router.state.location.search);
+ expect(Object.fromEntries(search)).toMatchObject({lifecycle:"retired",category:"reference",verification:"verified",sort:"title"});
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"Lifecycle"}),"active");expect(new URLSearchParams(router.state.location.search).has("lifecycle")).toBe(false);
+ unmount();renderApp(`/knowledge${scope}&lifecycle=retired&category=reference`);
+ const list=await screen.findByRole("list",{name:"Knowledge records"});expect(within(list).getByRole("link",{name:/Old model/})).toHaveAttribute("href",`/knowledge/${old.id}${scope.replace(":","%3A")}&lifecycle=retired&category=reference`);
+ expect(screen.getByRole("combobox",{name:"Lifecycle"})).toHaveValue("retired");expect(screen.getByRole("combobox",{name:"Category"})).toHaveValue("reference");
+});

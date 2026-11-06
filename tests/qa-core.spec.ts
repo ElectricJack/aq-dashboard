@@ -84,3 +84,13 @@ test("SO-14 / ISSUE-007: opening the supervisor dock moves focus into it", async
   await page.getByRole("button", { name: "Close chat" }).click();
   await expect(page.getByRole("button", { name: "Open supervisor" })).toBeFocused();
 });
+
+test("ISSUE-013: the header search icon keeps its size at the Larger text size", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("aq.dashboard.display-preferences", JSON.stringify({ textSize: "larger", motion: "system", terminalFontSize: 14 })));
+  await page.goto("/overview");
+  await expect(page.locator("html")).toHaveAttribute("data-text-size", "larger");
+  const icon = page.getByRole("banner").getByRole("button", { name: /Search/ }).locator("svg");
+  const box = (await icon.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(17);
+  expect(box.height).toBeGreaterThanOrEqual(17);
+});

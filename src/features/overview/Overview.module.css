@@ -341,3 +341,30 @@
  .motionConstraint { grid-area: constraint; min-inline-size: 0; }
  .motionProgress { grid-area: progress; justify-self: end; color: var(--color-text-secondary); }
 }
+
+/* SO-15: the title, reason and impact explain the row, so they wrap instead of hiding behind a tooltip. */
+.rowTitle, .rowSecondary { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+@media (min-width: 768px) {
+ .attentionRow > .impact { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; border-radius: var(--radius-panel); }
+}
+
+/* SO-04: outcome icon follows the outcome, not a success default. */
+.outcomes li[data-outcome-tone="error"] .outcomeIcon { color: var(--color-attention); }
+.outcomes li[data-outcome-tone="neutral"] .outcomeIcon { color: var(--color-text-secondary); }
+
+/* SO-17: headings and counts scale with Settings › Text size (16px body → unchanged sizes). */
+.panel h2 { font-size: calc(var(--font-size-body) + 4px); }
+.counts strong { font-size: calc(var(--font-size-body) + 4px); }
+.summary { font-size: calc(var(--font-size-body) + 2px); }
+.projectCard h3, .infrastructureSection h3 { font-size: var(--font-size-body); }
+@media (max-width: 767px) {
+ .counts strong { font-size: calc(var(--font-size-body) + 2px); }
+ .summary { font-size: var(--font-size-body); }
+}
+@media (max-width: 360px) { .counts strong { font-size: var(--font-size-body); } }
+
+/* SO-22: the Work heading hides the Create task hint on phones for space; the Overview header has room,
+   so its disabled reason stays visible. The hint is the last child of CreateTaskAction's wrapper. */
+@media (max-width: 767px) {
+ .headerAction > div > span:last-child { position: static; inline-size: auto; block-size: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
+}
