@@ -1,7 +1,7 @@
 .section { margin-block-start: var(--space-6); min-inline-size: 0; }
 .panes { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: var(--space-5); align-items: start; }
 .messages, .deliveries { list-style: none; margin: 0; padding: 0; }
-.message { display: grid; gap: var(--space-2); inline-size: 100%; min-block-size: var(--touch-target); padding: var(--space-4); color: var(--color-text); font: inherit; background: transparent; border: 0; border-inline-start: 3px solid transparent; border-block-end: 1px solid var(--color-border); text-align: start; cursor: pointer; overflow-wrap: anywhere; }
+.message { display: grid; gap: var(--space-2); inline-size: 100%; min-block-size: var(--control-height); padding: var(--space-4); color: var(--color-text); font: inherit; background: transparent; border: 0; border-inline-start: 3px solid transparent; border-block-end: 1px solid var(--color-border); text-align: start; cursor: pointer; overflow-wrap: anywhere; }
 .message[aria-pressed=true] { background: var(--color-raised); border-inline-start-color: var(--color-accent); }
 .meta { color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
 .detail { min-inline-size: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); }
@@ -13,7 +13,7 @@
 .deliveries [data-status=permanently_failed] h4 { color: var(--color-error); }
 .deliveries [data-status=accepted_by_transport] h4 { color: var(--color-success); }
 .detail details { margin-block-start: var(--space-5); }
-.detail summary { min-block-size: var(--touch-target); cursor: pointer; }
+.detail summary { min-block-size: var(--control-height); cursor: pointer; }
 .empty { color: var(--color-text-secondary); padding: var(--space-4); }
 .back { display: none; }
 @media (max-width: 767px) { .panes { grid-template-columns: minmax(0, 1fr); } .panes[data-selected=true] > div { display: none; } .empty { display: none; } .back { display: inline-flex; } .detail { padding: var(--space-3); } }

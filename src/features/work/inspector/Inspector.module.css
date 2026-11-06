@@ -1,34 +1,34 @@
 /* Inspector sections (spec 0004 §3). */
 /* v1 density (owner request 2026-11-06): no rule under every section; a small uppercase muted label separates them. */
 .section { min-inline-size:0; }
-.sectionHead { display:flex; align-items:center; gap:var(--space-2); min-block-size:var(--touch-target); }
-.sectionHead h3 { margin:0; font-size:var(--inspector-small, 12px); line-height:1.2; text-transform:uppercase; letter-spacing:.06em; }
-.sectionHead button { display:inline-flex; align-items:center; gap:6px; min-block-size:var(--touch-target); padding:0; border:0; background:none; color:var(--color-text-secondary); font:inherit; font-weight:600; letter-spacing:inherit; text-transform:inherit; cursor:pointer; }
+.sectionHead { display:flex; align-items:center; gap:var(--space-2); min-block-size:var(--control-height); }
+.sectionHead h3 { margin:0; font-size:var(--font-size-xs); line-height:1.2; text-transform:uppercase; letter-spacing:.06em; }
+.sectionHead button { display:inline-flex; align-items:center; gap:6px; min-block-size:var(--control-height); padding:0; border:0; background:none; color:var(--color-text-secondary); font:inherit; font-weight:600; letter-spacing:inherit; text-transform:inherit; cursor:pointer; }
 .sectionHead button:hover { color:var(--color-text); }
 .sectionHead button:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; border-radius:4px; }
 /* Pointer layouts fold sections on a compact 30px line; phones keep the 44px touch target. */
 @media (min-width:768px) { .sectionHead,.sectionHead button { min-block-size:30px; } }
 .chevron { transition:rotate var(--motion-duration); color:var(--color-text-secondary); }
 .section[data-open=true] .chevron { rotate:90deg; }
-.sectionSummary { padding:0 6px; border-radius:999px; background:var(--color-raised); color:var(--color-text-secondary); font-size:var(--inspector-small, 12px); line-height:18px; }
+.sectionSummary { padding:0 6px; border-radius:999px; background:var(--color-raised); color:var(--color-text-secondary); font-size:var(--font-size-xs); line-height:18px; }
 .sectionBody { display:grid; gap:6px; min-inline-size:0; padding-block:0 var(--space-3); }
 .sectionBody > p { margin:0; }
 .sectionBody [data-document-body] { line-height:1.5; }
 .sectionBody [data-document-body] > :first-child { margin-block-start:0; }
 .sectionBody [data-document-body] > :last-child { margin-block-end:0; }
 .clamped { max-block-size:12em; overflow:hidden; mask-image:linear-gradient(to bottom, #000 75%, transparent); }
-.meta { margin:0; color:var(--color-text-secondary); font-size:var(--inspector-meta, 13px); overflow-wrap:anywhere; }
-.linkButton { justify-self:start; min-block-size:28px; padding:0; border:0; background:none; color:var(--color-accent); font:inherit; font-size:var(--inspector-meta, 13px); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.meta { margin:0; color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
+.linkButton { justify-self:start; min-block-size:28px; padding:0; border:0; background:none; color:var(--color-accent); font:inherit; font-size:var(--font-size-meta); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .linkButton:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 
 /* Identifiers: one copy control everywhere (item 1). */
 .idChip,.idValue { display:inline-flex; align-items:center; gap:var(--space-1); min-inline-size:0; max-inline-size:100%; vertical-align:middle; }
 /* The ID reads as a muted mono caption (as v1), not a bordered control; its copy button stays beside it. */
-.idChip code { font-family:var(--font-mono); font-size:var(--inspector-small, 12px); color:var(--color-text-secondary); overflow-wrap:anywhere; }
-.idValue code { font-family:var(--font-mono); font-size:var(--inspector-small, 12px); color:var(--color-text-secondary); }
+.idChip code { font-family:var(--font-mono); font-size:var(--font-size-xs); color:var(--color-text-secondary); overflow-wrap:anywhere; }
+.idValue code { font-family:var(--font-mono); font-size:var(--font-size-xs); color:var(--color-text-secondary); }
 
 /* Status chip and reasons (items 2, 3). */
-.statusChip { display:inline-flex; align-items:center; gap:6px; margin:0; padding:1px var(--space-2); border:1px solid var(--color-border); border-radius:6px; background:var(--color-raised); font-weight:600; font-size:var(--inspector-meta, 13px); line-height:20px; color:var(--color-status-unknown); max-inline-size:100%; overflow-wrap:anywhere; }
+.statusChip { display:inline-flex; align-items:center; gap:6px; margin:0; padding:1px var(--space-2); border:1px solid var(--color-border); border-radius:6px; background:var(--color-raised); font-weight:600; font-size:var(--font-size-meta); line-height:20px; color:var(--color-status-unknown); max-inline-size:100%; overflow-wrap:anywhere; }
 .statusChip[data-status=draft] { color:var(--color-status-draft); }
 .statusChip[data-status=active],.statusChip[data-status=ready] { color:var(--color-status-ready); }
 .statusChip[data-status=running] { color:var(--color-status-running); }
@@ -45,8 +45,8 @@
 .agent p,.attempt p { margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; }
 .agentLinks a { margin-inline-start:var(--space-2); }
 .terminalLink { font-weight:600; }
-.attemptStatus { padding:0 6px; border:1px solid var(--color-border); border-radius:4px; font-size:var(--inspector-small, 12px); line-height:18px; }
-.badge { padding:0 6px; border-radius:4px; background:var(--color-raised); color:var(--color-status-running); font-size:var(--inspector-small, 12px); line-height:18px; font-weight:600; }
+.attemptStatus { padding:0 6px; border:1px solid var(--color-border); border-radius:4px; font-size:var(--font-size-xs); line-height:18px; }
+.badge { padding:0 6px; border-radius:4px; background:var(--color-raised); color:var(--color-status-running); font-size:var(--font-size-xs); line-height:18px; font-weight:600; }
 
 /* Lists. */
 .attempts,.history,.results { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-2); }
@@ -62,23 +62,23 @@
 .dependencyTitle { display:flex; align-items:center; gap:var(--space-2); min-inline-size:0; }
 .edgeReason { overflow-wrap:anywhere; }
 .children { display:grid; gap:var(--space-1); padding-block-end:var(--space-2); }
-.children h4 { margin:0; font-size:var(--inspector-small, 12px); color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.06em; }
+.children h4 { margin:0; font-size:var(--font-size-xs); color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.06em; }
 .children p { margin:0; }
 .children .dependencies { gap:var(--space-1); }
 .children .dependencies li { display:flex; align-items:center; gap:var(--space-2); }
 
 /* Comments (item 13). */
 .composer { display:grid; gap:6px; }
-.composer label { font-weight:600; font-size:var(--inspector-meta, 13px); }
+.composer label { font-weight:600; font-size:var(--font-size-meta); }
 .composer textarea { inline-size:100%; min-block-size:3.4em; padding:6px 10px; line-height:1.45; border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-canvas); color:var(--color-text); font:inherit; resize:vertical; }
 .composer textarea:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 .composer p { margin:0; }
 .commentButtons { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1) var(--space-3); }
-.commentError { margin:0; display:grid; gap:var(--space-2); color:var(--color-attention); font-size:var(--inspector-meta, 13px); }
+.commentError { margin:0; display:grid; gap:var(--space-2); color:var(--color-attention); font-size:var(--font-size-meta); }
 .comments { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
 .comment { display:grid; gap:2px; padding:var(--space-2) 10px; border:1px solid var(--color-border); border-radius:6px; background:color-mix(in srgb, var(--color-raised) 45%, transparent); min-inline-size:0; }
 .comment p { margin:0; }
-.commentHead { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); color:var(--color-text-secondary); font-size:var(--inspector-small, 12px); }
+.commentHead { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); color:var(--color-text-secondary); font-size:var(--font-size-xs); }
 .commentAuthor strong { color:var(--color-text); }
 .commentBody { min-inline-size:0; overflow-wrap:anywhere; line-height:1.5; }
 .commentBody [data-document-body] > :first-child { margin-block-start:0; }
@@ -101,15 +101,24 @@
   .idChip button,.idValue button { inline-size:24px; block-size:24px; }
   .idChip button svg,.idValue button svg { inline-size:14px; block-size:14px; }
 }
-/* Pointer layouts: the section's own buttons (Comment, Refresh comments, Load older, Save…) on a compact 32px line. */
+/* One line per row on pointer layouts (owner request 2026-11-06): button rows, ID lines, attempt / result / history
+   heads and comment heads stay on one line; the long part (an ID, a title, a fact list) ellipsizes instead of wrapping,
+   with the full value in its title or on hover. Phones may wrap where the width requires it. */
 @media (min-width:768px) {
-  .commentButtons > button,.commentPaging > button,.sectionBody [role=alert] > button { min-block-size:32px; padding:var(--space-1) var(--space-3); font-size:var(--inspector-meta, 13px); }
+  .commentButtons,.commentPaging,.agent p,.attempt p,.reasons li,.commentHead { flex-wrap:nowrap; }
+  .commentButtons > *,.commentPaging > * { flex:none; }
+  .commentPaging > p { flex:0 1 auto; min-inline-size:0; }
+  .agent p,.attempt p,.commentHead,.history li > p:not(.historyReason),.results p.meta,.dependencyTitle,.reasons li { white-space:nowrap; min-inline-size:0; overflow:hidden; text-overflow:ellipsis; }
+  .attempt p.meta,.results p.meta,.history li > p.meta { display:block; }
+  .agent p > *,.attempt p > *,.commentHead > * { flex:none; }
+  .idValue code { overflow:hidden; text-overflow:ellipsis; }
+  .dependencyTitle a { min-inline-size:0; overflow:hidden; text-overflow:ellipsis; }
 }
 
 /* Phones: copy buttons and the comment Edit/Delete links get the full 44px touch target (P1-12). */
 @media (max-width:767px) {
-  .idChip button,.idValue button { min-inline-size:var(--touch-target); min-block-size:var(--touch-target); }
-  .commentButtons .linkButton { min-block-size:var(--touch-target); min-inline-size:var(--touch-target); }
+  .idChip button,.idValue button { min-inline-size:var(--control-height); min-block-size:var(--control-height); }
+  .commentButtons .linkButton { min-block-size:var(--control-height); min-inline-size:var(--control-height); }
 }
 
 /* Hold reasons (aq-server #99): AQ's message, then the attempt it names. */
@@ -118,7 +127,7 @@
 /* History change (aq-server #99): summary, from → to values, partial marker. */
 .historyChange { display:grid; gap:2px; min-inline-size:0; }
 .historyChange p { margin:0; overflow-wrap:anywhere; }
-.historyValues { display:flex; flex-wrap:wrap; gap:2px var(--space-3); font-size:var(--inspector-meta, 13px); }
+.historyValues { display:flex; flex-wrap:wrap; gap:2px var(--space-3); font-size:var(--font-size-meta); }
 .historyValues > span { display:inline-flex; flex-wrap:wrap; gap:var(--space-1); overflow-wrap:anywhere; }
 .historyValues > span > span:first-child { color:var(--color-text-secondary); }
-.partial { margin-inline-start:var(--space-2); padding:0 6px; border:1px solid var(--color-attention); border-radius:4px; color:var(--color-attention); font-size:var(--inspector-small, 12px); line-height:18px; font-weight:600; }
+.partial { margin-inline-start:var(--space-2); padding:0 6px; border:1px solid var(--color-attention); border-radius:4px; color:var(--color-attention); font-size:var(--font-size-xs); line-height:18px; font-weight:600; }

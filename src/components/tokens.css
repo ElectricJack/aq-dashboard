@@ -40,28 +40,51 @@
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-size-body: 16px;
-  --font-size-meta: 14px;
-  --font-size-title: clamp(24px, 4vw, 32px);
+  /* Type scale (owner request 2026-11-06: one step down everywhere, closer to v1's density). Feature modules use
+     these tokens rather than pixel sizes so Settings › Display text size scales every page. Text stays ≥12px. */
+  --font-size-xs: 12px;
+  --font-size-meta: 13px;
+  --font-size-body: 14px;
+  --font-size-h3: 16px;
+  --font-size-h2: 18px;
+  --font-size-h1: 20px;
+  --font-size-display: 24px;
+  --font-size-title: clamp(22px, 3vw, 26px);
 
   --rail-width: 224px;
   --gutter-desktop: 24px;
   --gutter-mobile: 16px;
   --touch-target: 44px;
+  /* Buttons, inputs and chips: compact on fine pointers at desktop widths, the full touch target elsewhere. */
+  --control-height: 44px;
 
   --motion-duration: 150ms;
 }
 
-/* Settings › Display (src/app/preferences.ts). Text size scales the shared type tokens. */
+@media (min-width: 768px) and (pointer: fine) {
+  :root { --control-height: 36px; }
+}
+
+/* Settings › Display (src/app/preferences.ts). Text size scales the shared type tokens from the base above. */
 :root[data-text-size="large"] {
-  --font-size-body: 18px;
-  --font-size-meta: 16px;
-  --font-size-title: clamp(26px, 4vw, 34px);
+  --font-size-xs: 13px;
+  --font-size-meta: 15px;
+  --font-size-body: 16px;
+  --font-size-h3: 18px;
+  --font-size-h2: 20px;
+  --font-size-h1: 22px;
+  --font-size-display: 26px;
+  --font-size-title: clamp(24px, 3vw, 28px);
 }
 :root[data-text-size="larger"] {
-  --font-size-body: 20px;
-  --font-size-meta: 18px;
-  --font-size-title: clamp(28px, 4vw, 36px);
+  --font-size-xs: 14px;
+  --font-size-meta: 16px;
+  --font-size-body: 18px;
+  --font-size-h3: 20px;
+  --font-size-h2: 22px;
+  --font-size-h1: 24px;
+  --font-size-display: 28px;
+  --font-size-title: clamp(26px, 3vw, 30px);
 }
 :root[data-motion="reduce"] {
   --motion-duration: 0ms;

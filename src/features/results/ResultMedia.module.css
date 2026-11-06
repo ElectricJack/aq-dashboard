@@ -10,7 +10,7 @@
 .provenance summary { cursor: pointer; }
 .dialog { box-sizing: border-box; inline-size: min(1200px, calc(100% - 32px)); max-block-size: calc(100dvh - 32px); overflow: auto; padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-panel); color: var(--color-text); background: var(--color-panel); }
 .dialog::backdrop { background: #000b; }
-.dialog h2 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+.dialog h2 { margin: 0; font-size: var(--font-size-h2); overflow-wrap: anywhere; }
 .expanded { display: grid; place-items: center; min-block-size: 200px; margin-block-start: var(--space-3); }
 .expanded img { display: block; max-inline-size: 100%; inline-size: auto; block-size: auto; max-block-size: 75dvh; object-fit: contain; }
 @media(max-width:600px) { .frame, .placeholder { min-block-size: 200px; padding: var(--space-2); } .selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .selector button { max-inline-size: 100%; } .dialog { padding: var(--space-3); } .dialog .expanded img { max-block-size: 65dvh; } }

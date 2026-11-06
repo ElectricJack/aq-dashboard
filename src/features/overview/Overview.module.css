@@ -54,7 +54,7 @@
 }
 
 .counts strong {
-  font-size: 20px;
+  font-size: var(--font-size-h2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -69,7 +69,7 @@
 }
 
 .panel h2 {
-  font-size: 20px;
+  font-size: var(--font-size-h2);
 }
 
 .attentionList,
@@ -121,7 +121,7 @@
 .action {
   display: inline-flex;
   align-items: center;
-  min-block-size: var(--touch-target);
+  min-block-size: var(--control-height);
   padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -192,15 +192,15 @@
 .projectList, .taskList, .snapshotList, .taskCounts { list-style: none; margin: 0; padding: 0; }
 .projectList { display: grid; gap: var(--space-4); }
 .projectCard { padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border); min-inline-size: 0; }
-.projectCard h3 { font-size: 16px; min-inline-size: 0; overflow-wrap: anywhere; }
+.projectCard h3 { font-size: var(--font-size-body); min-inline-size: 0; overflow-wrap: anywhere; }
 .taskCounts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding-block: var(--space-3); font-size: var(--font-size-meta); }
 .taskCounts li { color: var(--color-text-secondary); }
 .taskCounts strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
 .taskList li { display: flex; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-block-start: 1px solid var(--color-border); }
 .taskList li>span:first-child { min-inline-size: 0; overflow-wrap: anywhere; }
 .snapshotList li { display: grid; gap: var(--space-1); border-block-start: 1px solid var(--color-border); padding-block: var(--space-3); overflow-wrap: anywhere; }
-.workerTotal { margin: 0; font-size: 18px; }
-.workerTotal strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+.workerTotal { margin: 0; font-size: var(--font-size-h3); }
+.workerTotal strong { font-size: var(--font-size-display); font-variant-numeric: tabular-nums; }
 .meta { overflow-wrap: anywhere; }
 @media(min-width:1200px) { .columns { grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); } }
 @media(max-width:767px) { .counts { gap: var(--space-3); justify-content: space-between; padding: var(--space-4); } .taskList li { flex-wrap: wrap; } }
@@ -214,8 +214,8 @@
 .observationDetails summary { cursor: pointer; min-block-size: 28px; }
 .outcomeSection, .infrastructureSection { padding-block-start: var(--space-4); border-block-start: 1px solid var(--color-border); }
 .outcomeSection { display: grid; gap: var(--space-3); }
-.infrastructureSection h3 { margin: 0; font-size: 16px; }
-.capacityValue { margin: 0; font-size: 26px; font-weight: 600; }
+.infrastructureSection h3 { margin: 0; font-size: var(--font-size-body); }
+.capacityValue { margin: 0; font-size: var(--font-size-display); font-weight: 600; }
 .counts { justify-content: space-around; }
 .coverageDisclosure { font-size: var(--font-size-meta); color: var(--color-attention); }
 .coverageDisclosure summary, .scopeDisclosure summary { cursor: pointer; min-block-size: 28px; }
@@ -228,7 +228,7 @@
 /* OV-A header: title + summary on the left, primary Create task on the right. No negative margins. */
 .header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3) var(--space-5); min-inline-size: 0; }
 .titleBlock { display: grid; gap: var(--space-2); min-inline-size: 0; flex: 1 1 20rem; }
-.summary { margin: 0; color: var(--color-text-secondary); font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+.summary { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-h3); line-height: 1.4; overflow-wrap: anywhere; }
 .headerAction { flex: none; max-inline-size: 100%; }
 .referenceDetails { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: var(--space-2); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
 .referenceDetails dd { margin: 0; }
@@ -239,8 +239,8 @@
 .sessionRow > div { display: grid; gap: var(--space-1); }
 .sessionRow .action { grid-column: 2; grid-row: 1; }
 .sessionChoice { display: grid; gap: var(--space-2); }
-.sessionChoice select { inline-size: 100%; min-inline-size: 0; min-block-size: var(--touch-target); font: inherit; background: var(--color-raised); color: var(--color-text); }
-.pinButton { min-block-size: var(--touch-target); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-raised); color: var(--color-accent); font: inherit; cursor: pointer; }
+.sessionChoice select { inline-size: 100%; min-inline-size: 0; min-block-size: var(--control-height); font: inherit; background: var(--color-raised); color: var(--color-text); }
+.pinButton { min-block-size: var(--control-height); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-raised); color: var(--color-accent); font: inherit; cursor: pointer; }
 @media (min-width: 1200px) { .columns { grid-template-columns: minmax(0,1.65fr) minmax(280px,1fr); } }
 @media (max-width: 767px) {
  .panel { padding: var(--space-4); }
@@ -249,8 +249,8 @@
  .attentionRow > .meta { grid-column: 2; }
  .impact { grid-row: auto; max-inline-size: 100%; white-space: normal; }
  .counts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); justify-content: initial; }
- .counts strong { font-size: 18px; }
- .summary { font-size: 16px; }
+ .counts strong { font-size: var(--font-size-h3); }
+ .summary { font-size: var(--font-size-body); }
 }
 
 @media (min-width: 768px) { .attentionRow { grid-template-columns: 28px minmax(0,1fr) minmax(7rem,.65fr) auto; } }
@@ -258,8 +258,8 @@
 
 @media (max-width: 360px) {
  .counts { padding: var(--space-3); gap: var(--space-3) var(--space-2); }
- .counts li { gap: var(--space-1); font-size: 12px; }
- .counts strong { font-size: 16px; }
+ .counts li { gap: var(--space-1); font-size: var(--font-size-xs); }
+ .counts strong { font-size: var(--font-size-body); }
  .countIcon { inline-size: 20px; block-size: 20px; }
 }
 
@@ -305,9 +305,9 @@
 .capacityPanel { gap: var(--space-2); }
 .capacityPanel p { margin: 0; }
 .capacityPanel .infrastructureSection { display: grid; gap: var(--space-1); padding-block-start: var(--space-3); }
-.capacityPanel .capacityValue { font-size: 24px; }
+.capacityPanel .capacityValue { font-size: var(--font-size-h1); }
 .moreCapacity { border-block-start: 1px solid var(--color-border); padding-block-start: var(--space-2); }
-.moreCapacity > summary { cursor: pointer; min-block-size: var(--touch-target); line-height: var(--touch-target); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.moreCapacity > summary { cursor: pointer; min-block-size: var(--control-height); line-height: var(--control-height); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
 .moreCapacity > .infrastructureSection { margin-block-start: var(--space-2); }
 .footerLink { justify-self: end; }
 /* OV-C: Work in motion follows reference 01: status icon + toned label; phone rows stack as two-line cards. */

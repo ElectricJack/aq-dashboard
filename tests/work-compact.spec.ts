@@ -30,10 +30,32 @@ async function metrics(page: Page) {
       sectionHead: Math.round(Math.max(...heads)),
       commentsHeadingTop: Math.round(comments?.top ?? -1),
       inspectorHeight: Math.round(box("[data-task-inspector]")?.height ?? 0),
+      // Inspector top edge to the first comment: everything the owner scrolls past before reading the thread.
+      aboveFirstComment: Math.round((box("[data-task-inspector] [data-comment]")?.top ?? 0) - (box("[data-task-inspector]")?.top ?? 0)),
+      bodyFont: getComputedStyle(document.body).fontSize,
+      pageTitle: px("main h1", "font-size"),
       row: Math.round(box("ul[aria-label=Tasks] a")?.height ?? 0),
       rowFont: px("ul[aria-label=Tasks] a", "font-size"),
     };
   });
+}
+/** How many task rows fit between the first row and the bottom of the first screen (the fixture has only 10 tasks). */
+async function rowsPerScreen(page: Page) {
+  return page.getByRole("list", { name: "Tasks" }).getByRole("listitem").evaluateAll(els => { const r = els[0]!.getBoundingClientRect(); return Math.floor((innerHeight - r.top) / r.height); });
+}
+/** A row is on one line when every visible child shares one vertical band (centres within 4px) and nothing wraps. */
+async function oneLine(page: Page, selector: string) {
+  const rows = await page.locator(selector).evaluateAll(els => els.filter(el => (el as HTMLElement).offsetParent).map(el => {
+    const kids = [...el.children].filter(k => { const r = k.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(k).position !== "absolute"; });
+    const centres = kids.map(k => { const r = k.getBoundingClientRect(); return r.top + r.height / 2; });
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.5;
+    return { text: (el.textContent ?? "").slice(0, 60), spread: centres.length ? Math.max(...centres) - Math.min(...centres) : 0, height: el.getBoundingClientRect().height, lh, plain: kids.length === 0 };
+  }));
+  expect(rows.length, `${selector} present`).toBeGreaterThan(0);
+  for (const r of rows) {
+    expect(r.spread, `${selector} “${r.text}” children on one line`).toBeLessThanOrEqual(4);
+    if (r.plain) expect(r.height, `${selector} “${r.text}” is one text line`).toBeLessThanOrEqual(r.lh * 1.5);
+  }
 }
 async function noHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
@@ -52,9 +74,11 @@ test.describe("desktop 1440x900", () => {
       await page.screenshot({ path: `${evidence}/inspector-desktop.png` });
       await page.screenshot({ path: `${evidence}/inspector-desktop-full.png`, fullPage: true });
     }
+    expect(m.bodyFont).toBe("14px");
     expect(m.inspectorFont).toBe("14px");
     expect(m.title).toBe("18px");
     expect(m.headerHeight).toBeLessThanOrEqual(140);
+    expect(m.aboveFirstComment).toBeLessThanOrEqual(400);
     expect(m.sectionHead).toBeLessThanOrEqual(34);
     expect(m.row).toBeLessThanOrEqual(32);
     expect(m.rowFont).toBe("14px");
@@ -140,3 +164,48 @@ test("desktop list screenshot", async ({ page }) => {
   if (evidence) await page.screenshot({ path: `${evidence}/list-desktop.png` });
   await noHorizontalScroll(page);
 });
+
+// Owner request 2026-11-06: buttons, chips and label/value rows that belong together sit on one line rather than
+// wrapping, at desktop and small-laptop widths.
+for (const vp of [{ name: "1440", width: 1440, height: 900 }, { name: "1024", width: 1024, height: 768 }]) {
+  test.describe(`no-wrap rows at ${vp.width}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("inspector header, section heads, buttons, attempts, results and history stay on one line", async ({ page }) => {
+      await page.goto(`/work/${replay}?${scope}`);
+      await expect(section(page, "Attempts").getByRole("list", { name: "Attempts" })).toBeVisible({ timeout: 15_000 });
+      await expect(section(page, "Results").getByRole("list", { name: "Results" })).toBeVisible({ timeout: 15_000 });
+      await section(page, "History").getByRole("button", { name: "History", exact: true }).click();
+      await expect(section(page, "History").getByRole("list", { name: "Change history" })).toBeVisible({ timeout: 15_000 });
+      // Header: the actions beside the title; status, ID, copy and link on one line.
+      const bar = inspector(page).locator("[data-inspector-bar]");
+      const buttons = await bar.locator("[data-inspector-title] ~ * button:visible").evaluateAll(els => els.map(e => e.getBoundingClientRect()).map(r => r.top + r.height / 2));
+      expect(Math.max(...buttons) - Math.min(...buttons)).toBeLessThanOrEqual(4);
+      const title = (await bar.locator("[data-inspector-title]").boundingBox())!, actions = (await bar.locator("[data-inspector-title] + *").boundingBox())!;
+      expect(actions.y).toBeLessThan(title.y + title.height);
+      const identity = await Promise.all([inspector(page).locator("[data-task-status]"), inspector(page).locator("code[data-id='task ID']"), inspector(page).getByRole("button", { name: "Copy task ID" }), inspector(page).getByRole("button", { name: /task link/i })].map(l => l.boundingBox()));
+      const mids = identity.map(b => b!.y + b!.height / 2);
+      expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(4);
+      await oneLine(page, "[data-task-inspector] section[data-section] > div:first-child");
+      await oneLine(page, "[data-task-inspector] [data-comment-paging]");
+      await oneLine(page, "[data-task-inspector] form:has(textarea) > span");
+      await oneLine(page, "[data-task-inspector] [data-attempt] > p");
+      await oneLine(page, "[data-task-inspector] [data-result] > p");
+      await oneLine(page, "[data-task-inspector] [data-holding-attempt] > p");
+      await oneLine(page, "[data-task-inspector] ol[aria-label='Change history'] > li > p:first-child");
+      if (evidence) await page.screenshot({ path: `${evidence}/nowrap-${vp.name}.png`, fullPage: true });
+      await noHorizontalScroll(page);
+    });
+
+    test("list heading, Refresh and the filter row stay on one line", async ({ page }) => {
+      await page.goto(`/work?${scope}`);
+      await expect(page.getByRole("list", { name: "Tasks" }).getByRole("link").first()).toBeVisible();
+      const rows = await rowsPerScreen(page);
+      if (evidence) writeFileSync(`${evidence}/rows-${vp.name}.json`, JSON.stringify({ rowsPerScreen: rows }));
+      await oneLine(page, "main [role=search] + [role=group]");
+      const heading = (await page.getByRole("heading", { name: /tasks loaded/ }).boundingBox())!, refresh = (await page.getByRole("button", { name: "Refresh list" }).boundingBox())!;
+      expect(Math.abs(heading.y + heading.height / 2 - (refresh.y + refresh.height / 2))).toBeLessThanOrEqual(6);
+      await noHorizontalScroll(page);
+    });
+  });
+}

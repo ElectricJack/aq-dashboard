@@ -4,12 +4,12 @@
 .panel { display: flex; flex-direction: column; gap: var(--space-2); min-inline-size: 0; padding: var(--space-4); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); overflow-wrap: anywhere; }
 .header { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); padding-block-end: var(--space-3); border-block-end: 1px solid var(--color-border); }
 .kicker { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
-.title { margin: 0; font-size: 22px; line-height: 1.25; }
+.title { margin: 0; font-size: var(--font-size-h1); line-height: 1.25; }
 .meta { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
-.chipAttention, .chipNeutral { display: inline-flex; margin-block-start: var(--space-1); padding: 1px var(--space-2); border: 1px solid currentColor; border-radius: 999px; font-size: 12px; }
+.chipAttention, .chipNeutral { display: inline-flex; margin-block-start: var(--space-1); padding: 1px var(--space-2); border: 1px solid currentColor; border-radius: 999px; font-size: var(--font-size-xs); }
 .chipAttention { color: var(--color-attention); }
 .chipNeutral { color: var(--color-text-secondary); }
-.section { margin: var(--space-4) 0 var(--space-1); font-size: 18px; }
+.section { margin: var(--space-4) 0 var(--space-1); font-size: var(--font-size-h3); }
 .question, .answer { margin: 0; padding: var(--space-3) var(--space-4); white-space: pre-wrap; line-height: 1.5; background: var(--color-raised); border: 1px solid var(--color-border); border-inline-start: 3px solid var(--color-attention); border-radius: var(--radius-control); }
 .answer { border-inline-start-color: var(--color-accent); }
 
@@ -17,7 +17,7 @@
 .field { display: flex; align-items: flex-start; gap: var(--space-3); padding-inline: var(--space-4); background: var(--color-canvas); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
 .field:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .fieldIcon { flex: none; margin-block-start: 12px; color: var(--color-text-secondary); }
-.input { flex: 1; min-inline-size: 0; min-block-size: calc(var(--touch-target) * 2); max-block-size: 40vh; field-sizing: content; resize: vertical; padding: 10px 0; color: var(--color-text); background: transparent; border: 0; font: inherit; }
+.input { flex: 1; min-inline-size: 0; min-block-size: calc(var(--control-height) * 2); max-block-size: 40vh; field-sizing: content; resize: vertical; padding: 10px 0; color: var(--color-text); background: transparent; border: 0; font: inherit; }
 .input:focus { outline: none; }
 .input::placeholder { color: var(--color-text-secondary); }
 .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
