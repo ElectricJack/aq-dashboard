@@ -33,6 +33,12 @@ test("list pages keep executions so a held task reads running (item 16)", () => 
   expect(listStatus({ task_state: "active" }, false)).toBe("active");
   expect(listStatus({ task_state: "completed" }, false)).toBe("completed");
   expect(listStatus({ task_state: null }, false)).toBe("unknown");
+  // P1-01: the execution's status decides; an ended attempt that still holds the task is "held", not running.
+  expect(listStatus({ task_state: "active" }, "running")).toBe("running");
+  expect(listStatus({ task_state: "active" }, "granted")).toBe("running");
+  for (const ended of ["finished", "declined", "never_granted", "Finished"]) expect(listStatus({ task_state: "active" }, ended)).toBe("held");
+  expect(listStatus({ task_state: "active" }, undefined)).toBe("active");
+  expect(listStatus({ task_state: "completed" }, "finished")).toBe("completed");
   expect(() => adaptGraphPage(env({ items: [task.data], next_cursor: null, executions: [execution, execution] }), project, "task")).toThrow();
 });
 

@@ -24,7 +24,7 @@ export function TaskResults({ project, task }: { project: string; task: string }
       const a = d.assessment, r = d.revision, at = new Date(r.submitted_at_ms).toISOString();
       const evidence = a.evidence.requirements.filter(q => q.required), attached = evidence.filter(q => q.state !== "missing").length;
       return <li key={d.result.id} data-result={d.result.id}>
-        <Link className={styles.resultSummary} to={{ pathname: `/results/${encodeURIComponent(d.result.id)}/revisions/${encodeURIComponent(r.revision)}`, search: scope }}>{r.summary}</Link>
+        <Link className={styles.resultSummary} title={r.summary} to={{ pathname: `/results/${encodeURIComponent(d.result.id)}/revisions/${encodeURIComponent(r.revision)}`, search: scope }}>{r.summary}</Link>
         <p className={styles.meta}>
           Submitted <Ago at={at} /> · Acceptance: {humanize(a.acceptance)}{a.unresolved_review && " · Needs review"}
           {" · "}{evidence.length ? `${attached} of ${evidence.length} required captures` : "No required captures"}

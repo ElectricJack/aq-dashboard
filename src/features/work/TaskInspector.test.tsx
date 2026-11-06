@@ -390,3 +390,186 @@ test("item 13: a comment read this bundle can't adapt fails only its section", a
   expect(await within(region).findByRole("list", { name: "Attempts" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "Dashboard update required" })).toBeNull();
 });
+
+/* ----- QA 2026-11-06 Phase 1 findings (qa/2026-11-06/parity-p1/issues.md) ----- */
+
+const workRead = (id: string, execution: { attempt_id: string; session_id: string; status: string } | null, state = "running") =>
+  http.get(`${graph}/${id}/work`, () => HttpResponse.json({ ...task, data: { task_id: id, task_state: "active", version: "1", readiness: { state, blockers: [], complete: true }, parent: null, execution: execution && { task_id: id, ...execution } } }));
+
+test("P1-01: 'running' held by a finished attempt is qualified, never shown as Running", async () => {
+  server.use(workRead(FIXTURE_IDS.replay, { attempt_id: fixtureId(0x301), session_id: fixtureId(0x302), status: "finished" }));
+  const { region } = await open(FIXTURE_IDS.replay);
+  const badge = await within(region).findByText(/^Held by/, { selector: "[data-task-status] span" });
+  expect(badge).toHaveTextContent("Held by a finished attempt");
+  expect(badge.closest("[data-task-status]")).toHaveAttribute("data-readiness", "running");
+  expect(within(region).queryByText("Running", { selector: "[data-task-status] span" })).toBeNull();
+  const status = section(region, "Status");
+  expect(within(status).getByText(/AQ reports this task as running because the attempt below still holds it, but that attempt is finished/)).toBeVisible();
+  // A finished attempt has no live terminal: the link opens its session record.
+  expect(within(status).getByRole("link", { name: "Open session" })).toHaveAttribute("href", expect.stringContaining(`/agents/${fixtureId(0x302)}`));
+  expect(within(status).queryByRole("link", { name: "Open terminal" })).toBeNull();
+});
+
+test("P1-01: the history read's attempt status qualifies a work read that still says running", async () => {
+  server.use(http.get(`${graph}/${FIXTURE_IDS.replay}/history`, () => HttpResponse.json({ ...task, data: { task_id: FIXTURE_IDS.replay, items: [], next_cursor: null, attempts_truncated: false,
+    attempts: [{ attempt_id: fixtureId(0x301), session_id: fixtureId(0x302), holds_task: true, status: "finished" }] } })));
+  const { region } = await open(FIXTURE_IDS.replay);
+  expect(await within(region).findByText("Held by a finished attempt", { selector: "[data-task-status] span" })).toBeVisible();
+});
+
+test("P1-01: a live holding attempt still reads Running", async () => {
+  const { region } = await open(FIXTURE_IDS.replay);
+  await within(section(region, "Attempts")).findByRole("list", { name: "Attempts" });
+  expect(within(region).getByText("Running", { selector: "[data-task-status] span" })).toBeVisible();
+});
+
+test("P1-02: on a phone every action sits in one Task actions menu", async () => {
+  const matchMedia = vi.fn((query: string) => ({ matches: query.includes("max-width"), media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+  vi.stubGlobal("matchMedia", matchMedia);
+  try {
+    const { region } = await open(FIXTURE_IDS.approve);
+    const header = region.querySelector<HTMLElement>("[data-inspector-bar]")!;
+    expect(within(header).getByRole("heading", { level: 2 })).toHaveTextContent("Fixture: Approve recovery plan");
+    expect(within(header).queryByRole("button", { name: "Edit task" })).toBeNull();
+    await userEvent.click(within(header).getByRole("button", { name: "Task actions" }));
+    const menu = screen.getByRole("menu", { name: "Task actions" });
+    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Cancel attempt", "Retry attempt", "Add dependency", "Remove dependency"]);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+test("P1-03: Comments follow Status directly, ahead of the description", async () => {
+  const { region } = await open(FIXTURE_IDS.replay);
+  expect([...region.querySelectorAll("section[data-section]")].map(s => s.getAttribute("data-section")).slice(0, 4)).toEqual(["status", "comments", "description", "acceptance"]);
+});
+
+test("P1-04: the inspector publishes a scroll margin for content under its pinned header", async () => {
+  const { region } = await open(FIXTURE_IDS.replay);
+  expect(region.style.getPropertyValue("--inspector-scroll-margin")).toMatch(/^\d+px$/);
+});
+
+test("P1-10: a result summary carries its full text as a tooltip (the view clamps it)", async () => {
+  const { region } = await open(FIXTURE_IDS.replay);
+  const link = await within(section(region, "Results")).findByRole("link", { name: /Replay reconciliation now merges/ });
+  expect(link).toHaveAttribute("title", link.textContent);
+});
+
+test("P1-11: closing Reprioritize returns focus to the action menu", async () => {
+  const { region } = await open(FIXTURE_IDS.approve);
+  const more = within(region).getByRole("button", { name: "More actions" });
+  await userEvent.click(more);
+  await userEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Reprioritize" }));
+  const dialog = screen.getByRole("dialog", { name: "Reprioritize" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Close action" }));
+  await waitFor(() => expect(more).toHaveFocus());
+});
+
+test("P1-11: deleting a comment moves focus to its placeholder; Cancel and Keep it return to the button", async () => {
+  const { region } = await open(FIXTURE_IDS.approve);
+  const comments = section(region, "Comments");
+  await within(comments).findByRole("list", { name: "Comments" });
+  const item = () => entries(within(comments).getByRole("list", { name: "Comments" }))[0]!;
+  await userEvent.click(within(item()).getByRole("button", { name: /^Edit/ }));
+  await userEvent.click(within(item()).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(within(item()).getByRole("button", { name: /^Edit/ })).toHaveFocus());
+  await userEvent.click(within(item()).getByRole("button", { name: /^Delete/ }));
+  await userEvent.click(within(item()).getByRole("button", { name: "Keep it" }));
+  await waitFor(() => expect(within(item()).getByRole("button", { name: /^Delete/ })).toHaveFocus());
+  await userEvent.click(within(item()).getByRole("button", { name: /^Delete/ }));
+  await userEvent.click(within(item()).getByRole("button", { name: "Delete comment" }));
+  await waitFor(() => expect(item()).toHaveTextContent("Comment deleted"));
+  await waitFor(() => expect(item()).toHaveFocus());
+});
+
+/** A thread whose one owner comment the test changes "in another tab" while it is being edited. */
+function editableThread() {
+  const at = "2026-10-31T11:00:00.000Z";
+  const state = { revision: "1", body: "Fixture: v1 body", posts: [] as { kind: string; expected_revision?: string; body?: string }[] };
+  const comment = () => ({ comment_id: fixtureId(0x550), task_id: FIXTURE_IDS.approve, author: { kind: "owner", user_id: fixtureId(0xa1), display_name: "owner@example.test", session_id: null, attempt_id: null },
+    body: state.body, created_at: at, edited_at: state.revision === "1" ? null : at, deleted_at: null, revision: state.revision, can_edit: true });
+  const handlers = [
+    http.get(`${graph}/${FIXTURE_IDS.approve}/comments`, () => HttpResponse.json({ ...task, data: { task_id: FIXTURE_IDS.approve, items: [comment()], next_cursor: null } })),
+    http.post("/api/v1/actions", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; kind: string; subject: unknown; payload: { project_id: string; expected_revision?: string; body?: string } };
+      state.posts.push({ kind: body.kind, expected_revision: body.payload.expected_revision, body: body.payload.body });
+      const stale = body.payload.expected_revision !== state.revision;
+      if (!stale) { state.revision = String(Number(state.revision) + 1); state.body = body.payload.body!; }
+      return HttpResponse.json({ api_version: "dashboard-actions-1", request_id: "x", data: { operation_id: body.operation_id, disposition: stale ? "conflict" : "confirmed", request_digest: `sha256:${"0".repeat(64)}`, scope: { kind: "project", project_id: body.payload.project_id },
+        created_at: at, updated_at: at, subject_refs: [body.subject], receipt_refs: [], affected_entities: [], recovery: stale ? "refresh_and_review" : "none", ...(stale ? { current_versions: { task_comment: state.revision } } : {}) } });
+    }),
+  ];
+  return { state, handlers, outOfBand(body: string) { state.revision = String(Number(state.revision) + 1); state.body = body; } };
+}
+
+test("P1-06: after an edit conflict the newer version is shown and Save waits for a choice; a second Save never overwrites unseen", async () => {
+  const thread = editableThread();
+  server.use(...thread.handlers);
+  const { region } = await open(FIXTURE_IDS.approve);
+  const comments = section(region, "Comments");
+  await within(comments).findByRole("list", { name: "Comments" });
+  const item = () => entries(within(comments).getByRole("list", { name: "Comments" }))[0]!;
+  await userEvent.click(within(item()).getByRole("button", { name: /^Edit/ }));
+  thread.outOfBand("v2, edited out-of-band");
+  const editor = within(item()).getByLabelText("Edit comment");
+  await userEvent.clear(editor); await userEvent.type(editor, "my v3 draft");
+  await userEvent.click(within(item()).getByRole("button", { name: "Save" }));
+  const conflict = await within(item()).findByRole("group", { name: "Newer version of this comment" });
+  expect(within(conflict).getByText("v2, edited out-of-band")).toBeVisible();
+  expect(within(item()).getByLabelText("Edit comment")).toHaveValue("my v3 draft");
+  const save = within(item()).getByRole("button", { name: "Save" });
+  expect(save).toBeDisabled();
+  await userEvent.click(save);
+  expect(thread.state.posts).toHaveLength(1);
+  expect(thread.state.body).toBe("v2, edited out-of-band");
+  // Choosing AQ's version puts it in the box; saving from there targets the revision the user has now seen.
+  await userEvent.click(within(conflict).getByRole("button", { name: "Use AQ's version" }));
+  expect(within(item()).getByLabelText("Edit comment")).toHaveValue("v2, edited out-of-band");
+  await userEvent.type(within(item()).getByLabelText("Edit comment"), " + mine");
+  await userEvent.click(within(item()).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(item()).toHaveTextContent("v2, edited out-of-band + mine"));
+  expect(thread.state.posts.map(p => p.expected_revision)).toEqual(["1", "2"]);
+});
+
+test("P1-06: Keep my draft is an explicit overwrite of the version shown", async () => {
+  const thread = editableThread();
+  server.use(...thread.handlers);
+  const { region } = await open(FIXTURE_IDS.approve);
+  const comments = section(region, "Comments");
+  await within(comments).findByRole("list", { name: "Comments" });
+  const item = () => entries(within(comments).getByRole("list", { name: "Comments" }))[0]!;
+  await userEvent.click(within(item()).getByRole("button", { name: /^Edit/ }));
+  thread.outOfBand("v2 elsewhere");
+  await userEvent.type(within(item()).getByLabelText("Edit comment"), " plus mine");
+  await userEvent.click(within(item()).getByRole("button", { name: "Save" }));
+  await userEvent.click(await within(item()).findByRole("button", { name: "Keep my draft" }));
+  await userEvent.click(within(item()).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(item()).toHaveTextContent("Fixture: v1 body plus mine"));
+  expect(thread.state.posts.map(p => p.expected_revision)).toEqual(["1", "2"]);
+});
+
+test("P1-06: an untouched draft follows a newer version instead of conflicting", async () => {
+  const thread = editableThread();
+  server.use(...thread.handlers);
+  const { region } = await open(FIXTURE_IDS.approve);
+  const comments = section(region, "Comments");
+  await within(comments).findByRole("list", { name: "Comments" });
+  const item = () => entries(within(comments).getByRole("list", { name: "Comments" }))[0]!;
+  await userEvent.click(within(item()).getByRole("button", { name: /^Edit/ }));
+  thread.outOfBand("v2 elsewhere");
+  await userEvent.click(within(comments).getByRole("button", { name: "Refresh comments" }));
+  await waitFor(() => expect(within(item()).getByLabelText("Edit comment")).toHaveValue("v2 elsewhere"));
+  expect(within(item()).getByRole("status")).toHaveTextContent("the box now holds the newer version");
+  expect(within(item()).queryByRole("group", { name: "Newer version of this comment" })).toBeNull();
+});
+
+test("P1-05: comment bodies render safe links and quotes", async () => {
+  server.use(http.get(`${graph}/${FIXTURE_IDS.approve}/comments`, () => HttpResponse.json({ ...task, data: { task_id: FIXTURE_IDS.approve, next_cursor: null, items: [{ comment_id: fixtureId(0x551), task_id: FIXTURE_IDS.approve,
+    author: { kind: "owner", user_id: fixtureId(0xa1), display_name: "owner@example.test", session_id: null, attempt_id: null }, body: "See [the log](https://example.com/log) or https://example.org/x.\n\n> quoted\n\n<script>alert(1)</script>",
+    created_at: "2026-10-31T11:00:00.000Z", edited_at: null, deleted_at: null, revision: "1", can_edit: true }] } })));
+  const { region } = await open(FIXTURE_IDS.approve);
+  const thread = await within(section(region, "Comments")).findByRole("list", { name: "Comments" });
+  expect(within(thread).getByRole("link", { name: "the log" })).toHaveAttribute("rel", "noopener noreferrer");
+  expect(within(thread).getByRole("link", { name: "https://example.org/x" })).toHaveAttribute("target", "_blank");
+  expect(thread.querySelector("blockquote")).toHaveTextContent("quoted");
+  expect(thread.querySelector("script")).toBeNull();
+  expect(thread).toHaveTextContent("<script>alert(1)</script>");
+});

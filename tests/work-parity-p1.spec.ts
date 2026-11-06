@@ -42,6 +42,8 @@ async function confirmActions(page: Page) {
 
 for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone", width: 390, height: 844 }]) {
   const desktop = vp.name === "desktop";
+  // A phone keeps every action in one Task actions menu (P1-02).
+  const actionsMenu = desktop ? "More actions" : "Task actions";
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
@@ -122,7 +124,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
     test("labels show and Reprioritize confirms the new priority", async ({ page }) => {
       await confirmActions(page);
       await page.goto(`/work/${replay}?${scope}`);
-      await inspector(page).getByRole("button", { name: "More actions" }).click();
+      await inspector(page).getByRole("button", { name: actionsMenu }).click();
       await page.getByRole("menuitem", { name: "Reprioritize" }).click();
       const dialog = page.getByRole("dialog", { name: "Reprioritize" });
       await dialog.getByLabel("Priority").fill("25");
@@ -140,13 +142,16 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(results).toHaveAttribute("aria-expanded", "false");
       await page.reload();
       await expect(section(page, "Results").getByRole("button", { name: "Results", exact: true })).toHaveAttribute("aria-expanded", "false");
-      // Sticky header: scrolled to the bottom, the title and actions remain on screen.
+      // Sticky header: scrolled to the bottom, the title and actions remain on screen. The section reads settle first,
+      // so nothing loading above History moves it out of view after the scroll.
+      await expect(section(page, "Comments").getByRole("list", { name: "Comments" })).toBeVisible();
+      await expect(section(page, "Attempts").locator("[data-attempt-times]")).toHaveCount(2);
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(400);
       await expect(section(page, "History").getByRole("button", { name: "History", exact: true })).toBeInViewport();
       const header = inspector(page).locator("[data-inspector-header]");
       await expect(header.getByRole("heading", { level: 2, name: "Fixture: Replay reconciliation" })).toBeInViewport();
-      await expect(header.getByRole("button", { name: "More actions" })).toBeInViewport();
+      await expect(header.getByRole("button", { name: actionsMenu })).toBeInViewport();
       if (evidence) await page.screenshot({ path: `${evidence}/p1-sticky-${vp.name}.png` });
       await noHorizontalScroll(page);
       await axe(page);

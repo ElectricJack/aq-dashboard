@@ -10,11 +10,12 @@ import { RecordFacts } from "../knowledge/KnowledgeDocument";
 import { CopyValue } from "../decisions/DecisionContext";
 import { useTaskComments, useTaskHistory, useTaskWork } from "./taskWork";
 import { useSession } from "../../app/session";
+import { useMediaQuery } from "../../components/useMediaQuery";
 import { TaskComments } from "./inspector/TaskComments";
 import { IdValue, ServerNow } from "./inspector/common";
 import { Section } from "./inspector/Section";
 import { useSectionOpen } from "./inspector/sections";
-import { StatusBadge, TaskStatusSection } from "./inspector/TaskStatus";
+import { StatusBadge, TaskStatusSection, endedHolder } from "./inspector/TaskStatus";
 import { TaskAttempts } from "./inspector/TaskAttempts";
 import { TaskHistory } from "./inspector/TaskHistory";
 import { TaskHierarchy } from "./inspector/TaskHierarchy";
@@ -45,16 +46,46 @@ function Description({ body }: { body: string }) {
   </>;
 }
 
-/** The sticky header's offset: the shell's own sticky top bar, when it has one at this width. */
+/** Phones pin only the compact title bar (P1-02); wider layouts pin the whole header. Matches the CSS breakpoint. */
+export const COMPACT_HEADER_QUERY = "(max-width: 600px)";
+
+/**
+ * The sticky header's offset (the shell's own sticky top bar, when it has one at this width), and the scroll margin
+ * that keeps a focused or scrolled-to control clear of everything pinned above it (P1-04). The document's
+ * `scroll-padding-top` already clears the shell bar, so the margin adds only what the inspector pins below it.
+ */
 function useStickyTop(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
-    const element = ref.current, bar = document.querySelector<HTMLElement>("main#content")?.parentElement?.querySelector<HTMLElement>(":scope > header");
-    if (!element || !bar) return;
-    const apply = () => element.style.setProperty("--inspector-sticky-top", getComputedStyle(bar).position === "sticky" ? `${bar.offsetHeight}px` : "0px");
+    const element = ref.current;
+    if (!element) return;
+    const bar = document.querySelector<HTMLElement>("main#content")?.parentElement?.querySelector<HTMLElement>(":scope > header");
+    // The pinned element is the whole header on wide layouts and only its title bar on a phone (the header is then `display: contents`).
+    const pinned = () => [...element.querySelectorAll<HTMLElement>("[data-inspector-header],[data-inspector-bar]")].find(e => { const style = getComputedStyle(e); return style.position === "sticky" && style.display !== "contents"; });
+    const apply = () => {
+      const top = bar && getComputedStyle(bar).position === "sticky" ? bar.offsetHeight : 0;
+      element.style.setProperty("--inspector-sticky-top", `${top}px`);
+      const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      const margin = Math.max(0, Math.ceil(top + (pinned()?.offsetHeight ?? 0) + 12 - padding));
+      element.style.setProperty("--inspector-scroll-margin", `${margin}px`);
+    };
+    // Text fields scroll their caret, not their box, into view, which ignores the scroll margin: after any focus
+    // change, a control still under the pinned header is scrolled just clear of it.
+    let frame = 0;
+    const reveal = (event: FocusEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null, header = pinned();
+      if (!target || !header || header.contains(target) || target.closest("dialog")) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const box = target.getBoundingClientRect(), edge = header.getBoundingClientRect().bottom;
+        if (box.top < edge && box.bottom > 0 && box.height < window.innerHeight - edge) window.scrollBy({ top: box.top - edge - 12 });
+      });
+    };
     apply();
     const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(apply);
-    observer?.observe(bar); window.addEventListener("resize", apply);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", apply); };
+    if (bar) observer?.observe(bar);
+    element.querySelectorAll("[data-inspector-header],[data-inspector-bar]").forEach(e => observer?.observe(e));
+    window.addEventListener("resize", apply); element.addEventListener("focusin", reveal);
+    return () => { observer?.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("resize", apply); element.removeEventListener("focusin", reveal); };
   }, [ref]);
 }
 
@@ -77,39 +108,47 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
   // One history read serves Attempts, History and Retry attempt's precondition (WD-11).
   const retryNeedsAttempts = n.task_state === "active" && !!work.data && !work.data.data.execution;
   const history = useTaskHistory(project, n.id, attemptsOpen || historyOpen || retryNeedsAttempts);
-  const attemptCount = history.data?.pages[0]?.data.attempts.length;
-  const w = work.data?.data, parent = w?.parent;
+  const attempts = history.data?.pages[0]?.data.attempts, attemptCount = attempts?.length;
+  const w = work.data?.data, parent = w?.parent, ended = endedHolder(w, attempts);
+  const compact = useMediaQuery(COMPACT_HEADER_QUERY);
   const linkSearch = listSearch(search);
   const facts = w ? { holding: !!w.execution, blockers: w.blockers.length, complete: w.complete, blockerIds: w.blockers.map(b => b.id), ...(attemptCount !== undefined ? { attempts: attemptCount } : {}) } : undefined;
   const link = typeof window === "undefined" ? "" : `${window.location.origin}/work/${encodeURIComponent(n.id)}?${new URLSearchParams({ scope: `project:${project}` })}`;
   return <ServerNow serverTime={record.observed_at}>
     <section ref={root} className={classes(styles.inspector, className)} aria-labelledby={titleId} data-task-inspector="" data-focused={focused || undefined}>
-      <header className={styles.header} data-inspector-header="">
-        <BackToTasks search={search} />
+      {/* Wide layouts pin this whole block. On a phone it lays out as if absent, and only the title bar (title,
+          status, one action menu) is pinned, so the sections keep most of the screen (P1-02). */}
+      <div className={styles.header} data-inspector-header="">
         <div className={styles.headTop}>
+          <BackToTasks search={search} />
           <nav aria-label="Task location" className={styles.crumbs}>
             <span>{record.project.name}</span>
             {parent && <><ChevronRight size={14} aria-hidden /><Link to={{ pathname: `/work/${encodeURIComponent(parent.id)}`, search }} data-parent-link="">{parent.title ?? `Parent task ${parent.id.slice(0, 8)}`}</Link></>}
           </nav>
-          <div className={styles.actions}><RecordActions record={record} variant="compact" execution={facts} /></div>
           {onFocus && <button type="button" className={styles.expand} aria-pressed={focused} onClick={() => onFocus(!focused)} title={focused ? "Restore the list (Esc)" : "Give the task the full width"}>
             {focused ? <Minimize2 size={16} aria-hidden /> : <Maximize2 size={16} aria-hidden />}{focused ? "Collapse" : "Expand"}
           </button>}
         </div>
-        <h2 id={titleId} data-inspector-title="">{n.title}</h2>
+        <header className={styles.bar} data-inspector-bar="">
+          <div className={styles.titleRow}>
+            <h2 id={titleId} data-inspector-title="" title={n.title}>{n.title}</h2>
+            <div className={styles.actions}><RecordActions record={record} variant={compact ? "menu" : "compact"} execution={facts} /></div>
+          </div>
+          <StatusBadge work={w} lifecycle={n.task_state} ended={ended} />
+        </header>
         <div className={styles.identity}>
-          <StatusBadge work={w} lifecycle={n.task_state} />
           <p className={styles.taskId}><span className="visually-hidden">Task ID </span><IdValue id={n.id} label="task ID" full /></p>
           {link && <span className={styles.copyLink}><CopyValue value={link} label="task link" icon={Link2} /></span>}
           {(n.retired || n.deleted) && <p className={styles.meta}>Record lifecycle: {n.deleted ? "Deleted" : "Retired"}</p>}
+          {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels">{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
         </div>
-        {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels">{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
-      </header>
+      </div>
       {notice}
-      <Section id="status" title="Status"><TaskStatusSection query={work} search={search} linkSearch={linkSearch} /></Section>
+      <Section id="status" title="Status"><TaskStatusSection query={work} search={search} linkSearch={linkSearch} ended={ended} /></Section>
+      {/* Comments come straight after Status: the part the owner reads most stays on the first screen (spec 0004 §3, P1-03). */}
+      <Section id="comments" title="Comments" summary={commentCount}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
       <Section id="description" title="Description"><Description body={n.body} /></Section>
       <Section id="acceptance" title="Acceptance criteria">{n.acceptance_criteria ? <DocumentBody body={n.acceptance_criteria} /> : <p className={styles.meta}>No acceptance criteria recorded.</p>}</Section>
-      <Section id="comments" title="Comments" summary={commentCount}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
       <Section id="attempts" title="Attempts" summary={attemptCount !== undefined ? `${attemptCount}${history.data?.pages[0]?.data.attempts_truncated ? "+" : ""}` : undefined}><TaskAttempts query={history} linkSearch={linkSearch} /></Section>
       <Section id="results" title="Results"><TaskResults project={project} task={n.id} /></Section>
       <Section id="hierarchy" title="Dependencies and hierarchy"><TaskHierarchy project={project} node={n} work={w} search={search} /></Section>

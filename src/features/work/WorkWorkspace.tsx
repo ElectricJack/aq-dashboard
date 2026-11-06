@@ -4,7 +4,7 @@ import { List, ListChecks, Search, Workflow } from "lucide-react";
 import { PageTitle } from "../../app/DestinationPage";
 import { useScope } from "../../app/scope";
 import { useGraphDetail, useGraphList } from "../../api/humanGraphReads";
-import { GRAPH_MAX_PAGES, heldTasks, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
+import { GRAPH_MAX_PAGES, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
 import { ProjectChoice, pathFor, withoutRevision } from "../knowledge/HumanNodeWorkspace";
@@ -49,7 +49,8 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   const query = useGraphList(project, "task", q);
   let rows: GraphNode[] = [], mergeError: unknown;
   try { rows = mergeGraphPages(query.data?.pages ?? []); } catch (e) { mergeError = e; }
-  const held = heldTasks(query.data?.pages ?? []);
+  // The attempt status per held task: an ended attempt that still holds the task reads as held, not running (P1-01).
+  const held = new Map((query.data?.pages ?? []).flatMap(page => page.data.executions.map(e => [e.task_id, e.status] as const)));
   // Expand (spec 0004 §3): the inspector takes the full width; `?focus=1` keeps it linkable across reloads.
   const focused = !!id && params.get("focus") === "1";
   const filtered = rows.filter(n => !state || n.task_state === state);
@@ -139,7 +140,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
             {/* One line per task (spec 0004 item 16): the bullet carries the status, the title truncates and shows in full on hover. */}
             <ul className={styles.rows} aria-label="Tasks">{filtered.map(n => { const marker = recordMarker(n); return <li key={n.id} data-selected={id === n.id}>
               <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} title={n.title} to={{ pathname: pathFor("task", n.id), search: withoutRoot(withoutRevision(search)) }}>
-                <StatusIcon status={listStatus(n, held.has(n.id))}/><span className={styles.rowTitle}>{n.title}</span>{marker && <span className={styles.marker}>{marker}</span>}
+                <StatusIcon status={listStatus(n, held.get(n.id))}/><span className={styles.rowTitle}>{n.title}</span>{marker && <span className={styles.marker}>{marker}</span>}
               </Link>
             </li>; })}</ul>
             {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more tasks</ActionButton>}

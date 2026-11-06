@@ -1,10 +1,10 @@
-import { CircleCheck, CircleDashed, CircleDot, CircleHelp, CirclePause, CirclePlay, CircleX, Circle, type LucideIcon } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleDot, CircleHelp, CirclePause, CirclePlay, CircleStop, CircleX, Circle, type LucideIcon } from "lucide-react";
 import { TASK_STATUS_LABEL, type TaskStatus } from "./labels";
 import styles from "./StatusIcon.module.css";
 
 /** A distinct shape per status (WCAG 1.4.1): colour is never the only difference. */
 const SHAPE: Record<TaskStatus, LucideIcon> = {
-  draft: CircleDashed, active: Circle, ready: CircleDot, running: CirclePlay, waiting: CirclePause,
+  draft: CircleDashed, active: Circle, ready: CircleDot, running: CirclePlay, held: CircleStop, waiting: CirclePause,
   unknown: CircleHelp, completed: CircleCheck, canceled: CircleX,
 };
 
