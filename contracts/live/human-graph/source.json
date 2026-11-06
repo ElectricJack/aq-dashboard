@@ -1,12 +1,14 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "7b1be60cbb418a00266579b9a2fd438c02df2640",
+  "commit": "52cd05ef63126aeb2e8dae068ac835edb5de2b91",
   "path": "protocol/human-graph/v1",
   "files": {
-    "README.md": "54e7d87fe29ca8dbb458a923908bda2ad0f399a40472edb94bc15e89548afbe0",
+    "README.md": "71a5b890312bd9b8508e2e0fc2e25c3305558530fc5a56afa461f25bd4f8e3b9",
     "examples/comments.json": "b334a762abcacb991c96d163f5c0abbccb4924be61443f8480c725d062ebafc7",
+    "examples/history.json": "5be1cd297388cf647438df0e1205eb34238dcfc0ba73042f6495147e43255d7d",
     "examples/task.json": "f257d9d95ce90ea69259151a016df79df728c190a8084acbfd516d1076307914",
-    "schema.json": "5e4b55e93f58b4bc06c068b70f44e0820f110929e5b167327abcaeeae07a7e91"
+    "examples/work.json": "72144f38eb5eafc90157aca0d7d31f7fe7ce6d1989a0397b22432accaefd09f5",
+    "schema.json": "1cc276e8a6e820e0546d2773a3fb3198ac35cf9356e62933f3af9088d1f273b2"
   },
-  "note": "Pinned to aq-server branch parity/p1-comments (task comments, spec 0004 §4.1) until it merges to main."
+  "note": "Pinned to aq-server branch parity/p1-server-fixes (PR #99: held readiness, hold reasons, history changes) until it merges to main. Ship together with aq-server #99."
 }
