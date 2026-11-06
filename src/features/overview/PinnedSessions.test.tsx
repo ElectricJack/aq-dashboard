@@ -17,3 +17,9 @@ test('pins only an explicitly selected session and opens the exact session',asyn
  expect(panel).toHaveTextContent('Pins last for this visit');
  await userEvent.click(within(panel).getByRole('button',{name:/Unpin /}));expect(within(panel).getByText(/No pinned sessions/)).toBeVisible();
 });
+test('SO-17: the server fallback session label is shortened, user labels are kept',async()=>{
+ const {sessionLabel}=await import('./PinnedSessions');
+ const id='e63e39e7-c346-4ac0-9acc-ee6662e6d4b4';
+ expect(sessionLabel({id,label:`Remote session ${id}`})).toBe('Remote session e63e39e7');
+ expect(sessionLabel({id,label:'Fix the renderer'})).toBe('Fix the renderer');
+});
