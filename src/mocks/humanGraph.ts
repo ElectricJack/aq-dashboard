@@ -77,6 +77,11 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    const blockers=edges.filter(e=>e.target===node.id&&e.edge_type==="blocks").map(e=>{const b=tasks.find(n=>n.id===e.source);return {edge_id:e.id,id:e.source,title:b?.title??null,task_state:b?.task_state??null,satisfied:b?b.task_state==="completed":null};});
    const execution=node.id===ID.replay?{task_id:node.id,attempt_id:id(0x301),session_id:id(0x302),status:"running"}:null;
    return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state:node.task_state!=="active"?node.task_state:execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",blockers,complete:true},parent:null,execution}));
+ }),http.get(`${path}/tasks/:id/history`,({params})=>{
+   // Recorded attempts (history read): "Replay reconciliation" holds one; "Worker recovery" had one that ended; the rest never had one.
+   if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
+   const attempts=node.id===ID.replay?[{attempt_id:id(0x301),session_id:id(0x302),holds_task:true,status:"running"}]:node.id===ID.parent?[{attempt_id:id(0x303),session_id:id(0x304),holds_task:false,status:"failed"}]:[];
+   return HttpResponse.json(wrap({task_id:node.id,items:[],next_cursor:null,attempts,attempts_truncated:false}));
  }),http.get(`${path}/:collection/:id`,({params,request})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id)return missing();
    const node=(params.collection==="tasks"?tasks:params.collection==="knowledge"?[knowledge]:[]).find(n=>n.id===params.id);

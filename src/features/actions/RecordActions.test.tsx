@@ -30,7 +30,7 @@ function setup(kind: string, disabled?: string, labels?:string[]) {
   const base = `/api/human/projects/${graphProject}/${type==="task"?"tasks":"knowledge"}`;
   server.use(http.get(base, () => HttpResponse.json(graphEnvelope({items:[{...node,version}],next_cursor:null}))),
     http.get(`${base}/${node.id}`, () => { detailReads++; return HttpResponse.json(graphEnvelope({...node,version})); }),
-    http.get(`${base}/${node.id}/work`, () => HttpResponse.json(graphEnvelope({task_id:node.id,task_state:node.task_state,version,readiness:{state:"running",blockers:[{edge_id:graphId(50),id:graphId(11),title:"Blocker",task_state:"active",satisfied:false}],complete:true},parent:null,execution:holding?{task_id:node.id,attempt_id:graphId(60),session_id:graphId(61),status:"running"}:null}))),
+    http.get(`${base}/${node.id}/work`, () => HttpResponse.json(graphEnvelope({task_id:node.id,task_state:node.task_state,version,readiness:{state:"running",blockers:[{edge_id:graphId(50),id:graphId(13),title:"Blocker",task_state:"active",satisfied:false}],complete:true},parent:null,execution:holding?{task_id:node.id,attempt_id:graphId(60),session_id:graphId(61),status:"running"}:null}))),
     http.get(`${base}/${node.id}/graph`, () => HttpResponse.json(graphEnvelope({root_id:node.id,nodes:[node,graphNode("task",11)],edges:[{id:graphId(50),source:graphId(11),target:node.id,edge_type:"blocks",description:"must precede",version:"2",source_revision:null,target_revision:null}],truncated:false}))));
   return {node, changeVersion: (v:string)=>{version=v;}, reads:()=>detailReads};
 }
@@ -278,4 +278,99 @@ test("WD-03: a blank edited title says it is required",async()=>{
  await userEvent.clear(within(dialog).getByLabelText("Title"));await userEvent.type(within(dialog).getByLabelText("Title"),"   ");
  await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
  expect(await within(dialog).findByText("Title is required.")).toBeInTheDocument();
+});
+
+// WDR-01: two tabs edit the same task. Tab 1 conflicts, reloads and resubmits only its own change.
+async function editConflict(){
+ const posts:{payload:Record<string,unknown>;expected_versions:unknown}[]=[];
+ server.use(http.post("/api/v1/actions",async({request})=>{const body=await request.json() as {operation_id:string;payload:Record<string,unknown>;expected_versions:unknown};posts.push(body);return HttpResponse.json(operation(body.operation_id,posts.length===1?"conflict":"confirmed",posts.length===1?{current_versions:{task:"9007199254740994"}}:{}));}));
+ const {node}=setup("task.edit");renderApp(`/work/${node.id}?scope=project:${graphProject}`);
+ await userEvent.click(await screen.findByRole("button",{name:"Edit task"}));
+ const dialog=screen.getByRole("dialog",{name:"Edit task"});
+ const tab2=(changes:Partial<typeof node>)=>server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}`,()=>HttpResponse.json(graphEnvelope({...node,...changes,version:"9007199254740994"}))));
+ return {node,dialog,posts,tab2};
+}
+test("WDR-01: reload after a conflict takes AQ's values for untouched fields, so resubmitting keeps the other tab's edit",async()=>{
+ const {node,dialog,posts,tab2}=await editConflict();
+ const acceptance=within(dialog).getByLabelText("Acceptance criteria");await userEvent.clear(acceptance);await userEvent.type(acceptance,"Tab 1 acceptance.");
+ // Tab 2 confirmed a description edit meanwhile.
+ tab2({body:`${node.body}\nEdited in tab 2.`});
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByText(/Conflict/)).toBeVisible();
+ await userEvent.click(within(dialog).getByRole("button",{name:"Reload current versions"}));
+ await waitFor(()=>expect(within(dialog).getByRole("button",{name:"Submit"})).toBeEnabled());
+ expect(within(dialog).getByText(/· Record version 9007199254740994$/)).toBeVisible();
+ expect(within(dialog).getByLabelText("Description")).toHaveValue(`${node.body}\nEdited in tab 2.`);
+ expect(within(dialog).getByLabelText("Acceptance criteria")).toHaveValue("Tab 1 acceptance.");
+ expect(within(dialog).getByRole("region",{name:"Reloaded record"})).toHaveTextContent("Reloaded record version 9007199254740994. Updated from AQ: Description. Your own edits are kept.");
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ expect(posts[1]!.payload).toMatchObject({body:`${node.body}\nEdited in tab 2.`,acceptance_criteria:"Tab 1 acceptance.",title:node.title,expected_version:"9007199254740994"});
+ expect(posts[1]!.payload).not.toHaveProperty("labels");
+});
+test("WDR-01: a field both tabs changed keeps the user's edit and shows AQ's value to adopt",async()=>{
+ const {node,dialog,posts,tab2}=await editConflict();
+ const body=within(dialog).getByLabelText("Description");await userEvent.clear(body);await userEvent.type(body,"Tab 1 description.");
+ tab2({title:"Retitled in tab 2",body:"Tab 2 description."});
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText(/Conflict/);
+ await userEvent.click(within(dialog).getByRole("button",{name:"Reload current versions"}));
+ const notice=await within(dialog).findByRole("region",{name:"Reloaded record"});
+ expect(notice).toHaveTextContent("Updated from AQ: Title.");
+ expect(notice).toHaveTextContent("Description was also changed in AQ. Your edit is kept; submitting replaces AQ's value:");
+ expect(within(notice).getByText("Tab 2 description.")).toBeVisible();
+ expect(within(dialog).getByLabelText("Title")).toHaveValue("Retitled in tab 2");
+ expect(within(dialog).getByLabelText("Description")).toHaveValue("Tab 1 description.");
+ await userEvent.click(within(notice).getByRole("button",{name:"Use AQ's description"}));
+ expect(within(dialog).getByLabelText("Description")).toHaveValue("Tab 2 description.");
+ expect(within(notice).queryByText(/was also changed in AQ/)).toBeNull();
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ expect(posts[1]!.payload).toMatchObject({title:"Retitled in tab 2",body:"Tab 2 description.",acceptance_criteria:node.acceptance_criteria});
+});
+
+// WDR-05: the dependency refusal copy names the cause that applies.
+test("WDR-05: a nonexistent blocker says it doesn't exist, without the cycle precondition",async()=>{
+ server.use(http.post("/api/v1/actions",()=>HttpResponse.json({request_id:"r",code:"not_found",message:"Resource not found",retryable:false},{status:404})));
+ const {dialog}=await open("task.dependency.add","Add dependency");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent("The blocker task doesn't exist or isn't available to you.");
+ expect(within(dialog).getByRole("status")).toHaveTextContent(/^Rejected — AQ refused this action\.$/);
+ expect(within(dialog).queryByText(/cycle|repeat/)).toBeNull();
+});
+test("WDR-05: a refused dependency names the cycle rule and never claims repeats are refused",async()=>{
+ server.use(http.post("/api/v1/actions",async({request})=>HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id,"rejected"))));
+ const {dialog}=await open("task.dependency.add","Add dependency");
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByRole("status")).toHaveTextContent("Rejected — AQ refused this action. AQ refuses a dependency that would create a cycle");
+ expect(within(dialog).queryByText(/repeat/)).toBeNull();
+});
+test("WDR-05: the picker doesn't offer a task that already blocks this one",async()=>{
+ let posts=0;server.use(http.post("/api/v1/actions",()=>{posts++;return HttpResponse.json({});}));
+ const {node}=setup("task.dependency.add");const existing={...graphNode("task",13),title:"Blocker one"},other={...graphNode("task",12),title:"Blocker two"};
+ server.use(http.get(`/api/human/projects/${graphProject}/tasks`,({request})=>HttpResponse.json(graphEnvelope({items:new URL(request.url).searchParams.get("q")?[existing,other]:[node],next_cursor:null}))));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByText(/An agent attempt holds this task/);await launch("Add dependency",true);
+ const dialog=screen.getByRole("dialog",{name:"Add dependency"});
+ await userEvent.type(within(dialog).getByLabelText("Blocker task"),"blocker");
+ const choices=await within(dialog).findByRole("group",{name:"Matching tasks"});
+ expect(within(choices).getByRole("radio",{name:/Blocker one/})).toBeDisabled();expect(within(choices).getByText(/already blocks this task/)).toBeVisible();
+ expect(within(choices).getByRole("radio",{name:/Blocker two/})).toBeEnabled();
+ // A pasted ID of an existing blocker is caught before submitting.
+ const input=within(dialog).getByLabelText("Blocker task");await userEvent.clear(input);await userEvent.type(input,graphId(13));
+ expect(within(dialog).getByText(`Task ${graphId(13)} already blocks this task.`)).toBeVisible();
+ await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent("That task already blocks this one.");expect(posts).toBe(0);
+});
+
+// WD-11 remainder: Retry attempt needs a previous attempt to replace.
+test.each([[0,true],[1,false]])("retry attempt with %i recorded attempts is disabled: %s (WD-11)",async(count,disabled)=>{
+ holding=false;let historyReads=0;const {node}=setup("task.edit");
+ server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}/history`,()=>{historyReads++;return HttpResponse.json(graphEnvelope({task_id:node.id,items:[],next_cursor:null,attempts:Array.from({length:count},(_,i)=>({attempt_id:graphId(70+i),session_id:graphId(80+i),holds_task:false,status:"failed"})),attempts_truncated:false}));}));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByText("No agent attempt holds this task.");
+ await waitFor(()=>expect(historyReads).toBe(1));
+ await userEvent.click(await screen.findByRole("button",{name:"More actions"}));
+ const retry=within(screen.getByRole("menu")).getByRole("menuitem",{name:/Retry attempt/});
+ if(disabled){await waitFor(()=>expect(retry).toHaveAttribute("aria-disabled","true"));expect(retry).toHaveAccessibleDescription("This task has never had an agent attempt to retry");}
+ else{await new Promise(r=>setTimeout(r,50));expect(retry).not.toHaveAttribute("aria-disabled");}
+});
+test("the attempts read is skipped while an attempt holds the task",async()=>{
+ let historyReads=0;const {node}=setup("task.edit");server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}/history`,()=>{historyReads++;return HttpResponse.json({});}));
+ renderApp(`/work/${node.id}?scope=project:${graphProject}`);await screen.findByText(/An agent attempt holds this task/);
+ await new Promise(r=>setTimeout(r,100));expect(historyReads).toBe(0);
 });

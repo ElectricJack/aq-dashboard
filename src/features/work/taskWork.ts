@@ -34,3 +34,26 @@ export function useTaskWork(project: string, id: string) {
     queryFn: async ({ signal }) => adaptTaskWork(await apiGet<unknown>(`${graphPath(project, "task", id)}/work`, signal), project, id),
   });
 }
+
+/**
+ * How many agent attempts AQ has recorded for the task, from `GET …/tasks/{t}/history` (`attempts`, bounded to 16
+ * with `attempts_truncated`). Only read when it decides something: an active task no attempt holds, where Retry
+ * attempt is refused unless a previous attempt exists (WD-11). A shape this bundle doesn't know reads as unknown
+ * (`null`), never as zero, so it can only leave Retry enabled.
+ */
+export function useTaskAttempts(project: string, id: string, enabled: boolean) {
+  const { queryContext } = useSession();
+  return useQuery({
+    queryKey: queryKey(queryContext, "human-graph-task-attempts", { project, id }), enabled: enabled && validGraphId(project) && validGraphId(id), retry: false, refetchOnWindowFocus: false,
+    queryFn: async ({ signal }): Promise<number | null> => {
+      const raw = await apiGet<unknown>(`${graphPath(project, "task", id)}/history`, signal);
+      try {
+        return adaptGraphEnvelope(raw, project, (value): number => {
+          check(isRecord(value) && value.task_id === id && Array.isArray(value.attempts) && value.attempts.length <= 16 && typeof value.attempts_truncated === "boolean");
+          check(value.attempts.every(a => isRecord(a) && validGraphId(a.attempt_id)));
+          return value.attempts.length;
+        }).data;
+      } catch (error) { if (error instanceof ContractError) return null; throw error; }
+    },
+  });
+}

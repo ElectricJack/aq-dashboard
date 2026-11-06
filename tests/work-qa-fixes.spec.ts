@@ -58,7 +58,8 @@ test.describe("desktop", () => {
     const cancel = page.getByRole("menuitem", { name: /Cancel attempt/ });
     await expect(cancel).toHaveAttribute("aria-disabled", "true");
     await expect(cancel).toContainText("No agent attempt holds this task");
-    await expect(page.getByRole("menuitem", { name: /Retry attempt/ })).not.toHaveAttribute("aria-disabled", "true");
+    // 0x104 never had an attempt, so there is nothing to retry (WD-11 remainder, work-rerun-fixes.spec.ts).
+    await expect(page.getByRole("menuitem", { name: /Retry attempt/ })).toContainText("This task has never had an agent attempt to retry");
     await page.keyboard.press("Escape");
 
     await page.goto(`/work/${id(0x105)}?${scope}`);

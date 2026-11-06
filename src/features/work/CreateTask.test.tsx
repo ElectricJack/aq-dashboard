@@ -193,3 +193,30 @@ test("a blank title says it is required and the input limit matches the 512 rule
  await waitFor(()=>expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled());await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
  expect(await within(modal).findByRole("alert")).toHaveTextContent("Title is required.");expect(within(modal).queryByText(/at most 512/)).toBeNull();
 });
+// WDR-03: AQ counts the create title in UTF-8 bytes (512), like Edit.
+test("create counts the title in bytes, so accented titles over 512 bytes are caught before submitting",async()=>{
+ enable();let posts=0;server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{posts++;return HttpResponse.json(forBytes(await request.text()));}),http.get(`/api/human/projects/${graphProject}/tasks/:task`,({params})=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:String(params.task)}))));
+ renderApp(`/work${scope}`);const modal=await open();const title=within(modal).getByRole("textbox",{name:"Title"});
+ // 298 characters, 548 bytes: within the character limit, over the byte limit.
+ await userEvent.click(title);await userEvent.paste("QA bytes probe "+"é".repeat(250)+"!".repeat(33));
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByRole("alert")).toHaveTextContent("Title is too long. Use at most 512 bytes; accented letters and emoji count as 2 to 4.");expect(posts).toBe(0);
+ // Exactly 512 bytes is accepted.
+ await userEvent.clear(title);await userEvent.paste("é".repeat(256));
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ await within(modal).findByText("Task created and its record verified.");expect(posts).toBe(1);
+});
+test("a 400 on submit is a refused submission with the draft editable, not an uncertain outcome",async()=>{
+ enable();const sent:string[]=[];
+ server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{sent.push(await request.text());return HttpResponse.json({error:"bad_request",message:"title exceeds 512 bytes"},{status:400});}));
+ const {router}=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Ré-essai");await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByRole("alert")).toHaveTextContent("AQ refused this task as invalid; no task was created. AQ: “title exceeds 512 bytes”. Check the fields and submit again. Your draft is preserved.");
+ expect(within(modal).queryByText("Task creation outcome is uncertain.")).not.toBeInTheDocument();
+ expect(within(modal).queryByRole("button",{name:"Retry exact submission"})).not.toBeInTheDocument();
+ expect(within(modal).queryByText(/operation outcome is not confirmed/)).not.toBeInTheDocument();
+ expect(new URLSearchParams(router.state.location.search).get("operation")).toBeNull();
+ const title=within(modal).getByRole("textbox",{name:"Title"});expect(title).toBeEnabled();expect(title).toHaveValue("Ré-essai");
+ await waitFor(()=>expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled());
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await waitFor(()=>expect(sent).toHaveLength(2));
+ expect(JSON.parse(sent[1]!).operation_id).not.toBe(JSON.parse(sent[0]!).operation_id);
+});

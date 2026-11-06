@@ -1,9 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { adaptBootstrap, type BootstrapView } from "../api/adapters/bootstrap";
 import { ContractError, isRecord } from "../api/adapters/contract";
 import { ApiError, apiGet, isAccessRefusal, isAuthenticationFailure, isProtectedReadFailure } from "../api/client";
 import type { QueryContext } from "../api/queryKeys";
+import { readRetryDelay, shouldRetryRead } from "../api/retry";
 import type { Bootstrap, Envelope } from "../api/wire/proposed";
 import styles from "./Shell.module.css";
 import { activateDrafts, clearDrafts, draftIdentity } from "./drafts";
@@ -55,6 +56,33 @@ async function fetchBootstrap(signal: AbortSignal): Promise<Pick<Session, "boots
   };
 }
 
+type RetryOption = boolean | number | ((failureCount: number, error: unknown) => boolean);
+type RetryDelayOption = number | ((failureCount: number, error: unknown) => number);
+
+/**
+ * Re-read bootstrap under the app's read retry policy (WDR-02). The bootstrap
+ * query itself never retries, so its 30 s poll reports an outage promptly; but
+ * a re-check that decides whether to fail the whole app closed must not
+ * conclude from one transient 429/503. It retries what the query client's
+ * default policy retries (`readRetry` in App.tsx), with its backoff, and
+ * resolves with the final bootstrap state.
+ */
+async function recheckBootstrap(client: QueryClient) {
+  const defaults = client.getDefaultOptions().queries;
+  const retry = (defaults?.retry ?? shouldRetryRead) as RetryOption;
+  const delay = (defaults?.retryDelay ?? readRetryDelay) as RetryDelayOption;
+  for (let failures = 0; ; failures++) {
+    await client.refetchQueries({ queryKey: ["bootstrap"], exact: true });
+    const state = client.getQueryState<unknown, Error>(["bootstrap"]);
+    if (state?.status !== "error" || isProtectedReadFailure(state.error)) return state;
+    // Same semantics as TanStack's retryer: the count of failures so far, starting at 0.
+    const again = retry === true || (typeof retry === "number" && failures < retry) || (typeof retry === "function" && retry(failures, state.error));
+    if (!again) return state;
+    const wait = typeof delay === "function" ? delay(failures, state.error) : delay;
+    await new Promise(resolve => setTimeout(resolve, wait));
+  }
+}
+
 function GateTitle({ title }: { title: string }) {
   useLayoutEffect(() => {
     document.title = `${title} — Agent Q`;
@@ -81,8 +109,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const verifyAccess = useRef<(error: Error) => void>(() => {});
   verifyAccess.current = (error: Error) => {
     if (verifying.current) return;
-    verifying.current = client.refetchQueries({ queryKey: ["bootstrap"], exact: true }).then(() => {
-      const state = client.getQueryState(["bootstrap"]);
+    verifying.current = recheckBootstrap(client).then((state) => {
       // Unable to confirm access after a refusal: fail closed until bootstrap answers.
       if (state?.status === "error" && !isProtectedReadFailure(state.error)) setResourceFailure(error);
     }).finally(() => { verifying.current = null; });
@@ -176,8 +203,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         </p>
         {!unauthenticated && (
           <button type="button" className={styles.button} onClick={() => {
-            void query.refetch().then((result) => {
-              if (result.isSuccess) setResourceFailure(null);
+            void recheckBootstrap(client).then((state) => {
+              if (state?.status === "success") setResourceFailure(null);
             });
           }}>
             Try again

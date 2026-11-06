@@ -19,14 +19,43 @@ const CATEGORIES=["fact","decision","policy","procedure","incident","reference",
 const previousRevision=(current:string|undefined)=>current&&/^[1-9][0-9]*$/.test(current)?String(BigInt(current)>1n?BigInt(current)-1n:1n):"";
 const RESTORE_REVISION=/^[1-9][0-9]{0,15}$/;
 function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",blockerQuery:"",edge:"",successor:"",verdict:"verified",url:"",restoreRevision:previousRevision(n?.content_revision),confirm:false};}
+/** Fields the edit dialogs submit; compared field by field after a conflict reload (WDR-01). */
+type EditField="title"|"body"|"acceptance"|"labels"|"category";
+const EDIT_FIELD_LABEL:Record<EditField,string>={title:"Title",body:"Description",acceptance:"Acceptance criteria",labels:"Labels",category:"Category"};
+const editFields=(k:ActionKind):EditField[]=>k==="task.edit"?["title","body","acceptance","labels"]:k==="knowledge.correct"?["title","body","labels","category"]:[];
+const labelSet=(v:string)=>[...new Set(v.split(",").map(x=>x.trim()).filter(Boolean))].join(", ");
+const fieldValue=(d:Draft,f:EditField)=>f==="labels"?labelSet(d.labels):d[f];
+/** What "Reload current versions" did to the draft: fields refreshed from AQ, and fields both sides changed. */
+type Rebased={version:string;refreshed:EditField[];overlapping:{field:EditField;current:string}[]};
+/**
+ * Three-way rebase of an edit draft onto the record AQ holds now (WDR-01; spec 0002 §10: a conflict preserves the
+ * draft without overwriting newer data). Per field, against the record the draft started from:
+ * - unchanged in the draft: takes AQ's current value, so a resubmission never reverts another edit;
+ * - changed only in the draft: keeps the user's edit;
+ * - changed in both, differently: keeps the user's edit and reports AQ's current value, which the dialog shows
+ *   with "Use AQ's value", so the user decides with both values in view before resubmitting.
+ * Labels edited back to the original set count as unchanged (and are again left out of the request).
+ */
+function rebase(draft:Draft,before:Draft,after:Draft,fields:EditField[]):{draft:Draft;refreshed:EditField[];overlapping:Rebased["overlapping"]}{
+  const next={...draft},refreshed:EditField[]=[],overlapping:Rebased["overlapping"]=[];
+  for(const f of fields){
+    const mine=fieldValue(draft,f),was=fieldValue(before,f),now=fieldValue(after,f);
+    if(mine===was||(f==="labels"&&!draft.labelsEdited)){if(now!==was)refreshed.push(f);next[f]=after[f];if(f==="labels")next.labelsEdited=false;}
+    else if(now!==was&&now!==mine)overlapping.push({field:f,current:after[f]});
+  }
+  return {draft:next,refreshed,overlapping};
+}
 type Variant="default"|"compact";
-/** What the task's work read says about execution; absent while unknown. */
-export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean};
+/** What the task's reads say about execution; absent while unknown. `blockerIds` are the recorded blockers (work read);
+ * `attempts` counts the task's recorded agent attempts (history read), absent while unknown. */
+export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean;blockerIds?:string[];attempts?:number};
 /** AQ's own preconditions for the execution actions (aq-server task_execution.rs): cancel needs an attempt
  * holding the task, retry needs an active task. They are stated, never guessed beyond what the reads show. */
 function executionReason(k:ActionKind,state:string|null|undefined,execution?:TaskExecutionFacts):string|undefined{
   if(k==="task.cancel"){if(state&&state!=="active")return `No agent attempt can hold a ${state} task`;if(execution&&!execution.holding)return "No agent attempt holds this task";}
   if(k==="task.retry"&&state&&state!=="active")return "AQ retries attempts of active tasks only";
+  // Retry replaces the task's last attempt (B4); with none recorded AQ always refuses it (WD-11).
+  if(k==="task.retry"&&execution?.attempts===0)return "This task has never had an agent attempt to retry";
   if(k==="task.dependency.remove"&&execution?.complete&&execution.blockers===0)return "This task has no recorded blockers";
   return undefined;
 }
@@ -41,7 +70,9 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
+  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<number|null>(null);
   const dialog=useRef<HTMLDialogElement>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
+  const blockerIds=new Set((execution?.blockerIds??[]).map(id=>id.toLowerCase()));
   const dependency=useGraphNeighborhood(kind==="task.dependency.remove"?record.project.id:"",record.data?.id??"");
   // Add dependency: pick the blocker by title (the project task search) or paste its ID (WD-09).
   const [blockerSearch,setBlockerSearch]=useState("");
@@ -60,7 +91,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       const next=await actionRequest(value,lookup,abort.signal);if(!current.current)return;
       if(operation?.request_digest&&operation.operation_id===next.operation_id&&operation.request_digest!==next.request_digest)throw new ContractError("Operation identity changed");
       setOperation(next);setUnknown(false);setError(null);
-      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","overview-task-contributions"].includes(String(q.queryKey[4]))});
+      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-attempts","overview-task-contributions"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
       if(reason instanceof ApiError&&reason.status===401){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
       // A 403 refuses this one request (SO-03, ISSUE-003): the dialog and its draft stay; a resubmission gets a new operation identity.
@@ -68,7 +99,9 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       else if(reason instanceof ApiError&&reason.status===426){reportIncompatible("dashboard.actions");setUnknown(true);}
       else if(reason instanceof ApiError&&reason.status===410){setRetired(true);setUnknown(false);setError(null);}
       else if(!lookup&&reason instanceof ApiError&&reason.status===409){setOperation({operation_id:value.id,disposition:"conflict",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],current_versions:reason.envelope?.current_versions,recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"The expected version has changed.");}
-      else if(!lookup&&reason instanceof ApiError&&!reason.effectUnknown&&[400,404,413,422].includes(reason.status??0)){setOperation({operation_id:value.id,disposition:"rejected",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"AQ refused this action.");}
+      else if(!lookup&&reason instanceof ApiError&&!reason.effectUnknown&&[400,404,413,422].includes(reason.status??0)){setOperation({operation_id:value.id,disposition:"rejected",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],recovery:"refresh_and_review"});setUnknown(false);setRefusal(reason.status??null);
+        // The only task a dependency names besides the subject is the blocker: a 404 means it doesn't exist or isn't visible (WDR-05).
+        setError(value.kind==="task.dependency.add"&&reason.status===404?"The blocker task doesn't exist or isn't available to you. Check the task ID, or choose the blocker from the matching tasks.":reason.envelope?.message??"AQ refused this action.");}
       else{setUnknown(true);setError(null);}
     }finally{lock.current=false;if(current.current)setBusy(false);if(controller.current===abort)controller.current=null;}
   }
@@ -81,7 +114,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   },[intent,unsettled,busy,accessLost,retired]);
   function launch(k:ActionKind){
     if(unsettled){if(k===kind)setOpen(true);return;}
-    frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setBaseline(record);setDraft(draftFor(record,author));setKind(k);setOpen(true);
+    frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRebased(null);setRefusal(null);setBaseline(record);setDraft(draftFor(record,author));setKind(k);setOpen(true);
   }
   function fields(k:ActionKind):{payload:Record<string,unknown>;reason?:string}{
     if(["task.edit","knowledge.author","knowledge.correct"].includes(k)){
@@ -91,7 +124,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       if(new TextEncoder().encode(draft.body).length>32768||new TextEncoder().encode(draft.acceptance).length>8192)throw new Error("Shorten the description or acceptance criteria.");
       return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
     }
-    if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
+    if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
     if(k==="task.retry")return {payload:{}};
     if(k==="knowledge.restore"){
@@ -115,11 +148,15 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     return {reason:draft.reason,payload:{}};
   }
   async function submit(event:React.FormEvent){event.preventDefault();if(!kind||lock.current||frozen.current||!capability(kind).enabled)return;
-    try{const {payload,reason}=fields(kind),value=freezeAction(kind,baseline,payload,reason);frozen.current=value;setIntent(value);setError(null);await run(value);}catch(reason){setError(reason instanceof Error?reason.message:"Review the form.");}
+    try{const {payload,reason}=fields(kind),value=freezeAction(kind,baseline,payload,reason);frozen.current=value;setIntent(value);setError(null);setRebased(null);setRefusal(null);await run(value);}catch(reason){setError(reason instanceof Error?reason.message:"Review the form.");}
   }
   async function reload(){if(lock.current||!kind)return;lock.current=true;setBusy(true);
     try{const project=record.project.id;const fresh=author?adaptGraphPage(await apiGet(`${graphPath(project,"knowledge")}?limit=1`),project,"knowledge"):adaptGraphDetail(await apiGet(graphPath(project,record.data!.kind,record.data!.id)),project,record.data!.kind,record.data!.id);
-      if(!current.current)return;setBaseline({project:fresh.project,...(!author?{data:fresh.data as typeof record.data}:{})});if(kind==="task.dependency.remove")await dependency.refetch();frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setDraft(v=>({...v,confirm:false}));
+      if(!current.current)return;const next:ActionContext={project:fresh.project,...(!author?{data:fresh.data as typeof record.data}:{})};
+      // Untouched fields take AQ's current values; the user's own edits stay (WDR-01, see rebase()).
+      const fields=editFields(kind),merged=fields.length?rebase(draft,draftFor(baseline,false),draftFor(next,false),fields):null;
+      setBaseline(next);if(kind==="task.dependency.remove")await dependency.refetch();frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRefusal(null);
+      setDraft(v=>({...(merged?merged.draft:v),confirm:false}));setRebased(merged&&next.data?{version:next.data.version,refreshed:merged.refreshed,overlapping:merged.overlapping}:null);
     }catch{if(current.current)setError("Current versions could not be loaded. Your draft is preserved.");}finally{lock.current=false;if(current.current)setBusy(false);}
   }
   const update=(name:keyof Draft,value:string|boolean)=>setDraft(v=>({...v,[name]:value,...(name==="labels"?{labelsEdited:true}:{}),
@@ -140,9 +177,10 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       <header className={styles.header}><h2 id={titleId}>{kind?actionLabels[kind]:"Action"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close action">Close</ActionButton></header>
       <p className={styles.meta}>{record.project.name} · {author?"Project version":"Record version"} {author?baseline.project.revision:baseline.data?.version}</p>
       {error&&<p role="alert">{error}</p>}
+      {rebased&&!intent&&editing&&<RebaseNotice rebased={rebased} draft={draft} onUseCurrent={(field,value)=>{setDraft(v=>({...v,[field]:value,...(field==="labels"?{labelsEdited:true}:{})}));setRebased(r=>r&&{...r,overlapping:r.overlapping.filter(o=>o.field!==field)});}}/>}
       {kind&&<form onSubmit={e=>void submit(e)}><fieldset className={styles.fields} disabled={busy||!!intent||accessLost}>
         {editing&&<><label>Title<input value={draft.title} required maxLength={512} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{(CATEGORIES.includes(draft.category)?CATEGORIES:[...CATEGORIES,draft.category]).map(v=><option key={v} value={v}>{knowledgeCategoryLabel(v)}</option>)}</select></label>}</>}
-        {kind==="task.dependency.add"&&<BlockerPicker query={draft.blockerQuery} blocker={draft.blocker} self={record.data?.id} search={blockerSearch} candidates={candidates} onQuery={v=>update("blockerQuery",v)} onPick={id=>update("blocker",id)}/>}
+        {kind==="task.dependency.add"&&<BlockerPicker query={draft.blockerQuery} blocker={draft.blocker} self={record.data?.id} existing={blockerIds} search={blockerSearch} candidates={candidates} onQuery={v=>update("blockerQuery",v)} onPick={id=>update("blocker",id)}/>}
         {kind==="task.dependency.remove"&&<><label>Dependency<select required value={draft.edge} onChange={e=>update("edge",e.target.value)}><option value="">Choose a blocker</option>{dependency.data?.data.edges.filter(e=>e.target===record.data?.id&&e.edge_type==="blocks").map(e=><option key={e.id} value={e.id}>{dependency.data?.data.nodes.find(n=>n.id===e.source)?.title??e.source} · edge version {e.version}</option>)}</select></label>{dependency.isError&&<p role="alert">Dependencies unavailable. Close and reopen to check again.</p>}</>}
         {["task.cancel","knowledge.verify","knowledge.retire"].includes(kind)&&<label>Reason<textarea required rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label>}
         {kind==="knowledge.verify"&&<><label>Verification<select value={draft.verdict} onChange={e=>update("verdict",e.target.value)}><option value="verified">Verified</option><option value="disputed">Disputed</option></select></label><label>Evidence URL<input type="url" required value={draft.url} onChange={e=>update("url",e.target.value)}/></label><p className={styles.meta}>This records an assertion about this revision; it does not prove task completion.</p></>}
@@ -155,7 +193,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
         {kind==="task.cancel"&&<p className={styles.meta}>Cancels the agent attempt holding this task. The task itself stays {record.data?.task_state??"in its current state"}; AQ refuses the request when no attempt holds it.</p>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>Submit</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -171,22 +209,37 @@ const NOT_OFFERED="Not offered by this AQ server";
 const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
   "task.cancel":"It cancels only an agent attempt that holds this task.",
   "task.retry":"It retries only an active task whose last attempt can be replaced.",
-  "task.dependency.add":"A dependency can't repeat an existing one or create a cycle.",
+  // AQ accepts a repeated dependency as a no-op; a cycle (or another Graph rule) is what it refuses (WDR-05).
+  "task.dependency.add":"AQ refuses a dependency that would create a cycle, for example when this task already blocks the chosen one.",
 };
 
+/** After a conflict reload: what came from AQ, and AQ's value for each field both sides changed (WDR-01). */
+function RebaseNotice({rebased,draft,onUseCurrent}:{rebased:Rebased;draft:Draft;onUseCurrent:(field:EditField,value:string)=>void}){
+  const names=(fields:EditField[])=>fields.map(f=>EDIT_FIELD_LABEL[f]).join(", ");
+  return <section className={styles.rebase} aria-label="Reloaded record" aria-live="polite">
+    <p>Reloaded record version {rebased.version}. {rebased.refreshed.length?`Updated from AQ: ${names(rebased.refreshed)}.`:"AQ changed none of the fields you left alone."} Your own edits are kept.</p>
+    {rebased.overlapping.map(({field,current})=>fieldValue(draft,field)===(field==="labels"?labelSet(current):current)?null:<div key={field} className={styles.overlap}>
+      <p><strong>{EDIT_FIELD_LABEL[field]}</strong> was also changed in AQ. Your edit is kept; submitting replaces AQ's value:</p>
+      <p className={styles.current}>{current||"(empty)"}</p>
+      <ActionButton onClick={()=>onUseCurrent(field,current)}>Use AQ's {EDIT_FIELD_LABEL[field].toLowerCase()}</ActionButton>
+    </div>)}
+  </section>;
+}
+
 /** Blocker by title search or pasted ID; results come from the project's task search read. */
-function BlockerPicker({query,blocker,self,search,candidates,onQuery,onPick}:{query:string;blocker:string;self?:string;search:string;candidates:ReturnType<typeof useGraphList>;onQuery:(v:string)=>void;onPick:(id:string)=>void}){
+function BlockerPicker({query,blocker,self,existing,search,candidates,onQuery,onPick}:{query:string;blocker:string;self?:string;existing:Set<string>;search:string;candidates:ReturnType<typeof useGraphList>;onQuery:(v:string)=>void;onPick:(id:string)=>void}){
   const hint=useId(),legend=useId();
   const rows=(candidates.data?.pages.flatMap(p=>p.data.items)??[]).filter(n=>n.id!==self).slice(0,8);
-  const pasted=validGraphId(query.trim());
+  const pasted=validGraphId(query.trim()),already=pasted&&existing.has(query.trim().toLowerCase());
   return <>
     <label>Blocker task<input type="search" required={!blocker} value={query} maxLength={256} placeholder="Search by title or paste a task ID" aria-describedby={hint} onChange={e=>onQuery(e.target.value)}/></label>
-    <span id={hint} className={styles.meta}>{pasted?`Blocker: task ${query.trim()}`:"Type at least two characters of the blocker's title."}</span>
+    <span id={hint} className={styles.meta}>{already?`Task ${query.trim()} already blocks this task.`:pasted?`Blocker: task ${query.trim()}`:"Type at least two characters of the blocker's title."}</span>
     {!pasted&&search&&(candidates.isError?<p role="alert" className={styles.meta}>Task search unavailable. Paste the blocker's task ID instead.</p>
       :!candidates.data?<p role="status" className={styles.meta}>Searching tasks…</p>
-      :rows.length?<fieldset className={styles.choices} aria-labelledby={legend}><legend id={legend}>Matching tasks</legend>{rows.map(n=><label key={n.id} className={styles.choice}>
-        <input type="radio" name="blocker" value={n.id} checked={blocker===n.id} onChange={()=>onPick(n.id)}/><span>{n.title}<span className={styles.meta}> · {n.task_state??"task"} · {n.id.slice(0,8)}</span></span>
-      </label>)}</fieldset>
+      :rows.length?<fieldset className={styles.choices} aria-labelledby={legend}><legend id={legend}>Matching tasks</legend>{rows.map(n=>{const blocks=existing.has(n.id.toLowerCase());return <label key={n.id} className={styles.choice}>
+        {/* A task that already blocks this one is shown, not offered (WDR-05). */}
+        <input type="radio" name="blocker" value={n.id} checked={blocker===n.id} disabled={blocks} onChange={()=>onPick(n.id)}/><span>{n.title}<span className={styles.meta}> · {blocks?"already blocks this task":n.task_state??"task"} · {n.id.slice(0,8)}</span></span>
+      </label>;})}</fieldset>
       :<p role="status" className={styles.meta}>No other tasks match “{search}”.</p>)}
   </>;
 }
