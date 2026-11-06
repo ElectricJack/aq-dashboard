@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 4178;
+// PW_PORT runs a second suite beside another dev server (which may hold 4178).
+const PORT = Number(process.env.PW_PORT ?? 4178);
 
 export default defineConfig({
   testDir: "tests",

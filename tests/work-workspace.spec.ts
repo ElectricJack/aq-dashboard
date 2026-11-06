@@ -19,10 +19,9 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await page.goto(`/work?${scope}&state=draft`);
       const rows = page.getByRole("list", { name: "Tasks" }).getByRole("listitem");
       await expect(rows).toHaveCount(2);
-      for (const text of await rows.allTextContents()) {
-        expect(text).toContain("Draft · r");
-        expect(text).not.toMatch(/(\w+) · \1/);
-      }
+      // One line per task; the status is the bullet's accessible name (spec 0004 item 16).
+      await expect(rows.getByRole("img", { name: "Draft" })).toHaveCount(2);
+      for (const text of await rows.allTextContents()) expect(text).not.toMatch(/Draft|· r\d/);
       const draft = page.getByRole("group", { name: "Task state" }).getByRole("button", { name: "Draft" });
       await expect(draft).toHaveAttribute("aria-pressed", "true");
       await page.reload();
@@ -41,7 +40,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
         expect(text).not.toMatch(/(\w+) · \1/);
         expect(text).not.toMatch(/verified|disputed/i);
       }
-      await expect(page.getByText("Execution details unavailable")).toHaveCount(1);
+      await expect(page.getByText("Execution details unavailable")).toHaveCount(0);
     });
 
     test("graph view with no selection renders the first task's neighborhood", async ({ page }) => {

@@ -13,12 +13,14 @@ import { actionCapability, actionLabels, actionRequest, freezeAction, knowledgeA
 import { validateTitle } from "../../api/adapters/taskCreate";
 import styles from "./RecordActions.module.css";
 
-type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;confirm:boolean};
+type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;priority:string;confirm:boolean};
+/** `aq:priority` bounds (dashboard-actions `task.reprioritize`): an integer, higher runs first. */
+const PRIORITY=/^-?(0|[1-9][0-9]{0,6})$/,PRIORITY_MAX=1_000_000;
 const CATEGORIES=["fact","decision","policy","procedure","incident","reference","note"];
 /** The content revision before the current one: for a just-retired record, the last active revision. */
 const previousRevision=(current:string|undefined)=>current&&/^[1-9][0-9]*$/.test(current)?String(BigInt(current)>1n?BigInt(current)-1n:1n):"";
 const RESTORE_REVISION=/^[1-9][0-9]{0,15}$/;
-function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",blockerQuery:"",edge:"",successor:"",verdict:"verified",url:"",restoreRevision:previousRevision(n?.content_revision),confirm:false};}
+function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",blockerQuery:"",edge:"",successor:"",verdict:"verified",url:"",restoreRevision:previousRevision(n?.content_revision),priority:"",confirm:false};}
 /** Fields the edit dialogs submit; compared field by field after a conflict reload (WDR-01). */
 type EditField="title"|"body"|"acceptance"|"labels"|"category";
 const EDIT_FIELD_LABEL:Record<EditField,string>={title:"Title",body:"Description",acceptance:"Acceptance criteria",labels:"Labels",category:"Category"};
@@ -66,7 +68,7 @@ export function RecordActions(props:{record:ActionContext;author?:boolean;pinned
 }
 function Actions({record,author=false,pinned,kinds:only,variant="default",execution}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient();
-  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
@@ -91,7 +93,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       const next=await actionRequest(value,lookup,abort.signal);if(!current.current)return;
       if(operation?.request_digest&&operation.operation_id===next.operation_id&&operation.request_digest!==next.request_digest)throw new ContractError("Operation identity changed");
       setOperation(next);setUnknown(false);setError(null);
-      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-attempts","overview-task-contributions"].includes(String(q.queryKey[4]))});
+      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-history","human-graph-task-summary","overview-task-contributions"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
       if(reason instanceof ApiError&&reason.status===401){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
       // A 403 refuses this one request (SO-03, ISSUE-003): the dialog and its draft stay; a resubmission gets a new operation identity.
@@ -127,6 +129,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
     if(k==="task.retry")return {payload:{}};
+    if(k==="task.reprioritize"){const v=draft.priority.trim();if(!PRIORITY.test(v)||Math.abs(Number(v))>PRIORITY_MAX)throw new Error("Enter a whole-number priority from -1000000 to 1000000.");return {payload:{priority:Number(v)}};}
     if(k==="knowledge.restore"){
       if(!restoreValid)throw new Error("Enter the content revision to restore.");
       const current=baseline.data?.content_revision;
@@ -191,9 +194,10 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
           <label>Reason (optional)<textarea rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label></>}
         {["task.cancel","knowledge.retire","knowledge.restore"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="task.cancel"?"Confirm cancellation request. This does not prove the process stopped.":kind==="knowledge.restore"?"Confirm restore. Verification resets to unverified on the new revision.":"Confirm retirement. Historical revisions remain available."}</label>}
         {kind==="task.cancel"&&<p className={styles.meta}>Cancels the agent attempt holding this task. The task itself stays {record.data?.task_state??"in its current state"}; AQ refuses the request when no attempt holds it.</p>}
+        {kind==="task.reprioritize"&&<><label>Priority<input required inputMode="numeric" pattern="-?[0-9]*" maxLength={8} value={draft.priority} onChange={e=>update("priority",e.target.value)}/></label><p className={styles.meta}>A whole number from -1000000 to 1000000. AQ starts higher-priority tasks first. This dashboard can't read the current priority yet.</p></>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>Submit</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}

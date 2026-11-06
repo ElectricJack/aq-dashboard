@@ -85,7 +85,7 @@ test("task inspector prioritizes acceptance and dependencies with verification i
  enable();const n=handlers("task");renderApp(`/work/${n.id}${scope}`);
  const region=await screen.findByRole("region",{name:n.title});
  expect(within(region).getByRole("heading",{name:"Acceptance criteria"})).toBeVisible();
- expect(within(region).getByRole("heading",{name:"Dependencies"})).toBeVisible();
+ expect(within(region).getByRole("heading",{name:"Dependencies and hierarchy"})).toBeVisible();
  expect(within(region).getByText("Record details and verification")).toBeVisible();
  expect(within(region).queryByRole("heading",{name:"Verification"})).not.toBeInTheDocument();
 });

@@ -23,19 +23,20 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(description).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-${vp.name}.png` });
       const descTop = (await description.boundingBox())!.y;
-      // The task ID's copy control (spec 0004 item 1) is part of the identity line, not an action.
-      const above = await panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => !e.getAttribute("aria-label")?.startsWith("Copy")).filter((e) => {
+      // Copy controls (spec 0004 item 1), Expand and section folds are not actions; one primary action plus More actions.
+      const above = await panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => !e.getAttribute("aria-label")?.startsWith("Copy") && !e.hasAttribute("aria-expanded") && !e.hasAttribute("aria-pressed") || e.getAttribute("aria-haspopup") === "menu").filter((e) => {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && r.top < top;
       }).length, descTop);
       expect(above).toBeLessThanOrEqual(2);
-      if (vp.name === "desktop") expect(descTop - (await panel.boundingBox())!.y).toBeLessThan(260);
-      await expect(panel.getByText(/^Task · revision \d+$/i)).toBeVisible();
+      // Header, then Status, then Description, all in the first desktop viewport (spec 0004 §3).
+      if (vp.name === "desktop") expect(descTop).toBeLessThan(vp.height);
+      await expect(panel.getByText(/^Revision \d+$/)).toBeAttached();
       // The inspector is the single task view (spec 0004 §3, WD-02).
       await expect(panel.getByRole("link", { name: "Open full task" })).toHaveCount(0);
       await panel.getByRole("button", { name: "More actions" }).click();
       const menu = page.getByRole("menu");
-      await expect(menu.getByRole("menuitem")).toHaveCount(4);
+      await expect(menu.getByRole("menuitem")).toHaveCount(5);
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-menu-${vp.name}.png` });
       await axe(page);
       await page.keyboard.press("Escape");
@@ -50,7 +51,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(panel.getByRole("heading", { name: "Description" })).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-nocaps-${vp.name}.png` });
       expect(await page.getByText("Not offered by this AQ server").count()).toBeLessThanOrEqual(1);
-      await expect(panel.getByRole("note")).toHaveText("Task actions unavailable · Fixture scenario: actions are not offered");
+      await expect(panel.locator("[data-inspector-header]").getByRole("note")).toHaveText("Task actions unavailable · Fixture scenario: actions are not offered");
       await expect(panel.getByRole("button", { name: "More actions" })).toHaveCount(0);
       await axe(page);
     });

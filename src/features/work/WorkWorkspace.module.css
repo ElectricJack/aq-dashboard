@@ -33,6 +33,13 @@
 .mainPane,.inspector { min-inline-size:0; }
 .page[data-view=graph] .panes { grid-template-columns:minmax(0,62fr) minmax(320px,38fr); }
 @media (min-width:1200px) {
+  /* A selected task flips the graph split so the inspector keeps its ~60% (spec 0004 §3). */
+  .page[data-view=graph][data-detail=true] .panes { grid-template-columns:minmax(0,40fr) minmax(320px,60fr); }
+  /* Expand: the inspector takes the full width; the toggle or Esc restores the split. */
+  .page[data-focus] .panes,.page[data-focus][data-view=graph] .panes { grid-template-columns:minmax(0,1fr); }
+  .page[data-focus] .mainPane,.page[data-focus] .toolbar { display:none; }
+}
+@media (min-width:1200px) {
   /* Graph fills the viewport below the header rows; the canvas keeps its 70dvh cap so Fit (WK-C) can size to it. */
   .page[data-view=graph] .mainPane > section { min-block-size:calc(100dvh - 300px); }
   .page[data-view=graph] .mainPane [role=region][tabindex] { min-block-size:max(320px, calc(100dvh - 560px)); }
@@ -40,10 +47,14 @@
 
 .rows { margin:0; padding:0; list-style:none; }
 .rows li { border-block-end:1px solid var(--color-border); }
-.row { display:grid; grid-template-columns:22px minmax(0,1fr); gap:var(--space-3); align-items:center; padding:var(--space-3) var(--space-2); color:var(--color-text); text-decoration:none; border-inline-start:3px solid transparent; }
+/* One line per task (spec 0004 item 16): about twice the rows of the two-line design at 1440x900. */
+.row { display:flex; gap:var(--space-2); align-items:center; min-block-size:34px; padding:var(--space-1) var(--space-2); color:var(--color-text); text-decoration:none; border-inline-start:3px solid transparent; }
+.row:hover { background:color-mix(in srgb, var(--color-raised) 60%, transparent); }
 .row:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
 .rows li[data-selected=true] .row { background:var(--color-raised); border-inline-start-color:var(--color-accent); }
-.row strong { display:block; overflow-wrap:anywhere; font-weight:600; }
+.rowTitle { flex:1 1 auto; min-inline-size:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+.rows li[data-selected=true] .rowTitle { font-weight:600; }
+.marker { flex:none; padding:0 var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); color:var(--color-text-secondary); font-size:12px; line-height:18px; }
 .meta { display:block; margin-block-start:var(--space-1); color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
 .emptyInspector { min-block-size:280px; color:var(--color-text-secondary); }
 .emptyInspector svg { color:var(--color-text-secondary); }
@@ -58,12 +69,14 @@
   .search { flex-basis:100%; max-inline-size:none; }
   .chips { inline-size:100%; }
   .chip { padding-inline:var(--space-3); }
-  .row { padding:var(--space-3) 0; }
+  .row { padding-inline:0; }
 }
 
 /* Phone (spec 0002 §9, WK-F): list first, so the first task row sits above the fold at 390x844. */
 .phoneGraphStatus { padding:var(--space-4) var(--gutter-mobile); }
 @media (max-width:767px) {
+  /* Phone rows stay a full touch target. */
+  .row { min-block-size:var(--touch-target); }
   .page { gap:var(--space-3); }
   .titleBlock { gap:var(--space-1); }
   .segmented { margin-block-start:var(--space-1); }

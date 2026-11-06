@@ -4,7 +4,7 @@ import { List, ListChecks, Search, Workflow } from "lucide-react";
 import { PageTitle } from "../../app/DestinationPage";
 import { useScope } from "../../app/scope";
 import { useGraphDetail, useGraphList } from "../../api/humanGraphReads";
-import { GRAPH_MAX_PAGES, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
+import { GRAPH_MAX_PAGES, heldTasks, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
 import { ProjectChoice, pathFor, withoutRevision } from "../knowledge/HumanNodeWorkspace";
@@ -12,7 +12,8 @@ import inspectorStyles from "../knowledge/HumanNodeWorkspace.module.css";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { HumanTaskGraph, PHONE_QUERY, PhoneGraphView, graphListTarget } from "./graph/HumanTaskGraph";
 import { HumanTaskInspector, TaskInspectorUnavailable } from "./HumanTaskInspector";
-import { EXECUTION_UNAVAILABLE, WORK_STATE_FILTERS, WORK_STATE_LABEL, taskRowMeta, workStateFilter } from "./labels";
+import { WORK_STATE_FILTERS, WORK_STATE_LABEL, listStatus, recordMarker, workStateFilter } from "./labels";
+import { StatusIcon } from "./StatusIcon";
 import styles from "./WorkWorkspace.module.css";
 
 /** Work destination: a task workspace (design reference 02), not a generic record inspector. */
@@ -48,6 +49,9 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   const query = useGraphList(project, "task", q);
   let rows: GraphNode[] = [], mergeError: unknown;
   try { rows = mergeGraphPages(query.data?.pages ?? []); } catch (e) { mergeError = e; }
+  const held = heldTasks(query.data?.pages ?? []);
+  // Expand (spec 0004 §3): the inspector takes the full width; `?focus=1` keeps it linkable across reloads.
+  const focused = !!id && params.get("focus") === "1";
   const filtered = rows.filter(n => !state || n.task_state === state);
   const search = params.toString() ? `?${params}` : "";
   const root = params.get("root");
@@ -64,6 +68,18 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
     if (key === "view" && value === "graph" && id) n.set("root", id);
     return n;
   });
+  // Esc restores the split, unless a dialog, menu or field is handling the key.
+  useEffect(() => {
+    if (!focused) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const t = e.target instanceof Element ? e.target : null;
+      if (t?.closest("dialog,[role=menu],input,textarea,select,[contenteditable=true]")) return;
+      update("focus", "");
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
 
   const phone = useMediaQuery(PHONE_QUERY);
   const workspace = useRef<HTMLDivElement>(null), previous = useRef<{ id?: string; graph: boolean }>({ graph: false }), mounted = useRef(false);
@@ -77,7 +93,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
     // Phone graph: a node tap keeps the graph open, so focus stays on the tapped node.
     const restore = phone && graph && before.graph && id ? id : (!id || graph) ? before.id : undefined;
     const focus = () => {
-      const target = id && !graph ? element.querySelector<HTMLElement>(`[data-work-inspector] .${inspectorStyles.detail}:not([aria-busy=true]) h2`) : restore ? [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a => new URL(a.href).pathname === pathFor("task", restore)) : undefined;
+      const target = id && !graph ? element.querySelector<HTMLElement>(`[data-work-inspector] .${inspectorStyles.detail}:not([aria-busy=true]) h2[data-inspector-title]`) : restore ? [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a => new URL(a.href).pathname === pathFor("task", restore)) : undefined;
       if (!target) return false;
       if (target.tagName === "H2") target.tabIndex = -1;
       target.focus(arrival ? { focusVisible: false } as FocusOptions : undefined); return true;
@@ -96,7 +112,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
     : phone ? <PhoneGraphView backTo={graphListTarget(search)}><div className={styles.phoneGraphStatus}>{graphStatus}</div></PhoneGraphView>
     : <Panel title="Dependency graph">{graphStatus}</Panel>;
 
-  return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={graph ? "graph" : "list"}>
+  return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={graph ? "graph" : "list"} data-focus={focused || undefined}>
     <WorkHead action={action} project={query.data?.pages[0]?.project.name}>
       <nav aria-label="Work view" className={styles.segmented}>
         <ActionButton aria-pressed={!graph} onClick={() => update("view", "")}><List size={18} aria-hidden/>List</ActionButton>
@@ -117,14 +133,15 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
     </Toolbar>
     <div className={styles.panes}>
       <div className={styles.mainPane}>
-        {graph ? graphPanel : <Panel title={listTitle} description={query.data && !unavailable ? EXECUTION_UNAVAILABLE : undefined} actions={<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh list</ActionButton>}>
+        {graph ? graphPanel : <Panel title={listTitle} actions={<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh list</ActionButton>}>
           {unavailable || !query.data ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/> : <>
             {!filtered.length && <p>{rows.length ? "No loaded tasks match this state." : "No records returned for this search."}</p>}
-            <ul className={styles.rows} aria-label="Tasks">{filtered.map(n => <li key={n.id} data-selected={id === n.id}>
-              <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} to={{ pathname: pathFor("task", n.id), search: withoutRoot(withoutRevision(search)) }}>
-                <ListChecks size={20} aria-hidden/><span><strong>{n.title}</strong><span className={styles.meta}>{taskRowMeta(n)}</span></span>
+            {/* One line per task (spec 0004 item 16): the bullet carries the status, the title truncates and shows in full on hover. */}
+            <ul className={styles.rows} aria-label="Tasks">{filtered.map(n => { const marker = recordMarker(n); return <li key={n.id} data-selected={id === n.id}>
+              <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} title={n.title} to={{ pathname: pathFor("task", n.id), search: withoutRoot(withoutRevision(search)) }}>
+                <StatusIcon status={listStatus(n, held.has(n.id))}/><span className={styles.rowTitle}>{n.title}</span>{marker && <span className={styles.marker}>{marker}</span>}
               </Link>
-            </li>)}</ul>
+            </li>; })}</ul>
             {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more tasks</ActionButton>}
             {query.data.pages.length === GRAPH_MAX_PAGES && query.data.pages.at(-1)?.data.next_cursor && <p className={styles.meta}>Showing at most 100 records. Refine your search for more.</p>}
             <p className={styles.meta}>Loaded records only; this is not a project total.</p>
@@ -132,7 +149,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
         </Panel>}
       </div>
       <div className={styles.inspector} data-work-inspector>
-        {id ? <TaskDetail key={id} project={project} id={id} search={search}/> : <Panel title="Task inspector" className={styles.emptyInspector}><ListChecks size={34} aria-hidden/><p>Select a task to read its content and exact revision.</p></Panel>}
+        {id ? <TaskDetail key={id} project={project} id={id} search={search} focused={focused} onFocus={on => update("focus", on ? "1" : "")}/> : <Panel title="Task inspector" className={styles.emptyInspector}><ListChecks size={34} aria-hidden/><p>Select a task to read its content and exact revision.</p></Panel>}
       </div>
     </div>
   </div>;
@@ -146,11 +163,11 @@ function withoutRoot(search: string) {
   return value ? `?${value}` : "";
 }
 
-function TaskDetail({ project, id, search }: { project: string; id: string; search: string }) {
+function TaskDetail({ project, id, search, focused, onFocus }: { project: string; id: string; search: string; focused: boolean; onFocus(on: boolean): void }) {
   const query = useGraphDetail(project, "task", id);
   // A missing or pending task keeps the "All tasks" exit; aria-busy keeps focus off its placeholder heading (WK-E).
   if (!query.data) return <TaskInspectorUnavailable className={inspectorStyles.detail} search={withoutRevision(search)} busy={!query.isError}
     status={<QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this record" onRetry={() => void query.refetch()}/>}/>;
   const notice = query.isError ? <p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={() => void query.refetch()}>Refresh record</ActionButton></p> : undefined;
-  return <HumanTaskInspector className={inspectorStyles.detail} record={query.data} search={withoutRevision(search)} notice={notice}/>;
+  return <HumanTaskInspector className={inspectorStyles.detail} record={query.data} search={withoutRevision(search)} notice={notice} focused={focused} onFocus={onFocus}/>;
 }

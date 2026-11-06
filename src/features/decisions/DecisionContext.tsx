@@ -15,12 +15,13 @@ import styles from "./DecisionContext.module.css";
 export const shortId = (id: string) => (id.length > 13 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id);
 export const shortDigest = (digest: string) => digest.slice(0, 12);
 
-export function CopyValue({ value, label }: { value: string; label: string }) {
+/** The one copy control for identifiers and links; `icon` distinguishes, for example, a link from an ID beside it. */
+export function CopyValue({ value, label, icon = Copy }: { value: string; label: string; icon?: typeof Copy }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (!copied) return; const t = setTimeout(() => setCopied(false), 1500); return () => clearTimeout(t); }, [copied]);
   return <button type="button" className={styles.copy} aria-label={copied ? `${label} copied` : `Copy ${label}`} title={copied ? "Copied" : `Copy ${label}`}
     onClick={() => { void navigator.clipboard?.writeText(value).then(() => setCopied(true), () => undefined); }}>
-    <Icon icon={copied ? Check : Copy} size={16} />
+    <Icon icon={copied ? Check : icon} size={16} />
   </button>;
 }
 

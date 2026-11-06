@@ -63,7 +63,7 @@ test.describe("desktop", () => {
     await page.keyboard.press("Escape");
 
     await page.goto(`/work/${id(0x105)}?${scope}`);
-    await expect(inspector(page).getByRole("link", { name: "Open session" })).toBeVisible();
+    await expect(inspector(page).getByRole("link", { name: "Open terminal" })).toBeVisible();
     await inspector(page).getByRole("button", { name: "More actions" }).click();
     await expect(page.getByRole("menuitem", { name: /Cancel attempt/ })).not.toHaveAttribute("aria-disabled", "true");
 

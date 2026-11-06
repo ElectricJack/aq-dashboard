@@ -4,7 +4,7 @@ import { overview, search, SERVER_TIME, SESSIONS } from "./inspectionData";
 import { scenario, withFixtureCapabilities } from "./scenarios";
 import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
-import { humanGraphHandlers, fixtureProject } from "./humanGraph";
+import { humanGraphHandlers, fixtureProject, FIXTURE_ATTEMPT_SESSIONS } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
 import { withDecisionFixtures } from "./decisionFixtures";
 import { questionHandlers, withQuestionFixtures } from "./questions";
@@ -98,7 +98,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
     // Grant the human-graph reads, the labelled playbook fixtures (fixture mode) and, unless the scenario declares otherwise, the fixture project list.
-    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"&&!playbookNames.includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},...playbookCaps,...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"&&c.name!=="tasks.comments.read"&&!playbookNames.includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},{name:"tasks.comments.read",version:"1",enabled:true},...playbookCaps,...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
     http.get("/api/v1/provider-usage", () =>
       s.providerUsage.kind === "ok"
         ? HttpResponse.json(s.providerUsage.body)
@@ -115,9 +115,11 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
       const items = s.reads === "empty" ? [] : sessions.filter((x) => !project || x.project.id === project);
       return read(() => paginate(items, url, "snap-sessions-1"), scope);
     }),
-    http.get("/api/v1/sessions/:id", ({ params }) =>
-      read(() => sessions.find((x) => x.id === String(params.id)) ?? null),
-    ),
+    http.get("/api/v1/sessions/:id", ({ params, request }) => {
+      // The detail echoes the requested scope, as AQ does; a session outside it reads as missing.
+      const scope = scopeOf(new URL(request.url)), project = projectOf(scope);
+      return read(() => [...sessions, ...FIXTURE_ATTEMPT_SESSIONS].find((x) => x.id === String(params.id) && (!project || x.project.id === project)) ?? null, scope);
+    }),
     http.get("/api/v1/search", ({ request }) => {
       const url = new URL(request.url);
       const scope = scopeOf(url);
