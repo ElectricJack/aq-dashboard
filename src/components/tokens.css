@@ -61,8 +61,12 @@
   --motion-duration: 150ms;
 }
 
-@media (min-width: 768px) and (pointer: fine) {
+/* Compact controls from 768px unless the primary pointer is touch (a coarse pointer keeps the full target). */
+@media (min-width: 768px) {
   :root { --control-height: 36px; }
+}
+@media (pointer: coarse) {
+  :root { --control-height: 44px; }
 }
 
 /* Settings › Display (src/app/preferences.ts). Text size scales the shared type tokens from the base above. */

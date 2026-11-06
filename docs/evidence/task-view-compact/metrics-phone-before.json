@@ -6,7 +6,10 @@
   "attemptHeight": 208,
   "sectionHead": 44,
   "commentsHeadingTop": 818,
-  "inspectorHeight": 3185,
+  "inspectorHeight": 3206,
+  "aboveFirstComment": 685,
+  "bodyFont": "16px",
+  "pageTitle": "24px",
   "row": 0,
   "rowFont": "16px"
 }

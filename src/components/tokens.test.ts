@@ -60,6 +60,8 @@ test("text-size preferences scale every step of the type scale from the new base
   }
 });
 
-test("desktop controls are compact only on fine pointers; phones keep the touch target", () => {
-  expect(css).toMatch(/@media \(min-width: 768px\) and \(pointer: fine\) \{\s*:root \{ --control-height: 36px; \}/);
+test("desktop controls are compact from 768px; touch pointers and phones keep the touch target", () => {
+  expect(css).toMatch(/@media \(min-width: 768px\) \{\s*:root \{ --control-height: 36px; \}/);
+  // The coarse-pointer rule comes after, so a touch tablet keeps 44px.
+  expect(css.indexOf("@media (pointer: coarse)")).toBeGreaterThan(css.indexOf("--control-height: 36px"));
 });
