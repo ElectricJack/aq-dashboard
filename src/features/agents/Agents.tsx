@@ -51,6 +51,12 @@ function compactSessionLabel(s: SessionView): string {
   return title ?? `Session ${s.id.slice(0, 8)}`;
 }
 
+/** An unknown process state was never reported, so it has no age and is not "stale" (server #97: quality unknown = not reported). */
+function ObservationAge({ session: s, serverTime }: { session: SessionView; serverTime: string }) {
+  if (s.observation.state === "unknown") return <span>not reported</span>;
+  return <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} />;
+}
+
 function LifecycleHistory({ session, serverTime }: { session: SessionView; serverTime: string }) {
   const history = session.lifecycle;
   if (!history) return <span>Lifecycle history unavailable</span>;
@@ -106,12 +112,7 @@ function Roster({ search }: { search: string }) {
               </span>
               <span className={styles.meta}>{profileText(s.profile)}</span>
               <span className={styles.state}>
-                {OBSERVATION_LABEL[s.observation.state]} ·{" "}
-                <FreshnessLabel
-                  serverTime={serverTime}
-                  observedAt={s.observation.observedAt}
-                  stale={s.observation.freshness === "stale"}
-                />
+                {OBSERVATION_LABEL[s.observation.state]} · <ObservationAge session={s} serverTime={serverTime} />
               </span>
               <span className={styles.meta}>Central state: {executionAuthorityText(s.executionAuthority)}</span>
               <span className={styles.meta}><LifecycleHistory session={s} serverTime={serverTime} /></span>
@@ -149,7 +150,7 @@ const TAB_STATUS: Record<SessionView["observation"]["state"], string> = {
   reported_running: "Running", reported_stopped: "Stopped", unknown: "State unknown", unsupported: "Unsupported state",
 };
 function tabStatus(s: SessionView): string {
-  return TAB_STATUS[s.observation.state] + (s.observation.freshness === "stale" ? " (stale)" : "");
+  return TAB_STATUS[s.observation.state] + (s.observation.state !== "unknown" && s.observation.freshness === "stale" ? " (stale)" : "");
 }
 
 type FocusState = { focusTab?: string } | null;
@@ -562,7 +563,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
         <dt>Recorded session label</dt><dd>{s.label}</dd>
         <dt>Project</dt><dd>{s.project.label}</dd>
         {s.task && <><dt>Task ID</dt><dd>{s.task.id}</dd></>}
-        <dt>Last process observation</dt><dd>{OBSERVATION_LABEL[s.observation.state]} · <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} /></dd>
+        <dt>Last process observation</dt><dd>{OBSERVATION_LABEL[s.observation.state]} · <ObservationAge session={s} serverTime={serverTime} /></dd>
         <dt>Authority location</dt>
         <dd>{AUTHORITY_LABEL[s.authority]}</dd>
         <dt>Central execution state</dt>

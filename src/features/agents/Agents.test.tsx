@@ -211,3 +211,11 @@ test("Message is offered when the server advertises session messages and sends a
   expect(sent[0]).toMatchObject({ kind: "session.message.send", subject: { type: "session", id: UUID_SESSION, revision: "3" }, payload: { expected_generation: "3", body: "Please rebase first." } });
   expect((sent[0]!.payload as { message_id: string }).message_id).not.toBe(sent[0]!.operation_id);
 });
+
+test("an unknown process state reads as not reported, never 'Stale, observed 0s ago' (RA-16, server #97)", async () => {
+  useLifecycleResponse(nativeLifecycleSession({ started_at: null, stopped_at: null }));
+  renderApp("/agents");
+  const row = within(await roster()).getByRole("listitem");
+  expect(row).toHaveTextContent("State unknown · not reported");
+  expect(row).not.toHaveTextContent(/Stale, observed/);
+});
