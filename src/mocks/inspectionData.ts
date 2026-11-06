@@ -2,6 +2,7 @@
  * Mock-only sample data for DASHBOARD-PROPOSED D04 read models.
  * Illustrative values; never shipped in a live build.
  */
+import type { SourceObservation } from "../api/wire/overview";
 import type {
   Overview,
   ProjectRef,
@@ -105,7 +106,7 @@ function summary(s: Seed): TaskSummary {
 
 export const TASKS: TaskSummary[] = SEEDS.map(summary);
 
-export function overview(projectId: string | null, empty = false): Overview {
+export function overview(projectId: string | null, empty = false): Overview & { sources: SourceObservation[] } {
   const inScope = (p: ProjectRef) => !projectId || p.id === projectId;
   const tasks = TASKS.filter((t) => inScope(t.project));
   const count = (r: ReadinessState) => ({ value: tasks.filter((t) => t.readiness.state === r).length, accuracy: "exact" as const });
@@ -123,6 +124,12 @@ export function overview(projectId: string | null, empty = false): Overview {
       needs_you: { value: attention.length, accuracy: "exact" },
       recovering: { value: null, accuracy: "unknown" },
     },
+    // Like aq-server, open decisions are the review and question source totals (RR-02);
+    // needs_you counts every attention row.
+    sources: (["reviews", "questions"] as const).map((source) => ({
+      source, project: null, observation: null, coverage: { state: "complete" as const },
+      total: { value: attention.filter((a) => a.kind === (source === "reviews" ? "decision" : "question")).length, accuracy: "exact" as const },
+    })),
     attention,
     in_motion: PROJECTS.filter(inScope).map((p, i) => ({
       project: p,

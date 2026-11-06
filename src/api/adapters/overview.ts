@@ -29,6 +29,18 @@ export function adaptSources(input:unknown):SourceObservation[] {
   return result as SourceObservation;
  });
 }
+/**
+ * Open decisions (reviews and questions) from the overview's source totals (RR-02).
+ * `counts.needs_you` counts every attention item, offline workers and failed results
+ * included, so it is not a decision count. Null when no decision source reports a total.
+ */
+export function decisionTotal(sources:SourceObservation[]):TotalView|null {
+ const relevant=sources.filter(s=>s.source==='reviews'||s.source==='questions');
+ const known=relevant.filter(s=>s.total.value!==null);
+ if(!known.length)return null;
+ const exact=known.length===relevant.length&&relevant.every(s=>s.total.accuracy==='exact'&&s.coverage.state==='complete');
+ return {value:known.reduce((n,s)=>n+(s.total.value??0),0),accuracy:exact?'exact':'estimated'};
+}
 export function adaptOverview(input: unknown): OverviewView {
  if(!isRecord(input)||!isRecord(input.counts)||!Array.isArray(input.attention)||!Array.isArray(input.in_motion)||!Array.isArray(input.recent_outcomes)||input.sources!==undefined&&!Array.isArray(input.sources)) throw new ContractError('Invalid overview collections');
  const o=input as unknown as Overview;

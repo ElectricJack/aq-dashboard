@@ -48,7 +48,7 @@ for (const vp of VIEWPORTS) {
       await page.goto("/overview");
       await expect(page.getByRole("region", { name: "Needs your attention" }).getByRole("listitem").first()).toBeVisible({ timeout: 15_000 });
       // SO-07: only projects reporting running work count as moving (one of the four mock projects runs nothing).
-      await expect(summary(page)).toHaveText("3 decisions need you. Work is moving in 3 projects.");
+      await expect(summary(page)).toHaveText("3 items need you. Work is moving in 3 projects.");
       await expectStackedHeader(page);
       // All projects: the existing Work path asks for a project first.
       const create = page.getByRole("button", { name: /create task/i });
@@ -64,7 +64,7 @@ for (const vp of VIEWPORTS) {
 
     test("project scope enables Create task and uses the zero summary form", async ({ page }) => {
       await page.goto(scoped);
-      await expect(summary(page)).toHaveText("No decisions need you. No work is in motion.", { timeout: 15_000 });
+      await expect(summary(page)).toHaveText("No items need you. No work is in motion.", { timeout: 15_000 });
       await expectStackedHeader(page);
       const create = page.getByRole("button", { name: /create task/i });
       await expect(create).toBeEnabled();
@@ -92,6 +92,6 @@ test("Create task is hidden without tasks.create", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   // Mock scenario whose bootstrap disables tasks.create and the other action capabilities.
   await page.goto("/overview?scenario=actions-unavailable");
-  await expect(summary(page)).toHaveText(/3 decisions need you/, { timeout: 15_000 });
+  await expect(summary(page)).toHaveText(/3 items need you/, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: /create task/i })).toHaveCount(0);
 });

@@ -172,7 +172,7 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
 
     const decisions = primary.getByRole("link", { name: /decisions, \d+ pending/i });
     await expect(decisions).toBeVisible();
-    await expect(decisions).toHaveAccessibleName("Decisions, 3 pending");
+    await expect(decisions).toHaveAccessibleName("Decisions, 2 pending");
 
     const connection = rail.getByRole("status").filter({ hasText: "Connected" });
     await expect(connection).toBeVisible();
@@ -207,7 +207,7 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
     await expect(page.getByRole("complementary", { name: "Application navigation" })).toBeHidden();
     const compact = page.getByRole("navigation", { name: "Primary (compact)" });
     await compact.getByRole("button", { name: "More" }).click();
-    await expect(compact.getByRole("link", { name: "Decisions, 3 pending" })).toBeVisible();
+    await expect(compact.getByRole("link", { name: "Decisions, 2 pending" })).toBeVisible();
     expect(await hasPageHorizontalScroll(page)).toBe(false);
     const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);

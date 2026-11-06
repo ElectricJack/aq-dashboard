@@ -35,6 +35,24 @@ export type ProviderUsageResult = {
 };
 
 const KNOWN_STATES = new Set<string>(["known", "unknown", "unavailable"]);
+/** Usage poll budget (docs/plans/0001 section 2); subject to server limits. */
+export const USAGE_POLL_MS = 60_000;
+/** Slack for a slow poll before an unrefreshed reading counts as stale. */
+const USAGE_STALE_MARGIN_MS = 30_000;
+/**
+ * A reading is stale only once it outlives both its own fresh_until and the
+ * dashboard's poll interval plus a margin (SO-08): AQ may mark an observation
+ * fresh for seconds, but the strip only asks again every minute, so a short
+ * fresh_until alone would read "Stale" most of the time. An `unknown`-quality
+ * observation reports nothing that can age, so it is never marked stale.
+ * A failed refresh still marks the retained values stale (useProviderUsage).
+ */
+export function usageStale(serverTime: string, observedAt: string, freshUntil: string, quality: string): boolean {
+  if (quality === "unknown") return false;
+  if (!isStale(serverTime, freshUntil)) return false;
+  const now = Date.parse(serverTime), observed = Date.parse(observedAt);
+  return Number.isNaN(observed) || now > observed + USAGE_POLL_MS + USAGE_STALE_MARGIN_MS;
+}
 
 function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
   if (!isRecord(win) || typeof win.id !== 'string' || typeof win.label !== 'string' || !isRecord(win.observation) ||
@@ -51,7 +69,7 @@ function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
     usedPercent: state === "known" ? pct! : null,
     resetsAt: win.resets_at ?? null,
     state,
-    freshness: isStale(serverTime, win.observation.fresh_until) ? "stale" : "fresh",
+    freshness: usageStale(serverTime, win.observation.observed_at, win.observation.fresh_until, win.observation.quality) ? "stale" : "fresh",
     observedAt: win.observation.observed_at,
     freshUntil: win.observation.fresh_until,
     quality: win.observation.quality,
@@ -91,7 +109,7 @@ export function atServerTime(result: ProviderUsageResult, serverTime: string): P
       ...p,
       windows: p.windows.map((w) => ({
         ...w,
-        freshness: isStale(serverTime, w.freshUntil) ? "stale" : "fresh",
+        freshness: usageStale(serverTime, w.observedAt, w.freshUntil, w.quality) ? "stale" : "fresh",
       })),
     })),
   };
