@@ -142,3 +142,17 @@ test("a result outside the selected project scope says so and keeps Back to resu
  fixtures();renderApp(`/results/${detail.result.id}/revisions/${detail.revision.revision}?scope=project:${feedbackId(88)}`);
  expect(await screen.findByText(/This result is not in the selected project/)).toBeVisible();expect(screen.getByRole("link",{name:"Back to results"})).toBeVisible();
 });
+test("RA-05: a refused Task ID filter keeps the toolbar so it can be corrected, and is not retried",async()=>{
+ fixtures();let reads=0;server.use(http.get("/api/v1/results",({request})=>{reads++;return new URL(request.url).searchParams.has("task_id")?HttpResponse.json({request_id:"r",code:"invalid_request",message:"task_id is invalid",retryable:false},{status:422}):HttpResponse.json(feedbackEnvelope({items:[detail],next_cursor:null}));}));
+ renderApp("/results?task=not-a-task");
+ expect(await screen.findByRole("alert")).toHaveTextContent("AQ can't read results with these settings. Check the address or filters.");
+ expect(screen.queryByRole("button",{name:"Try again"})).toBeNull();expect(screen.getByRole("button",{name:/More filters/})).toBeInTheDocument();expect(screen.getByRole("tablist",{name:"Result feed mode"})).toBeInTheDocument();expect(reads).toBe(1);
+});
+test("RA-10: closing the desktop comments panel returns focus to the card's Comments button",async()=>{
+ fixtures();const original=window.matchMedia;window.matchMedia=((query:string)=>({matches:query.includes("1200px"),media:query,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},onchange:null,dispatchEvent:()=>false})) as typeof window.matchMedia;
+ try{
+  renderApp("/results");const open=await screen.findByRole("button",{name:"Comments 1"});await userEvent.click(open);
+  await userEvent.click(await screen.findByRole("button",{name:"Close comments"}));
+  await waitFor(()=>expect(open).toHaveFocus());
+ }finally{window.matchMedia=original;}
+});

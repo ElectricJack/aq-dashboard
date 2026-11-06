@@ -6,6 +6,7 @@ import {viewScoped,adaptResultsFeed,adaptResultDetail,adaptResultComments,mediaB
 import {ContractError} from "../../api/adapters/contract";
 import {scopedKey} from "../../api/queryKeys";
 import type {Scope} from "../../api/wire/proposed";
+import {useReturnFocus} from "../../app/focusReturn";
 import {useSession} from "../../app/session";
 import {scopeSearch,useScope} from "../../app/scope";
 import {useProjects} from "../../app/useProjects";
@@ -73,7 +74,7 @@ function Feed({scope,checking,onChecking:setChecking,checkRef}:{scope:Scope;chec
  const items=query.data?.pages.flatMap(p=>p.items)??[],now=useServerNow(query.data?.pages[0]?.anchor,{tickMs:30_000});
  const projectLabel=(id:string)=>projects.data?.view.find(p=>p.id===id)?.label??`Project ${id.slice(-8)}`;
  useEffect(()=>{const id=params.get("feedback_operation"),result=params.get("feedback_result"),revision=params.get("feedback_revision");if(!id||drafts.some(d=>d.detail.result.id===result&&d.detail.revision.revision===revision))return;const detail=items.find(i=>i.result.id===result&&i.revision.revision===revision);if(detail)openDraft(detail);});
- const current=items.find(i=>i.result.id===selected)??items[0],comments=useComments(current);
+ const current=items.find(i=>i.result.id===selected)??items[0],comments=useComments(current),commentsFocus=useReturnFocus();
  useEffect(()=>{active.current=true;return()=>{active.current=false;probe.current?.abort();reading.set(key,window.scrollY);if(reading.size>16)reading.delete(reading.keys().next().value!);};},[key]);
  useEffect(()=>{if(query.data&&!restored.current){restored.current=true;const y=reading.get(key);if(y!==undefined)requestAnimationFrame(()=>window.scrollTo(0,y));}},[query.data,key]);
  async function check(){if(checking||exact)return;setChecking(true);setCheckError(null);const controller=new AbortController();probe.current=controller;try{const page=adaptResultsFeed(await apiGet<unknown>(`/api/v1/results?${filterParams()}`,controller.signal),scope);if(active.current)setArrivals(JSON.stringify(page.items.map(i=>[i.result.id,i.revision.revision]))!==JSON.stringify(query.data?.pages[0]?.items.map(i=>[i.result.id,i.revision.revision])));}catch{if(active.current)setCheckError("Could not check for new results.");}finally{if(active.current)setChecking(false);}}
@@ -86,14 +87,14 @@ function Feed({scope,checking,onChecking:setChecking,checkRef}:{scope:Scope;chec
  if(malformed||!query.data||query.isError){
   const neutral=malformed||query.error instanceof OutsideScope||(exact&&query.error instanceof ApiError&&[404,422].includes(query.error.status??0));
   return panel(neutral?<p role="status" className={styles.empty}>{query.error instanceof OutsideScope?"This result is not in the selected project. Choose its project or All projects to open it.":"This item does not exist or is not available to you."}</p>
-   :<QueryStatus status={query.isError?"error":"pending"} error={query.error} label="results" onRetry={()=>void query.refetch()}/>);
+   :<QueryStatus status={query.isError?"error":"pending"} error={query.error} subject={exact?"item":"collection"} label={exact?"this result":"results"} onRetry={()=>void query.refetch()}/>);
  }
  if(new Set(items.map(i=>i.result.id)).size!==items.length)throw new ContractError("Result snapshot contains duplicate identities");
  return <ResultMediaWindow keys={items.map(i=>resultMediaKey(mediaBinding(i)))}>
   {checkError&&<p role="status">{checkError}</p>}{arrivals&&<ActionButton className={styles.arrivals} onClick={()=>{setArrivals(false);void query.refetch();}}>New results available</ActionButton>}
-  {panel(<div className={styles.columns}><div className={styles.feedColumn}>{items.length?<ul className={styles.feed} aria-label="Results feed">{items.map(item=><li key={`${item.result.id}:${item.revision.revision}`}><ResultCard detail={item} now={now} projectLabel={projectLabel(item.result.project_id)} selected={current?.result.id===item.result.id} openComments={()=>{setSelected(item.result.id);if(panelVisible())setPanelOpen(true);else setSheet(true);}}/></li>)}</ul>:<div className={styles.empty} data-empty-mode={mode}>{exact?"No results in this scope and filter.":EMPTY[mode]}</div>}
+  {panel(<div className={styles.columns}><div className={styles.feedColumn}>{items.length?<ul className={styles.feed} aria-label="Results feed">{items.map(item=><li key={`${item.result.id}:${item.revision.revision}`}><ResultCard detail={item} now={now} projectLabel={projectLabel(item.result.project_id)} selected={current?.result.id===item.result.id} openComments={()=>{commentsFocus.remember();setSelected(item.result.id);if(panelVisible())setPanelOpen(true);else setSheet(true);}}/></li>)}</ul>:<div className={styles.empty} data-empty-mode={mode}>{exact?"No results in this scope and filter.":EMPTY[mode]}</div>}
    {query.hasNextPage&&<ActionButton disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>Load more</ActionButton>}{query.data.pages.length===4&&query.data.pages.at(-1)?.next_cursor&&<p>Showing 40 results. Narrow the filters to read more.</p>}
-  </div>{current&&panelOpen&&<ResultDiscussion key={`${current.result.id}:${current.revision.revision}`} detail={current} query={comments} onClose={()=>setPanelOpen(false)} onFeedback={id=>openDraft(current,id)}/>}</div>)}
+  </div>{current&&panelOpen&&<ResultDiscussion key={`${current.result.id}:${current.revision.revision}`} detail={current} query={comments} onClose={()=>{setPanelOpen(false);commentsFocus.restore();}} onFeedback={id=>openDraft(current,id)}/>}</div>)}
   {sheet&&current&&<ResultDiscussion key={`sheet:${current.result.id}`} detail={current} query={comments} sheet onClose={()=>setSheet(false)} onFeedback={id=>openDraft(current,id)}/>}
   {drafts.map(draft=><RetainedDraft key={`${draft.detail.result.id}:${draft.detail.revision.revision}`} draft={draft} onClose={()=>setDrafts(old=>old.map(d=>d===draft?{...d,open:false}:d))}/>)}
  </ResultMediaWindow>;

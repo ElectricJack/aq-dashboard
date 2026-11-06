@@ -96,12 +96,22 @@ test("lost response and missing lookup receipt keep exact intent; retry preserve
   await userEvent.click(screen.getByRole("button", { name: "Retry exact message" })); await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
   expect(bytes).toHaveLength(2); expect(bytes[0]).toBe(bytes[1]); expect(app.posts).toHaveLength(0);
 });
-test.each([401, 403])("%s after send clears private draft/history and fences later writes", async status => {
+test("401 after send clears private draft/history and fences later writes", async () => {
   const app = setup(); await ready(); let writes = 0;
-  server.use(http.post("/api/v1/actions", () => { writes++; return new HttpResponse(null, { status }); }));
+  server.use(http.post("/api/v1/actions", () => { writes++; return new HttpResponse(null, { status: 401 }); }));
   await send("Private request to clear");
-  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
+  await screen.findByRole("heading", { name: "Sign in required" });
   expect(screen.queryByText("Retained human message 1")).toBeNull(); expect(screen.queryByDisplayValue("Private request to clear")).toBeNull();
+  expect(writes).toBe(1); expect(app.posts).toHaveLength(0);
+});
+test("403 after send is refused in the composer and keeps the draft (QA §2A)", async () => {
+  const app = setup(); await ready(); let writes = 0;
+  server.use(http.post("/api/v1/actions", () => { writes++; return HttpResponse.json({ request_id: "r", code: "forbidden", message: "This request is not available to your account", retryable: false }, { status: 403 }); }));
+  await send("Draft kept after refusal");
+  expect(await screen.findByText(/^Not sent: AQ refused this request\..*Your draft is preserved\.$/)).toBeInTheDocument();
+  expect(screen.getByDisplayValue("Draft kept after refusal")).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Access denied" })).toBeNull();
+  expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
   expect(writes).toBe(1); expect(app.posts).toHaveLength(0);
 });
 test("typed not-queued receipt allows deliberate revision, preserving the draft", async () => {
@@ -185,10 +195,10 @@ test.each([401, 403])("%s clears private state even when the subsequent bootstra
   server.use(http.post("/api/v1/actions", () => new HttpResponse(null, { status })),
     http.get("/api/v1/bootstrap", () => { bootstrapReads++; return new HttpResponse(null, { status: 503 }); }));
   await send("Private draft before offline bootstrap");
-  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
+  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access not confirmed" });
   await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] }));
   await waitFor(() => expect(bootstrapReads).toBeGreaterThan(0));
-  expect(screen.getByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: status === 401 ? "Sign in required" : "Access not confirmed" })).toBeInTheDocument();
   expect(screen.queryByText("Retained human message 1")).toBeNull();
   expect(screen.queryByDisplayValue("Private draft before offline bootstrap")).toBeNull();
   expect(screen.queryByRole("textbox", { name: "Message the global supervisor" })).toBeNull();
@@ -255,4 +265,13 @@ test("dock header shows only expand and close, with short metadata carrying the 
   expect(status).toHaveAttribute("tabindex", "0");
   await userEvent.click(within(header).getByRole("button", { name: "Expand conversation" }));
   expect(await screen.findByRole("button", { name: /history/i })).toBeInTheDocument();
+});
+test("SO-14/ISSUE-007: opening the dock moves focus into it and closing returns it to the launcher", async () => {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  setup({ path: "/overview" });
+  await userEvent.click(await screen.findByRole("button", { name: "Open supervisor" }));
+  const input = await composer();
+  await waitFor(() => expect(input).toHaveFocus());
+  await userEvent.click(screen.getByRole("button", { name: "Close chat" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Open supervisor" })).toHaveFocus());
 });

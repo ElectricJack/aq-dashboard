@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { adaptBootstrap, type BootstrapView } from "../api/adapters/bootstrap";
 import { ContractError, isRecord } from "../api/adapters/contract";
-import { ApiError, apiGet, isProtectedReadFailure } from "../api/client";
+import { ApiError, apiGet, isAccessRefusal, isAuthenticationFailure, isProtectedReadFailure } from "../api/client";
 import type { QueryContext } from "../api/queryKeys";
 import type { Bootstrap, Envelope } from "../api/wire/proposed";
 import styles from "./Shell.module.css";
@@ -19,6 +19,12 @@ export type Session = {
   connection: Connection;
   updateAvailable: boolean;
   reportIncompatible(capability: string): void;
+  /**
+   * Report a 401/403 from an action or a feature-local read. A 401 signs the
+   * dashboard out (drafts cleared). A 403 stays with the caller, which keeps
+   * its draft and explains the refusal; the session only re-reads bootstrap to
+   * learn whether access itself changed.
+   */
   reportAccessDenied(error: ApiError): void;
 };
 
@@ -49,15 +55,38 @@ async function fetchBootstrap(signal: AbortSignal): Promise<Pick<Session, "boots
   };
 }
 
+function GateTitle({ title }: { title: string }) {
+  useLayoutEffect(() => {
+    document.title = `${title} — Agent Q`;
+    return () => { document.title = "Agent Q"; };
+  }, [title]);
+  return null;
+}
+
 /** Blocks the app until AQ identifies the principal and its capabilities. */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const initialDigest = useRef<{ value: string | null } | null>(null);
   const [featureFailures, setFeatureFailures] = useState<{ identity: string; capabilities: Set<string> }>({ identity: "", capabilities: new Set() });
-  // A protected read can revoke authority before bootstrap's next refresh.
-  // Latch the failure until explicit recovery, so an unchanged bootstrap cannot
-  // reopen a denied resource in a repeated request/remount loop.
+  // Only authentication (401), a failed bootstrap or the contract integrity
+  // fence may take over the shell (QA §2A). A 403 or a missing item on one
+  // read or action stays in the view that asked: a refused resource's retained
+  // data is dropped and bootstrap is re-read to learn whether access changed.
+  // A bootstrap 401/403 is the genuine sign-in/access failure and gates the
+  // app; a new identity or authorization revision purges other caches below.
+  // The 401 latch survives an unchanged bootstrap so a denied resource cannot
+  // reopen in a request/remount loop.
   const [resourceFailure, setResourceFailure] = useState<Error | null>(null);
+  const verifying = useRef<Promise<unknown> | null>(null);
+  const verifyAccess = useRef<(error: Error) => void>(() => {});
+  verifyAccess.current = (error: Error) => {
+    if (verifying.current) return;
+    verifying.current = client.refetchQueries({ queryKey: ["bootstrap"], exact: true }).then(() => {
+      const state = client.getQueryState(["bootstrap"]);
+      // Unable to confirm access after a refusal: fail closed until bootstrap answers.
+      if (state?.status === "error" && !isProtectedReadFailure(state.error)) setResourceFailure(error);
+    }).finally(() => { verifying.current = null; });
+  };
   useLayoutEffect(() => client.getQueryCache().subscribe((event) => {
     if (event.type !== "updated" || event.action.type !== "error" || event.query.queryKey[0] !== "aq") return;
     const error = event.query.state.error;
@@ -69,9 +98,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       event.query.setState({ data: undefined, dataUpdatedAt: 0 });
       return;
     }
-    if (isProtectedReadFailure(error)) {
-      setResourceFailure(error);
+    if (isAccessRefusal(error)) {
+      // Never keep private stale content of a refused resource. A query seeded
+      // with initialData belongs to a view that always has data; it shows the refusal itself.
+      if (event.query.options.initialData === undefined) event.query.setState({ data: undefined, dataUpdatedAt: 0 });
+      verifyAccess.current(error);
+      return;
     }
+    // Sign-in loss, and the global integrity fence for a response this bundle cannot trust.
+    if (isProtectedReadFailure(error)) setResourceFailure(error);
   }), [client]);
   const query = useQuery({
     queryKey: ["bootstrap"],
@@ -84,6 +119,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const unauthenticated = failure instanceof ApiError && failure.status === 401;
   const incompatible = failure instanceof ContractError || (failure instanceof ApiError && (failure.kind === "contract" || [404, 426].includes(failure.status ?? 0)));
   const forbidden = failure instanceof ApiError && failure.status === 403;
+  // A refusal whose bootstrap re-check could not reach AQ: the app is held
+  // closed, but nothing proves a sign-out, so drafts are kept for this identity.
+  const unconfirmed = forbidden && failure === resourceFailure;
   const context = query.data?.queryContext;
   const identity = context && draftIdentity(context);
   const blocked = featureFailures.identity === identity ? featureFailures.capabilities : NO_BLOCKED_FEATURES;
@@ -92,9 +130,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   };
   const [draftOwner, setDraftOwner] = useState<string | null>(null);
   useLayoutEffect(() => {
-    if (unauthenticated || forbidden) { clearDrafts(); setDraftOwner(null); }
+    if (unauthenticated || (forbidden && !unconfirmed)) { clearDrafts(); setDraftOwner(null); }
+    else if (unconfirmed) setDraftOwner(null);
     else if (identity) { activateDrafts(identity); setDraftOwner(identity); }
-  }, [identity, unauthenticated, forbidden]);
+  }, [identity, unauthenticated, forbidden, unconfirmed]);
   if (query.data && initialDigest.current === null) initialDigest.current = { value: query.data.bootstrap.dashboardDigest };
   useLayoutEffect(() => {
     // A role/identity/API change must not keep another authorization scope's
@@ -114,19 +153,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ? "signed_out"
         : "unreachable";
     return (
-      <SessionContext.Provider value={{ ...query.data, bootstrap: blockIncompatibleFeatures(query.data.bootstrap, blocked), connection, reportIncompatible, reportAccessDenied: error => { clearDrafts(); setResourceFailure(error); }, updateAvailable: !!initialDigest.current?.value && !!query.data.bootstrap.dashboardDigest && initialDigest.current.value !== query.data.bootstrap.dashboardDigest }}>{draftOwner === identity ? children : null}</SessionContext.Provider>
+      <SessionContext.Provider value={{ ...query.data, bootstrap: blockIncompatibleFeatures(query.data.bootstrap, blocked), connection, reportIncompatible, reportAccessDenied: error => { if (isAuthenticationFailure(error)) { clearDrafts(); setResourceFailure(error); } else verifyAccess.current(error); }, updateAvailable: !!initialDigest.current?.value && !!query.data.bootstrap.dashboardDigest && initialDigest.current.value !== query.data.bootstrap.dashboardDigest }}>{draftOwner === identity ? children : null}</SessionContext.Provider>
     );
   }
   if (failure) {
+    const heading = unauthenticated ? "Sign in required" : unconfirmed ? "Access not confirmed" : forbidden ? "Access denied" : incompatible ? "Dashboard update required" : "Can't reach AQ";
     return (
       <main className={styles.gate}>
+        <GateTitle title={heading} />
         <p className={styles.brand}>Agent Q</p>
-        <h1>{unauthenticated ? "Sign in required" : forbidden ? "Access denied" : incompatible ? "Dashboard update required" : "Can't reach AQ"}</h1>
+        <h1>{heading}</h1>
         <p>
           {unauthenticated
             ? "Sign in through AQ, then reload this page."
+            : unconfirmed
+              ? "AQ refused a request and the dashboard could not re-check your access, because AQ did not respond. Your drafts are kept. Try again when AQ is reachable."
             : forbidden
-              ? "Access to this dashboard or a requested resource was denied."
+              ? "Your account does not have access to this dashboard. Ask an AQ administrator for access, then try again."
               : incompatible
                 ? "This dashboard and AQ server do not support the same API. Install compatible versions, then reload."
                 : "The dashboard could not load your identity and capabilities from AQ."}

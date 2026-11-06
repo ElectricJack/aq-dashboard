@@ -2,6 +2,7 @@ import { validateReadEnvelope } from "../api/adapters/envelope";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { adaptPage, type PageView } from "../api/adapters/inspection";
 import { apiGet } from "../api/client";
+import { pollUnlessSettled } from "../api/retry";
 import { scopedKey } from "../api/queryKeys";
 import type { Coverage, Envelope, Page, Scope } from "../api/wire/proposed";
 import { useSession } from "./session";
@@ -40,7 +41,8 @@ export function usePagedRead<W, V>(opts: {
       };
     },
     getNextPageParam: (last) => (last.page.hasMore ? (last.page.nextCursor ?? undefined) : undefined),
-    ...(opts.pollMs !== undefined && { refetchInterval: opts.pollMs }),
+    // A missing or refused resource stops polling; a transient failure keeps it.
+    ...(opts.pollMs !== undefined && { refetchInterval: pollUnlessSettled(opts.pollMs) }),
     ...(opts.stable && { refetchOnWindowFocus: false, refetchOnMount: false }),
   });
 }

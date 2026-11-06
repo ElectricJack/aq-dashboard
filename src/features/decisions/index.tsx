@@ -72,7 +72,7 @@ function Selected({ id, project }: { id: string; project: string | undefined }) 
   // Completed deliberate refreshes; the decision bar uses this to release a refused answer.
   const [refreshes, setRefreshes] = useState(0);
   const refresh = () => read.refetch().then(r => { if (!r.isError) setRefreshes(n => n + 1); return r; });
-  if (!read.data || read.isError) return <Panel title="Decision evidence"><QueryStatus status={read.isError ? "error" : "pending"} error={read.error} label="decision evidence" onRetry={() => void read.refetch()} /></Panel>;
+  if (!read.data || read.isError) return <Panel title="Decision evidence"><QueryStatus status={read.isError ? "error" : "pending"} error={read.error} subject="item" label="decision evidence" onRetry={() => void read.refetch()} /></Panel>;
   const d = read.data;
   if (project && d.projectId !== project) return <Panel title="Decision outside selected scope"><p>Select its project or return to All projects to inspect this review.</p></Panel>;
   return <><DecisionEvidence detail={d} onRefresh={() => void refresh()} /><DecisionContext detail={d} updatedAt={read.dataUpdatedAt} className={styles.context} />
@@ -89,7 +89,7 @@ function SelectedQuestion({ id, project }: { id: string; project: string | undef
   const [refreshes, setRefreshes] = useState(0);
   const refresh = () => read.refetch().then(r => { if (!r.isError) setRefreshes(n => n + 1); return r; });
   if (!offered.enabled) return <Panel title="Agent question"><p role="status">{offered.reason}</p></Panel>;
-  if (!read.data || read.isError) return <Panel title="Agent question"><QueryStatus status={read.isError ? "error" : "pending"} error={read.error} label="agent question" onRetry={() => void read.refetch()} /></Panel>;
+  if (!read.data || read.isError) return <Panel title="Agent question"><QueryStatus status={read.isError ? "error" : "pending"} error={read.error} subject="item" label="agent question" onRetry={() => void read.refetch()} /></Panel>;
   const { item: q, serverTime } = read.data;
   if (project && q.projectId !== project) return <Panel title="Question outside selected scope"><p>Select its project or return to All projects to answer this question.</p></Panel>;
   return <><QuestionPanel question={q} serverTime={serverTime} updatedAt={read.dataUpdatedAt}>

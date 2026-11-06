@@ -30,5 +30,7 @@ export async function supervisorAction(kind: "post" | "lookup", conversation: st
   return value as unknown as ActionOperation;
 }
 export function supervisorActionError(error: unknown): string {
+  // A 403 refuses this one request before admission; it is not a sign-out (QA §2A).
+  if (error instanceof ApiError && error.status === 403) return `Not sent: AQ refused this request.${error.envelope?.message ? ` ${error.envelope.message}.` : ""} Your draft is preserved.`;
   return error instanceof ApiError && error.status === 404 ? "No receipt is available yet. The original request may still finish; its status remains unknown." : "Message status is unknown. Keep this operation and check its status or retry the exact original request.";
 }

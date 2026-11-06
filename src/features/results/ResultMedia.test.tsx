@@ -77,7 +77,7 @@ test.each([401, 403])("%s from render immediately removes all Blob URLs even wit
   const app = setup(); const gallery = await openImages(); await within(gallery).findByRole("img");
   server.use(http.get(`${base}/:artifact/content`, () => new HttpResponse(null, { status })), http.get("/api/v1/bootstrap", () => new HttpResponse(null, { status: 503 })));
   await userEvent.click(within(gallery).getByRole("button", { name: "Expand image" }));
-  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access denied" });
+  await screen.findByRole("heading", { name: status === 401 ? "Sign in required" : "Access not confirmed" });
   await act(() => app.queryClient.invalidateQueries({ queryKey: ["bootstrap"] }));
   expect(screen.queryByRole("img")).toBeNull(); expect(screen.queryByText("Retained worker claim 1")).toBeNull();
   expect(revoked).toEqual(expect.arrayContaining(created));
