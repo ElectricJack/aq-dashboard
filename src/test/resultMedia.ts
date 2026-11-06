@@ -1,7 +1,7 @@
 // Explicitly synthetic fixture descriptors and RGBA PNG bytes, not retained-owner proof.
 import { createHash } from "node:crypto";
 import { deflateSync } from "node:zlib";
-import { canonicalMedia, resultMediaBinding, MEDIA_MAX, type MediaArtifact, type MediaBinding, type MediaPage } from "../api/adapters/resultMedia";
+import { canonicalMedia, CLIP_POLICY, resultMediaBinding, MEDIA_CLIP_MAX, MEDIA_MAX, type MediaArtifact, type MediaBinding, type MediaPage } from "../api/adapters/resultMedia";
 import { resultId, resultRecord } from "./results";
 export const fixtureMediaBinding = () => resultMediaBinding(resultRecord(), "recorded_legacy_native_only");
 export const fixtureHash = (bytes: Uint8Array | string) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -22,3 +22,12 @@ export function fixtureArtifact(n = 1, binding: MediaBinding = fixtureMediaBindi
 }
 export function fixtureMedia(items = [fixtureArtifact()], binding = fixtureMediaBinding()): MediaPage { return { contract: "human-result-media-1", server_time_ms: 1793518234000, binding, limits: { ...MEDIA_MAX }, items }; }
 export function fixtureMediaHeaders(artifact = fixtureArtifact(), variant: "preview" | "render" = "preview") { const descriptor = artifact.receipt.variants[variant]; return { "Content-Type": "image/png", "Content-Length": String(descriptor.bytes), "AQ-Media-Digest": descriptor.digest, "AQ-Media-Receipt-Digest": artifact.receipt_digest, "Cache-Control": "private, no-store" }; }
+/** Synthetic X26 clip receipt whose poster is fixtureArtifact(1); the dashboard validates clips but does not play them. */
+export function fixtureClip(n = 2, binding: MediaBinding = fixtureMediaBinding()): MediaArtifact {
+  const poster = fixtureArtifact(1, binding), clip = fixtureArtifact(n, binding); const receipt = clip.receipt;
+  receipt.rendering_policy = CLIP_POLICY; receipt.input = { ...receipt.input, bytes: 2_000_000, filename: "flow.mp4" };
+  receipt.variants = { preview: poster.receipt.variants.preview, render: { digest: receipt.input.digest, bytes: 2_000_000, mime: "video/mp4", width: 1280, height: 720 } };
+  receipt.clip = { duration_ms: 12_000, poster_artifact_id: poster.receipt.artifact_id };
+  clip.receipt_digest = fixtureHash(canonicalMedia(receipt)); return clip;
+}
+export const fixtureClipLimits = () => ({ ...MEDIA_MAX, ...MEDIA_CLIP_MAX });

@@ -1,0 +1,9 @@
+{
+  "repository": "ElectricJack/aq-server",
+  "path": "protocol/playbooks-loaded-definitions/v1",
+  "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
+  "files": {
+    "README.md": "a4f5204a14cab5eaf4976392345b5b19bda6a256df031ea4a21ef650dc63a903",
+    "schema.json": "8852409579266e5be4aa965ea4ca1af12c8820224d949db652c89c0503ac37ca"
+  }
+}

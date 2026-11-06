@@ -1,11 +1,12 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "9ab215e92b088dc8ba29ef37f31aaf7694a3c665",
+  "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
   "status": "Published on aq-server main; operator confirmed G4 completion",
   "sha256": {
-    "dashboard-read/v1/README.md": "46434ac76901553b3f0c6e190baf3c8a5c6146194ce84c7107fc6b245a7c9686",
-    "dashboard-read/v1/check.py": "b20c53bfb72c476b757cf2f8842165da983c4f85f5f5382582548983a7602022",
-    "dashboard-read/v1/fixtures/bootstrap.json": "db25d81f8ae2fb1cd311cd9cae37c345ad40d3587dc6cfd03abc9e6558cc7739",
+    "dashboard-read/v1/README.md": "4aca7b6368b0a344e8bb0b17bde0c2721bdfc54d95a99234b2de70f928a7f26e",
+    "dashboard-read/v1/check.py": "7ecbd3bcf19f36b2ff69d33abbc116d716d1175552a8b03a3cd67008d4615f8f",
+    "dashboard-read/v1/fixtures/bootstrap.json": "fc4021673c48c72ed160f435265e4f524b7a2cd57fccf00c8d06ee683582f0a0",
+    "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
     "dashboard-read/v1/fixtures/overview-empty.json": "e31e0e8321a1269b73a06d6dfeadaf9598ed7d165e1c06da040af58521104409",
     "dashboard-read/v1/fixtures/overview-nonempty.json": "f8302a1349854491e05f5d8083b0c4026add240f243a3c32ffa1a9990a402766",
     "dashboard-read/v1/fixtures/overview-partial.json": "f8302a1349854491e05f5d8083b0c4026add240f243a3c32ffa1a9990a402766",
@@ -17,13 +18,16 @@
     "dashboard-read/v1/fixtures/provider-usage-partial.json": "9c8c394d0a1a4723f1e9939fc1de9c71cf4b255e12eb11245354debc873c1ef0",
     "dashboard-read/v1/fixtures/provider-usage-stale.json": "3e313faa8570fe574b1761fefcff3944c6f8f492308708eea372d0d5d33a7c07",
     "dashboard-read/v1/fixtures/provider-usage-unknown.json": "3374f417c3905802279a4e2734f61dc184c36bb60de1628ca07765527d760e11",
+    "dashboard-read/v1/fixtures/question-detail.json": "689f1be90a05ca85d2da0a79cbc27a32cd4ac40bf3c62d2a908dc573a39efa88",
+    "dashboard-read/v1/fixtures/question-inbox-closed.json": "5a963f1b2dd416784b9e0890218986023ec717b1106650937bd435bb8e5a7b24",
+    "dashboard-read/v1/fixtures/question-inbox-open.json": "1010628372812ec7b2882e8615e3274505e17a0ecda481ee7ce22fa535e2be16",
     "dashboard-read/v1/fixtures/search-empty.json": "a9a55809e601ce287886a3ad047bac679f1e2d1a5f7c711cd13553d07420e1f3",
     "dashboard-read/v1/fixtures/search-nonempty.json": "990a4d9869c633f2934b35093aa0e6641e7fa8c6cf17f81789d8bbca254028c9",
     "dashboard-read/v1/fixtures/search-partial.json": "990a4d9869c633f2934b35093aa0e6641e7fa8c6cf17f81789d8bbca254028c9",
     "dashboard-read/v1/fixtures/search-unknown.json": "0d28e43e76f8f7536bb84463d5f973b4a9eb4160452f6cd87a47e75a6d2d3d09",
     "dashboard-read/v1/fixtures/search.json": "990a4d9869c633f2934b35093aa0e6641e7fa8c6cf17f81789d8bbca254028c9",
-    "dashboard-read/v1/fixtures/session.json": "3c6a122e7fcd32bd60b924a7334bdd6cb28e0a34617e6e79f12173960274f24a",
-    "dashboard-read/v1/fixtures/sessions.json": "9f9c776fb120c337bac62d228156b68f0e433d118c41728c880f087e9a30d332",
-    "dashboard-read/v1/schema.json": "9d7cac3073706afa942033b8f7975588285f1b47fb92db47b764c40348f07801"
+    "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
+    "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
+    "dashboard-read/v1/schema.json": "c3cbd5c140cbf5f0a29905a877070d267db55f63d96a2277e9a3ca6707c03cde"
   }
 }
