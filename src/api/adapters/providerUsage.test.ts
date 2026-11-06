@@ -179,7 +179,7 @@ describe("SO-08: staleness follows the dashboard's poll interval", () => {
   // Live shape: AQ marks the observation fresh for only 5 s; the strip polls every 60 s.
   const live = (quality: QuotaWindow["observation"]["quality"]) => adaptProviderUsage({
     api_version: "dashboard-read-1", request_id: "r", server_time: at(0), scope: { kind: "all_authorized" },
-    data: [{ provider_id: "anthropic", account_ref: "a", account_label: "a", scope: "provider_account", preferred_window_id: "week",
+    data: [{ provider_id: "anthropic", account_ref: "a", account_label: "a", scope: "provider_account", preferred_window_id: "week", availability_ref: null,
       windows: [window({ observation: { observed_at: at(0), fresh_until: at(5), source: "collector", quality, coverage: "complete" } })] }],
     observation: { observed_at: at(0), fresh_until: at(5), source: "aq", quality: "reported", coverage: "complete" }, pending_operations: [], coverage: { state: "complete" },
   } as Envelope<ProviderUsage[]>);
