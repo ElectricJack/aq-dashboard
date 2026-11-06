@@ -9,7 +9,7 @@ import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
 import { resultRecord } from "../../test/results";
 import {resultFeedbackPage as resultPage,mediaResultDetail,feedbackEnvelope} from "../../test/resultsFeedback";
-import { fixtureArtifact, fixtureMedia, fixtureMediaBinding, fixtureMediaHeaders, fixturePng } from "../../test/resultMedia";
+import { fixtureArtifact, fixtureClip, fixtureClipLimits, fixtureMedia, fixtureMediaBinding, fixtureMediaHeaders, fixturePng } from "../../test/resultMedia";
 import { resultMediaPath } from "../../api/resultMediaClient";
 import type { MediaArtifact } from "../../api/adapters/resultMedia";
 import { resultMediaBinding } from "../../api/adapters/resultMedia";
@@ -106,10 +106,35 @@ test("visible image window retains no more than two selected previews", async ()
   }
   expect(screen.getAllByRole("img")).toHaveLength(2); expect(created.filter(url => !revoked.includes(url))).toHaveLength(2); expect(revoked).toHaveLength(1);
 });
-test("incorrect bytes never become a Blob URL", async () => {
+test("incorrect bytes never become a Blob URL, and only that image is unavailable (RR-01)", async () => {
   setup(); server.use(http.get(`${base}/:artifact/content`, () => binary(fixtureArtifact(), fixturePng(99))));
   await userEvent.click(await screen.findByRole("button", { name: "View supplemental images" }));
-  await screen.findByRole("heading", { name: "Dashboard update required" }); expect(created).toHaveLength(0); expect(screen.queryByRole("img")).toBeNull();
+  await screen.findByText("Image unavailable. No previous image is shown."); expect(created).toHaveLength(0); expect(screen.queryByRole("img")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Dashboard update required" })).toBeNull();
+});
+test("RR-01: a media listing contract failure degrades only that card, never the session", async () => {
+  const app = setup(); let strict = true;
+  server.use(http.get(base, () => HttpResponse.json(strict ? { ...fixtureMedia(), limits: { ...fixtureMedia().limits, max_future_limit: 1 } } : fixtureMedia())));
+  await userEvent.click(await screen.findByRole("button", { name: "View supplemental images" }));
+  await screen.findByText("Supplemental images unavailable.");
+  expect(screen.queryByRole("heading", { name: "Dashboard update required" })).toBeNull();
+  expect(screen.getByRole("article", { name: /^Result / })).toBeInTheDocument(); expect(screen.getByText("Retained worker claim 1")).toBeInTheDocument();
+  expect(screen.getByRole("complementary", { name: "Application navigation" })).toBeInTheDocument();
+  const cached = app.queryClient.getQueryCache().findAll({ predicate: q => q.queryKey[4] === "result-media-list" });
+  expect(cached.every(q => q.state.data === undefined)).toBe(true);
+  strict = false; await userEvent.click(screen.getByRole("button", { name: "Retry images" }));
+  await screen.findByRole("region", { name: "Human supplemental images" }); await screen.findByRole("img");
+});
+test("a retained video clip is accepted but not offered as an image (no video UI)", async () => {
+  setup(); server.use(http.get(base, () => HttpResponse.json({ ...fixtureMedia([fixtureArtifact(1), fixtureClip()]), limits: fixtureClipLimits() })));
+  const region = await openImages(); await within(region).findByRole("img");
+  expect(within(region).getAllByRole("button", { name: /Supplemental image 1\.png|flow\.mp4/ }).map(b => b.textContent)).toEqual(["Supplemental image 1.png"]);
+  expect(screen.queryByRole("heading", { name: "Dashboard update required" })).toBeNull();
+});
+test("RR-01: a 401 on the media listing still signs the session out", async () => {
+  setup(); server.use(http.get(base, () => HttpResponse.json({}, { status: 401 })));
+  await userEvent.click(await screen.findByRole("button", { name: "View supplemental images" }));
+  expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
 });
 test("an exact report/revision change fences a held response from the previous report", async () => {
   const app = setup(); let release!: () => void; const held = new Promise<void>(resolve => { release = resolve; }); let oldReads = 0;

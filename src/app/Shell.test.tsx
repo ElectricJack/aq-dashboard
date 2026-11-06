@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { handlersFor } from "../mocks/handlers";
+import { envelope, handlersFor } from "../mocks/handlers";
+import { overview } from "../mocks/inspectionData";
 import { renderApp } from "../test/renderApp";
 import usageFixture from "../../contracts/proposed/provider-usage.json";
 
@@ -206,10 +207,28 @@ test("desktop rail holds the scope picker; the header does not", async () => {
   expect(within(screen.getByRole("banner")).queryByRole("combobox")).not.toBeInTheDocument();
 });
 
-test("Decisions shows the scoped pending count from the overview", async () => {
+test("Decisions shows the scoped open-decision count (reviews + questions), not every attention item (RR-02)", async () => {
+  // The fixture has 3 attention rows: a decision, a question and a failure.
   renderApp("/overview");
   const nav = await rail();
-  expect(await within(nav).findByRole("link", { name: "Decisions, 3 pending" })).toBeInTheDocument();
+  expect(await within(nav).findByRole("link", { name: "Decisions, 2 pending" })).toBeInTheDocument();
+});
+
+test("RR-02: needs_you counting offline workers and failed results never inflates the Decisions badge", async () => {
+  // Shape of the live MS1 overview: 6 attention items, none of them a review or question.
+  const live = overview(null);
+  const respond = (reviews: number) => server.use(http.get("/api/v1/overview", () => HttpResponse.json(envelope({ ...live,
+    counts: { ...live.counts, needs_you: { value: 6, accuracy: "estimated" as const } },
+    sources: [{ source: "reviews", project: null, observation: null, coverage: { state: "partial" as const }, total: { value: reviews, accuracy: "estimated" as const } },
+      { source: "questions", project: null, observation: null, coverage: { state: "unknown" as const }, total: { value: null, accuracy: "unknown" as const } }] }))));
+  respond(0);
+  const { queryClient } = renderApp("/overview");
+  const nav = await rail();
+  await screen.findByText(/About 6 items need you\./);
+  expect(within(nav).getByRole("link", { name: "Decisions" })).toHaveTextContent(/^Decisions$/);
+  respond(4);
+  await queryClient.refetchQueries({ predicate: q => q.queryKey[4] === "overview" });
+  expect(await within(nav).findByRole("link", { name: "Decisions, 4 pending, approximate" })).toHaveTextContent("~4");
 });
 
 test("Decisions has no badge when nothing is pending", async () => {

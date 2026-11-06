@@ -3,11 +3,13 @@
 This server-owned contract adds `POST /api/v1/actions` and
 `GET /api/v1/operations/{operation_id}` to the authenticated human router.
 All mutations require `X-AQ-Request: 1` and the existing same-origin policy.
-Production registers `task.create`, `decision.resolve` and
-`supervisor.message.send`. The owner-only `dashboard.actions@1` capability
-advertises this boundary. Check each mutation capability as well: task creation
-requires the configured Graph mutation identity, decision resolution requires a
-mounted review owner, and supervisor send requires the mounted global mailbox.
+Production registers `task.create`, `decision.resolve`,
+`supervisor.message.send` and the typed task and knowledge kinds listed below.
+The owner-only `dashboard.actions@1` capability advertises this boundary. Check
+each mutation capability as well: task creation requires the configured Graph
+mutation identity, decision resolution requires a mounted review owner, and
+supervisor send requires the mounted global mailbox. Each typed kind has its own
+bootstrap capability named after the kind (for example `task.retry@1`).
 
 ## Admission and recovery
 
@@ -61,6 +63,44 @@ for the original principal means retired, and the ID can never execute again.
 Retention is published on the action capability. Cleanup is explicit;
 keeping receipts longer than the minimum is safe.
 
+## Enqueue work
+
+`task.create` also accepts optional `priority` (integer 1–300), `profile_hint`,
+`intelligence_hint` and `task_type`. Hints are nonblank, without control characters,
+and at most 128 UTF-8 bytes. They become `aq:priority`, `aq:profile_hint`,
+`aq:intelligence_hint` and `aq:task_type` metadata on the new Graph task. Omitted
+fields preserve native task-create serialization and defaults. These hints confer
+no execution or credential authority.
+
+`task.graph.create` has a `project` subject, matching `project_id` and
+`expected_version`. Its `tasks` array contains explicit nonnil task `id`s and
+`title`s, plus optional body, acceptance criteria, labels, task_state (default
+`active`), parent_id and the same enqueue metadata. Its optional `edges` array
+contains `{id,source,target}` blocks edges; at least one endpoint must be a new
+task. Existing endpoints and parents must be live tasks in the selected project
+and workspace. IDs must be unique across nodes and edges; self and duplicate
+blocks edges are invalid. Parent links produce deterministic `parent-child` edges.
+Graph owns cycle and other domain validation.
+
+All nodes, blocks edges and parent links are submitted as **one atomic Graph
+mutation batch of at most 100 total operations**, without chunking. The exact
+Graph body and `aq-dashboard-action:{operation_id}` key are retained before the
+POST. Reconciliation on lookup or repeated submit replays those bytes only,
+checking the original binding and Graph service identity. A first Graph conflict
+is terminal; an ambiguous response remains unknown until the original receipt
+settles it. Owner bootstrap advertises `tasks.graph.create@1`.
+
+The separate worker listener exposes the same `/api/v1/actions` and
+`/api/v1/operations/{operation_id}` paths for supervisors, using F1b's active,
+generation-bound `Authorization: Bearer ...` credential with `enqueue` scope.
+Only `task.create` and `task.graph.create` are registered there. Credential and
+lifecycle locks remain held through admission, dispatch and response; lookup
+rechecks scope, expiry and revocation. No human Owner identity is manufactured.
+Receipts are private to the supervisor session UUID, preserved across credential
+rotation within that session. Owner and session principal references are disjoint
+in the operation journal (state format 58). Owners continue to use the human
+listener and its authentication and CSRF policy.
+
 ## Errors and cursors
 
 All `/api/v1/*` errors use `request_id`, `code`, `message`, `retryable` and
@@ -94,7 +134,7 @@ one key (`project`, `decision` or `conversation`), matching both the subject's
 revision string and the payload's expected revision. The subject type uses that
 same key and its ID is the actual project, decision or conversation UUID.
 
-- `task.create` uses `human-task-create-1`: title at most 512 characters, body
+- `task.create` uses `human-task-create-1`: title at most 512 UTF-8 bytes, body
   32768 UTF-8 bytes, acceptance criteria 8192 bytes, at most 16 distinct labels,
   and `draft` or `active`. The Graph task ID equals the operation ID. A confirmed
   operation references the validated Graph change set and exact task revision.
@@ -107,6 +147,88 @@ same key and its ID is the actual project, decision or conversation UUID.
   conversation revision, a nonempty body of at most 16384 UTF-8 bytes, and empty
   `context` and `attachments` arrays. Confirmed means durable mailbox enqueue;
   native receipts still say host delivery `not_attempted`, with no agent receipt.
+
+- `session.message.send` durably enqueues an owner message into one session's
+  scoped mailbox. The subject is `{type:"session",id:<session UUID>}`; the
+  payload carries `operation_id`, `project_id`, a separate `message_id`, optional
+  `thread_id` (defaults to `message_id`), `expected_generation` (the decimal
+  `session_identity.assignment_generation`, also the subject revision and the
+  single `session` expected version) and a nonempty body of at most 16384 UTF-8
+  bytes. The recipient is derived from the session's unrevoked launch binding,
+  never from client scope; a missing, revoked or other-project binding is a
+  neutral 404. A stale generation is a `conflict` with `current_versions`
+  `{session:<live>}`. Confirmed means queued only: the receipt names the
+  `mailbox_operation` and the affected `message` at its mailbox cursor. Runner
+  delivery and harness input are not attempted here. Owner bootstrap advertises
+  `session.message.enqueue@1`; session detail lists `session.message.send` in
+  `permissions` when the slot is usable.
+
+## Typed task and knowledge kinds
+
+Each typed payload carries `operation_id` (equal to the outer ID), `project_id`
+and `expected_version`, the decimal Graph node version that must also equal the
+subject revision and the single `expected_versions` entry (`task` or
+`knowledge`). `knowledge.author` instead uses `expected_project_revision` with a
+`project` subject. A stale version returns a `conflict` whose operation carries
+`current_versions` with the live Graph version; nothing is written.
+
+- `task.edit` patches title, body, acceptance criteria or labels. Every task
+  and knowledge title (create, edit, author, correct) is 1 to 512 UTF-8 bytes,
+  Graph's cap; schema `maxLength` values count characters and are upper bounds.
+- `task.reprioritize` writes Graph metadata `aq:priority` (integer in
+  -1,000,000..1,000,000, higher first) and preserves other metadata keys.
+- `task.dependency.add` adds a `blocks` edge from `blocker_id`;
+  `task.dependency.remove` removes `edge_id` at `edge_version`.
+- `task.cancel` requires a `reason` and records a B3 native cancellation for the
+  attempt holding the task; with no holding attempt it is `rejected`.
+- `task.retry` asks B4 to assess the task; only an admissible replacement
+  records the predecessor's replacement release (receipt `replacement_release`),
+  after which the scheduler starts the replacement attempt. An unsettled or
+  exhausted predecessor is `rejected`. Neither kind writes Graph task lifecycle.
+- `knowledge.author` creates an unverified note (default content type `note`)
+  whose Graph node ID equals the operation ID.
+- `knowledge.correct` patches title, body, labels or content type.
+- `knowledge.verify` requires a `reason` and 1 to 64 Graph `Source` evidence
+  objects with verdict `verified` or `disputed`. Graph may answer `forbidden`,
+  which is `rejected`.
+- `knowledge.retire` requires a retirement reason and an optional successor;
+  retiring an already retired record is `rejected` and writes nothing.
+  `knowledge.restore` restores an earlier `revision`.
+
+Graph writes use the idempotency key `aq-dashboard-action:{operation_id}` and a
+confirmed operation references the Graph change set and the exact new revision.
+
+## Playbook kinds
+
+Offered only when the playbook runtime is mounted and the principal is its
+namespace owner. Each kind has a bootstrap capability: `playbooks.runs.start`,
+`playbooks.runs.cancel`, `playbooks.activations.activate` and
+`playbooks.activations.rollback`. Payloads carry `operation_id` and the
+namespace's `project_id`; any other project returns 404.
+
+- `playbook.run.start`: subject `playbook_binding` at `expected_version`, the
+  binding's activation revision, which is also the single `expected_versions`
+  entry. The payload names `binding`, the active `artifact`, `entry` and up to
+  32 typed `inputs` (boolean, number, or text up to 4096 bytes). No inputs means
+  a `null` input. The run is admitted with the binding's grant and the engine
+  refuses it if the activation moved. The receipt is a `playbook_admission`, and
+  the affected entity is the `playbook_run`. If admission is not yet proven, the
+  operation reports `pending` or `unknown`, and a lookup reconciles the
+  retained admission.
+- `playbook.run.cancel`: subject `playbook_run` with no revision, empty
+  `expected_versions` and payload `run_id`. An optional envelope `reason` is
+  accepted. The engine's cancel is idempotent per run, and confirmation means
+  cancellation was requested, not that the run stopped.
+- `playbook.activation.activate` binds `artifact` to `binding` for new runs.
+- `playbook.activation.rollback` restores the binding's previous activation;
+  `artifact` must be the currently active one. With nothing to roll back to,
+  the operation is `rejected`.
+
+Both activation kinds use the same `playbook_binding@expected_version` subject.
+If the revision or artifact is stale, the result is `conflict` with
+`current_versions.playbook_binding`. Changes are idempotent per operation ID,
+and the receipt is `playbook_activation_operation`. The version check before
+activate or rollback is not atomic with the change.
 
 Legacy task-create, decision-resolve and supervisor-send HTTP handlers enter the
 same action admission path and retain their native response envelopes. A legacy
@@ -133,3 +255,8 @@ Named acceptance tests:
 - `cargo test --locked --workspace unknown_effect_operation_is_recoverable_by_lookup`
 - `cargo test --locked --workspace action_union_rejects_unknown_kind_with_envelope`
 - `cargo test --locked --workspace bootstrap_lists_pending_operations`
+- `cargo test --locked -p aq-server --test it_dashboard dashboard_task_knowledge::knowledge_correct_with_stale_version_conflicts`
+- `cargo test --locked -p aq-server --test it_dashboard dashboard_task_knowledge::task_retry_creates_replacement_attempt`
+
+- `cargo test --locked --workspace supervisor_creates_graph_with_dependencies_idempotently`
+- `cargo test --locked -p aq-server --test it_dashboard dashboard_actions::session_message_send_enqueues_to_bound_session_mailbox`

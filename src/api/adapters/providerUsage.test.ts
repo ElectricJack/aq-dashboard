@@ -173,3 +173,23 @@ test("keeps the observation quality and coverage of each window", () => {
   ]);
   expect(win).toMatchObject({ quality: "estimated", coverage: "partial" });
 });
+
+describe("SO-08: staleness follows the dashboard's poll interval", () => {
+  const at = (seconds: number) => new Date(Date.parse("2026-11-06T09:24:36.541Z") + seconds * 1000).toISOString();
+  // Live shape: AQ marks the observation fresh for only 5 s; the strip polls every 60 s.
+  const live = (quality: QuotaWindow["observation"]["quality"]) => adaptProviderUsage({
+    api_version: "dashboard-read-1", request_id: "r", server_time: at(0), scope: { kind: "all_authorized" },
+    data: [{ provider_id: "anthropic", account_ref: "a", account_label: "a", scope: "provider_account", preferred_window_id: "week", availability_ref: null,
+      windows: [window({ observation: { observed_at: at(0), fresh_until: at(5), source: "collector", quality, coverage: "complete" } })] }],
+    observation: { observed_at: at(0), fresh_until: at(5), source: "aq", quality: "reported", coverage: "complete" }, pending_operations: [], coverage: { state: "complete" },
+  } as Envelope<ProviderUsage[]>);
+  const freshness = (result: ReturnType<typeof live>, seconds: number) => atServerTime(result, at(seconds)).providers[0]!.windows[0]!.freshness;
+  test("a reading past fresh_until but within poll interval + margin is not stale", () => {
+    const result = live("reported");
+    expect(freshness(result, 11)).toBe("fresh"); expect(freshness(result, 52)).toBe("fresh"); expect(freshness(result, 89)).toBe("fresh");
+    expect(freshness(result, 91)).toBe("stale");
+  });
+  test("an unknown-quality reading is not reported, never stale", () => {
+    expect(freshness(live("unknown"), 600)).toBe("fresh");
+  });
+});

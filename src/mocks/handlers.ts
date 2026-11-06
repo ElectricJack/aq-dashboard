@@ -10,7 +10,7 @@ import { withDecisionFixtures } from "./decisionFixtures";
 import { questionHandlers, withQuestionFixtures } from "./questions";
 import { PLAYBOOK_CAPABILITIES, playbookActionHandlers, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
-function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
+export function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
   return {
     api_version: "proposed-0",
     request_id: "mock",

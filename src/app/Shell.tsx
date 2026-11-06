@@ -4,6 +4,7 @@ import { SearchDialog } from "../features/search/SearchDialog";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { ChevronDown, Ellipsis, LayoutGrid, Search } from "lucide-react";
 import { adaptOverview, type OverviewView } from "../api/adapters/inspection";
+import { decisionTotal } from "../api/adapters/overview";
 import type { Overview as OverviewWire } from "../api/wire/overview";
 import type { Scope } from "../api/wire/proposed";
 import { useMediaQuery } from "../components/useMediaQuery";
@@ -29,8 +30,9 @@ const BADGE_POLL_MS = 30_000;
 
 /**
  * Pending count for the Decisions destination, from the scoped overview's
- * needs-you total (shared query with the Overview page). Null when unknown or
- * zero so the shell never shows an invented or empty badge.
+ * review and question source totals (shared query with the Overview page), not
+ * `needs_you`, which also counts offline workers and failed results (RR-02).
+ * Null when unknown or zero so the shell never shows an invented or empty badge.
  */
 type Badge = { text: string; label: string };
 function usePendingBadge(scope: Scope, enabled: boolean): Badge | null {
@@ -43,8 +45,8 @@ function usePendingBadge(scope: Scope, enabled: boolean): Badge | null {
     pollMs: BADGE_POLL_MS,
   });
   if (!enabled || !read.data || read.isError) return null;
-  const total = read.data.view.counts.needs_you;
-  if (total.value === null || total.value <= 0) return null;
+  const total = decisionTotal(read.data.view.sources);
+  if (!total || total.value === null || total.value <= 0) return null;
   const approximate = total.accuracy !== "exact" || read.data.coverage.state !== "complete";
   const shown = total.value > 99 ? "99+" : String(total.value);
   return {

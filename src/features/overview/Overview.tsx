@@ -186,10 +186,11 @@ function NeedsYouCount({ total }: { total: NeedsYou }) {
 /** Plain-language attention count: estimated counts say "About", unknown never reads as zero. */
 export function attentionSentence(total: NeedsYou): string {
   if (total.atLeast) return `At least ${total.value} ${total.value === 1 ? "item needs" : "items need"} you.`;
-  if (total.value === null) return "The number of decisions that need you is unknown.";
+  // needs_you counts every attention item (decisions, offline workers, failed results...), so say "items" (RR-02).
+  if (total.value === null) return "The number of items that need you is unknown.";
   const n = total.value;
-  if (n === 0) return total.accuracy === "estimated" ? "Few or no decisions need you." : "No decisions need you.";
-  const phrase = `${n} ${n === 1 ? "decision needs" : "decisions need"} you.`;
+  if (n === 0) return total.accuracy === "estimated" ? "Few or no items need you." : "No items need you.";
+  const phrase = `${n} ${n === 1 ? "item needs" : "items need"} you.`;
   return total.accuracy === "estimated" ? `About ${phrase}` : phrase;
 }
 

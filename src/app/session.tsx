@@ -13,6 +13,13 @@ import { blockIncompatibleFeatures, capabilitiesForResource } from "./compatibil
 
 /** Whether the most recent bootstrap refresh reached AQ with a valid sign-in. */
 export type Connection = "connected" | "unreachable" | "signed_out";
+/**
+ * Query `meta` for a non-essential per-card or per-panel read (RR-01). Its
+ * contract or integrity failure stays in the view that asked, which shows its
+ * own unavailable state; only shell reads may close the app as incompatible.
+ * A 401 still signs out, and 403/426 keep their usual handling.
+ */
+export const PANEL_READ = { failure: "panel" } as const;
 
 export type Session = {
   bootstrap: BootstrapView;
@@ -130,6 +137,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // with initialData belongs to a view that always has data; it shows the refusal itself.
       if (event.query.options.initialData === undefined) event.query.setState({ data: undefined, dataUpdatedAt: 0 });
       verifyAccess.current(error);
+      return;
+    }
+    if (event.query.meta?.failure === PANEL_READ.failure && !isAuthenticationFailure(error)) {
+      // Contained: never keep the untrusted response, but leave the shell open.
+      if (isProtectedReadFailure(error)) event.query.setState({ data: undefined, dataUpdatedAt: 0 });
       return;
     }
     // Sign-in loss, and the global integrity fence for a response this bundle cannot trust.
