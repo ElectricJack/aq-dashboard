@@ -1,29 +1,34 @@
 /* Inspector sections (spec 0004 §3). */
-.section { border-block-end:1px solid var(--color-border); }
+/* v1 density (owner request 2026-11-06): no rule under every section; a small uppercase muted label separates them. */
+.section { min-inline-size:0; }
 .sectionHead { display:flex; align-items:center; gap:var(--space-2); min-block-size:var(--touch-target); }
-.sectionHead h3 { margin:0; font-size:16px; }
-.sectionHead button { display:inline-flex; align-items:center; gap:var(--space-2); min-block-size:var(--touch-target); padding:0; border:0; background:none; color:var(--color-text); font:inherit; font-weight:600; cursor:pointer; }
+.sectionHead h3 { margin:0; font-size:var(--inspector-small, 12px); line-height:1.2; text-transform:uppercase; letter-spacing:.06em; }
+.sectionHead button { display:inline-flex; align-items:center; gap:6px; min-block-size:var(--touch-target); padding:0; border:0; background:none; color:var(--color-text-secondary); font:inherit; font-weight:600; letter-spacing:inherit; text-transform:inherit; cursor:pointer; }
+.sectionHead button:hover { color:var(--color-text); }
 .sectionHead button:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; border-radius:4px; }
-/* Pointer layouts fold sections on a compact 36px line; phones keep the 44px touch target. */
-@media (min-width:768px) { .sectionHead,.sectionHead button { min-block-size:36px; } }
+/* Pointer layouts fold sections on a compact 30px line; phones keep the 44px touch target. */
+@media (min-width:768px) { .sectionHead,.sectionHead button { min-block-size:30px; } }
 .chevron { transition:rotate var(--motion-duration); color:var(--color-text-secondary); }
 .section[data-open=true] .chevron { rotate:90deg; }
-.sectionSummary { color:var(--color-text-secondary); font-size:var(--font-size-meta); }
-.sectionBody { display:grid; gap:var(--space-2); min-inline-size:0; padding-block:0 var(--space-4); }
+.sectionSummary { padding:0 6px; border-radius:999px; background:var(--color-raised); color:var(--color-text-secondary); font-size:var(--inspector-small, 12px); line-height:18px; }
+.sectionBody { display:grid; gap:6px; min-inline-size:0; padding-block:0 var(--space-3); }
 .sectionBody > p { margin:0; }
-.sectionBody [data-document-body] { line-height:1.55; }
+.sectionBody [data-document-body] { line-height:1.5; }
+.sectionBody [data-document-body] > :first-child { margin-block-start:0; }
+.sectionBody [data-document-body] > :last-child { margin-block-end:0; }
 .clamped { max-block-size:12em; overflow:hidden; mask-image:linear-gradient(to bottom, #000 75%, transparent); }
-.meta { margin:0; color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
-.linkButton { justify-self:start; min-block-size:32px; padding:0; border:0; background:none; color:var(--color-accent); font:inherit; font-size:var(--font-size-meta); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.meta { margin:0; color:var(--color-text-secondary); font-size:var(--inspector-meta, 13px); overflow-wrap:anywhere; }
+.linkButton { justify-self:start; min-block-size:28px; padding:0; border:0; background:none; color:var(--color-accent); font:inherit; font-size:var(--inspector-meta, 13px); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .linkButton:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 
 /* Identifiers: one copy control everywhere (item 1). */
 .idChip,.idValue { display:inline-flex; align-items:center; gap:var(--space-1); min-inline-size:0; max-inline-size:100%; vertical-align:middle; }
-.idChip code { padding:2px var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-raised); font-family:var(--font-mono); font-size:13px; color:var(--color-text); overflow-wrap:anywhere; }
-.idValue code { font-family:var(--font-mono); font-size:13px; color:var(--color-text-secondary); }
+/* The ID reads as a muted mono caption (as v1), not a bordered control; its copy button stays beside it. */
+.idChip code { font-family:var(--font-mono); font-size:var(--inspector-small, 12px); color:var(--color-text-secondary); overflow-wrap:anywhere; }
+.idValue code { font-family:var(--font-mono); font-size:var(--inspector-small, 12px); color:var(--color-text-secondary); }
 
 /* Status chip and reasons (items 2, 3). */
-.statusChip { display:inline-flex; align-items:center; gap:var(--space-2); margin:0; padding:var(--space-1) var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-raised); font-weight:600; font-size:var(--font-size-meta); color:var(--color-status-unknown); max-inline-size:100%; overflow-wrap:anywhere; }
+.statusChip { display:inline-flex; align-items:center; gap:6px; margin:0; padding:1px var(--space-2); border:1px solid var(--color-border); border-radius:6px; background:var(--color-raised); font-weight:600; font-size:var(--inspector-meta, 13px); line-height:20px; color:var(--color-status-unknown); max-inline-size:100%; overflow-wrap:anywhere; }
 .statusChip[data-status=draft] { color:var(--color-status-draft); }
 .statusChip[data-status=active],.statusChip[data-status=ready] { color:var(--color-status-ready); }
 .statusChip[data-status=running] { color:var(--color-status-running); }
@@ -37,45 +42,45 @@
 .reasons li { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); }
 .reasons li > svg { color:var(--color-status-waiting); }
 .agent { display:grid; gap:var(--space-1); }
-.agent p,.attempt p { margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1) var(--space-2); }
+.agent p,.attempt p { margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; }
 .agentLinks a { margin-inline-start:var(--space-2); }
 .terminalLink { font-weight:600; }
-.attemptStatus { padding:0 var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-control); font-size:var(--font-size-meta); }
-.badge { padding:0 var(--space-2); border-radius:var(--radius-control); background:var(--color-raised); color:var(--color-status-running); font-size:var(--font-size-meta); font-weight:600; }
+.attemptStatus { padding:0 6px; border:1px solid var(--color-border); border-radius:4px; font-size:var(--inspector-small, 12px); line-height:18px; }
+.badge { padding:0 6px; border-radius:4px; background:var(--color-raised); color:var(--color-status-running); font-size:var(--inspector-small, 12px); line-height:18px; font-weight:600; }
 
 /* Lists. */
-.attempts,.history,.results { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-3); }
-.attempt,.history li,.results li { display:grid; gap:var(--space-1); padding-block-end:var(--space-3); border-block-end:1px dashed var(--color-border); }
+.attempts,.history,.results { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-2); }
+.attempt,.history li,.results li { display:grid; gap:2px; padding-block-end:var(--space-2); border-block-end:1px solid color-mix(in srgb, var(--color-border) 60%, transparent); }
 .attempt:last-child,.history li:last-child,.results li:last-child { border-block-end:0; padding-block-end:0; }
 .history p,.results p { margin:0; }
 .historyReason { white-space:pre-wrap; overflow-wrap:anywhere; }
 /* A result's summary can be ~500 characters: three lines at normal weight, the full text on hover (P1-10). */
 .resultSummary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; font-weight:400; overflow-wrap:anywhere; text-underline-offset:3px; }
-.dependencies { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-3); }
-.dependencies li { display:grid; gap:var(--space-1); }
+.dependencies { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-2); }
+.dependencies li { display:grid; gap:2px; }
 .dependencies a { overflow-wrap:anywhere; }
 .dependencyTitle { display:flex; align-items:center; gap:var(--space-2); min-inline-size:0; }
 .edgeReason { overflow-wrap:anywhere; }
-.children { display:grid; gap:var(--space-2); padding-block-end:var(--space-3); }
-.children h4 { margin:0; font-size:var(--font-size-meta); color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.06em; }
+.children { display:grid; gap:var(--space-1); padding-block-end:var(--space-2); }
+.children h4 { margin:0; font-size:var(--inspector-small, 12px); color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.06em; }
 .children p { margin:0; }
 .children .dependencies { gap:var(--space-1); }
 .children .dependencies li { display:flex; align-items:center; gap:var(--space-2); }
 
 /* Comments (item 13). */
-.composer { display:grid; gap:var(--space-2); }
-.composer label { font-weight:600; font-size:var(--font-size-meta); }
-.composer textarea { inline-size:100%; min-block-size:4.5em; padding:var(--space-2) var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-canvas); color:var(--color-text); font:inherit; resize:vertical; }
+.composer { display:grid; gap:6px; }
+.composer label { font-weight:600; font-size:var(--inspector-meta, 13px); }
+.composer textarea { inline-size:100%; min-block-size:3.4em; padding:6px 10px; line-height:1.45; border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-canvas); color:var(--color-text); font:inherit; resize:vertical; }
 .composer textarea:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 .composer p { margin:0; }
-.commentButtons { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
-.commentError { margin:0; display:grid; gap:var(--space-2); color:var(--color-attention); font-size:var(--font-size-meta); }
-.comments { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-3); }
-.comment { display:grid; gap:var(--space-1); padding:var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius-control); background:color-mix(in srgb, var(--color-raised) 45%, transparent); min-inline-size:0; }
+.commentButtons { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1) var(--space-3); }
+.commentError { margin:0; display:grid; gap:var(--space-2); color:var(--color-attention); font-size:var(--inspector-meta, 13px); }
+.comments { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.comment { display:grid; gap:2px; padding:var(--space-2) 10px; border:1px solid var(--color-border); border-radius:6px; background:color-mix(in srgb, var(--color-raised) 45%, transparent); min-inline-size:0; }
 .comment p { margin:0; }
-.commentHead { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); color:var(--color-text-secondary); font-size:var(--font-size-meta); }
+.commentHead { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); color:var(--color-text-secondary); font-size:var(--inspector-small, 12px); }
 .commentAuthor strong { color:var(--color-text); }
-.commentBody { min-inline-size:0; overflow-wrap:anywhere; line-height:1.55; }
+.commentBody { min-inline-size:0; overflow-wrap:anywhere; line-height:1.5; }
 .commentBody [data-document-body] > :first-child { margin-block-start:0; }
 .commentBody [data-document-body] > :last-child { margin-block-end:0; }
 .commentBody blockquote { margin:var(--space-2) 0; padding-inline-start:var(--space-3); border-inline-start:3px solid var(--color-border); color:var(--color-text-secondary); }
@@ -88,7 +93,18 @@
 /* Edit conflict: AQ's newer version beside the user's draft until one is chosen (P1-06). */
 .conflict { display:grid; gap:var(--space-2); padding:var(--space-3); border:1px solid var(--color-attention); border-radius:var(--radius-control); background:var(--color-raised); }
 .conflict .commentBody { max-block-size:12em; overflow:auto; padding:var(--space-2); background:var(--color-canvas); border-radius:var(--radius-control); }
-.commentPaging { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); }
+.commentPaging { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1) var(--space-3); }
+.commentPaging:empty { display:none; }
+
+/* Pointer layouts: copy buttons beside IDs take a 24px square (WCAG 2.2 target size) so ID lines stay text-height. */
+@media (min-width:768px) and (pointer:fine) {
+  .idChip button,.idValue button { inline-size:24px; block-size:24px; }
+  .idChip button svg,.idValue button svg { inline-size:14px; block-size:14px; }
+}
+/* Pointer layouts: the section's own buttons (Comment, Refresh comments, Load older, Save…) on a compact 32px line. */
+@media (min-width:768px) {
+  .commentButtons > button,.commentPaging > button,.sectionBody [role=alert] > button { min-block-size:32px; padding:var(--space-1) var(--space-3); font-size:var(--inspector-meta, 13px); }
+}
 
 /* Phones: copy buttons and the comment Edit/Delete links get the full 44px touch target (P1-12). */
 @media (max-width:767px) {

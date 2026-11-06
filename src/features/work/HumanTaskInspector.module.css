@@ -1,51 +1,68 @@
 /* Work's task inspector (design reference 02; spec 0004 §3): one panel, sticky header, foldable sections. */
-.inspector { display:flex; flex-direction:column; min-inline-size:0; padding:0 var(--space-5) var(--space-5); background:var(--color-panel); border:1px solid var(--color-border); border-radius:var(--radius-panel); }
+/* Density (owner request 2026-11-06, closer to v1): the inspector reads one type step below the page — content at the
+   metadata size (14px by default), metadata a pixel smaller — derived from the tokens so Settings › Display text size
+   still scales it. Phones keep 44px touch targets; pointer layouts (≥768px) use compact 28–32px controls. */
+.inspector { --inspector-meta:calc(var(--font-size-meta) - 1px); --inspector-small:calc(var(--font-size-meta) - 2px); display:flex; flex-direction:column; min-inline-size:0; padding:0 var(--space-4) var(--space-3); background:var(--color-panel); border:1px solid var(--color-border); border-radius:var(--radius-panel); font-size:var(--font-size-meta); line-height:1.5; }
+/* Action dialogs open from the header menu; they keep the page's reading size. */
+.inspector dialog { font-size:var(--font-size-body); line-height:normal; }
 /* The header stays pinned below the shell's sticky top bar while the sections scroll: location, then title with
    the action menu and Expand, then status, ID and labels on one wrapping line. */
-.header { position:sticky; inset-block-start:var(--inspector-sticky-top, 0px); z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); margin-inline:calc(-1 * var(--space-5)); padding:var(--space-3) var(--space-5); background:var(--color-panel); border-block-end:1px solid var(--color-border); border-start-start-radius:var(--radius-panel); border-start-end-radius:var(--radius-panel); }
-.header h2 { margin:0; font-size:22px; line-height:1.3; overflow-wrap:anywhere; }
-.headTop { flex:1 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); min-inline-size:0; }
+.header { position:sticky; inset-block-start:var(--inspector-sticky-top, 0px); z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px var(--space-2); margin-inline:calc(-1 * var(--space-4)); padding:10px var(--space-4); background:var(--color-panel); border-block-end:1px solid var(--color-border); border-start-start-radius:var(--radius-panel); border-start-end-radius:var(--radius-panel); }
+.header h2 { margin:0; font-size:calc(var(--font-size-body) + 2px); font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+.headTop { flex:1 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1) var(--space-2); min-inline-size:0; }
 .bar { display:contents; }
-.titleRow { flex:1 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); min-inline-size:0; }
+.titleRow { flex:1 0 100%; display:flex; flex-wrap:wrap; align-items:start; gap:var(--space-2) var(--space-3); min-inline-size:0; }
 .titleRow h2 { flex:1 1 16rem; min-inline-size:0; }
 .titleRow .actions > * { margin-block:0; }
-.crumbs { flex:1 1 12rem; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); min-inline-size:0; color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
+.crumbs { flex:1 1 12rem; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); min-inline-size:0; color:var(--color-text-secondary); font-size:var(--inspector-meta); overflow-wrap:anywhere; }
 .crumbs svg { flex:none; }
 .expand { display:inline-flex; align-items:center; gap:var(--space-1); flex:none; min-block-size:36px; padding:var(--space-1) var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-raised); color:var(--color-text); font:inherit; font-size:var(--font-size-meta); cursor:pointer; }
 .expand[aria-pressed=true] { border-color:var(--color-accent); color:var(--color-accent); }
 .expand:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 .back { display:none; align-items:center; gap:var(--space-1); min-block-size:var(--touch-target); align-self:start; }
 .backAlways { display:inline-flex; }
-.identity { flex:1 1 auto; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2) var(--space-3); min-inline-size:0; }
+.identity { flex:1 1 auto; display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1) var(--space-2); min-inline-size:0; }
 .identity .meta { margin:0; }
 /* Full task ID with copy (spec 0004 item 1): pasteable into Add dependency and `aq` commands. */
 .taskId { display:inline-flex; align-items:center; margin:0; min-inline-size:0; max-inline-size:100%; }
 .copyLink { display:inline-flex; align-items:center; }
 @media (max-width:767px) { .copyLink button { min-inline-size:var(--touch-target); min-block-size:var(--touch-target); } }
+@media (min-width:768px) and (pointer:fine) { .copyLink button { inline-size:24px; block-size:24px; } }
 .actions { display:flex; align-items:center; }
 .labels { list-style:none; display:flex; flex-wrap:wrap; gap:var(--space-2); margin:0; padding:0; }
-.labels li { padding:2px var(--space-2); border:1px solid var(--color-border); border-radius:999px; font-size:var(--font-size-meta); color:var(--color-text-secondary); overflow-wrap:anywhere; }
+.labels li { padding:0 var(--space-2); border:1px solid var(--color-border); border-radius:999px; font-size:var(--inspector-small); line-height:18px; color:var(--color-text-secondary); overflow-wrap:anywhere; }
 /* Focused or scrolled-to content stays clear of the pinned header (P1-04); the offset is measured in script. */
 .inspector * { scroll-margin-block-start:var(--inspector-scroll-margin, 0px); }
-.disclosure { margin-block:var(--space-4) 0; border-block-start:1px solid var(--color-border); padding-block-start:var(--space-3); }
-.disclosure summary { cursor:pointer; color:var(--color-text-secondary); min-block-size:var(--touch-target); display:list-item; align-content:center; }
-.disclosure[open] summary { margin-block-end:var(--space-3); }
-.meta,.footer { color:var(--color-text-secondary); font-size:var(--font-size-meta); overflow-wrap:anywhere; }
+.disclosure { margin-block:var(--space-2) 0; border-block-start:1px solid var(--color-border); padding-block-start:var(--space-1); }
+.disclosure summary { cursor:pointer; color:var(--color-text-secondary); font-size:var(--inspector-meta); min-block-size:var(--touch-target); display:list-item; align-content:center; }
+.disclosure[open] summary { margin-block-end:var(--space-2); }
+.meta,.footer { color:var(--color-text-secondary); font-size:var(--inspector-meta); overflow-wrap:anywhere; }
 .meta { display:block; margin-block:var(--space-1) 0; }
-.footer { margin:var(--space-4) 0 0; padding-block-start:var(--space-4); border-block-start:1px solid var(--color-border); }
+.footer { margin:0; padding-block-start:var(--space-1); font-size:var(--inspector-small); }
 .footer time { text-decoration:underline dotted; text-underline-offset:3px; }
+/* Pointer layouts: the header's action buttons and Expand sit on compact 32px / 28px lines (v1 density). */
+@media (min-width:768px) {
+  .titleRow .actions > div > button,.titleRow .actions [aria-haspopup=menu] { min-block-size:32px; padding:var(--space-1) var(--space-3); font-size:var(--font-size-meta); }
+  .expand { min-block-size:28px; padding:2px var(--space-2); font-size:var(--inspector-meta); }
+  .disclosure summary { min-block-size:32px; }
+  /* A long title shows three lines in the pinned header; the full title is on hover and in the document title. */
+  .titleRow h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; }
+}
 /* Expand applies only beside a list or graph (desktop); below that the inspector is already the page. */
 @media(max-width:1199px) { .back { display:inline-flex; } .expand { display:none; } }
 /* Phone (P1-02): only a compact bar is pinned (title on at most two lines, the status on one, and one action
    menu); location, ID and labels scroll away with the content. */
 @media(max-width:600px) {
-  .inspector { padding:0 var(--space-4) var(--space-4); }
+  .inspector { padding:0 var(--space-3) var(--space-3); }
   .header { display:contents; }
   .headTop { padding-block:var(--space-2) 0; }
-  .bar { position:sticky; inset-block-start:var(--inspector-sticky-top, 0px); z-index:3; display:grid; gap:var(--space-1); margin-inline:calc(-1 * var(--space-4)); padding:var(--space-2) var(--space-4); background:var(--color-panel); border-block-end:1px solid var(--color-border); }
+  .bar { position:sticky; inset-block-start:var(--inspector-sticky-top, 0px); z-index:3; display:grid; gap:var(--space-1); margin-inline:calc(-1 * var(--space-3)); padding:var(--space-2) var(--space-3); background:var(--color-panel); border-block-end:1px solid var(--color-border); }
   .titleRow { flex-wrap:nowrap; }
   .titleRow h2 { flex:1 1 auto; font-size:18px; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden; }
   .bar [data-task-status] { justify-self:start; min-inline-size:0; }
   .bar [data-task-status] > span { min-inline-size:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .identity { padding-block:var(--space-2) var(--space-3); border-block-end:1px solid var(--color-border); margin-inline:calc(-1 * var(--space-4)); padding-inline:var(--space-4); }
+  /* The full ID wraps inside its column so its copy and link buttons stay on the same row. */
+  .identity { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:0; padding-block:var(--space-1); border-block-end:1px solid var(--color-border); margin-inline:calc(-1 * var(--space-3)); padding-inline:var(--space-3); }
+  .identity > :not(.taskId,.copyLink) { grid-column:1 / -1; }
+  .taskId code { overflow-wrap:anywhere; word-break:break-all; }
 }

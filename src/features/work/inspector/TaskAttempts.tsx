@@ -37,12 +37,14 @@ function AttemptRow({ attempt: a, linkSearch, sessions }: { attempt: TaskAttempt
       <span className={styles.attemptStatus}>{humanize(a.status)}</span>
       {a.holds_task && <span className={styles.badge}>Holds the task</span>}
     </p>
-    {sessions && (profile
-      ? <p className={styles.meta} data-attempt-profile="">{profile.map(([name, value], i) => <span key={name}>{i > 0 && " · "}{value ?? `${name} not reported`}</span>)}</p>
-      : <p className={styles.meta}>{session.isError ? "Session details unavailable." : "Reading session details…"}</p>)}
-    {s && <p className={styles.meta} data-attempt-times="">
-      {s.lifecycle?.startedAt ? <>Started <Ago at={s.lifecycle.startedAt} /></> : "Start not recorded"}
-      {" · "}{s.lifecycle?.stoppedAt ? <>Stopped <Ago at={s.lifecycle.stoppedAt} /></> : "No stop recorded"}
+    {/* Profile and times share one metadata line (v1 density, 2026-11-06). */}
+    {sessions && <p className={styles.meta}>{profile
+      ? <span data-attempt-profile="">{profile.map(([name, value], i) => <span key={name}>{i > 0 && " · "}{value ?? `${name} not reported`}</span>)}</span>
+      : session.isError ? "Session details unavailable." : "Reading session details…"}
+      {s && <span data-attempt-times="">{profile && " · "}
+        {s.lifecycle?.startedAt ? <>Started <Ago at={s.lifecycle.startedAt} /></> : "Start not recorded"}
+        {" · "}{s.lifecycle?.stoppedAt ? <>Stopped <Ago at={s.lifecycle.stoppedAt} /></> : "No stop recorded"}
+      </span>}
     </p>}
     <p className={styles.agentLinks}><span>Session</span> <IdValue id={a.session_id} label="session ID" />
       <Link to={{ pathname: `/agents/${encodeURIComponent(a.session_id)}`, search: linkSearch }} aria-label={`Open session ${a.session_id.slice(0, 8)}`}>Open session</Link></p>

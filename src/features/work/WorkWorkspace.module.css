@@ -29,7 +29,7 @@
 .graphActions:empty { display:none; }
 
 /* Panes: list + inspector, or graph-first (≈62 / 38) in graph mode. */
-.panes { display:grid; grid-template-columns:minmax(300px,.8fr) minmax(0,1.2fr); gap:var(--space-4); align-items:start; }
+.panes { display:grid; grid-template-columns:minmax(300px,.8fr) minmax(0,1.2fr); gap:var(--space-3); align-items:start; }
 .mainPane,.inspector { min-inline-size:0; }
 .page[data-view=graph] .panes { grid-template-columns:minmax(0,62fr) minmax(320px,38fr); }
 @media (min-width:1200px) {
@@ -48,7 +48,7 @@
 .rows { margin:0; padding:0; list-style:none; }
 .rows li { border-block-end:1px solid var(--color-border); }
 /* One line per task (spec 0004 item 16): about twice the rows of the two-line design at 1440x900. */
-.row { display:flex; gap:var(--space-2); align-items:center; min-block-size:34px; padding:var(--space-1) var(--space-2); color:var(--color-text); text-decoration:none; border-inline-start:3px solid transparent; }
+.row { display:flex; gap:var(--space-2); align-items:center; min-block-size:30px; padding:3px var(--space-2); font-size:var(--font-size-meta); line-height:1.4; color:var(--color-text); text-decoration:none; border-inline-start:3px solid transparent; }
 .row:hover { background:color-mix(in srgb, var(--color-raised) 60%, transparent); }
 .row:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
 .rows li[data-selected=true] .row { background:var(--color-raised); border-inline-start-color:var(--color-accent); }
@@ -72,6 +72,19 @@
   .row { padding-inline:0; }
 }
 
+/* List density (owner request 2026-11-06, closer to v1): a light list panel with a small muted heading, so the rows
+   start high; pointer layouts use 36px filters and a 32px Refresh. Phones keep 44px targets (below). */
+.page[data-view=list] .mainPane > section { padding:var(--space-3); }
+.page[data-view=list] .mainPane > section > div:first-child { align-items:center; margin-block-end:var(--space-2); }
+.page[data-view=list] .mainPane > section > div:first-child h2 { font-size:calc(var(--font-size-meta) - 1px); font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--color-text-secondary); }
+.page[data-view=list] .mainPane .meta { font-size:calc(var(--font-size-meta) - 2px); }
+@media (min-width:768px) {
+  .page[data-view=list] .mainPane > section > div:first-child button { min-block-size:32px; padding:var(--space-1) var(--space-3); font-size:calc(var(--font-size-meta) - 1px); }
+  .chip { min-block-size:36px; padding:var(--space-1) var(--space-3); font-size:var(--font-size-meta); }
+  .chip::before { inline-size:8px; block-size:8px; }
+  .search input { min-block-size:36px; font-size:var(--font-size-meta); }
+}
+
 /* Phone (spec 0002 §9, WK-F): list first, so the first task row sits above the fold at 390x844. */
 .phoneGraphStatus { padding:var(--space-4) var(--gutter-mobile); }
 @media (max-width:767px) {
@@ -83,4 +96,10 @@
   .toolbar { gap:var(--space-2); padding:0; border:0; background:transparent; }
   .chips { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
   .chip { flex:none; }
+}
+/* Phone task view (spec 0004 §3: the inspector is the page, with Back): Create task and the project crumb the
+   inspector repeats step aside so the task starts higher, as in v1. List | Graph stays (Graph opens from a task). */
+@media (max-width:600px) {
+  .page[data-detail=true][data-view=list] .headAction,
+  .page[data-detail=true][data-view=list] .crumb { display:none; }
 }
