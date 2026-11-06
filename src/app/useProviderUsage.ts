@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   adaptProviderUsage,
   atServerTime,
+  USAGE_POLL_MS,
   type ProviderUsageResult,
 } from "../api/adapters/providerUsage";
 import { ApiError, apiGet, isProtectedReadFailure } from "../api/client";
@@ -13,8 +14,7 @@ import type { ProviderUsageState } from "../components/ProviderUsageStrip/Provid
 import { useServerNow } from "../components/time/useServerNow";
 import { useSession } from "./session";
 
-/** Initial budget from docs/plans/0001 section 2; subject to server limits. */
-const QUOTA_POLL_MS = 60_000;
+const QUOTA_POLL_MS = USAGE_POLL_MS;
 /** A hung request must not keep the last value looking current. */
 const QUOTA_TIMEOUT_MS = 15_000;
 

@@ -182,7 +182,10 @@ test('SO-07: work is moving only when a project reports running work',async()=>{
  expect(motionSentence([row(0),row(2)],true)).toBe('Work is moving in 1 project.');
  expect(motionSentence([row(null)],true)).toBe('Project movement is not reported.');
  expect(motionSentence([],true)).toBe('No work is in motion.');
- expect(attentionSentence(reconcileNeedsYou({value:3,accuracy:'exact'},2))).toBe('3 decisions need you.');
+ expect(attentionSentence(reconcileNeedsYou({value:3,accuracy:'exact'},2))).toBe('3 items need you.');
+ expect(attentionSentence({value:1,accuracy:'exact'})).toBe('1 item needs you.');
+ expect(attentionSentence({value:6,accuracy:'estimated'})).toBe('About 6 items need you.');
+ expect(attentionSentence({value:0,accuracy:'exact'})).toBe('No items need you.');
  expect(attentionSentence(reconcileNeedsYou({value:null,accuracy:'unknown'},1))).toBe('At least 1 item needs you.');
  expect(attentionSentence(reconcileNeedsYou({value:null,accuracy:'unknown'},0))).toMatch(/unknown/);
 });

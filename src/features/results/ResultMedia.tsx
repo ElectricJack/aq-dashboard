@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "../../app/session";
+import { PANEL_READ, useSession } from "../../app/session";
 import { queryKey } from "../../api/queryKeys";
-import { adaptResultMedia, canonicalMedia, type MediaArtifact, type MediaBinding, type MediaPage } from "../../api/adapters/resultMedia";
+import { adaptResultMedia, canonicalMedia, isImageArtifact, type MediaArtifact, type MediaBinding, type MediaPage } from "../../api/adapters/resultMedia";
 import { MediaUnavailableError, resultMediaBytes, resultMediaJson } from "../../api/resultMediaClient";
 import { ActionButton } from "../../components/layout/Workspace";
 import styles from "./ResultMedia.module.css";
@@ -41,23 +41,25 @@ export function ResultMedia({ binding,onArtifact,annotation,evidence }: { bindin
 }
 function useMediaListing(binding: MediaBinding) {
   const { queryContext } = useSession();
-  return useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), retry: false, gcTime: 0, staleTime: 0, refetchOnMount: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
+  return useQuery({ queryKey: queryKey(queryContext, "result-media-list", { binding }), meta: PANEL_READ, retry: false, gcTime: 0, staleTime: 0, refetchOnMount: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => { const started = performance.now(); const page = await adaptResultMedia(await resultMediaJson(binding, signal), binding); signal.throwIfAborted(); return { page, started }; } });
 }
 function MediaGallery({ binding,onArtifact,annotation,evidence }: { binding: MediaBinding;onArtifact?(artifact:MediaArtifact):void;annotation?:ImageAnnotation;evidence?:ReactNode }) {
   const window = useContext(MediaWindow)!; const [selected, setSelected] = useState<string | null>(null);
   const query = useMediaListing(binding);
-  const chosen=query.data?.page.items.find(item=>item.receipt.artifact_id===selected)??query.data?.page.items[0];
+  // X26 clips are validated but not shown: this dashboard has no video player.
+  const images=query.data?.page.items.filter(isImageArtifact)??[];
+  const chosen=images.find(item=>item.receipt.artifact_id===selected)??images[0];
   useEffect(()=>{if(chosen)onArtifact?.(chosen);},[chosen,onArtifact]);
   const below = evidence && <div className={styles.evidence}>{evidence}</div>;
   if (query.isPending) return <><p role="status">Loading supplemental images…</p>{below}</>;
   if (query.isError) return <div><p role="status">Supplemental images unavailable.</p><ActionButton onClick={() => void query.refetch()}>Retry images</ActionButton>{below}</div>;
   const { page, started } = query.data;
-  const artifact = page.items.find(item => item.receipt.artifact_id === selected) ?? page.items[0];
+  const artifact = chosen;
   if (!artifact) return <><p className={styles.note}>No supplemental images are retained for this exact report.</p>{below}</>;
   return <section aria-label="Human supplemental images" className={styles.gallery}>
     <div className={styles.frame}><VerifiedImage binding={binding} artifact={artifact} variant="preview" page={page} started={started} annotation={annotation} /></div>
-    <div className={styles.thumbRow}><div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{page.items.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>{evidence}</div>
+    <div className={styles.thumbRow}><div className={styles.selector} role="group" aria-label="Supplemental PNG selector">{images.map(item => <ActionButton key={item.receipt.artifact_id} aria-pressed={item.receipt.artifact_id === artifact.receipt.artifact_id} onClick={() => setSelected(item.receipt.artifact_id)}>{item.receipt.input.filename}</ActionButton>)}</div>{evidence}</div>
     <div className={styles.caption}><strong>Image preview</strong><ActionButton disabled={artifact.availability.state !== "available"} onClick={event => window.expand({ binding, artifact, page, started, returnFocus: event.currentTarget })}>Expand image</ActionButton></div>
     <p className={styles.note}>Uploaded by a human. Capture details are unverified.</p>
     <MediaProvenance artifact={artifact} />
@@ -80,7 +82,7 @@ function VerifiedImage({ binding, artifact, variant, page, started,annotation }:
   const ttl = artifact.receipt.retain_until_ms - page.server_time_ms - (performance.now() - started);
   const allowed = artifact.availability.state === "available" && !expired && ttl > 0;
   useLayoutEffect(() => { setExpired(false); const remaining = artifact.receipt.retain_until_ms - page.server_time_ms - (performance.now() - started); if (remaining <= 0) { setExpired(true); return; } const timer = setTimeout(() => setExpired(true), Math.min(remaining, 604800000)); return () => clearTimeout(timer); }, [owner, page.server_time_ms, started]);
-  const query = useQuery({ queryKey: queryKey(queryContext, "result-media-bytes", { binding, artifact: artifact.receipt.artifact_id, receipt: artifact.receipt_digest, variant, descriptor: artifact.receipt.variants[variant] }), enabled: allowed, retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+  const query = useQuery({ queryKey: queryKey(queryContext, "result-media-bytes", { binding, artifact: artifact.receipt.artifact_id, receipt: artifact.receipt_digest, variant, descriptor: artifact.receipt.variants[variant] }), meta: PANEL_READ, enabled: allowed, retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: ({ signal }) => resultMediaBytes(binding, artifact, variant, signal) });
   useLayoutEffect(() => {
     if (!allowed || query.isError || !query.data || broken === owner) { setImage(null); return; }

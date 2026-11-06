@@ -1,0 +1,11 @@
+{
+  "repository": "ElectricJack/aq-server",
+  "path": "protocol/human-result-media/v1",
+  "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
+  "files": {
+    "README.md": "0c1417a71b9fb4b2db01d8a8ba51cca1ae1e9c0f25fddad0bdc3ed809633e1f8",
+    "example.json": "bb08402fa9fb95bc9ece2fdf8fc363e1afb70765c9ec6df3f0de18fa323c9874",
+    "proposed-ddl.sql": "63469de9129e26ab5d5bfce7599091c825256a4da98a3ce4381a7123d146871f",
+    "schema.json": "3803cbc6fcddd7251c55f5055ad1f9970581e27e4e3beacc0e808928144dc89f"
+  }
+}

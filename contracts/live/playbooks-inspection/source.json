@@ -1,0 +1,9 @@
+{
+  "repository": "ElectricJack/aq-server",
+  "path": "protocol/playbooks-inspection/v1",
+  "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
+  "files": {
+    "README.md": "f0de9c48d4c812ee6def830a82b0812bf115667409ac73ab2cd90e80d17bd2b1",
+    "schema.json": "7737388fb32bbbe45ff05459eaafb0d54744d3d20954c5a37b3dee4d7a06b062"
+  }
+}
