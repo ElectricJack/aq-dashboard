@@ -1,6 +1,21 @@
 import schema from "../../../contracts/pinned/results-feedback/v1/schema.json";
 import actions from "../../../contracts/pinned/dashboard-actions/v1/schema.json";
 import { ContractError, isRecord } from "./contract";
+/**
+ * A Results read that fails validation degrades the Results view only. It is a
+ * plain Error on purpose: ContractError is a protected-read failure and would
+ * mark the whole dashboard session incompatible.
+ */
+export class ResultsViewError extends Error {
+  override name = "ResultsViewError";
+  constructor(message: string) { super(message); }
+}
+export function viewScoped<T>(read: () => T): T {
+  try { return read(); } catch (error) {
+    if (error instanceof ContractError) throw new ResultsViewError("Results response could not be read by this dashboard");
+    throw error;
+  }
+}
 import type { Anchor, Detail, ResultsPage, CommentsPage, Scope } from "../wire/resultsFeedback";
 import type { MediaBinding } from "./resultMedia";
 export type { Detail as ResultDetail, CommentProjection as ResultComment, Anchor as ResultAnchor } from "../wire/resultsFeedback";

@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {useInfiniteQuery} from "@tanstack/react-query";
 import {Link,useParams,useSearchParams} from "react-router";
 import {apiGet} from "../../api/client";
-import {adaptResultsFeed,adaptResultDetail,adaptResultComments,mediaBinding,validateResultPayload,type ResultDetail} from "../../api/adapters/resultsFeedback";
+import {viewScoped,adaptResultsFeed,adaptResultDetail,adaptResultComments,mediaBinding,validateResultPayload,type ResultDetail} from "../../api/adapters/resultsFeedback";
 import {ContractError} from "../../api/adapters/contract";
 import {scopedKey} from "../../api/queryKeys";
 import type {Scope} from "../../api/wire/proposed";
@@ -30,7 +30,7 @@ const reading=new Map<string,number>();
 function useComments(detail?:ResultDetail){
  const {queryContext}=useSession();
  return useInfiniteQuery({queryKey:scopedKey(queryContext,detail?{kind:"project",project_id:detail.result.project_id}:{kind:"all_authorized"},"result-comments",{id:detail?.result.id,revision:detail?.revision.revision}),enabled:!!detail,initialPageParam:null as string|null,retry:false,refetchOnWindowFocus:false,refetchOnReconnect:false,refetchOnMount:false,
-  queryFn:async({pageParam,signal})=>{const p=new URLSearchParams({limit:"20"});if(pageParam)p.set("cursor",pageParam);return adaptResultComments(await apiGet<unknown>(`/api/v1/results/${detail!.result.id}/revisions/${detail!.revision.revision}/comments?${p}`,signal),detail!.result.project_id);},getNextPageParam:(last,pages)=>pages.length<4?last.next_cursor??undefined:undefined});
+  queryFn:async({pageParam,signal})=>{const p=new URLSearchParams({limit:"20"});if(pageParam)p.set("cursor",pageParam);const raw=await apiGet<unknown>(`/api/v1/results/${detail!.result.id}/revisions/${detail!.revision.revision}/comments?${p}`,signal);return viewScoped(()=>adaptResultComments(raw,detail!.result.project_id));},getNextPageParam:(last,pages)=>pages.length<4?last.next_cursor??undefined:undefined});
 }
 export function Results(){
  const [scope]=useScope(),[params]=useSearchParams(),{resultId,revision}=useParams(),{queryContext,bootstrap}=useSession();
@@ -47,7 +47,7 @@ function Feed({scope}:{scope:Scope}){
  const key=JSON.stringify([queryContext,scope,resultId,revision,mode,task,media,range,since,until]),restored=useRef(false),active=useRef(true),probe=useRef<AbortController|null>(null);
  const filterParams=()=>{const p=new URLSearchParams({mode,scope:scope.kind,media:["any","image","none"].includes(media)?media:"any",limit:"10"});if(project)p.set("project_id",project);if(task)p.set("task_id",task);if(rangeMs[range])p.set("since_ms",String(Date.now()-rangeMs[range]));else if(range==="custom"){if(since)p.set("since_ms",String(new Date(since).getTime()));if(until)p.set("until_ms",String(new Date(until).getTime()));}return p;};
  const query=useInfiniteQuery({queryKey:scopedKey(queryContext,scope,"result-feed",{resultId,revision,mode,task,media,range,since,until}),initialPageParam:null as string|null,retry:false,refetchOnWindowFocus:false,refetchOnReconnect:false,refetchOnMount:false,
-  queryFn:async({pageParam,signal})=>{const p=filterParams();if(pageParam)p.set("cursor",pageParam);if(exact){const raw=await apiGet<unknown>(`/api/v1/results/${exact.id}/revisions/${exact.revision}${project?`?project_id=${project}`:""}`,signal);return {items:[adaptResultDetail(raw,exact,project)],next_cursor:null,anchor:serverAnchor(raw)};}const raw=await apiGet<unknown>(`/api/v1/results?${p}`,signal);return {...adaptResultsFeed(raw,scope),anchor:serverAnchor(raw)};},getNextPageParam:(last,pages)=>!exact&&pages.length<4?last.next_cursor??undefined:undefined});
+  queryFn:async({pageParam,signal})=>{const p=filterParams();if(pageParam)p.set("cursor",pageParam);if(exact){const raw=await apiGet<unknown>(`/api/v1/results/${exact.id}/revisions/${exact.revision}${project?`?project_id=${project}`:""}`,signal);return viewScoped(()=>({items:[adaptResultDetail(raw,exact,project)],next_cursor:null,anchor:serverAnchor(raw)}));}const raw=await apiGet<unknown>(`/api/v1/results?${p}`,signal);return viewScoped(()=>({...adaptResultsFeed(raw,scope),anchor:serverAnchor(raw)}));},getNextPageParam:(last,pages)=>!exact&&pages.length<4?last.next_cursor??undefined:undefined});
  const items=query.data?.pages.flatMap(p=>p.items)??[],now=useServerNow(query.data?.pages[0]?.anchor,{tickMs:30_000});
  const projectLabel=(id:string)=>projects.data?.view.find(p=>p.id===id)?.label??`Project ${id.slice(-8)}`;
  useEffect(()=>{const id=params.get("feedback_operation"),result=params.get("feedback_result"),revision=params.get("feedback_revision");if(!id||drafts.some(d=>d.detail.result.id===result&&d.detail.revision.revision===revision))return;const detail=items.find(i=>i.result.id===result&&i.revision.revision===revision);if(detail)openDraft(detail);});
