@@ -90,3 +90,5 @@
 }
 /* Why Take control is disabled (N-07): beside it on desktop, above the phone action bar. */
 .controlReason { flex: 1 1 18ch; min-inline-size: 0; margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+
+.notice { margin: 0 0 var(--space-1); padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-attention) 18%, transparent); color: var(--color-text); font-size: var(--font-size-xs); }

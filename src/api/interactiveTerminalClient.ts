@@ -11,7 +11,11 @@ export interface TerminalLease { mine: boolean; expiresAtMs: number }
 export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean;
   lease?: TerminalLease | null; clock?: { serverMs: number; at: number }; outputObservedAtMs?: number | null;
   /** The identity and epoch this connection observed; a reconnect passes it back as `expect`. */
-  binding?: TerminalBinding }
+  binding?: TerminalBinding;
+  /** Set when the lease changed hands between viewers; cleared by an explicit Take control. */
+  notice?: string | null }
+export const TAKEOVER_NOTICE_LOST = 'Another viewer took control. You are watching.';
+export const TAKEOVER_NOTICE_TOOK = 'You took control from another viewer.';
 export interface TerminalBinding { terminal: TerminalInfo['terminal']; session_revision: number }
 class EpochChanged extends Error {}
 class NotDelivered extends Error {}
@@ -25,7 +29,7 @@ export const MAX_AUTOMATIC_RECONNECTS = 6;
  */
 export const TERMINAL_CADENCE = { more: 50, output: 200, idleMax: 2000, inspectWatching: 3000, inspectControlling: 750, dormantMin: 5000, dormantMax: 30000 } as const;
 /** `expect` pins a reconnect to the identity and epoch seen before: a changed binding is reported, never watched. */
-export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void;
+export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; /** Take control once after the first terminal info; never again on automatic reconnect. */ autoControl?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void;
   /** Wait before automatic reconnect `attempt` (0-based); tests shorten it. */
   reconnectDelay?: (attempt: number, error: unknown) => number }) {
   const abort = new AbortController(), { signal } = abort;
@@ -33,6 +37,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   let info: TerminalInfo | undefined, clock = 0, clockAt = 0, owned: string | null = null;
   let paused = options.initiallyPaused ?? false, connected = false, busy = false, queue: Uint8Array[] = [], queued = 0, resizeSequence = 0, renewing = false;
   let outputObservedAtMs: number | null = null;
+  let notice: string | null = null, autoTried = false;
   const acquired = new Set<string>();
   let inputBatchTimer: ReturnType<typeof setTimeout> | undefined;
   let pendingResize: { columns: number; rows: number } | null = null;
@@ -41,7 +46,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   const emit = (message = active() ? 'You have control' : paused ? 'Input delivery uncertain — typing paused' : connected ? 'Watch only' : 'Connecting…') => {
     if (signal.aborted) return;
     const lease = connected && info?.control.lease ? { mine: acquired.has(info.control.lease.lease_id), expiresAtMs: info.control.lease.expires_at_ms } : null;
-    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs, binding: info ? { terminal: info.terminal, session_revision: info.session_revision } : undefined });
+    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs, notice, binding: info ? { terminal: info.terminal, session_revision: info.session_revision } : undefined });
   };
   const request: Read = async (part, fetcher) => {
     const value = await options.read(part, fetcher);
@@ -64,7 +69,11 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     if (info && (!sameTerminal(next.terminal, info.terminal) || next.session_revision !== info.session_revision)) throw new ContractError('Terminal binding changed');
     info = next;
     if (info.control.input_paused) { paused = true; queue = []; queued = 0; pendingResize = null; }
-    if (owned && info.control.lease?.lease_id !== owned) { owned = null; queue = []; queued = 0; }
+    if (owned && info.control.lease?.lease_id !== owned) {
+      const other = !!info.control.lease && !acquired.has(info.control.lease.lease_id);
+      owned = null; queue = []; queued = 0;
+      if (other) notice = TAKEOVER_NOTICE_LOST;
+    }
     connected = !info.disconnected; emit();
   }
   function fields() {
@@ -121,6 +130,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   async function control(kind: 'control' | 'renew') {
     if (renewing || !info || (kind === 'renew' && !connected) || paused || !options.allowControl || !info.input_enabled) return;
     renewing = true;
+    const heldByOther = kind === 'control' && !!(info.control.lease && !acquired.has(info.control.lease.lease_id) && info.control.lease.expires_at_ms > now());
     try {
       const operation = crypto.randomUUID();
       const raw = await json(kind, '/mutations', { kind, body: { terminal: info.terminal, operation_id: operation, expected_session_revision: info.session_revision, expected_controller_generation: info.control.generation, expires_at_ms: Math.floor(now() + 14000), ...(kind === 'renew' ? { lease_id: owned } : {}) } });
@@ -128,14 +138,16 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       const status = adaptControl(raw.body.body.status, info.terminal, info.session_revision);
       if (!status.lease || status.lease.expires_at_ms <= now()) throw new ContractError('Control expiry');
       owned = status.lease.lease_id; acquired.add(owned); info.control = status;
-      if (kind === 'control') resizeSequence = 0;
+      if (kind === 'control') { resizeSequence = 0; notice = heldByOther ? TAKEOVER_NOTICE_TOOK : null; }
       emit('Waiting for worker control acknowledgement…'); wake();
     } catch { owned = null; queue = []; queued = 0; emit('Control unavailable — select Take control to try again'); }
     finally { renewing = false; }
   }
   let after = 0, failures = 0, availability: string | undefined;
   async function watch() {
-    await inspect(); let lastInspect = performance.now(), idle = 0, dormant = false, dormantMs: number = TERMINAL_CADENCE.dormantMin;
+    await inspect();
+    if (options.autoControl && options.allowControl && !autoTried) { autoTried = true; await control('control'); }
+    let lastInspect = performance.now(), idle = 0, dormant = false, dormantMs: number = TERMINAL_CADENCE.dormantMin;
     while (!signal.aborted) {
       if (dormant) {
         // Nothing is retained and the terminal is gone: no tail can return output, so only re-check its info.
@@ -198,7 +210,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   }
   void run();
   return {
-    takeControl: () => control('control'),
+    takeControl: () => { notice = null; return control('control'); },
     async release() {
       const lease = owned; owned = null; queue = []; queued = 0; pendingResize = null;
       // The release reply ends this lease; stop showing its countdown now, not at the next inspect.
