@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swarm tree</title>
+<link rel="stylesheet" href="https://esm.sh/@xyflow/react@12.3.6/dist/style.css">
+<style>
+  :root{--bg:#fff;--fg:#1d2330;--mut:#6b7280;--bd:#d6dae1;--card:#f6f7f9}
+  @media (prefers-color-scheme:dark){:root{--bg:#14171c;--fg:#e6e8ec;--mut:#9aa3af;--bd:#333a44;--card:#1c2027}}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+  header{padding:10px 16px 0}
+  h2{margin:0 0 2px;font-size:17px}
+  .sub{color:var(--mut);margin:0 0 10px}
+  .ctl{margin:0 16px 10px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 20px;background:var(--card)}
+  .grp h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  .row{display:grid;grid-template-columns:70px 1fr 38px;align-items:center;gap:8px;margin-bottom:4px}
+  .row input{width:100%}
+  .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .gbar{height:12px;border-radius:6px;background:rgba(127,127,127,.2);overflow:hidden;margin:2px 0 6px}
+  .gfill{height:100%;background:linear-gradient(90deg,#3a9,#db4,#d55);transition:width .2s}
+  .note{color:var(--mut);font-size:12px}
+  .warn{color:#c7802e;font-weight:600}
+  .stage{display:grid;grid-template-columns:1fr 360px;gap:10px;margin:0 16px 16px}
+  #flow{height:540px;border:1px solid var(--bd);border-radius:8px}
+  #pane{border:1px solid var(--bd);border-radius:8px;height:540px;display:flex;flex-direction:column;overflow:hidden}
+  #pane .ph{padding:10px 12px;border-bottom:1px solid var(--bd);background:var(--card)}
+  #pane .ph .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  #pane .ph .ttl{font-weight:700;font-size:15px}
+  #pane dl{margin:0;padding:10px 12px;display:grid;grid-template-columns:110px 1fr;gap:5px 10px;font-size:12px}
+  #pane dt{color:var(--mut)}
+  #pane .acts{padding:0 12px 10px;display:flex;gap:6px;flex-wrap:wrap}
+  #pane button{border:1px solid var(--bd);background:var(--bg);color:var(--fg);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
+  .term{flex:1;background:#0d1117;color:#c9d1d9;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;padding:10px 12px;overflow:auto;white-space:pre-wrap}
+  .term .p{color:#7ee787}.term .d{color:#8b949e}
+  .tin{display:flex;border-top:1px solid #30363d;background:#0d1117}
+  .tin input{flex:1;background:transparent;border:0;color:#c9d1d9;font:12px ui-monospace,monospace;padding:8px 12px;outline:none}
+  .meters{margin-top:4px;display:grid;grid-template-columns:30px 1fr 30px;gap:2px 5px;align-items:center;font-size:10px;color:var(--mut);text-align:left}
+  .mb{height:5px;border-radius:3px;background:rgba(127,127,127,.2);overflow:hidden}
+  .mb i{display:block;height:100%}
+  .react-flow__node{cursor:pointer}
+  .react-flow__node.selected .n{outline:2px solid #57c;outline-offset:2px}
+  .legend{margin:0 16px 6px;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  /* node cards */
+  .n{border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);padding:6px 10px;font-size:12px;min-width:120px;text-align:center}
+  .n .t{font-weight:700}
+  .n .s{color:var(--mut);font-size:11px}
+  .n.server{border:2px solid #57c;background:rgba(85,119,204,.12)}
+  .n.machine.local{border-left:4px solid #6a8}
+  .n.machine.cloud{border-left:4px solid #59c}
+  .n.off{opacity:.55;border-style:dashed}
+  .n.boot{border-style:dashed;border-color:#c7802e}
+  .n.node{background:var(--card)}
+  .n.agent{min-width:0;border-radius:14px;padding:3px 9px;font-size:11px;color:#fff;border:none}
+  .n.agent.codex{box-shadow:0 0 0 2px #111 inset}
+  .n.agent.free{background:transparent!important;color:var(--mut);border:1px dashed var(--mut)}
+  .n.agent.pending{background:transparent!important;color:#c7802e;border:1px dashed #c7802e}
+  .opts{display:flex;gap:10px;margin:0 16px 16px}
+  .opt{border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer}
+  .opt.selected{border-color:#57c;background:rgba(85,119,204,.12)}
+</style>
+<script type="importmap">
+{"imports":{
+  "react":"https://esm.sh/react@18.3.1",
+  "react-dom/client":"https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1",
+  "@xyflow/react":"https://esm.sh/@xyflow/react@12.3.6?deps=react@18.3.1,react-dom@18.3.1",
+  "@dagrejs/dagre":"https://esm.sh/@dagrejs/dagre@1.1.4"
+}}
+</script>
+</head>
+<body>
+<header>
+  <h2>Swarm as a tree: AQ server at the root</h2>
+  <p class="sub">Built with the same libraries as v1's graph: React Flow (@xyflow/react 12) laid out by dagre. Server → machines → worker nodes → agents. Drag the sliders: agents are placed on free slots, and when local is full a boat VM is started, up to the VM cap. Pan and zoom the graph.</p>
+</header>
+
+<div class="ctl">
+  <div class="grp"><h4>Agents per provider</h4>
+    <div class="row"><span>Claude</span><input type="range" min="0" max="14" value="5" id="cl"><span class="v" id="clv"></span></div>
+    <div class="row"><span>Codex</span><input type="range" min="0" max="8" value="2" id="cx"><span class="v" id="cxv"></span></div>
+  </div>
+  <div class="grp"><h4>Mix by intelligence class</h4>
+    <div class="row"><span>fast</span><input type="range" min="0" max="100" value="35" id="f"><span class="v" id="fv"></span></div>
+    <div class="row"><span>standard</span><input type="range" min="0" max="100" value="40" id="s"><span class="v" id="sv"></span></div>
+    <div class="row"><span>deep</span><input type="range" min="0" max="100" value="25" id="d"><span class="v" id="dv"></span></div>
+  </div>
+  <div class="grp"><h4>Cloud</h4>
+    <div class="row"><span>Boat VMs</span><input type="range" min="0" max="4" value="2" id="b"><span class="v" id="bv"></span></div>
+    <div class="note">AQ starts and stops VMs on its own. The maximum is set in Settings (here 4); this slider only shows the current ceiling.</div>
+  </div>
+  <div class="grp"><h4>Projected usage burn</h4>
+    <div class="gbar"><div class="gfill" id="g"></div></div>
+    <div><b id="gv"></b> of the Claude 5-hour window per hour</div>
+    <div class="note" id="fit"></div>
+  </div>
+</div>
+
+<div class="legend">
+  <span><i style="background:#3a9"></i>fast</span><span><i style="background:#57c"></i>standard</span><span><i style="background:#a5c"></i>deep</span>
+  <span><i style="box-shadow:0 0 0 2px #111 inset;background:#888"></i>Codex (dark ring)</span>
+  <span><i style="border:1px dashed #888"></i>free slot</span><span><i style="border:1px dashed #c7802e"></i>waiting for a slot</span>
+</div>
+<div class="stage"><div id="flow"></div><div id="pane"><div class="ph"><div class="k">Properties</div><div class="ttl">Click anything in the tree</div></div><dl><dt>Server</dt><dd>health, version, queue depth</dd><dt>Machine</dt><dd>cores, memory, disk, cost/hr</dd><dt>Worker node</dt><dd>slots, heartbeat, backend</dd><dt>Agent</dt><dd>opens its live terminal</dd></dl></div></div>
+
+<div class="opts">
+  <div class="opt" data-choice="tree-tb" onclick="pick(this)">Top-down tree feels right</div>
+  <div class="opt" data-choice="tree-lr" onclick="pick(this)">Prefer left-to-right</div>
+</div>
+
+<script>
+function pick(el){document.querySelectorAll('.opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');
+  if(window.brainstorm&&window.brainstorm.send){window.brainstorm.send({type:'click',choice:el.dataset.choice,text:el.textContent});}
+  window.__dir = el.dataset.choice==='tree-lr'?'LR':'TB'; window.__rerender && window.__rerender();}
+</script>
+
+<script type="module">
+import React from "react";
+import {createRoot} from "react-dom/client";
+import {ReactFlow, Background, Controls, Handle, Position} from "@xyflow/react";
+import dagre from "@dagrejs/dagre";
+const h = React.createElement;
+const COL = {fast:"#3a9", standard:"#57c", deep:"#a5c"};
+
+// Fixed machines. Local nodes have fixed slots; boat VMs appear as the cap and demand allow.
+const LOCAL = [
+  {id:"desktop", label:"desktop", sub:"local · 24 cores", nodes:[{id:"local-1",slots:3},{id:"local-2",slots:2}]},
+  {id:"laptop", label:"laptop", sub:"local · offline 2h", off:true, nodes:[]},
+];
+const VM_SLOTS = 3;
+
+function Card({data}){
+  const dir = window.__dir || "TB";
+  const tgt = dir==="TB"?Position.Top:Position.Left, src = dir==="TB"?Position.Bottom:Position.Right;
+  return h("div",{className:"n "+data.cls, style:data.style},
+    data.kind!=="server" && h(Handle,{type:"target",position:tgt,style:{opacity:0}}),
+    h("div",{className:"t"},data.label),
+    data.sub && h("div",{className:"s"},data.sub),
+    data.meters && h("div",{className:"meters"}, ...data.meters.flatMap(([k,v])=>[
+      h("span",{key:k+"l"},k),
+      h("div",{key:k+"b",className:"mb"},h("i",{style:{width:v+"%",background:v>85?"#d55":v>65?"#db4":"#3a9"}})),
+      h("span",{key:k+"v"},v+"%")])),
+    data.kind!=="agent" && h(Handle,{type:"source",position:src,style:{opacity:0}}));
+}
+const nodeTypes = {card:Card};
+
+function build(st){
+  // Ask for agents: split each provider by the class mix.
+  const t = Math.max(1, st.f+st.s+st.d);
+  const want = [];
+  const split = (n, prov) => {
+    const fa = Math.round(n*st.f/t), da = Math.round(n*st.d/t), sa = Math.max(0, n-fa-da);
+    for(let i=0;i<fa;i++) want.push({prov,cls:"fast"});
+    for(let i=0;i<sa;i++) want.push({prov,cls:"standard"});
+    for(let i=0;i<da;i++) want.push({prov,cls:"deep"});
+  };
+  split(st.cl,"claude"); split(st.cx,"codex");
+
+  // Machines: local first, then as many boat VMs as needed, up to the cap.
+  const localSlots = LOCAL.flatMap(m=>m.nodes).reduce((a,n)=>a+n.slots,0);
+  const vmNeeded = Math.max(0, Math.ceil((want.length-localSlots)/VM_SLOTS));
+  const vms = Math.min(st.b, vmNeeded);
+  const machines = [...LOCAL];
+  for(let i=0;i<vms;i++) machines.push({id:"vm-"+(i+1), label:"boat vm-"+String.fromCharCode(97+i), sub:"cloud · 8 cores", cloud:true, nodes:[{id:"boat-"+(i+1), slots:VM_SLOTS}]});
+  if(st.b>vms && vms<st.b) {} // cap not reached: no idle VMs are kept running
+
+  const nodes=[], edges=[];
+  const add=(id,data)=>nodes.push({id,type:"card",data,position:{x:0,y:0}});
+  add("server",{kind:"server",cls:"server",label:"AQ server",sub:"127.0.0.1:28080"});
+  let q=[...want], n=0;
+  for(const m of machines){
+    const cap = m.nodes.reduce((a,x)=>a+x.slots,0);
+    const busy = Math.min(cap, q.length);
+    const cpu = m.off?0:Math.min(98, 12 + Math.round(busy/Math.max(1,cap)*78));
+    const mem = m.off?0:Math.min(95, 30 + busy*9);
+    add(m.id,{kind:"machine",cls:"machine "+(m.cloud?"cloud":"local")+(m.off?" off":""),label:m.label,sub:m.sub+(m.off?"":" · max "+cap+" agents"),meters:m.off?null:[["CPU",cpu],["RAM",mem]]});
+    edges.push({id:"e-s-"+m.id,source:"server",target:m.id,animated:!m.off && !!m.nodes.length,style:m.off?{strokeDasharray:"5 4"}:undefined});
+    for(const nd of m.nodes){
+      const used = Math.min(nd.slots, q.length);
+      add(nd.id,{kind:"node",cls:"node",label:nd.id,sub:(m.cloud?"boat":"docker-local")+" · "+used+"/"+nd.slots+" slots"});
+      edges.push({id:"e-"+m.id+"-"+nd.id,source:m.id,target:nd.id});
+      for(let k=0;k<nd.slots;k++){
+        const a = q.shift(); const id="a"+(n++);
+        if(a) add(id,{kind:"agent",cls:"agent"+(a.prov==="codex"?" codex":""),label:a.prov+" · "+a.cls,style:{background:COL[a.cls]}});
+        else add(id,{kind:"agent",cls:"agent free",label:"free"});
+        edges.push({id:"e-"+nd.id+"-"+id,source:nd.id,target:id});
+      }
+    }
+  }
+  if(q.length){
+    add("pending",{kind:"node",cls:"node boot",label:"waiting",sub:q.length+" agents · raise the VM cap"});
+    edges.push({id:"e-s-pending",source:"server",target:"pending",style:{strokeDasharray:"4 4",stroke:"#c7802e"}});
+    q.forEach((a,i)=>{const id="p"+i; add(id,{kind:"agent",cls:"agent pending",label:a.prov+" · "+a.cls}); edges.push({id:"e-p-"+id,source:"pending",target:id,style:{strokeDasharray:"3 3"}});});
+  }
+
+  // dagre layout
+  const g = new dagre.graphlib.Graph(); g.setDefaultEdgeLabel(()=>({}));
+  g.setGraph({rankdir:window.__dir||"TB", nodesep:14, ranksep:46});
+  nodes.forEach(nd=>g.setNode(nd.id,{width:nd.data.kind==="agent"?104:(nd.data.kind==="machine"?190:150),height:nd.data.kind==="agent"?24:(nd.data.meters?78:44)}));
+  edges.forEach(e=>g.setEdge(e.source,e.target));
+  dagre.layout(g);
+  nodes.forEach(nd=>{const p=g.node(nd.id); nd.position={x:p.x-p.width/2,y:p.y-p.height/2};});
+
+  const burn = Math.min(100, Math.round(st.cl*(st.f*2+st.s*5+st.d*11)/t));
+  return {nodes,edges,burn,placed:want.length-q.length,waiting:q.length,vms};
+}
+
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function showPane(nd){
+  const p=document.getElementById("pane"), d=nd.data;
+  const head=(k,t)=>'<div class="ph"><div class="k">'+k+'</div><div class="ttl">'+esc(t)+'</div></div>';
+  const dl=rows=>'<dl>'+rows.map(([a,b])=>'<dt>'+a+'</dt><dd>'+b+'</dd>').join("")+'</dl>';
+  const acts=b=>'<div class="acts">'+b.map(x=>'<button>'+x+'</button>').join("")+'</div>';
+  if(window.brainstorm&&window.brainstorm.send) window.brainstorm.send({type:"click",choice:"inspect-"+d.kind,text:d.label});
+  if(d.kind==="server"){p.innerHTML=head("AQ server",d.label)+dl([["Health","ok · v0.1 · main 85070006"],["Ready tasks","7 (3 waiting for a slot)"],["Running agents","7"],["Usage window","Claude 27% · Codex 9%"],["Projects","aq-platform, aq-worker, aq-dashboard"]])+acts(["Open settings","Pause all"]);return;}
+  if(d.kind==="machine"){const cloud=d.cls.includes("cloud"),off=d.cls.includes("off");
+    const mt=(d.meters||[]).map(([k,v])=>k+" "+v+"%").join(" · ")||"—";
+    p.innerHTML=head(cloud?"Cloud machine (boat VM)":"Local machine",d.label)+dl([["State",off?"offline since 10:12":"online"],["Load now",mt],["Load avg","CPU 61% · RAM 58% (last 15 min)"],["Max agents",(cloud?"3":"5")+' <button>Edit in Settings</button>'],["Where",cloud?"Boat · fra1":"this network"],["Cores / RAM",cloud?"8 / 16 GB":"24 / 64 GB"],["Disk free",cloud?"61 GB":"294 GB"],["Worker nodes",off?"0":"1–2"],["Cost",cloud?"$0.21 / h · up 47 min":"—"],["Idle shutdown",cloud?"after 15 min with no work":"never (always-on)"]])+acts(cloud?["Drain & stop VM","SSH-free logs"]:["Drain","Add worker node"]);return;}
+  if(d.kind==="node"){p.innerHTML=head("Worker node",d.label)+dl([["Backend",d.sub.split(" · ")[0]],["Slots",d.sub.split(" · ")[1]||""],["Heartbeat","3 s ago"],["Version","aq-worker cd95777c"],["Sandbox image","aq-template@sha256:057a…"],["Channel","agent channel ready"]])+acts(["Drain node","Restart","View logs"]);return;}
+  if(d.kind==="agent"){
+    if(d.cls.includes("free")){p.innerHTML=head("Free slot","waiting for ready work")+dl([["Node","—"],["Takes","any provider / class allowed here"]]);return;}
+    if(d.cls.includes("pending")){p.innerHTML=head("Waiting agent",d.label)+dl([["Why","no free slot; local full, VM cap reached"],["Fix","raise the Boat VM slider or lower the agent count"]]);return;}
+    const [prov,klass]=d.label.split(" · ");
+    p.innerHTML=head("Agent · "+prov+" · "+klass,"T-1"+(40+nd.id.length)+" Fix flaky host-cancel test")
+      +dl([["Task","aq-platform / T-147"],["Attempt","03606b35 · 12 min"],["Model",prov==="claude"?(klass==="deep"?"Opus 5.5":"Sonnet 5.5"):"GPT-5 Codex"],["Tokens","41k in / 6k out"]])
+      +acts(["Cancel attempt","Open task","Pop out terminal"])
+      +'<div class="term"><span class="d">— connected · you have control —</span>\n<span class="p">●</span> Reading crates/aq-server/src/playbooks/host_adapters.rs\n<span class="p">●</span> Bash(timeout 900 cargo nextest run -p aq-server --test it_playbook)\n  ⎿ 110 passed, 0 failed\n<span class="p">●</span> Bash(aq task comment add --body "Root cause: second pool connection…")\n  ⎿ comment 7f2c recorded\n<span class="p">●</span> Thinking…</div>'
+      +'<div class="tin"><input placeholder="Type to the agent…" autofocus></div>';
+  }
+}
+const ids=["cl","cx","f","s","d","b"];
+function read(){const o={};ids.forEach(i=>o[i]=+document.getElementById(i).value);return o;}
+
+function App(){
+  const [st,setSt]=React.useState(read());
+  const [tick,setTick]=React.useState(0);
+  React.useEffect(()=>{const on=()=>setSt(read());ids.forEach(i=>document.getElementById(i).addEventListener("input",on));window.__rerender=()=>setTick(x=>x+1);},[]);
+  const r = React.useMemo(()=>build(st),[st,tick]);
+  React.useEffect(()=>{
+    const q=i=>document.getElementById(i);
+    q("clv").textContent=st.cl; q("cxv").textContent=st.cx; q("fv").textContent=st.f+"%"; q("sv").textContent=st.s+"%"; q("dv").textContent=st.d+"%"; q("bv").textContent=st.b;
+    q("g").style.width=r.burn+"%"; q("gv").textContent=r.burn+"%";
+    q("fit").innerHTML = r.waiting ? '<span class="warn">'+r.waiting+' agents waiting: local is full and the VM cap is reached.</span>' : (r.vms? r.vms+" boat VM"+(r.vms>1?"s":"")+" started to fit the swarm." : "Everything fits on local machines; no VMs running.");
+  },[r]);
+  return h(ReactFlow,{key:tick,nodes:r.nodes,edges:r.edges,nodeTypes,fitView:true,nodesDraggable:false,proOptions:{hideAttribution:true},onNodeClick:(e,nd)=>showPane(nd)},
+    h(Background,{gap:18,size:1}), h(Controls,{showInteractive:false}));
+}
+createRoot(document.getElementById("flow")).render(h(App));
+</script>
+</body>
+</html>
