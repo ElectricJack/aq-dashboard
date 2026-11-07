@@ -218,4 +218,15 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
       await vi.waitFor(() => expect(states.at(-1)?.notice).toBe(TAKEOVER_NOTICE_TOOK));
     } finally { c.close(); }
   });
+  it('release clears the takeover notice', async () => {
+    mock({ initialLease: foreign }); const states: { controlling: boolean; notice?: string | null; message: string }[] = [];
+    const c = connect({}, states);
+    try {
+      await vi.waitFor(() => expect(states.length).toBeGreaterThan(0));
+      await c.takeControl();
+      await vi.waitFor(() => expect(states.at(-1)?.notice).toBe(TAKEOVER_NOTICE_TOOK));
+      await c.release();
+      expect(states.at(-1)?.notice).toBeNull();
+    } finally { c.close(); }
+  });
 });

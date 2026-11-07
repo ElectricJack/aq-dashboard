@@ -13,7 +13,7 @@ const gb = (bytes: number, base: number) => String(Math.round(bytes / base));
 const holdLine = (h: HoldReasonView) => (h.remedy ? `${h.message} — ${h.remedy}` : h.message);
 
 function Head({ kicker, title }: { kicker: string; title: string }) {
-  return <div className={styles.paneHead}><div className={styles.kicker}>{kicker}</div><h2 className={styles.paneTitle}>{title}</h2></div>;
+  return <div className={styles.paneHead}><div className={styles.kicker}>{kicker}</div><h2 className={styles.paneTitle} tabIndex={-1}>{title}</h2></div>;
 }
 function Holding({ holds }: { holds: HoldReasonView[] }) {
   if (holds.length === 0) return null;
@@ -39,11 +39,11 @@ function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) 
   const usageText = usage.state.status === "ready" && usage.state.data.providers.length > 0
     ? usage.state.data.providers.map(p => `${p.providerId} ${p.windows.find(w => w.id === p.preferredWindowId)?.usedPercent ?? "unknown"}%`).join(" · ") : "unavailable";
   return <>
-    <Head kicker="Properties" title="AQ server" />
+    <Head kicker="AQ server" title={window.location.host} />
     <DetailList className={styles.facts}>
       <dt>Health</dt><dd>{`ok · v${view.server.version} · ${view.server.sourceRevision.slice(0, 8)}`}</dd>
       <dt>Ready tasks</dt><dd>{`${ready ?? "unknown"}`}{waitingShown ? ` (${view.waiting.agents.length || ready} waiting for a slot)` : ""}</dd>
-      <dt>Running agents</dt><dd>{view.server.runningAgents}</dd>
+      <dt>Running agents</dt><dd>{view.server.runningAgents ?? "—"}</dd>
       <dt>Usage window</dt><dd>{usageText}</dd>
       <dt>Projects</dt><dd>{projects.data?.view.length ? projects.data.view.map(p => p.label).join(", ") : "unavailable"}</dd>
     </DetailList>
@@ -66,15 +66,15 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
   const l = m.load;
   const offline = m.nodes.filter(n => n.health !== "online").length;
   return <>
-    <Head kicker={m.kind === "cloud" ? "Cloud machine (boat VM)" : "Local machine"} title={m.label} />
+    <Head kicker={m.kind === "cloud" ? "Cloud machine (boat VM)" : m.kind === "local" ? "Local machine" : "Machine"} title={m.label} />
     <DetailList className={styles.facts}>
       <dt>State</dt><dd>{stateText(m)}</dd>
       <dt>Load now</dt><dd>{l ? `CPU ${l.cpuPercent}% · RAM ${l.memoryPercent}%${l.fresh ? "" : ` (as of ${formatAge(serverTime, l.observedAt)})`}` : "—"}</dd>
-      <dt>Load avg</dt><dd>{l ? `CPU ${l.cpuAvgPercent}% · RAM ${l.memoryAvgPercent}% (last 15 min)` : "—"}</dd>
-      <dt>Load source</dt><dd>{l ? (l.source === "windows_host" ? "Windows host (WSL2)" : "Linux") : "unknown"}</dd>
+      <dt>Load avg</dt><dd>{l ? l.cpuAvgPercent === null && l.memoryAvgPercent === null ? "—" : `CPU ${l.cpuAvgPercent === null ? "—" : `${l.cpuAvgPercent}%`} · RAM ${l.memoryAvgPercent === null ? "—" : `${l.memoryAvgPercent}%`} (last 15 min)` : "—"}</dd>
+      <dt>Load source</dt><dd>{l ? (l.source === "windows_host" ? "Windows host (WSL2)" : l.source === "linux" ? "Linux" : "unknown") : "unknown"}</dd>
       {l && (l.hostProbe === "stale" || l.hostProbe === "missing") && <><dt>Note</dt><dd>{`Windows host probe ${l.hostProbe}: showing WSL VM load`}</dd></>}
       <dt>Max agents</dt><dd>{m.agentMax ?? "unknown"} <Settings label="Edit in Settings" /></dd>
-      <dt>Cores / RAM</dt><dd>{m.hardware ? `${m.hardware.logicalCpus} / ${gb(m.hardware.memoryTotalBytes, 2 ** 30)} GB` : "unknown"}</dd>
+      <dt>Cores / RAM</dt><dd>{m.hardware ? `${m.hardware.logicalCpus ?? "—"} / ${gb(m.hardware.memoryTotalBytes, 2 ** 30)} GB` : "unknown"}</dd>
       <dt>Disk free</dt><dd>{m.hardware?.diskFreeBytes != null ? `${gb(m.hardware.diskFreeBytes, 1e9)} GB` : "unknown"}</dd>
       <dt>Worker nodes</dt><dd>{m.nodes.length}{offline > 0 ? ` (${offline} offline)` : ""}</dd>
       {m.kind === "cloud" && <><dt>Cost</dt><dd>{m.cost ? `$${(m.cost.microsPerHour / 1e6).toFixed(2)} / h · up ${formatAge(serverTime, m.cost.startedAt).replace(/ ago$/, "")}` : "—"}</dd></>}
@@ -123,8 +123,12 @@ function Empty() {
   </>;
 }
 
-export function SwarmPane({ view, selection, ready }: { view: SwarmView; selection: Selection | null; ready: number | null }) {
+export function SwarmPane({ view, selection, ready, autoControlled, note }: { view: SwarmView; selection: Selection | null; ready: number | null; autoControlled: Set<string>; note?: string | null }) {
   if (!selection) return <Empty />;
+  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} autoControlled={autoControlled} /></>;
+}
+
+function Body({ view, selection, ready, autoControlled }: { view: SwarmView; selection: Selection; ready: number | null; autoControlled: Set<string> }) {
   if (selection.kind === "server") return <ServerPane view={view} ready={ready} />;
   if (selection.kind === "waiting") {
     const n = view.waiting.agents.length || ready || 0;
@@ -165,7 +169,7 @@ export function SwarmPane({ view, selection, ready }: { view: SwarmView; selecti
   if (selection.kind === "agent" && hit.a) {
     return <>
       <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.task?.title ?? "No task"} />
-      <AgentPane agent={hit.a} serverTime={view.serverTime} />
+      <AgentPane agent={hit.a} serverTime={view.serverTime} autoControlled={autoControlled} />
     </>;
   }
   return <Empty />;

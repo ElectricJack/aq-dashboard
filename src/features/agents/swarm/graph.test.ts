@@ -79,4 +79,30 @@ describe("buildSwarmGraph", () => {
     expect(y("node:local-1")).toBeLessThan(y("agent:s1"));
     for (const n of placed) { expect(Number.isFinite(n.position.x)).toBe(true); expect(Number.isFinite(n.position.y)).toBe(true); }
   });
+  it("an unknown machine state keeps its children; only offline, stopped and booting hide them", () => {
+    const v = view(); v.machines[0]!.state = "unknown";
+    expect(build(v).nodes.map(n => n.id)).toContain("node:local-1");
+    for (const state of ["offline", "stopped", "booting"] as const) { const w = view(); w.machines[0]!.state = state; expect(build(w).nodes.map(n => n.id)).not.toContain("node:local-1"); }
+  });
+  it("a stale view draws no animated edge", () => {
+    expect(build().edges.some(e => e.animated)).toBe(true);
+    expect(buildSwarmGraph(view(), { host: "h", ready: 0, now: NOW, stale: true }).edges.some(e => e.animated)).toBe(false);
+  });
+  it("waiting agent pills carry the first reason and a full-text tooltip", () => {
+    const v = view(); const reason = { code: "no_free_slot", message: "desktop compute-bound", remedy: null };
+    v.waiting.agents = [{ taskId: "t9", title: "Fix it", project: { id: "p", label: "proj" }, provider: "claude", intelligenceClass: "standard", reasons: [reason], since: null }];
+    const pill = byId(buildSwarmGraph(v, { host: "h", ready: 0, now: NOW }), "waiting-agent:t9")!;
+    expect(pill.data.label).toBe("claude · standard — desktop compute-bound");
+    expect(pill.data.tooltip).toBe(pill.data.label);
+  });
+  it("the waiting card is sized from its lines and dagre gets that height", () => {
+    const one = byId(build(view(), 3), "waiting")!;
+    const v = view(); v.waiting.reasons.push({ code: "no_machine_online", message: "No machine is online", remedy: null }, { code: "no_eligible_machine", message: "No machine can take work", remedy: null });
+    const many = byId(build(v, 3), "waiting")!;
+    expect(many.data.reason).toBe("No machine is online\nNo machine can take work");
+    expect(many.data.box.height).toBeGreaterThan(one.data.box.height);
+    expect(one.data.box.height).toBeGreaterThan(48);
+    const g = build(v, 3); const placed = layoutSwarm(g.nodes, g.edges);
+    expect(placed.find(n => n.id === "waiting")!.height).toBe(many.data.box.height);
+  });
 });

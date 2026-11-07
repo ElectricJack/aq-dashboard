@@ -351,17 +351,16 @@
       "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
     },
     "14-swarm-tree-v3.png": {
-      "status": "accepted",
+      "status": "open",
       "reference": "docs/design/14-swarm-tree-v3.png",
       "surface": "agents-swarm",
       "delivered_subset": "Agents > Swarm tab: top-down tree with the AQ server at the root; machine cards with CPU/RAM bars, dashed free slots, greyed dashed offline machine, amber holding and booting machines, amber waiting branch; legend; properties pane for server, machine, worker node, agent, free slot and waiting; agent terminal opens with control requested.",
       "deferred_differences": [
         "The controls bar (agents per provider, mix by intelligence class, cloud VMs, projected usage burn) is deferred; it needs slider values the server does not provide yet",
-        "The fixture tree is wider than the mockup's, so on desktop it opens at a smaller zoom than the mockup; pan and zoom controls are present",
-        "On phones the tree opens at a readable zoom and is panned; the properties pane stacks below it",
         "The fast class colour is darker than the mockup's so white text keeps 4.5:1",
-        "Captured from the fixture mock build (vite --mode mock), not the G11 served bundle; the bundle digest is the G11 record's",
-        "The mockup's Prefer left-to-right toggle is not offered"
+        "The mockup's Prefer left-to-right toggle is not offered",
+        "The tree opens at zoom 1 (card text at least 12px) centred on the server root, so a wide tree is panned; fit view is a control",
+        "Captured from the fixture mock build (vite --mode mock), not a served bundle"
       ],
       "captures": {
         "fixture": [
@@ -370,7 +369,8 @@
         ]
       },
       "reviewer": "Claude Opus 5.5, AQ worker session (swarm phase 2 dashboard lane), 2026-11-07",
-      "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
+      "served_bundle_sha256": null,
+      "reason": "awaiting live acceptance A1 on the served bundle"
     }
   },
   "pages": {

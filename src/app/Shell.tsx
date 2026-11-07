@@ -17,6 +17,7 @@ import { DocumentTitleProvider } from "./documentTitle";
 import { useBackFocusRestore } from "./focusReturn";
 import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
 import { scopeSearch, useScope } from "./scope";
+import { isFocusedSessionPath } from "./focusedSession";
 import { useSession } from "./session";
 import { BundleNotice } from "./BundleNotice";
 import styles from "./Shell.module.css";
@@ -176,7 +177,7 @@ function ConnectionStatus({ state, className }: { state: ConnectionState; classN
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
-  const focusedSession = /^\/agents\/[^/]+\/?$/.test(useLocation().pathname);
+  const focusedSession = isFocusedSessionPath(useLocation().pathname);
   const [scope, setScope] = useScope();
   const usage = useProviderUsage();
   const projects = useProjects();

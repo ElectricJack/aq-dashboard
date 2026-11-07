@@ -3,6 +3,7 @@ import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { handlersFor } from "../../../mocks/handlers";
 import { SWARM_MOCKUP, swarmEnvelope } from "../../../mocks/swarm";
+import { SERVER_TIME } from "../../../mocks/inspectionData";
 import { renderApp } from "../../../test/renderApp";
 import { stubReactFlowDom } from "../../../test/reactFlow";
 
@@ -22,6 +23,8 @@ test("server pane shows health version and running agents", async () => {
   await click(/^AQ server/);
   await waitFor(() => expect(fact("Health").textContent).toMatch(/^ok · v/));
   expect(fact("Running agents")).toHaveTextContent(/^4$/);
+  const head = screen.getByRole("heading", { level: 2, name: window.location.host });
+  expect(head.previousElementSibling).toHaveTextContent("AQ server");
 });
 
 test("machine pane shows load source and limits", async () => {
@@ -60,7 +63,8 @@ test("free slot on a holding machine explains why", async () => {
 test("waiting agent pane gives why and fix", async () => {
   renderApp("/agents");
   await card(/^waiting/);
-  const pills = screen.getAllByRole("button", { name: "claude · deep" }).filter(b => b.getAttribute("data-kind") === "waitingAgent");
+  const pills = screen.getAllByRole("button", { name: /^claude · deep — / }).filter(b => b.getAttribute("data-kind") === "waitingAgent");
+  expect(pills[0]).toHaveAttribute("title", "claude · deep — Every slot on an eligible machine is busy");
   fireEvent.click(pills[0]!);
   await waitFor(() => expect(fact("Why")).toHaveTextContent("Every slot on an eligible machine is busy"));
   expect(fact("Fix")).toHaveTextContent("Wait for a running agent to finish, or add a machine");
@@ -87,6 +91,8 @@ test("agent pane is watch-only without terminal.control", async () => {
   await click("claude · standard");
   const region = await screen.findByRole("region", { name: "Agent terminal" });
   await waitFor(() => expect(within(region).getAllByText("Watch only").length).toBeGreaterThan(0), { timeout: 8000 });
+  // The watch mutation proves the posted list has been recorded before asserting that no control was sent.
+  await waitFor(() => expect(posts).toContain("watch"));
   expect(posts).not.toContain("control");
 });
 
@@ -99,4 +105,105 @@ test("pane widens for an agent", async () => {
   renderApp("/agents");
   await click("claude · standard");
   await waitFor(() => expect(screen.getByRole("complementary", { name: "Properties" }).parentElement).toHaveAttribute("data-wide"));
+});
+
+const FIXTURE_HANDLERS = () => server.use(...handlersFor("default", { fixtures: true }));
+const controlPosts = () => { const kinds: string[] = []; server.events.on("request:start", ({ request }) => { if (request.method === "POST" && request.url.includes("/mutations")) void request.clone().json().then(b => kinds.push((b as { kind: string }).kind)); }); return kinds; };
+const withoutAgent = (id: string) => ({ ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: n.agents.filter(a => a.session_id !== id) })) })) });
+const serve = (data: unknown) => server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope(data))));
+
+test("a manual Reconnect posts no control acquire", async () => {
+  FIXTURE_HANDLERS();
+  const kinds = controlPosts();
+  renderApp("/agents?select=agent:sess-07");
+  await screen.findByText("You have control", {}, { timeout: 8000 });
+  expect(kinds.filter(k => k === "control")).toHaveLength(1);
+  fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(kinds.filter(k => k === "watch").length).toBeGreaterThan(1), { timeout: 8000 });
+  expect(kinds.filter(k => k === "control")).toHaveLength(1);
+});
+
+test("a data flap keeps the terminal mounted and never retakes control", async () => {
+  FIXTURE_HANDLERS();
+  const kinds = controlPosts();
+  const { queryClient } = renderApp("/agents?select=agent:sess-07");
+  await screen.findByText("You have control", {}, { timeout: 8000 });
+  const region = screen.getByRole("region", { name: "Agent terminal" });
+  serve(withoutAgent("sess-07"));
+  await queryClient.invalidateQueries({ queryKey: [] });
+  await screen.findByText(/not in the latest update/);
+  expect(screen.getByRole("region", { name: "Agent terminal" })).toBe(region);
+  serve(SWARM_MOCKUP);
+  await queryClient.invalidateQueries({ queryKey: [] });
+  await waitFor(() => expect(screen.queryByText(/not in the latest update/)).toBeNull());
+  expect(kinds.filter(k => k === "control")).toHaveLength(1);
+});
+
+test("the last known agent is dropped after three polls without it", async () => {
+  FIXTURE_HANDLERS();
+  const { queryClient } = renderApp("/agents?select=agent:sess-07");
+  await screen.findByRole("region", { name: "Agent terminal" });
+  serve(withoutAgent("sess-07"));
+  for (let i = 0; i < 3; i++) { await queryClient.invalidateQueries({ queryKey: [] }); await screen.findByText(/not in the latest update/); }
+  await queryClient.invalidateQueries({ queryKey: [] });
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Agent terminal" })).toBeNull());
+  expect(screen.getByText("Select anything in the tree")).toBeInTheDocument();
+});
+
+test("a malformed swarm response shows an in-view error and the rest of the app works", async () => {
+  serve({ server: SWARM_MOCKUP.server, machines: "nope", waiting: {} });
+  renderApp("/agents");
+  expect(await screen.findByText(/can't read AQ's response for the swarm/)).toBeInTheDocument();
+  expect(screen.queryByText(/Dashboard update required/i)).toBeNull();
+  fireEvent.click(screen.getByRole("link", { name: "Sessions" }));
+  expect(await screen.findByRole("list", { name: "Sessions" })).toBeInTheDocument();
+});
+
+test("a failed refresh keeps the tree and says it is stale", async () => {
+  const { queryClient } = renderApp("/agents");
+  await card(/^desktop/);
+  server.use(http.get("/api/v1/swarm", () => HttpResponse.json({ request_id: "r", code: "read_model_unavailable", message: "down", retryable: true }, { status: 503 })));
+  await queryClient.invalidateQueries({ queryKey: [] });
+  expect(await screen.findByText(/Stale: the latest refresh failed\. Last updated/)).toBeInTheDocument();
+  expect(await card(/^desktop/)).toBeInTheDocument();
+  expect(document.querySelector(".react-flow__edge.animated")).toBeNull();
+});
+
+test("selecting a card replaces the history entry", async () => {
+  const { router } = renderApp("/agents");
+  await click(/^desktop/);
+  await waitFor(() => expect(router.state.location.search).toContain("select=machine%3Adesktop"));
+  expect(router.state.historyAction).toBe("REPLACE");
+});
+
+test("keyboard: Enter on a focused card selects it", async () => {
+  renderApp("/agents");
+  await card(/^desktop/);
+  const holder = document.querySelector<HTMLElement>('.react-flow__node[data-id="machine:desktop"]')!;
+  expect(holder.getAttribute("tabindex")).toBe("0");
+  expect(holder.querySelector("button")).toHaveAttribute("tabindex", "-1");
+  holder.focus();
+  fireEvent.keyDown(holder, { key: "Enter" });
+  await waitFor(() => expect(fact("Load source")).toHaveTextContent("Windows host (WSL2)"));
+});
+
+test("on a narrow viewport a selection moves focus to the pane heading", async () => {
+  const original = window.matchMedia;
+  window.matchMedia = ((q: string) => ({ matches: q.includes("max-width: 1023px"), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+  const scrolled = vi.fn(); window.HTMLElement.prototype.scrollIntoView = scrolled;
+  try {
+    renderApp("/agents");
+    await click(/^desktop/);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "desktop" })));
+    expect(scrolled).toHaveBeenCalled();
+  } finally { window.matchMedia = original; }
+});
+void SERVER_TIME;
+
+test("a machine without 15-minute samples shows a dash for the average", async () => {
+  const machines = SWARM_MOCKUP.machines.map(m => (m.id === "desktop" ? { ...m, load: { ...m.load!, cpu_avg_15m_bps: null, memory_avg_15m_bps: null, samples_15m: 0 } } : m));
+  server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, machines }))));
+  renderApp("/agents?select=machine:desktop");
+  await waitFor(() => expect(fact("Load avg")).toHaveTextContent(/^—$/));
 });

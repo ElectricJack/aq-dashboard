@@ -7,7 +7,8 @@ import { InteractiveTerminal } from "../InteractiveTerminal";
 import { useAgentTokens } from "./useAgentTokens";
 import styles from "./Swarm.module.css";
 
-export function AgentPane({ agent, serverTime }: { agent: AgentView; serverTime: string }) {
+/** `autoControlled` holds the session ids already auto-controlled on this page, so a remount never retakes control. */
+export function AgentPane({ agent, serverTime, autoControlled }: { agent: AgentView; serverTime: string; autoControlled: Set<string> }) {
   const { bootstrap } = useSession();
   const { search } = useLocation();
   const tokens = useAgentTokens(agent.sessionId);
@@ -30,7 +31,7 @@ export function AgentPane({ agent, serverTime }: { agent: AgentView; serverTime:
         ? <p role="note" className={styles.actionNote}>No terminal was recorded for this agent.</p>
         : !terminal.enabled
           ? <p role="note" className={styles.actionNote}>{terminal.reason}</p>
-          : <div className={styles.terminal}><InteractiveTerminal key={agent.terminalId} terminalId={agent.terminalId} name={label} autoControl label="Agent terminal" /></div>}
+          : <div className={styles.terminal}><InteractiveTerminal key={agent.terminalId} terminalId={agent.terminalId} name={label} autoControl={!autoControlled.has(agent.sessionId)} onAutoControl={() => autoControlled.add(agent.sessionId)} label="Agent terminal" /></div>}
     </>
   );
 }

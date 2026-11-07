@@ -10,15 +10,19 @@ export type Selection =
 export type CardKind = "server" | "machine" | "node" | "agent" | "free" | "waiting" | "waitingAgent";
 interface CardFields {
   kind: CardKind; selection: Selection; label: string; sub: string | null; reason: string | null;
-  state: MachineView["state"] | null; machineKind: "local" | "cloud" | null;
+  state: MachineView["state"] | null; machineKind: "local" | "cloud" | "unknown" | null;
   meters: { label: "CPU" | "RAM"; percent: number }[] | null; stale: boolean;
   intelligenceClass: "fast" | "standard" | "deep" | null; provider: string | null; ariaLabel: string;
+  /** Full text for a truncated pill (title attribute). */
+  tooltip: string | null;
+  /** Layout box; the height follows the text lines so no card overflows. */
+  box: { width: number; height: number };
 }
 export interface SwarmCardData extends CardFields, Record<string, unknown> {}
 export const CARD_SIZE: Record<CardKind | "machineMeters", { width: number; height: number }> = {
-  server: { width: 160, height: 48 }, machine: { width: 200, height: 52 }, machineMeters: { width: 200, height: 88 },
-  node: { width: 168, height: 48 }, agent: { width: 120, height: 26 }, free: { width: 120, height: 26 },
-  waiting: { width: 168, height: 48 }, waitingAgent: { width: 120, height: 26 },
+  server: { width: 160, height: 48 }, machine: { width: 240, height: 52 }, machineMeters: { width: 240, height: 88 },
+  node: { width: 190, height: 48 }, agent: { width: 130, height: 26 }, free: { width: 120, height: 26 },
+  waiting: { width: 190, height: 48 }, waitingAgent: { width: 230, height: 26 },
 };
 export const MAX_FREE_PILLS = 8;
 
@@ -38,10 +42,20 @@ export function showWaiting(view: SwarmView, ready: number | null): boolean {
   return view.waiting.agents.length > 0 || (ready !== null && ready > 0 && view.waiting.reasons.length > 0);
 }
 
-type Card = Omit<CardFields, "ariaLabel">;
+type Card = Omit<CardFields, "ariaLabel" | "box" | "tooltip"> & { tooltip?: string | null };
+// Text is 13px (title) and 12px (rest) at zoom 1; these estimate how many lines a card needs.
+const CHAR_WIDTH = 6.8, LINE_HEIGHT = 16, PADDING = 14;
+const wrapped = (text: string, width: number) => text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil((line.length * CHAR_WIDTH) / (width - 22))), 0);
+function boxFor(card: Card): { width: number; height: number } {
+  const size = card.kind === "machine" && card.meters ? CARD_SIZE.machineMeters : CARD_SIZE[card.kind];
+  if (card.kind === "agent" || card.kind === "free" || card.kind === "waitingAgent") return size;
+  const lines = (card.sub ? wrapped(card.sub, size.width) : 0) + (card.reason ? wrapped(card.reason, size.width) : 0);
+  const height = PADDING + 17 + lines * LINE_HEIGHT + (card.meters ? card.meters.length * 14 + 6 : 0);
+  return { width: size.width, height: Math.max(size.height, height) };
+}
 function node(card: Card): Node<SwarmCardData> {
-  const ariaLabel = `${card.label}${card.sub ? `, ${card.sub}` : ""}${card.reason ? `, ${card.reason}` : ""}`;
-  return { id: selectionId(card.selection), type: "card", position: { x: 0, y: 0 }, data: { ...card, ariaLabel } };
+  const ariaLabel = `${card.label}${card.sub ? `, ${card.sub}` : ""}${card.reason ? `, ${card.reason.replace(/\n/g, ", ")}` : ""}`;
+  return { id: selectionId(card.selection), type: "card", position: { x: 0, y: 0 }, ariaLabel, data: { ...card, tooltip: card.tooltip ?? null, ariaLabel, box: boxFor(card) } };
 }
 const base = (kind: CardKind, selection: Selection, label: string): Card => ({
   kind, selection, label, sub: null, reason: null, state: null, machineKind: null, meters: null, stale: false, intelligenceClass: null, provider: null,
@@ -59,7 +73,7 @@ function machineSub(m: MachineView, now: string): string {
   }
 }
 
-export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: number | null; now: string }): { nodes: Node<SwarmCardData>[]; edges: Edge[] } {
+export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: number | null; now: string; stale?: boolean }): { nodes: Node<SwarmCardData>[]; edges: Edge[] } {
   const nodes: Node<SwarmCardData>[] = [];
   const edges: Edge[] = [];
   nodes.push(node({ ...base("server", { kind: "server" }, "AQ server"), sub: opts.host }));
@@ -78,10 +92,10 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     }));
     const live = m.state === "online" || m.state === "holding";
     link("server", id, {
-      ...(live && agentCount > 0 ? { animated: true } : {}),
+      ...(live && agentCount > 0 && !opts.stale ? { animated: true } : {}),
       ...(m.state === "offline" || m.state === "stopped" || m.state === "booting" ? { style: { strokeDasharray: "5 4" } } : {}),
     });
-    if (NO_CHILDREN.has(m.state) || m.state === "unknown") continue;
+    if (NO_CHILDREN.has(m.state)) continue;
     for (const w of m.nodes) addWorker(w, id);
   }
 
@@ -108,11 +122,14 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
   if (showWaiting(view, opts.ready)) {
     const firstReason = view.waiting.reasons[0]?.message ?? "";
     const sub = view.waiting.agents.length > 0 ? `${view.waiting.agents.length} agents · ${firstReason}` : `${opts.ready} ready tasks · ${firstReason}`;
-    nodes.push(node({ ...base("waiting", { kind: "waiting" }, "waiting"), sub }));
+    // The first reason is on the sub line; every further reason gets its own line.
+    const more = view.waiting.reasons.slice(1).map(x => x.message).join("\n");
+    nodes.push(node({ ...base("waiting", { kind: "waiting" }, "waiting"), sub, reason: more || null }));
     link("server", "waiting", { style: { strokeDasharray: "4 4", stroke: "#c7802e" } });
     for (const w of view.waiting.agents) {
       const s: Selection = { kind: "waitingAgent", taskId: w.taskId };
-      nodes.push(node({ ...base("waitingAgent", s, `${w.provider ?? "task"} · ${w.intelligenceClass ?? w.title}`), intelligenceClass: w.intelligenceClass, provider: w.provider }));
+      const label = `${w.provider ?? "task"} · ${w.intelligenceClass ?? w.title}${w.reasons[0] ? ` — ${w.reasons[0].message}` : ""}`;
+      nodes.push(node({ ...base("waitingAgent", s, label), intelligenceClass: w.intelligenceClass, provider: w.provider, tooltip: label }));
       link("waiting", selectionId(s), { style: { strokeDasharray: "3 3" } });
     }
   }
@@ -122,7 +139,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
 export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir: "TB" | "LR" = "TB"): Node<SwarmCardData>[] {
   const g = new dagre.graphlib.Graph(); g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir, nodesep: 14, ranksep: 46 });
-  for (const n of nodes) { const s = n.data.kind === "machine" && n.data.meters ? CARD_SIZE.machineMeters : CARD_SIZE[n.data.kind]; g.setNode(n.id, { width: s.width, height: s.height }); }
+  for (const n of nodes) g.setNode(n.id, { width: n.data.box.width, height: n.data.box.height });
   for (const e of edges) g.setEdge(e.source, e.target);
   dagre.layout(g);
   return nodes.map(n => { const p = g.node(n.id); return { ...n, position: { x: p.x - p.width / 2, y: p.y - p.height / 2 }, width: p.width, height: p.height }; });

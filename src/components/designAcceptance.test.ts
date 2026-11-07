@@ -25,10 +25,12 @@ test.each(manifest.assets.map((a) => [a.file, a] as const))("%s keeps its manife
 
 const records = [...Object.entries(acceptance.assets), ...Object.entries(acceptance.pages)];
 test.each(records)("%s is accepted with a complete record and existing captures", (_name, record) => {
-  expect(record.status).toBe("accepted");
+  expect(["accepted", "open"]).toContain(record.status);
   for (const field of ["reference", "delivered_subset", "reviewer"]) expect(String(record[field] ?? "")).not.toBe("");
   expect(Array.isArray(record.deferred_differences)).toBe(true);
-  expect(record.served_bundle_sha256).toBe(acceptance.served_bundle.manifest_sha256);
+  // An open record names what it waits for and has no served bundle yet; accepting it records the bundle digest.
+  if (record.status === "open") { expect(String(record.reason ?? "")).not.toBe(""); expect(record.served_bundle_sha256 ?? null).toBeNull(); }
+  else expect(record.served_bundle_sha256).toBe(acceptance.served_bundle.manifest_sha256);
   const captures = [...record.captures.fixture, ...(record.captures.live ?? [])];
   expect(captures.filter((c) => /desktop-1440/.test(c)).length).toBeGreaterThan(0);
   expect(captures.filter((c) => /phone-390/.test(c)).length).toBeGreaterThan(0);

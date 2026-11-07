@@ -22,7 +22,7 @@ export type HoldCode =
 export type HoldReason = { code: HoldCode; message: string; remedy?: string };
 export type MachineLoad = {
   source: LoadSource; host_probe: HostProbe;
-  cpu_busy_bps: number; memory_used_bps: number; cpu_avg_15m_bps: number; memory_avg_15m_bps: number; samples_15m: number;
+  cpu_busy_bps: number; memory_used_bps: number; cpu_avg_15m_bps: number | null; memory_avg_15m_bps: number | null; samples_15m: number;
   observed_at: Timestamp; fresh: boolean;
 };
 export type MachineHardware = { logical_cpus: number; memory_total_bytes: number; disk_total_bytes: number | null; disk_free_bytes: number | null };

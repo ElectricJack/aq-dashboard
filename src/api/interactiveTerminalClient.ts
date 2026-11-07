@@ -29,7 +29,7 @@ export const MAX_AUTOMATIC_RECONNECTS = 6;
  */
 export const TERMINAL_CADENCE = { more: 50, output: 200, idleMax: 2000, inspectWatching: 3000, inspectControlling: 750, dormantMin: 5000, dormantMax: 30000 } as const;
 /** `expect` pins a reconnect to the identity and epoch seen before: a changed binding is reported, never watched. */
-export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; /** Take control once after the first terminal info; never again on automatic reconnect. */ autoControl?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void;
+export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; /** Take control once after the first terminal info; never again on automatic reconnect. */ autoControl?: boolean; /** Called when the one automatic Take control is attempted, so the pane never repeats it on a later connection. */ onAutoControl?: () => void; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void;
   /** Wait before automatic reconnect `attempt` (0-based); tests shorten it. */
   reconnectDelay?: (attempt: number, error: unknown) => number }) {
   const abort = new AbortController(), { signal } = abort;
@@ -146,7 +146,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   let after = 0, failures = 0, availability: string | undefined;
   async function watch() {
     await inspect();
-    if (options.autoControl && options.allowControl && !autoTried) { autoTried = true; await control('control'); }
+    if (options.autoControl && options.allowControl && !autoTried) { autoTried = true; options.onAutoControl?.(); await control('control'); }
     let lastInspect = performance.now(), idle = 0, dormant = false, dormantMs: number = TERMINAL_CADENCE.dormantMin;
     while (!signal.aborted) {
       if (dormant) {
@@ -212,7 +212,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   return {
     takeControl: () => { notice = null; return control('control'); },
     async release() {
-      const lease = owned; owned = null; queue = []; queued = 0; pendingResize = null;
+      const lease = owned; owned = null; queue = []; queued = 0; pendingResize = null; notice = null;
       // The release reply ends this lease; stop showing its countdown now, not at the next inspect.
       if (lease && info?.control.lease?.lease_id === lease) info.control = { ...info.control, lease: null };
       emit();

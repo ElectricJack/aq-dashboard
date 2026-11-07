@@ -1,8 +1,9 @@
 .flow { --xy-controls-button-background-color: var(--color-raised); --xy-controls-button-background-color-hover: var(--color-panel); --xy-controls-button-color: var(--color-text); --xy-controls-button-color-hover: var(--color-text); --xy-controls-button-border-color: var(--color-border); --xy-edge-stroke: var(--color-text-secondary); --xy-background-color: var(--color-canvas); --xy-background-pattern-color: var(--color-border);
   height: 540px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); }
-.card { box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: stretch; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); padding: 6px 10px; font: inherit; font-size: var(--font-size-xs); min-width: 120px; text-align: center; cursor: pointer; }
-.title { display: block; font-weight: 700; } .sub { display: block; color: var(--color-text-secondary); }
-.reason { display: block; color: #c7802e; font-weight: 600; }
+.card { box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: stretch; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); padding: 6px 10px; font: inherit; font-size: var(--font-size-xs); line-height: 16px; min-width: 0; text-align: center; cursor: pointer; }
+.title { display: block; font-weight: 700; font-size: 13px; line-height: 17px; }
+.pill .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sub { display: block; color: var(--color-text-secondary); }
+.reason { display: block; white-space: pre-line; color: #c7802e; font-weight: 600; }
 .card[data-kind="server"] { border: 2px solid #57c; background: rgba(85,119,204,.12); }
 .card[data-kind="machine"][data-machine-kind="local"] { border-left: 4px solid #6a8; }
 .card[data-kind="machine"][data-machine-kind="cloud"] { border-left: 4px solid #59c; }

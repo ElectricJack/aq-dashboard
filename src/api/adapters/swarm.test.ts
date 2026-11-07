@@ -66,4 +66,23 @@ describe("adaptSwarm", () => {
   it("missing machines array is a contract error", () => {
     expect(() => adaptSwarm({ server: fixture().server, waiting: { reasons: [], agents: [] } } as unknown as Swarm, TIME)).toThrow(/Contract violation/);
   });
+  it("unknown kind, load source and missing counts stay unknown, never 0", () => {
+    const f = fixture() as unknown as { server: Record<string, unknown>; machines: Record<string, unknown>[] };
+    f.machines[0]!.kind = "spaceship";
+    (f.machines[0]!.load as Record<string, unknown>).source = "bsd";
+    delete (f.machines[0]!.hardware as Record<string, unknown>).logical_cpus;
+    delete f.server.running_agents;
+    const v = adaptSwarm(f as unknown as Swarm, TIME);
+    expect(v.machines[0]!.kind).toBe("unknown");
+    expect(v.machines[0]!.load?.source).toBe("unknown");
+    expect(v.machines[0]!.hardware?.logicalCpus).toBeNull();
+    expect(v.server.runningAgents).toBeNull();
+  });
+  it("null 15-minute averages (no samples) stay null, never 0", () => {
+    const f = fixture(); const load = f.machines[0]!.load!;
+    load.cpu_avg_15m_bps = null; load.memory_avg_15m_bps = null; load.samples_15m = 0;
+    const v = adaptSwarm(f, TIME).machines[0]!.load!;
+    expect(v.cpuAvgPercent).toBeNull(); expect(v.memoryAvgPercent).toBeNull();
+    expect(v.cpuPercent).toBe(61);
+  });
 });

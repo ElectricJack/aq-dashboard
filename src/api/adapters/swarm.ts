@@ -4,8 +4,8 @@ import type { Swarm, SwarmAgent, SwarmMachine, SwarmNode, HoldReason, MachineLoa
 export const SWARM_POLL_MS = 10_000;
 
 export type HoldReasonView = { code: string; message: string; remedy: string | null };
-export type LoadView = { source: "linux" | "windows_host"; hostProbe: "not_applicable" | "fresh" | "stale" | "missing";
-  cpuPercent: number; memoryPercent: number; cpuAvgPercent: number; memoryAvgPercent: number; samples: number; observedAt: string; fresh: boolean };
+export type LoadView = { source: "linux" | "windows_host" | "unknown"; hostProbe: "not_applicable" | "fresh" | "stale" | "missing";
+  cpuPercent: number; memoryPercent: number; cpuAvgPercent: number | null; memoryAvgPercent: number | null; samples: number; observedAt: string; fresh: boolean };
 export type AgentView = { sessionId: string; attemptId: string; task: { id: string; title: string } | null; project: { id: string; label: string };
   provider: string | null; model: string | null; harness: string | null; intelligenceClass: "fast" | "standard" | "deep" | null;
   terminalId: string | null; startedAt: string | null };
@@ -13,13 +13,13 @@ export type NodeView = { id: string; name: string; health: "online" | "offline" 
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
   slots: { total: number | null; occupied: number; idle: number | null }; holding: HoldReasonView[]; agents: AgentView[] };
-export type MachineView = { id: string; label: string; kind: "local" | "cloud"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
+export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
   holding: HoldReasonView[]; lastSeenAt: string | null; load: LoadView | null;
-  hardware: { logicalCpus: number; memoryTotalBytes: number; diskTotalBytes: number | null; diskFreeBytes: number | null } | null;
+  hardware: { logicalCpus: number | null; memoryTotalBytes: number; diskTotalBytes: number | null; diskFreeBytes: number | null } | null;
   agentMax: number | null; cost: { currency: string; microsPerHour: number; startedAt: string } | null; nodes: NodeView[] };
 export type WaitingAgentView = { taskId: string; title: string; project: { id: string; label: string }; provider: string | null;
   intelligenceClass: "fast" | "standard" | "deep" | null; reasons: HoldReasonView[]; since: string | null };
-export type SwarmView = { serverTime: string; server: { version: string; sourceRevision: string; runningAgents: number };
+export type SwarmView = { serverTime: string; server: { version: string; sourceRevision: string; runningAgents: number | null };
   machines: MachineView[]; waiting: { reasons: HoldReasonView[]; agents: WaitingAgentView[] } };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -43,10 +43,10 @@ const holds = (v: unknown): HoldReasonView[] => list<HoldReason>(v).filter(isRec
 function load(l: MachineLoad | null | undefined): LoadView | null {
   if (!isRecord(l)) return null;
   return {
-    source: oneOf(l.source, ["linux", "windows_host"] as const, "linux"),
+    source: oneOf(l.source, ["linux", "windows_host"] as const, "unknown" as const),
     hostProbe: oneOf(l.host_probe, ["not_applicable", "fresh", "stale", "missing"] as const, "not_applicable"),
     cpuPercent: percent(l.cpu_busy_bps), memoryPercent: percent(l.memory_used_bps),
-    cpuAvgPercent: percent(l.cpu_avg_15m_bps), memoryAvgPercent: percent(l.memory_avg_15m_bps),
+    cpuAvgPercent: l.cpu_avg_15m_bps == null ? null : percent(l.cpu_avg_15m_bps), memoryAvgPercent: l.memory_avg_15m_bps == null ? null : percent(l.memory_avg_15m_bps),
     samples: num(l.samples_15m) ?? 0, observedAt: text(l.observed_at) ?? "", fresh: l.fresh === true,
   };
 }
@@ -82,10 +82,10 @@ function machine(m: SwarmMachine): MachineView {
   const hw = isRecord(m.hardware) ? m.hardware : null;
   const cost = isRecord(m.cost) ? m.cost : null;
   return {
-    id: m.id, label: m.label, kind: oneOf(m.kind, ["local", "cloud"] as const, "local"),
+    id: m.id, label: m.label, kind: oneOf(m.kind, ["local", "cloud"] as const, "unknown" as const),
     state: oneOf(m.state, ["online", "holding", "offline", "stopped", "booting"] as const, "unknown" as const),
     holding: holds(m.holding), lastSeenAt: text(m.last_seen_at), load: load(m.load),
-    hardware: hw ? { logicalCpus: num(hw.logical_cpus) ?? 0, memoryTotalBytes: num(hw.memory_total_bytes) ?? 0, diskTotalBytes: num(hw.disk_total_bytes), diskFreeBytes: num(hw.disk_free_bytes) } : null,
+    hardware: hw ? { logicalCpus: num(hw.logical_cpus), memoryTotalBytes: num(hw.memory_total_bytes) ?? 0, diskTotalBytes: num(hw.disk_total_bytes), diskFreeBytes: num(hw.disk_free_bytes) } : null,
     agentMax: num(m.agent_max),
     cost: cost ? { currency: String(cost.currency), microsPerHour: num(cost.micros_per_hour) ?? 0, startedAt: String(cost.started_at) } : null,
     nodes: list<SwarmNode>(m.nodes).filter(isRecord).map(node),
@@ -102,10 +102,10 @@ function waitingAgent(w: WaitingAgent): WaitingAgentView {
 /** Unknown fields and unknown enum values degrade (to "unknown", null or "unreported"); a malformed shape is a contract error. */
 export function adaptSwarm(raw: Swarm, serverTime: string): SwarmView {
   if (!isRecord(raw) || !Array.isArray(raw.machines) || !isRecord(raw.waiting)) throw new ContractError("swarm needs machines and waiting");
-  const server = isRecord(raw.server) ? raw.server : { version: "", source_revision: "", running_agents: 0 };
+  const server = isRecord(raw.server) ? raw.server : { version: "", source_revision: "", running_agents: null };
   return {
     serverTime,
-    server: { version: String(server.version ?? ""), sourceRevision: String(server.source_revision ?? ""), runningAgents: num(server.running_agents) ?? 0 },
+    server: { version: String(server.version ?? ""), sourceRevision: String(server.source_revision ?? ""), runningAgents: num(server.running_agents) },
     machines: raw.machines.map(machine),
     waiting: { reasons: holds(raw.waiting.reasons), agents: list<WaitingAgent>(raw.waiting.agents).filter(isRecord).map(waitingAgent) },
   };
