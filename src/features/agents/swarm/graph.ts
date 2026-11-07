@@ -1,0 +1,129 @@
+import dagre from "@dagrejs/dagre";
+import type { Edge, Node } from "@xyflow/react";
+import type { MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
+import { formatAge } from "../../../components/time/relative";
+
+export type Selection =
+  | { kind: "server" } | { kind: "machine"; machineId: string } | { kind: "node"; nodeId: string }
+  | { kind: "agent"; sessionId: string } | { kind: "free"; nodeId: string; index: number }
+  | { kind: "waiting" } | { kind: "waitingAgent"; taskId: string };
+export type CardKind = "server" | "machine" | "node" | "agent" | "free" | "waiting" | "waitingAgent";
+interface CardFields {
+  kind: CardKind; selection: Selection; label: string; sub: string | null; reason: string | null;
+  state: MachineView["state"] | null; machineKind: "local" | "cloud" | null;
+  meters: { label: "CPU" | "RAM"; percent: number }[] | null; stale: boolean;
+  intelligenceClass: "fast" | "standard" | "deep" | null; provider: string | null; ariaLabel: string;
+}
+export interface SwarmCardData extends CardFields, Record<string, unknown> {}
+export const CARD_SIZE: Record<CardKind | "machineMeters", { width: number; height: number }> = {
+  server: { width: 160, height: 48 }, machine: { width: 200, height: 52 }, machineMeters: { width: 200, height: 88 },
+  node: { width: 168, height: 48 }, agent: { width: 120, height: 26 }, free: { width: 120, height: 26 },
+  waiting: { width: 168, height: 48 }, waitingAgent: { width: 120, height: 26 },
+};
+export const MAX_FREE_PILLS = 8;
+
+export function selectionId(s: Selection): string {
+  switch (s.kind) {
+    case "server": return "server";
+    case "machine": return `machine:${s.machineId}`;
+    case "node": return `node:${s.nodeId}`;
+    case "agent": return `agent:${s.sessionId}`;
+    case "free": return `free:${s.nodeId}:${s.index}`;
+    case "waiting": return "waiting";
+    case "waitingAgent": return `waiting-agent:${s.taskId}`;
+  }
+}
+
+export function showWaiting(view: SwarmView, ready: number | null): boolean {
+  return view.waiting.agents.length > 0 || (ready !== null && ready > 0 && view.waiting.reasons.length > 0);
+}
+
+type Card = Omit<CardFields, "ariaLabel">;
+function node(card: Card): Node<SwarmCardData> {
+  const ariaLabel = `${card.label}${card.sub ? `, ${card.sub}` : ""}${card.reason ? `, ${card.reason}` : ""}`;
+  return { id: selectionId(card.selection), type: "card", position: { x: 0, y: 0 }, data: { ...card, ariaLabel } };
+}
+const base = (kind: CardKind, selection: Selection, label: string): Card => ({
+  kind, selection, label, sub: null, reason: null, state: null, machineKind: null, meters: null, stale: false, intelligenceClass: null, provider: null,
+});
+
+const NO_CHILDREN = new Set<MachineView["state"]>(["offline", "stopped", "booting"]);
+
+function machineSub(m: MachineView, now: string): string {
+  switch (m.state) {
+    case "offline": return m.lastSeenAt ? `${m.kind} · offline ${formatAge(now, m.lastSeenAt)}` : `${m.kind} · offline`;
+    case "stopped": return `${m.kind} · stopped`;
+    case "booting": return `${m.kind} · booting`;
+    case "unknown": return `${m.kind} · state unknown`;
+    default: return `${m.kind} · ${m.hardware?.logicalCpus ?? "?"} cores · max ${m.agentMax ?? "?"} agents`;
+  }
+}
+
+export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: number | null; now: string }): { nodes: Node<SwarmCardData>[]; edges: Edge[] } {
+  const nodes: Node<SwarmCardData>[] = [];
+  const edges: Edge[] = [];
+  nodes.push(node({ ...base("server", { kind: "server" }, "AQ server"), sub: opts.host }));
+  const link = (source: string, target: string, extra: Partial<Edge> = {}) => edges.push({ id: `${source}->${target}`, source, target, ...extra });
+
+  for (const m of view.machines) {
+    const selection: Selection = { kind: "machine", machineId: m.id };
+    const id = selectionId(selection);
+    const agentCount = m.nodes.reduce((n, w) => n + w.agents.length, 0);
+    nodes.push(node({
+      ...base("machine", selection, m.label), sub: machineSub(m, opts.now),
+      reason: m.state === "holding" && m.holding[0] ? `holding: ${m.holding[0].message}` : null,
+      state: m.state, machineKind: m.kind,
+      meters: m.load !== null && m.state !== "offline" ? [{ label: "CPU", percent: m.load.cpuPercent }, { label: "RAM", percent: m.load.memoryPercent }] : null,
+      stale: m.load !== null && !m.load.fresh,
+    }));
+    const live = m.state === "online" || m.state === "holding";
+    link("server", id, {
+      ...(live && agentCount > 0 ? { animated: true } : {}),
+      ...(m.state === "offline" || m.state === "stopped" || m.state === "booting" ? { style: { strokeDasharray: "5 4" } } : {}),
+    });
+    if (NO_CHILDREN.has(m.state) || m.state === "unknown") continue;
+    for (const w of m.nodes) addWorker(w, id);
+  }
+
+  function addWorker(w: NodeView, machineId: string) {
+    const selection: Selection = { kind: "node", nodeId: w.id };
+    const id = selectionId(selection);
+    nodes.push(node({ ...base("node", selection, w.name), sub: `${w.backendKind ?? "backend unknown"} · ${w.slots.occupied}/${w.slots.total ?? "?"} slots` }));
+    link(machineId, id);
+    for (const a of w.agents) {
+      const s: Selection = { kind: "agent", sessionId: a.sessionId };
+      nodes.push(node({ ...base("agent", s, `${a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider }));
+      link(id, selectionId(s));
+    }
+    const idle = w.slots.idle ?? 0;
+    const pills = Math.min(idle, MAX_FREE_PILLS);
+    for (let i = 0; i < pills; i++) {
+      const s: Selection = { kind: "free", nodeId: w.id, index: i };
+      const label = i === pills - 1 && idle > MAX_FREE_PILLS ? `+${idle - MAX_FREE_PILLS + 1} free` : "free";
+      nodes.push(node(base("free", s, label)));
+      link(id, selectionId(s));
+    }
+  }
+
+  if (showWaiting(view, opts.ready)) {
+    const firstReason = view.waiting.reasons[0]?.message ?? "";
+    const sub = view.waiting.agents.length > 0 ? `${view.waiting.agents.length} agents · ${firstReason}` : `${opts.ready} ready tasks · ${firstReason}`;
+    nodes.push(node({ ...base("waiting", { kind: "waiting" }, "waiting"), sub }));
+    link("server", "waiting", { style: { strokeDasharray: "4 4", stroke: "#c7802e" } });
+    for (const w of view.waiting.agents) {
+      const s: Selection = { kind: "waitingAgent", taskId: w.taskId };
+      nodes.push(node({ ...base("waitingAgent", s, `${w.provider ?? "task"} · ${w.intelligenceClass ?? w.title}`), intelligenceClass: w.intelligenceClass, provider: w.provider }));
+      link("waiting", selectionId(s), { style: { strokeDasharray: "3 3" } });
+    }
+  }
+  return { nodes, edges };
+}
+
+export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir: "TB" | "LR" = "TB"): Node<SwarmCardData>[] {
+  const g = new dagre.graphlib.Graph(); g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir, nodesep: 14, ranksep: 46 });
+  for (const n of nodes) { const s = n.data.kind === "machine" && n.data.meters ? CARD_SIZE.machineMeters : CARD_SIZE[n.data.kind]; g.setNode(n.id, { width: s.width, height: s.height }); }
+  for (const e of edges) g.setEdge(e.source, e.target);
+  dagre.layout(g);
+  return nodes.map(n => { const p = g.node(n.id); return { ...n, position: { x: p.x - p.width / 2, y: p.y - p.height / 2 }, width: p.width, height: p.height }; });
+}
