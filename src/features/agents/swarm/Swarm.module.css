@@ -1,5 +1,6 @@
-.flow { height: 540px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); }
-.card { display: block; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); padding: 6px 10px; font: inherit; font-size: var(--font-size-xs); min-width: 120px; text-align: center; cursor: pointer; }
+.flow { --xy-controls-button-background-color: var(--color-raised); --xy-controls-button-background-color-hover: var(--color-panel); --xy-controls-button-color: var(--color-text); --xy-controls-button-color-hover: var(--color-text); --xy-controls-button-border-color: var(--color-border); --xy-edge-stroke: var(--color-text-secondary); --xy-background-color: var(--color-canvas); --xy-background-pattern-color: var(--color-border);
+  height: 540px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); }
+.card { box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: stretch; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); padding: 6px 10px; font: inherit; font-size: var(--font-size-xs); min-width: 120px; text-align: center; cursor: pointer; }
 .title { display: block; font-weight: 700; } .sub { display: block; color: var(--color-text-secondary); }
 .reason { display: block; color: #c7802e; font-weight: 600; }
 .card[data-kind="server"] { border: 2px solid #57c; background: rgba(85,119,204,.12); }
@@ -11,7 +12,7 @@
 .card[data-kind="node"] { background: var(--color-raised); }
 .card[data-kind="waiting"] { background: var(--color-raised); border-style: dashed; border-color: #c7802e; }
 .pill { min-width: 0; border-radius: 14px; padding: 3px 9px; color: #fff; border: none; }
-.pill[data-class="fast"] { background: #3a9; } .pill[data-class="standard"] { background: #57c; }
+.pill[data-class="fast"] { background: #1b7f6c; } /* mockup #3a9 fails AA with white text */ .pill[data-class="standard"] { background: #57c; }
 .pill[data-class="deep"] { background: #a5c; } .pill[data-class="none"] { background: #6b7280; }
 .pill[data-provider="codex"] { box-shadow: 0 0 0 2px #111 inset; }
 .card[data-kind="free"] { background: transparent; color: var(--color-text-secondary); border: 1px dashed var(--color-text-secondary); }
@@ -20,6 +21,12 @@
 .card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .meters { margin-top: 4px; display: grid; gap: 2px; color: var(--color-text-secondary); text-align: left; }
 .meter { display: grid; grid-template-columns: 36px 1fr 36px; gap: 2px 5px; align-items: center; }
+/* Label and value are drawn by CSS so the visible text of the card stays its aria label; the label carries the numbers. */
+.meter::before { content: attr(data-label); }
+.meter::after { content: attr(data-value); text-align: right; }
+.meter > .bar { order: 0; grid-column: 2; grid-row: 1; }
+.meter::before { grid-column: 1; grid-row: 1; }
+.meter::after { grid-column: 3; grid-row: 1; }
 .meters[data-stale] { opacity: .6; }
 .bar { display: block; height: 5px; border-radius: 3px; background: rgba(127,127,127,.2); overflow: hidden; }
 .bar > i { display: block; height: 100%; } /* fill colour inline: >85 #d55, >65 #db4, else #3a9 */

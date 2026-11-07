@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useMediaQuery } from "../../../components/useMediaQuery";
 import { Background, Controls, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { SwarmView } from "../../../api/adapters/swarm";
@@ -8,7 +9,7 @@ import styles from "./Swarm.module.css";
 
 const nodeTypes = { card: SwarmCard };
 const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean }[] = [
-  { label: "fast", color: "#3a9" }, { label: "standard", color: "#57c" }, { label: "deep", color: "#a5c" }, { label: "unclassified", color: "#6b7280" },
+  { label: "fast", color: "#1b7f6c" }, { label: "standard", color: "#57c" }, { label: "deep", color: "#a5c" }, { label: "unclassified", color: "#6b7280" },
   { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "free slot", color: "transparent", dashed: true }, { label: "waiting for a slot", color: "transparent", dashed: true },
 ];
 
@@ -17,12 +18,14 @@ export function SwarmTree({ view, ready, selected, onSelect }: { view: SwarmView
     const graph = buildSwarmGraph(view, { host: window.location.host, ready, now: view.serverTime });
     return { nodes: layoutSwarm(graph.nodes, graph.edges), edges: graph.edges };
   }, [view, ready]);
+  // On a phone the whole tree is not legible at once; start readable and pan instead.
+  const narrow = useMediaQuery("(max-width: 1023px)");
   const chosen = selected ? selectionId(selected) : null;
   const nodes = useMemo(() => laidOut.nodes.map(n => ({ ...n, selected: n.id === chosen })), [laidOut, chosen]);
   return (
     <div>
       <section aria-label="Swarm tree" className={styles.flow}>
-        <ReactFlow nodes={nodes} edges={laidOut.edges} nodeTypes={nodeTypes} fitView nodesDraggable={false} nodesConnectable={false} elementsSelectable
+        <ReactFlow nodes={nodes} edges={laidOut.edges} nodeTypes={nodeTypes} fitView fitViewOptions={narrow ? { minZoom: 0.6 } : undefined} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable
           proOptions={{ hideAttribution: true }} onNodeClick={(_, n) => onSelect(n.data.selection)} minZoom={0.25} maxZoom={2}>
           <Background gap={18} size={1} />
           <Controls showInteractive={false} />
