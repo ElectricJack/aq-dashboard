@@ -23,7 +23,7 @@ test("SO-23: every page names itself in the document title", async () => {
 });
 
 test("SO-14/ISSUE-007: Back returns focus to the link that opened the page", async () => {
-  const { router } = renderApp("/agents");
+  const { router } = renderApp("/agents/sessions");
   const link = await screen.findByRole("link", { name: /Worker 07/ });
   const href = link.getAttribute("href");
   await userEvent.click(link);
@@ -34,7 +34,7 @@ test("SO-14/ISSUE-007: Back returns focus to the link that opened the page", asy
 });
 
 test("each history entry remembers its own initiating link across several Backs", async () => {
-  const { router } = renderApp("/agents");
+  const { router } = renderApp("/agents/sessions");
   const link = await screen.findByRole("link", { name: /Worker 07/ });
   await userEvent.click(link);
   await screen.findByRole("region", { name: "Worker 07" });

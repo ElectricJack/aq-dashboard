@@ -8,7 +8,7 @@ const PAGES = [
   { path: `/work?${scope}`, ready: (p: Page) => p.getByRole("list", { name: "Tasks" }) },
   { path: work, ready: (p: Page) => p.getByRole("heading", { level: 2, name: "Contract fixture: task inspection" }) },
   { path: `${work}&view=graph&root=${root}`, ready: (p: Page) => p.getByRole("region", { name: "Dependency graph" }) },
-  { path: "/agents", ready: (p: Page) => p.getByRole("list", { name: "Sessions" }) },
+  { path: "/agents/sessions", ready: (p: Page) => p.getByRole("list", { name: "Sessions" }) },
   { path: "/agents/sess-07", ready: (p: Page) => p.getByRole("heading", { level: 2, name: "Worker 07" }) },
 ];
 

@@ -97,7 +97,7 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
   const watchEnabled = bootstrap.data.capabilities.some((c: { name: string; version: string; enabled: boolean }) => c.name === "terminal.watch" && c.version === "1" && c.enabled === true);
   const rosterRead = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/v1/sessions" && r.request().method() === "GET");
-  await page.goto("/agents");
+  await page.goto("/agents/sessions");
   const response = await rosterRead;
   expect(response.status()).toBe(200);
   const envelope = await response.json();

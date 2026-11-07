@@ -24,6 +24,7 @@ const LIVE = [
   { id: "playbooks", path: "/playbooks" },
   { id: "knowledge", path: `/knowledge?${scope}` },
   { id: "agents", path: "/agents" },
+  { id: "agents-sessions", path: "/agents/sessions" },
   { id: "results", path: "/results" },
   { id: "settings", path: "/settings" },
 ];

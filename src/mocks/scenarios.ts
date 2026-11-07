@@ -69,12 +69,13 @@ const proposedBootstrap = (bootstrapFixture as Envelope<Bootstrap>).data;
 const withActions = (enabled: boolean): Bootstrap => ({
   ...proposedBootstrap,
   capabilities: [
-    ...proposedBootstrap.capabilities.filter((c) => !(ACTION_CAPABILITIES as readonly string[]).includes(c.name)),
+    ...proposedBootstrap.capabilities.filter((c) => c.name !== "swarm.read" && !(ACTION_CAPABILITIES as readonly string[]).includes(c.name)),
     ...ACTION_CAPABILITIES.map((name) =>
       enabled || name === "projects.read"
         ? { name, version: "1", enabled: true }
         : { name, version: "1", enabled: false, reason: "Fixture scenario: actions are not offered" },
     ),
+    { name: "swarm.read", version: "1", enabled: true },
   ],
 });
 const baseBootstrap = withActions(true);

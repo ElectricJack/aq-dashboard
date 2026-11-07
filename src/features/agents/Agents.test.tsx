@@ -18,7 +18,7 @@ async function roster() {
 }
 
 test("roster rows show task, project, profile, observed state and controller", async () => {
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   const row = within(await roster()).getByRole("link", { name: "Worker 07" }).closest("li")!;
   expect(row).toHaveTextContent("Fixture: Replay reconciliation");
   expect(row).toHaveTextContent("agent-queue");
@@ -30,19 +30,19 @@ test("roster rows show task, project, profile, observed state and controller", a
 });
 
 test("a held controller is named", async () => {
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   const row = within(await roster()).getByRole("link", { name: "Worker 12" }).closest("li")!;
   expect(row).toHaveTextContent("Controlled by Sample Owner");
 });
 
 test("a stale observation says so and keeps its age", async () => {
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   const rows = within(await roster()).getAllByRole("listitem");
   expect(rows.some((r) => /Stale, observed 5m ago/.test(r.textContent ?? ""))).toBe(true);
 });
 
 test("opening a session shows its metadata and an honest terminal placeholder", async () => {
-  const { router } = renderApp("/agents");
+  const { router } = renderApp("/agents/sessions");
   await userEvent.click(within(await roster()).getByRole("link", { name: "Worker 07" }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/agents/sess-07"));
   const detail = await screen.findByRole("region", { name: "Worker 07" });
@@ -60,19 +60,19 @@ test("an unknown session is a neutral unavailable message", async () => {
   renderApp("/agents/nope-session");
   expect(await screen.findByText(/does not exist or is not available/i)).toBeInTheDocument();
   expect(screen.queryByText(/nope-session/)).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "All sessions" })).toHaveAttribute("href", "/agents");
+  expect(screen.getByRole("link", { name: "All sessions" })).toHaveAttribute("href", "/agents/sessions");
 });
 
 test("a failed roster read is an error, not an empty roster", async () => {
   server.use(...handlersFor("reads-failed"));
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't load sessions/i);
   expect(screen.queryByText("No active sessions")).not.toBeInTheDocument();
 });
 
 test("an empty complete roster says there are no sessions", async () => {
   server.use(...handlersFor("empty"));
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   expect(await screen.findByText("No active sessions")).toBeInTheDocument();
 });
 
@@ -83,7 +83,7 @@ test("Graph task inspection reports unavailable execution observation without a 
 });
 
 test("Back from a session returns focus to its roster row", async () => {
-  const { router } = renderApp("/agents");
+  const { router } = renderApp("/agents/sessions");
   await userEvent.click(within(await roster()).getByRole("link", { name: "Worker 12" }));
   await screen.findByRole("heading", { level: 2, name: "Worker 12" });
   await router.navigate(-1);
@@ -103,7 +103,7 @@ function useLifecycleResponse(value: SessionDetail) {
 
 test("native lifecycle is visible in roster and peek while live state and terminal stay unknown", async () => {
   useLifecycleResponse(nativeLifecycleSession({ started_at: "2026-10-31T11:58:00.000Z", stopped_at: "2026-10-31T11:59:00.000Z" }));
-  const { router } = renderApp("/agents");
+  const { router } = renderApp("/agents/sessions");
   const row = within(await roster()).getByRole("listitem");
   expect(row).toHaveTextContent("State unknown");
   expect(row).toHaveTextContent("Central state: Finished");
@@ -124,7 +124,7 @@ test("native lifecycle is visible in roster and peek while live state and termin
 
 test("an implemented lifecycle read with no reports stays explicitly empty", async () => {
   useLifecycleResponse(nativeLifecycleSession({ started_at: null, stopped_at: null }));
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   const row = within(await roster()).getByRole("listitem");
   expect(row).toHaveTextContent("No worker lifecycle reports");
   expect(row).toHaveTextContent("State unknown");
@@ -187,7 +187,7 @@ test("a session with no terminal says none was recorded (RA-17)", async () => {
 test("a partial roster states the server's reason and an empty line (RA-18)", async () => {
   const envelope = { api_version: "proposed-0", request_id: "partial", server_time: SERVER_TIME, scope: { kind: "all_authorized" }, data: { items: [], next_cursor: null, has_more: false, snapshot_id: "p", total: { value: 0, accuracy: "exact" } }, observation: { observed_at: SERVER_TIME, fresh_until: SERVER_TIME, source: "x", quality: "reported", coverage: "partial" }, pending_operations: [], coverage: { state: "partial", reason: "Process activity, task titles, and wait details are not connected yet" } };
   server.use(http.get("/api/v1/sessions", () => HttpResponse.json(envelope)));
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   expect(await screen.findByText(/This roster has partial coverage\. Some sessions may be missing\. Process activity, task titles, and wait details are not connected yet\./)).toBeVisible();
   expect(screen.getByText("No sessions returned in this scope.")).toBeVisible();
 });
@@ -214,7 +214,7 @@ test("Message is offered when the server advertises session messages and sends a
 
 test("an unknown process state reads as not reported, never 'Stale, observed 0s ago' (RA-16, server #97)", async () => {
   useLifecycleResponse(nativeLifecycleSession({ started_at: null, stopped_at: null }));
-  renderApp("/agents");
+  renderApp("/agents/sessions");
   const row = within(await roster()).getByRole("listitem");
   expect(row).toHaveTextContent("State unknown · not reported");
   expect(row).not.toHaveTextContent(/Stale, observed/);

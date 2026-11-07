@@ -65,7 +65,7 @@ Routes:
 | `/work`, `/work/:taskId` | Scope, list/graph, filters, sort, selected task/revision |
 | `/results`, `/results/:resultId/revisions/:revision` | Feed mode, filters; immutable result deep link |
 | `/decisions`, `/decisions/:decisionId` | Kind/status filter and exact subject revision |
-| `/agents`, `/agents/:sessionId` | Roster filters or focus; terminal identity resolved by server |
+| `/agents` (Swarm), `/agents/sessions`, `/agents/:sessionId` | Swarm tree and properties pane (spec aq-server 0007 §5); roster filters or focus |
 | `/playbooks`, `/playbooks/runs/:runId` | Runs/definitions/activations and selection |
 | `/knowledge`, `/knowledge/:nodeId` | Scope/search/category; optional pinned revision |
 | `/settings` | Identity, display/accessibility preferences, authorized configuration links |
