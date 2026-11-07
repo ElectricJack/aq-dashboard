@@ -63,9 +63,9 @@ export const SWARM_MOCKUP: Swarm = {
   },
 };
 
-function envelope<T>(data: T) {
+export function swarmEnvelope<T>(data: T) {
   return {
-    api_version: "dashboard-read-1", request_id: "mock", server_time: SERVER_TIME, scope: { kind: "all_authorized" }, data,
+    api_version: "proposed-0", request_id: "mock", server_time: SERVER_TIME, scope: { kind: "all_authorized" }, data,
     observation: { observed_at: SERVER_TIME, fresh_until: "2026-10-31T12:00:30.000Z", source: "mock", quality: "reported", coverage: "complete" },
     pending_operations: [], coverage: { state: "complete" },
   };
@@ -75,8 +75,8 @@ export function swarmHandlers(reads: "ok" | "partial" | "empty" | "failed") {
   return [
     http.get("/api/v1/swarm", () => {
       if (reads === "failed") return HttpResponse.json({ request_id: "mock", code: "read_model_unavailable", message: "The read model is temporarily unavailable.", retryable: true }, { status: 503 });
-      if (reads === "empty") return HttpResponse.json(envelope({ ...SWARM_MOCKUP, machines: [], waiting: { reasons: [NO_MACHINE_ONLINE], agents: [] } }));
-      return HttpResponse.json(envelope(SWARM_MOCKUP));
+      if (reads === "empty") return HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, machines: [], waiting: { reasons: [NO_MACHINE_ONLINE], agents: [] } }));
+      return HttpResponse.json(swarmEnvelope(SWARM_MOCKUP));
     }),
   ];
 }

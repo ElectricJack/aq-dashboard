@@ -25,3 +25,19 @@
 .bar > i { display: block; height: 100%; } /* fill colour inline: >85 #d55, >65 #db4, else #3a9 */
 .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: var(--space-1) 0; padding: 0; list-style: none; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.stage { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 10px; }
+.stage[data-wide] { grid-template-columns: minmax(0,1fr) min(720px, 55%); }
+@media (max-width: 1023px) { .stage, .stage[data-wide] { grid-template-columns: minmax(0,1fr); } .flow { height: 420px; } }
+.pane { border: 1px solid var(--color-border); border-radius: var(--radius-panel); min-height: 540px; display: flex; flex-direction: column; overflow: hidden; background: var(--color-panel); }
+.paneHead { padding: 10px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-raised); }
+.kicker { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; color: var(--color-text-secondary); }
+.paneTitle { margin: 0; font-weight: 700; font-size: var(--font-size-body); }
+.facts { margin: 0; padding: 10px 12px; display: grid; grid-template-columns: 110px 1fr; gap: 5px 10px; font-size: var(--font-size-xs); }
+.facts dt { color: var(--color-text-secondary); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.actions { padding: 0 12px 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.actionNote { padding: 0 12px 10px; margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.linkButton { display: inline-flex; align-items: center; justify-content: center; min-block-size: 32px; padding: var(--space-1) var(--space-3); color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); font-size: var(--font-size-xs); text-decoration: none; }
+@media (pointer: coarse) { .linkButton { min-block-size: 44px; } }
+.terminal { flex: 1; min-height: 360px; display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
+.coverage { margin: 0 0 var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); }
