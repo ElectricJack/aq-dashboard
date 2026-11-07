@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { adaptSwarm } from "./swarm";
 import type { Swarm } from "../wire/swarm";
+import pinned from "../../../contracts/pinned/dashboard-read/v1/fixtures/swarm.json";
 
 const hold = { code: "measurement_expired", message: "Context measurement expired", remedy: "Measure this worker's runtime again" } as const;
 function fixture(): Swarm {
@@ -25,6 +26,15 @@ function fixture(): Swarm {
 const TIME = "2026-11-07T10:00:05.000Z";
 
 describe("adaptSwarm", () => {
+  it("pinned swarm fixture adapts", () => {
+    const f = pinned as unknown as { data: Swarm; server_time: string };
+    const v = adaptSwarm(f.data, f.server_time);
+    expect(v.machines[0]!.label).toBe("desktop");
+    expect(v.machines[0]!.load?.source).toBe("windows_host");
+    const agent = v.machines.flatMap(m => m.nodes).flatMap(n => n.agents)[0]!;
+    expect(agent.terminalId === null || typeof agent.terminalId === "string").toBe(true);
+    expect(v.server.runningAgents).toBeGreaterThanOrEqual(1);
+  });
   it("adapts a complete read", () => {
     const v = adaptSwarm(fixture(), TIME);
     expect(v.machines[0]!.label).toBe("desktop");
