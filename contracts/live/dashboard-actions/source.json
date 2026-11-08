@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "7b1be60cbb418a00266579b9a2fd438c02df2640",
+  "commit": "62b57adfb52c6d42fdc3cac01b9a89dca53a4d88",
   "path": "protocol/dashboard-actions/v1",
   "files": {
-    "README.md": "a9ad9442e91dbee56fa915ca7150942f64e501932fa08cf2ce91b49fa096738f",
-    "check.py": "9a2d6d03b078db19d65f4d29b8b20c0968cd818a713e9ac125e080053ebddd61",
-    "fixtures/compatibility.json": "cfade0ed9a9042162ca508b2355c5f72249a45253724881ab33f2e4d617e3db2",
+    "README.md": "a10278eb76e4d5d529e2a065857e20afc76f25ae4659654ab5dead25582e0f43",
+    "check.py": "eb25e151595e1111f80c96fe7972bf53f4c74c9d8dbe6efa2906faf314b37e55",
+    "fixtures/compatibility.json": "67210f09f540cdb667e1af6301c12b69edc547a6c53f37f557bc809904bf942b",
     "fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -51,7 +51,11 @@
     "fixtures/request-task-graph-create.json": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d",
     "fixtures/request-task-reprioritize.json": "d435fe266bad6e9588f68b89672fd66d59537b9bb1eba9bc770a4685432341dc",
     "fixtures/request-task-retry.json": "1b3a7ee5eec647c046c5e888bd2b3fda08542ec34d7e26c6612057cd0ccf96d8",
-    "schema.json": "6b8c255bb66190705fa13df23f2cb7761e409f8c3bbb705cac09f7f3635df9ec"
+    "fixtures/request-worker-drain.json": "84f217d4fff06de55453765dc58f82343e7d772bb4b76e76a1ce04d2927ec8d6",
+    "fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
+    "fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
+    "fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
+    "schema.json": "b5cf4d6be1a1635a7191b20b4e52397c6eec569c1085c2ebab813543e4f4268d"
   },
-  "note": "Pinned to aq-server branch parity/p1-comments (task comments, spec 0004 §4.1) until it merges to main."
+  "note": "Pinned to aq-server branch parity/p1-comments (task comments, spec 0004 \u00a74.1) until it merges to main."
 }

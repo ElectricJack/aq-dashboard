@@ -2,9 +2,9 @@
   "repository": "ElectricJack/aq-server",
   "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
   "sha256": {
-    "dashboard-actions/v1/README.md": "a9ad9442e91dbee56fa915ca7150942f64e501932fa08cf2ce91b49fa096738f",
-    "dashboard-actions/v1/check.py": "9a2d6d03b078db19d65f4d29b8b20c0968cd818a713e9ac125e080053ebddd61",
-    "dashboard-actions/v1/fixtures/compatibility.json": "cfade0ed9a9042162ca508b2355c5f72249a45253724881ab33f2e4d617e3db2",
+    "dashboard-actions/v1/README.md": "a10278eb76e4d5d529e2a065857e20afc76f25ae4659654ab5dead25582e0f43",
+    "dashboard-actions/v1/check.py": "eb25e151595e1111f80c96fe7972bf53f4c74c9d8dbe6efa2906faf314b37e55",
+    "dashboard-actions/v1/fixtures/compatibility.json": "67210f09f540cdb667e1af6301c12b69edc547a6c53f37f557bc809904bf942b",
     "dashboard-actions/v1/fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "dashboard-actions/v1/fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "dashboard-actions/v1/fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -50,8 +50,12 @@
     "dashboard-actions/v1/fixtures/request-task-graph-create.json": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d",
     "dashboard-actions/v1/fixtures/request-task-reprioritize.json": "d435fe266bad6e9588f68b89672fd66d59537b9bb1eba9bc770a4685432341dc",
     "dashboard-actions/v1/fixtures/request-task-retry.json": "1b3a7ee5eec647c046c5e888bd2b3fda08542ec34d7e26c6612057cd0ccf96d8",
-    "dashboard-actions/v1/schema.json": "6b8c255bb66190705fa13df23f2cb7761e409f8c3bbb705cac09f7f3635df9ec",
-    "dashboard-read/v1/README.md": "1c3f52807710850e9a81d771731aa4f38852b7b0d255c16e55332d53a893951d",
+    "dashboard-actions/v1/fixtures/request-worker-drain.json": "84f217d4fff06de55453765dc58f82343e7d772bb4b76e76a1ce04d2927ec8d6",
+    "dashboard-actions/v1/fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
+    "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
+    "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
+    "dashboard-actions/v1/schema.json": "b5cf4d6be1a1635a7191b20b4e52397c6eec569c1085c2ebab813543e4f4268d",
+    "dashboard-read/v1/README.md": "b177d1ded183a64e37f1e0b3acf10049576c4bb909b36b5ca408560fd004969c",
     "dashboard-read/v1/check.py": "e9b92a35253223bed0089a6975141f86cadaeaf0e2bc4c2163e2ee6ae07cb9a7",
     "dashboard-read/v1/fixtures/bootstrap.json": "e0b3f940b963c0180f24bcaf673af30fb06ea53375c790bdbf570a91877267d0",
     "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
@@ -76,8 +80,8 @@
     "dashboard-read/v1/fixtures/search.json": "990a4d9869c633f2934b35093aa0e6641e7fa8c6cf17f81789d8bbca254028c9",
     "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
     "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
-    "dashboard-read/v1/fixtures/swarm.json": "d8d0f9d451e94c6c2aff0958ec55b7e7bf9b0acd4308e6dc2104b71bbc116847",
-    "dashboard-read/v1/schema.json": "b76c6a35b97f6ffb2b6ea72f8a826753f7a8db6a8476464207a5b6922c8f8871",
+    "dashboard-read/v1/fixtures/swarm.json": "618d8d1620e10ea88f2382380ccd3f39e90772069cdef2e6c003b5342da78b19",
+    "dashboard-read/v1/schema.json": "7debe46bb1ce8a424b5c7d9404ab96b49367dbcb5fa87f48aea79b13bad2ec53",
     "results-feedback/v1/README.md": "c2592b78662f98c71bb736784fd0fe15d416cf073e797f798ed486f017d7ea8e",
     "results-feedback/v1/check.py": "3ad8537c7974f812689761e28c7522569b3e6386d669074db84aa227f9be3959",
     "results-feedback/v1/fixtures/compatibility.json": "b5c8d86ab4b9392be0dfaeecbc979041cde89ad8142e5659eac1903e9a2aac6f",
@@ -92,7 +96,7 @@
   },
   "contract_commits": {
     "results-feedback": "52cd05ef63126aeb2e8dae068ac835edb5de2b91",
-    "dashboard-actions": "7b1be60cbb418a00266579b9a2fd438c02df2640",
-    "dashboard-read": "f68684fbc289bd0ae70092b2bc7f11318e8daa49"
+    "dashboard-actions": "62b57adfb52c6d42fdc3cac01b9a89dca53a4d88",
+    "dashboard-read": "62b57adfb52c6d42fdc3cac01b9a89dca53a4d88"
   }
 }
