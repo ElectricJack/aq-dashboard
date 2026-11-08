@@ -7,6 +7,7 @@ import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
 import { AgentPane, scopeOnly } from "./AgentPane";
 import { AddMachine } from "./AddMachine";
+import { OwnerAvailability } from "./OwnerAvailability";
 import { MachineControls } from "./MachineControls";
 import { showWaiting, type Selection } from "./graph";
 import styles from "./Swarm.module.css";
@@ -34,6 +35,13 @@ function NodeControls() {
   </>;
 }
 
+function availabilityText(view: SwarmView): string {
+  const a = view.server.ownerAvailability;
+  if (!a) return "unknown";
+  if (a.state === "on") return a.since ? `On (kept on since ${formatAge(view.serverTime, a.since)})` : "On";
+  return a.state === "off" ? "Off" : "Not kept on";
+}
+
 function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) {
   const usage = useProviderUsage();
   const projects = useProjects();
@@ -46,9 +54,11 @@ function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) 
       <dt>Health</dt><dd>{`ok · v${view.server.version} · ${view.server.sourceRevision.slice(0, 8)}`}</dd>
       <dt>Ready tasks</dt><dd>{`${ready ?? "unknown"}`}{waitingShown ? ` (${view.waiting.agents.length || ready} waiting for a slot)` : ""}</dd>
       <dt>Running agents</dt><dd>{view.server.runningAgents ?? "—"}</dd>
+      <dt>Owner availability</dt><dd>{availabilityText(view)}</dd>
       <dt>Usage window</dt><dd>{usageText}</dd>
       <dt>Projects</dt><dd>{projects.data?.view.length ? projects.data.view.map(p => p.label).join(", ") : "unavailable"}</dd>
     </DetailList>
+    <OwnerAvailability a={view.server.ownerAvailability} />
     <div className={styles.actions}><Settings label="Open settings" /></div>
     <AddMachine />
   </>;
