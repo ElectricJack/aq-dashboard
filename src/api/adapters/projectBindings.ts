@@ -3,7 +3,7 @@ export const PROJECT_PAGE_SIZE = 25;
 export type ProjectBindingView = {
   id: string; name: string; revision: number; enabled: boolean;
   repositoryId: string; repositoryGeneration: number; workspaceId: string; catalogDigest: string;
-  agents: string[]; intelligence: string[]; execution: string[]; environments: string[]; workerGroups: string[]; nodeIds: string[];
+  agents: string[]; intelligence: string[]; execution: string[]; environments: string[]; workerGroups: string[]; nodeIds: string[]; enrolledNodes: boolean;
   validation: { repository: string; graph: string; recordedAt: string; observedAt: string; expiresAt: string };
 };
 function ensure(v: unknown): asserts v { if (!v) throw new ContractError("Invalid project binding page"); }
@@ -29,11 +29,13 @@ export function adaptProjectBindings(raw: unknown, after: string | null) {
     ensure((v.expires_at_ms as number) > (v.observed_at_ms as number));
     ensure(Array.isArray(b.allowed_node_ids) && b.allowed_node_ids.length <= 256 && b.allowed_node_ids.every(uuid) && new Set(b.allowed_node_ids).size === b.allowed_node_ids.length);
     const workerGroups = labels(b.allowed_worker_groups, true);
-    ensure(workerGroups.length > 0 || b.allowed_node_ids.length > 0);
+    // The server omits the field when it is true (default on), so only an explicit false turns it off.
+    const enrolledNodes = b.allow_enrolled_nodes !== false;
+    ensure(workerGroups.length > 0 || b.allowed_node_ids.length > 0 || enrolledNodes);
     previous = b.project_id;
     return { id: b.project_id, name: b.name, revision: row.revision, enabled: b.enabled, repositoryId: b.repository_id, repositoryGeneration: b.repository_binding_generation,
       workspaceId: b.graph_workspace_id, catalogDigest: b.catalog_digest,
-      workerGroups, nodeIds: b.allowed_node_ids,
+      workerGroups, nodeIds: b.allowed_node_ids, enrolledNodes,
       agents: labels(b.allowed_agent_profiles), intelligence: labels(b.allowed_intelligence_profiles), execution: labels(b.allowed_execution_profiles), environments: labels(b.allowed_environments),
       validation: { repository: v.repository, graph: v.graph, recordedAt: timestamp(row.validated_at_ms), observedAt, expiresAt } };
   });

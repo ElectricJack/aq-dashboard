@@ -34,7 +34,7 @@ test("machine pane shows load source and limits", async () => {
   await waitFor(() => expect(fact("Load source")).toHaveTextContent("Windows host (WSL2)"));
   expect(fact("Cores / RAM")).toHaveTextContent("24 / 64 GB");
   expect(screen.getByRole("button", { name: "Start worker" })).toBeDisabled();
-  expect(screen.getByText("Worker start, stop and drain are not available on this server yet.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Start worker" })).toHaveAttribute("title", "Already running");
 });
 
 test("machine pane names a stale Windows probe", async () => {

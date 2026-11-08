@@ -13,12 +13,12 @@ const worker = (id: string, total: number | null, occupied: number, idle: number
 });
 const machine = (id: string, state: MachineView["state"], extra: Partial<MachineView> = {}): MachineView => ({
   id, label: id, kind: "local", state, holding: [], lastSeenAt: NOW, load: null, hardware: { logicalCpus: 8, memoryTotalBytes: 2 ** 34, diskTotalBytes: null, diskFreeBytes: null },
-  agentMax: null, cost: null, nodes: [], ...extra,
+  agentMax: null, cost: null, control: null, controlUnrecognised: false, nodes: [], ...extra,
 });
 const load = (cpu: number, ram: number) => ({ source: "windows_host" as const, hostProbe: "fresh" as const, cpuPercent: cpu, memoryPercent: ram, cpuAvgPercent: cpu, memoryAvgPercent: ram, samples: 60, observedAt: NOW, fresh: true });
 function view(): SwarmView {
   return {
-    serverTime: NOW, server: { version: "0.1.0", sourceRevision: "85070006", runningAgents: 4 },
+    serverTime: NOW, server: { version: "0.1.0", sourceRevision: "85070006", runningAgents: 4, ownerAvailability: null },
     machines: [
       machine("desktop", "online", { hardware: { logicalCpus: 24, memoryTotalBytes: 2 ** 36, diskTotalBytes: null, diskFreeBytes: null }, agentMax: 5, load: load(61, 58),
         nodes: [worker("local-1", 3, 3, 0, [agent(1, "claude", "standard"), agent(2, "claude", "deep"), agent(3, "codex", "fast")]), worker("local-2", 2, 1, 1, [agent(4, "claude", "fast")])] }),

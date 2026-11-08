@@ -1,4 +1,4 @@
-import { useId, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { useId, type ComponentPropsWithRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import styles from "./Workspace.module.css";
 
 function classes(base: string | undefined, extra?: string) { return [base, extra].filter(Boolean).join(" "); }
@@ -15,7 +15,7 @@ export function Panel({ title, description, actions, children, className, ...pro
 export function Toolbar({ className, ...props }: ComponentPropsWithoutRef<"div">) {
   return <div {...props} className={classes(styles.toolbar, className)} />;
 }
-export function ActionButton({ className, type = "button", ...props }: ComponentPropsWithoutRef<"button">) {
+export function ActionButton({ className, type = "button", ...props }: ComponentPropsWithRef<"button">) {
   return <button {...props} type={type} className={classes(styles.control, className)} />;
 }
 export function DetailList({ className, ...props }: ComponentPropsWithoutRef<"dl">) {

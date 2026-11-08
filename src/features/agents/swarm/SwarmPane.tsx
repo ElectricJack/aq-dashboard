@@ -6,6 +6,9 @@ import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
 import { AgentPane, scopeOnly } from "./AgentPane";
+import { AddMachine } from "./AddMachine";
+import { OwnerAvailability } from "./OwnerAvailability";
+import { MachineControls } from "./MachineControls";
 import { showWaiting, type Selection } from "./graph";
 import styles from "./Swarm.module.css";
 
@@ -23,13 +26,20 @@ function Settings({ label }: { label: string }) {
   const { search } = useLocation();
   return <Link className={styles.linkButton} to={{ pathname: "/settings", search: scopeOnly(search) }}>{label}</Link>;
 }
-function WorkerControls({ labels }: { labels: string[] }) {
+function NodeControls() {
   const { bootstrap } = useSession();
   const enabled = bootstrap.capability("swarm.worker.control").enabled;
   return <>
-    <div className={styles.actions}>{labels.map(l => <ActionButton key={l} disabled={!enabled}>{l}</ActionButton>)}</div>
-    {!enabled && <p className={styles.actionNote}>Worker start, stop and drain are not available on this server yet.</p>}
+    <div className={styles.actions}>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
+    <p className={styles.actionNote}>{enabled ? "Drain node, restart and logs are not available yet. Use the machine's controls." : "Worker start, stop and drain are not available on this server yet."}</p>
   </>;
+}
+
+function availabilityText(view: SwarmView): string {
+  const a = view.server.ownerAvailability;
+  if (!a) return "unknown";
+  if (a.state === "on") return a.since ? `On (kept on since ${formatAge(view.serverTime, a.since)})` : "On";
+  return a.state === "off" ? "Off" : "Not kept on";
 }
 
 function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) {
@@ -44,10 +54,13 @@ function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) 
       <dt>Health</dt><dd>{`ok · v${view.server.version} · ${view.server.sourceRevision.slice(0, 8)}`}</dd>
       <dt>Ready tasks</dt><dd>{`${ready ?? "unknown"}`}{waitingShown ? ` (${view.waiting.agents.length || ready} waiting for a slot)` : ""}</dd>
       <dt>Running agents</dt><dd>{view.server.runningAgents ?? "—"}</dd>
+      <dt>Owner availability</dt><dd>{availabilityText(view)}</dd>
       <dt>Usage window</dt><dd>{usageText}</dd>
       <dt>Projects</dt><dd>{projects.data?.view.length ? projects.data.view.map(p => p.label).join(", ") : "unavailable"}</dd>
     </DetailList>
+    <OwnerAvailability a={view.server.ownerAvailability} />
     <div className={styles.actions}><Settings label="Open settings" /></div>
+    <AddMachine />
   </>;
 }
 
@@ -80,7 +93,7 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
       {m.kind === "cloud" && <><dt>Cost</dt><dd>{m.cost ? `$${(m.cost.microsPerHour / 1e6).toFixed(2)} / h · up ${formatAge(serverTime, m.cost.startedAt).replace(/ ago$/, "")}` : "—"}</dd></>}
       <Holding holds={m.holding} />
     </DetailList>
-    <WorkerControls labels={["Start worker", "Stop worker", "Drain"]} />
+    <MachineControls m={m} />
   </>;
 }
 
@@ -97,7 +110,7 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
       <dt>Channel</dt><dd>{n.agentChannel === "ready" ? "agent channel ready" : n.agentChannel === "unavailable" ? "agent channel unavailable" : "not reported"}</dd>
       <Holding holds={n.holding} />
     </DetailList>
-    <WorkerControls labels={["Drain node", "Restart", "View logs"]} />
+    <NodeControls />
   </>;
 }
 
@@ -153,7 +166,7 @@ function Body({ view, selection, ready, autoControlled }: { view: SwarmView; sel
   }
   const hit = find(view, selection);
   if (!hit) return <Empty />;
-  if (selection.kind === "machine") return <MachinePane m={hit.m} serverTime={view.serverTime} />;
+  if (selection.kind === "machine") return <MachinePane key={hit.m.id} m={hit.m} serverTime={view.serverTime} />;
   if (selection.kind === "node" && hit.n) return <NodePane n={hit.n} serverTime={view.serverTime} />;
   if (selection.kind === "free" && hit.n) {
     const hold = hit.m.state === "holding" ? hit.m.holding[0] : undefined;

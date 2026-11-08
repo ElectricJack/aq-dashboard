@@ -64,6 +64,9 @@ export const ACTION_CAPABILITIES = [
   "tasks.retry",
   "tasks.dependencies.add",
   "tasks.dependencies.remove",
+  "swarm.worker.control",
+  "swarm.worker.enroll",
+  "swarm.availability.control",
 ] as const;
 const proposedBootstrap = (bootstrapFixture as Envelope<Bootstrap>).data;
 const withActions = (enabled: boolean): Bootstrap => ({

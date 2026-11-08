@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "7b1be60cbb418a00266579b9a2fd438c02df2640",
+  "commit": "7529e6236d1b880d112bc9c6e0e8ba4585c4f75d",
   "path": "protocol/dashboard-actions/v1",
   "files": {
-    "README.md": "a9ad9442e91dbee56fa915ca7150942f64e501932fa08cf2ce91b49fa096738f",
-    "check.py": "9a2d6d03b078db19d65f4d29b8b20c0968cd818a713e9ac125e080053ebddd61",
-    "fixtures/compatibility.json": "cfade0ed9a9042162ca508b2355c5f72249a45253724881ab33f2e4d617e3db2",
+    "README.md": "c545b9ae03344673d545e4239e08fb78dd1a8c88513f5e25621c95847c4b6ad7",
+    "check.py": "7bdcf205430d31739522dfb52c89159aeb01ffcfdf79e086854adab7192f9528",
+    "fixtures/compatibility.json": "8ace47fdf9889cdae8325bf4cea4661ac1db90611e0036539911a9fd7071a7bb",
     "fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -39,6 +39,7 @@
     "fixtures/request-playbook-run-start.json": "c00b7413f1a7519b5713c61fde6a615e8c37833817b9e85f54c9b5871445a6a2",
     "fixtures/request-session-message-send.json": "2d53f5324f010334ea3b8a4cd496a5f55abe0ed0a9948e612f81b7891ecd5464",
     "fixtures/request-supervisor-message-send.json": "18c2a8a37e89bc9a71c632403392d0609f518bc8d8d986abca23d2167adebe80",
+    "fixtures/request-swarm-availability-set.json": "bc9e9c5de392703d6946e53089ee1328a538737d1d8c1fdffd16de0a17b4ac72",
     "fixtures/request-task-cancel.json": "b586aef7b6d990f23359969fac2995ce3a1b4ab93d347a8425029d14f578648c",
     "fixtures/request-task-comment-add.json": "2883f2e724f32fbee85c6f52fdaf8c3f63080a193ec34ccce5f68e96bfc0b15d",
     "fixtures/request-task-comment-delete.json": "3cbc259a42d9a2852311cb21c49b9ec590622012a41371decf596ea8fe098107",
@@ -51,7 +52,11 @@
     "fixtures/request-task-graph-create.json": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d",
     "fixtures/request-task-reprioritize.json": "d435fe266bad6e9588f68b89672fd66d59537b9bb1eba9bc770a4685432341dc",
     "fixtures/request-task-retry.json": "1b3a7ee5eec647c046c5e888bd2b3fda08542ec34d7e26c6612057cd0ccf96d8",
-    "schema.json": "6b8c255bb66190705fa13df23f2cb7761e409f8c3bbb705cac09f7f3635df9ec"
+    "fixtures/request-worker-drain.json": "84f217d4fff06de55453765dc58f82343e7d772bb4b76e76a1ce04d2927ec8d6",
+    "fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
+    "fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
+    "fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
+    "schema.json": "67e991d5fe15be26fd2a26aefd09031609c82e4b1770a7731727fb20af2d5f15"
   },
-  "note": "Pinned to aq-server branch parity/p1-comments (task comments, spec 0004 §4.1) until it merges to main."
+  "note": "Pinned to aq-server main at 7529e623 (swarm phase 1, published)."
 }
