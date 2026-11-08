@@ -19,18 +19,25 @@ for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("swarm landing renders every state; text is readable and the server root is in view", async ({ page }) => {
+    test("swarm landing renders every state; the whole tree is fitted at open", async ({ page }) => {
       await page.goto("/agents");
-      // The tree opens at zoom 1 centred on the server root and is panned, so off-screen cards are attached, not necessarily in view.
+      // The tree opens fitted to the viewport; at phone width off-screen cards are attached, not necessarily in view.
       await expect(page.getByRole("button", { name: /^AQ server/ })).toBeInViewport();
       for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/, /^waiting/]) await expect(page.getByRole("button", { name })).toBeAttached();
       await expect(page.getByRole("button", { name: "free" }).first()).toBeAttached();
       await expect(page.getByRole("list", { name: "Legend" })).toBeVisible();
-      const scale = await page.locator(".react-flow__viewport").evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).a);
-      expect(scale).toBeGreaterThanOrEqual(1);
-      const smallest = await page.locator(".react-flow__node button").evaluateAll((cards) => Math.min(...cards.flatMap((card) =>
-        [card, ...card.querySelectorAll("span")].filter((el) => el.textContent?.trim()).map((el) => parseFloat(getComputedStyle(el).fontSize)))));
-      expect(smallest).toBeGreaterThanOrEqual(12);
+      const tree = page.getByRole("region", { name: "Swarm tree" });
+      const inside = async (name: RegExp) => {
+        const [card, area] = [await page.getByRole("button", { name }).first().boundingBox(), await tree.boundingBox()];
+        expect(card, String(name)).not.toBeNull();
+        expect(card!.x).toBeGreaterThanOrEqual(area!.x - 1);
+        expect(card!.y).toBeGreaterThanOrEqual(area!.y - 1);
+        expect(card!.x + card!.width).toBeLessThanOrEqual(area!.x + area!.width + 1);
+        expect(card!.y + card!.height).toBeLessThanOrEqual(area!.y + area!.height + 1);
+      };
+      await inside(/^AQ server/);
+      // The whole tree is fitted at 1440; at 390 it falls back to 0.5 centred on the server root, so only the server card is asserted.
+      if (!vp.phone) for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/]) await inside(name);
     });
 
     test("Tab reaches the first machine card with a visible focus ring, inside the tree", async ({ page }) => {

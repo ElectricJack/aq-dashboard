@@ -13,7 +13,7 @@ const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean }
 ];
 
 /** The part of the React Flow instance the tree uses. */
-type Flow = Pick<ReactFlowInstance, "setViewport" | "setCenter" | "getViewport" | "getInternalNode">;
+type Flow = Pick<ReactFlowInstance, "setViewport" | "setCenter" | "getViewport" | "getInternalNode"> & { fitView(options: { padding: number; minZoom: number; maxZoom: number; duration: number }): unknown };
 
 export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { view: SwarmView; ready: number | null; selected: Selection | null; stale?: boolean; onSelect(s: Selection): void }) {
   const section = useRef<HTMLElement>(null);
@@ -23,16 +23,22 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
   }, [view, ready, stale]);
   const chosen = selected ? selectionId(selected) : null;
   const nodes = useMemo(() => laidOut.nodes.map(n => ({ ...n, selected: n.id === chosen })), [laidOut, chosen]);
-  // Open at zoom 1 so card text is never under 12px: the whole tree when it fits, otherwise centred on the server root. The user pans.
-  const open = (flow: Pick<Flow, "setViewport">) => {
+  // Open by fitting the whole tree (zoom 0.5 to 1). If it cannot fit even at 0.5, fall back to zoom 0.5 centred on the server root. The user pans.
+  const FIT = { padding: 0.08, minZoom: 0.5, maxZoom: 1, duration: 0 } as const;
+  const fitsAtMin = () => {
+    const box = section.current;
+    if (!box || laidOut.nodes.length === 0) return true;
+    const size = (n: (typeof laidOut.nodes)[number]) => ({ w: n.width ?? n.data.box.width ?? 0, h: n.height ?? n.data.box.height ?? 0 });
+    const w = Math.max(...laidOut.nodes.map(n => n.position.x + size(n).w)) - Math.min(...laidOut.nodes.map(n => n.position.x));
+    const h = Math.max(...laidOut.nodes.map(n => n.position.y + size(n).h)) - Math.min(...laidOut.nodes.map(n => n.position.y));
+    return w * FIT.minZoom * (1 + 2 * FIT.padding) <= box.clientWidth && h * FIT.minZoom * (1 + 2 * FIT.padding) <= box.clientHeight;
+  };
+  const centreRoot = (flow: Pick<Flow, "setViewport">) => {
     const width = section.current?.clientWidth ?? 0;
-    if (!width || laidOut.nodes.length === 0) return;
-    const left = Math.min(...laidOut.nodes.map(n => n.position.x)), right = Math.max(...laidOut.nodes.map(n => n.position.x + (n.width ?? 0)));
-    const top = Math.min(...laidOut.nodes.map(n => n.position.y));
     const root = laidOut.nodes.find(n => n.id === "server");
-    const fits = right - left + 48 <= width;
-    const centre = fits || !root ? (left + right) / 2 : root.position.x + (root.width ?? 0) / 2;
-    void flow.setViewport({ x: width / 2 - centre, y: 24 - top, zoom: 1 });
+    if (!width || !root) return;
+    const zoom = FIT.minZoom;
+    void flow.setViewport({ x: width / 2 - (root.position.x + (root.width ?? 0) / 2) * zoom, y: 24 - root.position.y * zoom, zoom });
   };
   const flow = useRef<Flow | null>(null);
   const ownSelectId = useRef<string | null>(null);
@@ -55,7 +61,14 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
   const onInit = (instance: Flow) => {
     flow.current = instance;
     initialised.current = true;
-    if (chosen && laidOut.nodes.some(n => n.id === chosen)) { open(instance); initCentred.current = chosen; reveal(chosen, true); } else open(instance);
+    if (laidOut.nodes.length === 0) return;
+    const target = chosen && laidOut.nodes.some(n => n.id === chosen) ? chosen : null;
+    if (target) initCentred.current = target;
+    // Fit first so the fitted zoom is the starting zoom, then centre on the selection.
+    void Promise.resolve(instance.fitView(FIT)).then(() => {
+      if (target) reveal(target, true);
+      else if (!fitsAtMin()) centreRoot(instance);
+    });
   };
   // A selection that changes from outside the tree (?select=, history) pans to the card; a click inside the tree does not recentre.
   useEffect(() => {

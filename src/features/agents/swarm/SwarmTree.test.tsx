@@ -8,7 +8,7 @@ import { SwarmTree } from "./SwarmTree";
 
 // The React Flow instance is replaced with a recording fake so pan calls can be asserted; nodes still render for real.
 const flow = vi.hoisted(() => ({
-  setCenter: vi.fn(), setViewport: vi.fn(),
+  setCenter: vi.fn(), setViewport: vi.fn(), fitView: vi.fn(),
   viewport: { x: 0, y: 0, zoom: 1.5 },
   nodes: new Map<string, { internals: { positionAbsolute: { x: number; y: number } }; measured: { width: number; height: number } }>(),
 }));
@@ -18,7 +18,7 @@ vi.mock("@xyflow/react", async importOriginal => {
     ...actual,
     ReactFlow: (props: React.ComponentProps<typeof actual.ReactFlow>) => {
       const { onInit, ...rest } = props;
-      const fake = { setCenter: flow.setCenter, setViewport: flow.setViewport, getViewport: () => flow.viewport, getInternalNode: (id: string) => flow.nodes.get(id) };
+      const fake = { setCenter: flow.setCenter, setViewport: flow.setViewport, fitView: flow.fitView, getViewport: () => flow.viewport, getInternalNode: (id: string) => flow.nodes.get(id) };
       return <actual.ReactFlow {...rest} onInit={() => onInit?.(fake as never)} />;
     },
   };
@@ -28,7 +28,7 @@ let restore: () => void;
 beforeAll(() => { restore = stubReactFlowDom(); });
 afterAll(() => restore());
 beforeEach(() => {
-  flow.setCenter.mockClear(); flow.setViewport.mockClear(); flow.nodes.clear(); flow.viewport = { x: 0, y: 0, zoom: 1.5 };
+  flow.setCenter.mockClear(); flow.setViewport.mockClear(); flow.fitView.mockClear(); flow.nodes.clear(); flow.viewport = { x: 0, y: 0, zoom: 1.5 };
   Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 800 });
   Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 400 });
 });
@@ -63,22 +63,43 @@ test("focusing a card fully inside the viewport does not pan", async () => {
   expect(flow.setCenter).not.toHaveBeenCalled();
 });
 
-test("opening with a selection centres on it; with none it keeps the zoom-1 root view", async () => {
-  const { unmount } = render(<SwarmTree view={view} ready={6} selected={null} onSelect={vi.fn()} />);
+const FIT = { padding: 0.08, minZoom: 0.5, maxZoom: 1, duration: 0 };
+
+test("with no selection the tree opens by fitting the whole tree", async () => {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 5000 });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 5000 });
+  render(<SwarmTree view={view} ready={6} selected={null} onSelect={vi.fn()} />);
   await wrapperOf(/^desktop, local/);
-  await waitFor(() => expect(flow.setViewport).toHaveBeenCalledWith(expect.objectContaining({ zoom: 1 })));
+  await waitFor(() => expect(flow.fitView).toHaveBeenCalledWith(FIT));
+  await new Promise(r => setTimeout(r, 20));
   expect(flow.setCenter).not.toHaveBeenCalled();
-  unmount();
-  flow.setViewport.mockClear();
+  expect(flow.setViewport).not.toHaveBeenCalled();
+});
+
+test("when the tree cannot fit at 0.5 it centres the server root at zoom 0.5", async () => {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 100 });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 100 });
+  render(<SwarmTree view={view} ready={6} selected={null} onSelect={vi.fn()} />);
+  await wrapperOf(/^desktop, local/);
+  await waitFor(() => expect(flow.setViewport).toHaveBeenCalledWith(expect.objectContaining({ zoom: 0.5 })));
+  expect(flow.fitView).toHaveBeenCalledWith(FIT);
+  expect(flow.setCenter).not.toHaveBeenCalled();
+});
+
+test("with a selection the tree fits first, then centres the selected node", async () => {
   render(<SwarmTree view={view} ready={6} selected={{ kind: "machine", machineId: "desktop" }} onSelect={vi.fn()} />);
   await waitFor(() => expect(flow.setCenter).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), { zoom: 1.5, duration: 200 }));
+  expect(flow.fitView).toHaveBeenCalledWith(FIT);
+  expect(flow.fitView.mock.invocationCallOrder[0]!).toBeLessThan(flow.setCenter.mock.invocationCallOrder[0]!);
+  expect(flow.setViewport).not.toHaveBeenCalled();
 });
 
 test("a selection that changes from outside pans to it, but a click inside the tree does not", async () => {
   const onSelect = vi.fn();
   const { rerender } = render(<SwarmTree view={view} ready={6} selected={null} onSelect={onSelect} />);
   await wrapperOf(/^desktop, local/);
-  await waitFor(() => expect(flow.setViewport).toHaveBeenCalled());
+  await waitFor(() => expect(flow.fitView).toHaveBeenCalled());
+  await new Promise(r => setTimeout(r, 20));
   rerender(<SwarmTree view={view} ready={6} selected={{ kind: "machine", machineId: "desktop" }} onSelect={onSelect} />);
   expect(flow.setCenter).toHaveBeenCalledTimes(1);
   flow.setCenter.mockClear();
