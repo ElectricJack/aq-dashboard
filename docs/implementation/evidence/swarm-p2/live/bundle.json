@@ -1,0 +1,8 @@
+{
+  "manifest_sha256": "33fda9c51cbe6cca50790ea3e4ab5669457509d2a4802eaf21d86ab3a6118b70",
+  "files": 44,
+  "source_revision": "9664a5e67bea97564d88ea419721c9a26683e1da",
+  "served_by": "aq-ms1 aq-server (origin/main e44c8024, contains f68684fb) serving the pnpm build of aq-dashboard main from its dist mount, http://127.0.0.1:28080",
+  "checked": "GET /api/v1/bootstrap data.product.dashboard_digest == sha256 of the served /dashboard-manifest.json == sha256 of dist/dashboard-manifest.json",
+  "date": "2026-11-08"
+}
