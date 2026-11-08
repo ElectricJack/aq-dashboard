@@ -46,6 +46,7 @@ function Action({ label, capability: capabilityName, freeze, blocked, intro, con
       if (failure instanceof ApiError && (status === 401 || status === 403)) { setAccessLost(true); setOperation(null); reportAccessDenied(failure); setError("Access changed. Reload access before checking the operation."); }
       else if (failure instanceof ApiError && status === 426) { reportIncompatible("dashboard.actions"); setUnknown(true); }
       else if (failure instanceof ApiError && status === 410) { setRetired(true); setUnknown(false); setError(null); }
+      else if (!lookup && failure instanceof ApiError && status === 409 && envelope?.code === "machine_node") settled("rejected", "This node belongs to a service machine; revoke the machine.");
       else if (!lookup && failure instanceof ApiError && status === 409) settled("conflict", "The machine changed since this page last loaded.");
       else if (!lookup && failure instanceof ApiError && !failure.effectUnknown && [400, 404, 413, 422].includes(status)) settled("rejected", "The server refused this action. Review the machine and permissions.");
       else { setUnknown(true); setError(null); }

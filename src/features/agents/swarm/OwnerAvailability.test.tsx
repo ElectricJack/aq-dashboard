@@ -80,3 +80,15 @@ test("null availability shows unknown", async () => {
   expect(screen.queryByRole("button", { name: "Keep available" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Turn off availability" })).toBeNull();
 });
+
+test("a former owner's switch reads unset, shows its note and turning on sends the real generation", async () => {
+  withAvailability({ state: "unset", generation: "7", since: null, note: "Set by a former owner; reads as unset." });
+  const bodies = capture();
+  await openServerPane();
+  expect(fact("Owner availability")).toHaveTextContent("Not kept on");
+  expect(await screen.findByRole("note")).toHaveTextContent("Set by a former owner; reads as unset.");
+  await userEvent.click(await screen.findByRole("button", { name: "Keep available" }));
+  await submit("Keep available", /Keep my availability on/);
+  await waitFor(() => expect(bodies).toHaveLength(1));
+  expect(bodies[0]).toMatchObject({ kind: "swarm.availability.set", payload: { available: true, expected_generation: "7" } });
+});

@@ -122,6 +122,15 @@ test("revoke posts worker.revoke after confirmation", async () => {
   expect((body!.payload as Record<string, unknown>).expected_generation).toBeUndefined();
 });
 
+test("shows the server's refusal when a revoke is refused for a service-machine node", async () => {
+  server.use(http.post("/api/v1/actions", () => HttpResponse.json({ request_id: "r", code: "machine_node", message: "This node belongs to a service machine; revoke the machine", retryable: false }, { status: 409 })));
+  await openMachine();
+  await userEvent.click(await button("Revoke machine"));
+  const dialog = await confirmAndSubmit("Revoke machine", /Revoke desktop/);
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("This node belongs to a service machine; revoke the machine");
+  expect(within(dialog).getByRole("status")).toHaveTextContent("Rejected");
+});
+
 test("a confirmed action refetches the swarm", async () => {
   let reads = 0;
   server.use(http.get("/api/v1/swarm", () => { reads++; return HttpResponse.json(swarmEnvelope(SWARM_MOCKUP)); }));

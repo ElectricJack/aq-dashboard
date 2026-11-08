@@ -14,7 +14,7 @@ export type NodeView = { id: string; name: string; health: "online" | "offline" 
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
   slots: { total: number | null; occupied: number; idle: number | null }; holding: HoldReasonView[]; agents: AgentView[] };
 export type MachineControlView = { desired: "running" | "draining" | "stopped"; generation: string; since: string | null; pendingHandoffs: number };
-export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation: string; since: string | null };
+export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation: string; since: string | null; note: string | null };
 export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
   holding: HoldReasonView[]; lastSeenAt: string | null; load: LoadView | null;
   hardware: { logicalCpus: number | null; memoryTotalBytes: number; diskTotalBytes: number | null; diskFreeBytes: number | null } | null;
@@ -46,7 +46,7 @@ function availability(a: OwnerAvailability | null | undefined): OwnerAvailabilit
   if (!isRecord(a)) return null;
   const state = oneOfOrNull(a.state, ["unset", "on", "off"] as const);
   if (!state || typeof a.generation !== "string" || !GENERATION.test(a.generation)) return null;
-  return { state, generation: a.generation, since: text(a.since) };
+  return { state, generation: a.generation, since: text(a.since), note: text(a.note) };
 }
 
 const CLASSES = ["fast", "standard", "deep"] as const;

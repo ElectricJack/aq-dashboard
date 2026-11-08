@@ -103,8 +103,12 @@ describe("adaptSwarm", () => {
   });
   it("adapts owner availability", () => {
     const f = fixture(); f.server.owner_availability = { state: "on", generation: "2", since: "2026-11-07T09:00:00.000Z" };
-    expect(adaptSwarm(f, TIME).server.ownerAvailability).toEqual({ state: "on", generation: "2", since: "2026-11-07T09:00:00.000Z" });
+    expect(adaptSwarm(f, TIME).server.ownerAvailability).toEqual({ state: "on", generation: "2", since: "2026-11-07T09:00:00.000Z", note: null });
     expect(adaptSwarm(fixture(), TIME).server.ownerAvailability).toBeNull();
+  });
+  it("keeps the former-owner note on an unset switch", () => {
+    const f = fixture(); f.server.owner_availability = { state: "unset", generation: "5", since: null, note: "Set by a former owner; reads as unset." };
+    expect(adaptSwarm(f, TIME).server.ownerAvailability).toEqual({ state: "unset", generation: "5", since: null, note: "Set by a former owner; reads as unset." });
   });
   it("unknown availability state is null", () => {
     const f = fixture() as unknown as { server: Record<string, unknown> };

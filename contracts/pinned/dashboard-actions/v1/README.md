@@ -323,3 +323,30 @@ bootstrap advertises `swarm.worker.control@1` (these kinds) and
   `[{type:"machine_revocation",id:<operation id>}]` with no revision.
 
 An unknown machine key is a neutral 404. `reason` is optional for all four kinds.
+
+## Owner availability
+
+`swarm.availability.set` (spec 0007 Q2) is the owner's sticky availability
+switch, owner-only. Owner bootstrap advertises `swarm.availability.control@1`,
+enabled only when an intelligence registry is configured (otherwise the kind is
+a neutral 409). The subject is `{type:"swarm",id:"owner-availability"}` with no
+revision and empty `expected_versions`; the payload is `{operation_id,
+available, expected_generation}`, where `expected_generation` is the
+`server.owner_availability.generation` the page last read (a positive decimal
+string; `"1"` while the switch is unset).
+
+- `available: true` turns the switch on. It writes no observation: while the
+  switch is on, selection treats every authorized credential as attested
+  available by the owner (credential-wide: no model, no node), so availability
+  stays on until the owner switches it off. A credential with unexpired
+  negative feedback in the node's observations is not attested. An offer made
+  under the switch is refused at accept or grant only if the switch changed
+  (a new generation) since its selection.
+- `available: false` turns it off: polls make no new offer and run no selection.
+  Manual observations are still accepted, but the switch holds.
+
+It is `confirmed` with receipt `[{type:"owner_availability",id:<operation
+id>,revision:<new generation>}]` and affected entity
+`{type:"swarm",id:"owner-availability",revision:<new generation>}`. A stale
+generation is `conflict` with `current_versions {owner_availability:<live
+generation>}`; nothing is written. `reason` is optional.
