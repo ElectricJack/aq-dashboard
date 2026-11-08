@@ -62,13 +62,17 @@ export interface TerminalPaneProps {
   facts?: ReactNode;
   /** Names the region when several panes share a page (split view). */
   label?: string;
+  /** Take control once, after the first terminal info (Swarm pane). Never repeated on automatic reconnect. */
+  autoControl?: boolean;
+  /** Called once when this pane makes its automatic Take control, so the owner can remember it. */
+  onAutoControl?: () => void;
 }
 export function InteractiveTerminal(props: TerminalPaneProps) {
   const { queryContext: c } = useSession();
   return <TerminalPane key={`${props.terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} {...props} />;
 }
 /** The pane reports `data-cols` (rendered) and `data-fit-cols` (what its width fits, before the 80-column floor). */
-function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal' }: TerminalPaneProps) {
+function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', autoControl = false, onAutoControl }: TerminalPaneProps) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
   const controlCapability = bootstrap.capability('terminal.control'), allowControl = controlCapability.enabled;
@@ -80,6 +84,9 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const terminal = useRef<Terminal | null>(null);
   const uncertain = useRef(false);
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
+  // Automatic control happens on this pane's first connection only: Reconnect and Disconnect then Reconnect never retake it.
+  const autoTaken = useRef(false), autoControlRef = useRef(autoControl), onAutoControlRef = useRef(onAutoControl);
+  autoControlRef.current = autoControl; onAutoControlRef.current = onAutoControl;
   const [state, setState] = useState<TerminalState>({ message: 'Connecting…', connected: false, controlling: false, canControl: false, paused: false });
   const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true);
   // U11: the screen at the moment observation stopped, and the identity/epoch a reconnect must match.
@@ -109,7 +116,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     });
     const job = crypto.randomUUID();
     const freeze = () => { const lines = snapshotLines(term.buffer.active, term.rows); if (lines.length) setSnapshot(lines); };
-    const transport = connectInteractiveTerminal({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
+    const transport = connectInteractiveTerminal({ terminalId, allowControl, autoControl: autoControlRef.current && !autoTaken.current, onAutoControl: () => { autoTaken.current = true; onAutoControlRef.current?.(); }, initiallyPaused: uncertain.current, expect: binding.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
       write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
       reset: () => { freeze(); feed?.restart(); term.reset(); },
@@ -224,6 +231,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
   return <section ref={pane} className={styles.pane} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
     <div className={styles.toolbar}>
+      {state.notice && <p role="status" className={styles.notice}>{state.notice}</p>}
       <div className={styles.controls} data-lease={leaseText ? true : undefined} data-disconnected={phase === 'disconnected' || undefined}>
         <span className={styles.state}>
           <span role="status" className={leaseText && routineMessage ? 'visually-hidden' : undefined}>{state.message}</span>

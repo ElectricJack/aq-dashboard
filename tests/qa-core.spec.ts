@@ -68,7 +68,7 @@ test("SO-13: offline keeps the overview and says how old it is", async ({ page, 
 });
 
 test("SO-14 / ISSUE-007: Back returns focus to the link that opened the page", async ({ page }) => {
-  await page.goto("/agents");
+  await page.goto("/agents/sessions");
   const link = page.getByRole("main").getByRole("link", { name: /Worker 07/ }).first();
   const href = await link.getAttribute("href");
   await link.click();

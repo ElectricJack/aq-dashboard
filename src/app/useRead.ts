@@ -32,6 +32,8 @@ export function useRead<W, V>(opts: {
   adapt(data: W, serverTime: string): V;
   pollMs?: number;
   enabled?: boolean;
+  /** `PANEL_READ` keeps a malformed response inside its own view instead of the global update screen. */
+  meta?: Record<string, unknown>;
 }) {
   const { queryContext } = useSession();
   const params = opts.params ?? {};
@@ -49,6 +51,7 @@ export function useRead<W, V>(opts: {
     // A missing or refused resource stops polling; a transient failure keeps it.
     ...(opts.pollMs !== undefined && { refetchInterval: pollUnlessSettled(opts.pollMs) }),
     ...(opts.enabled !== undefined && { enabled: opts.enabled }),
+    ...(opts.meta !== undefined && { meta: opts.meta }),
   });
 }
 

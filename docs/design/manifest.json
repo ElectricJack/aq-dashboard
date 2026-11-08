@@ -85,6 +85,13 @@
       "source": "dashboard-design-review-2026-10-30/responsive-pass-2026-10-31/13-results-mobile-v2.png",
       "sha256": "a61ece2491ae4716408280909db1678214147c724093f837d80935d65e5de052",
       "bytes": 1533662
+    },
+    {
+      "file": "14-swarm-tree-v3.png",
+      "title": "Agents swarm tree",
+      "source": ".superpowers/brainstorm/2382938-1794083621/content/swarm-tree-v3.html",
+      "sha256": "57c2e376695c7e3301e334a16747d4888e4ead86a3cb22fd041e27d45e3693c7",
+      "bytes": 155998
     }
   ]
 }

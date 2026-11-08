@@ -6,6 +6,7 @@ import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject, FIXTURE_ATTEMPT_SESSIONS } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
+import { swarmHandlers } from "./swarm";
 import { withDecisionFixtures } from "./decisionFixtures";
 import { questionHandlers, withQuestionFixtures } from "./questions";
 import { PLAYBOOK_CAPABILITIES, playbookActionHandlers, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
@@ -94,6 +95,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...(questions ? questionHandlers() : []),
     ...humanGraphHandlers(s.reads, s.graph),
+    ...swarmHandlers(s.reads),
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),

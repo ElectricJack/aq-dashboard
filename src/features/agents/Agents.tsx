@@ -19,6 +19,7 @@ import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
 import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
 import styles from "./Agents.module.css";
+import { AgentsTabs } from "./AgentsTabs";
 import { columnsForPane, InteractiveTerminal, MIN_PANE_COLUMNS } from "./InteractiveTerminal";
 import { createOutputFeed, TerminalTail } from "./TerminalTail";
 import { Icon } from "../../components/icons";
@@ -198,7 +199,7 @@ function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: Sw
     setOpenIds(next);
     if (id !== selected.id) pendingFocus.current = neighbour?.id ?? selected.id;
     else if (neighbour) go(neighbour.id, { focusTab: neighbour.id });
-    else navigate({ pathname: "/agents", search });
+    else navigate({ pathname: "/agents/sessions", search });
   }
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -454,7 +455,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   if (!query.data) {
     return (
       <div className={styles.detail}>
-        <Link to={{ pathname: "/agents", search }} className={styles.back}>All sessions</Link>
+        <Link to={{ pathname: "/agents/sessions", search }} className={styles.back}>All sessions</Link>
         <QueryStatus
           status={query.isError ? "error" : "pending"}
           error={query.error}
@@ -481,7 +482,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   return (
     <section ref={workspace} className={styles.detail} aria-labelledby={headingId} data-viewport-fit="" data-expanded={expanded || undefined}>
       <div className={styles.focusHeader}>
-        <Link to={{ pathname: "/agents", search }} className={styles.crumb} aria-label="Back to Agents">
+        <Link to={{ pathname: "/agents/sessions", search }} className={styles.crumb} aria-label="Back to Agents">
           <ChevronLeft className={styles.backIcon} size={20} aria-hidden="true" />Agents
         </Link>
         <span className={styles.crumbSeparator} aria-hidden="true">/</span>
@@ -612,7 +613,10 @@ export function Agents() {
       {sessionId ? (
         <SessionPage key={sessionId} sessionId={sessionId} search={search} view={view} onViewChange={changeView} />
       ) : (
-        <Roster search={search} />
+        <>
+          <AgentsTabs current="sessions" />
+          <Roster search={search} />
+        </>
       )}
     </div>
   );

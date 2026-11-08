@@ -7,7 +7,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900, phone: false }, {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("N-07: a disabled Take control explains why and is not styled as the primary action", async ({ page }) => {
-      await page.goto("/agents");
+      await page.goto("/agents/sessions");
       const last = page.getByRole("list", { name: "Sessions" }).getByRole("listitem").last().getByRole("link").first();
       await last.click();
       const pane = page.getByRole("region", { name: "Interactive agent terminal" });
