@@ -17,7 +17,7 @@ export type HoldCode =
   | "measurement_expired" | "measurement_unavailable"
   | "node_spend_ceiling_reached" | "node_spend_unaccounted" | "node_disk_pressure"
   | "cpu_above_threshold" | "memory_above_threshold" | "agent_maximum_reached"
-  | "no_machine_online" | "no_eligible_machine" | "no_free_slot";
+  | "no_machine_online" | "no_eligible_machine" | "no_free_slot" | "history_rate_limited" | "history_cap_reached";
 
 export type HoldReason = { code: HoldCode; message: string; remedy?: string };
 export type MachineLoad = {
