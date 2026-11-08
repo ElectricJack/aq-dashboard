@@ -351,7 +351,7 @@
       "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
     },
     "14-swarm-tree-v3.png": {
-      "status": "open",
+      "status": "accepted",
       "reference": "docs/design/14-swarm-tree-v3.png",
       "surface": "agents-swarm",
       "delivered_subset": "Agents > Swarm tab: top-down tree with the AQ server at the root; machine cards with CPU/RAM bars, dashed free slots, greyed dashed offline machine, amber holding and booting machines, amber waiting branch; legend; properties pane for server, machine, worker node, agent, free slot and waiting; agent terminal opens with control requested.",
@@ -359,7 +359,7 @@
         "The controls bar (agents per provider, mix by intelligence class, cloud VMs, projected usage burn) is deferred; it needs slider values the server does not provide yet",
         "The fast class colour is darker than the mockup's so white text keeps 4.5:1",
         "The mockup's Prefer left-to-right toggle is not offered",
-        "The tree opens at zoom 1 (card text at least 12px) centred on the server root, so a wide tree is panned; fit view is a control. On the live aq-ms1 data (5 machines) the only machine with load starts off-screen at 1440 and 390, and a ?select= deep link does not pan to the selected object",
+        "The tree opens at zoom 1 (card text at least 12px) centred on the server root, so a wide tree is panned; fit view is a control. On the live aq-ms1 data (5 machines) the only machine with load starts off-screen at 1440 and 390; a ?select= deep link now pans to the selection (#88)",
         "The dashboard theme is dark; the mockup is light",
         "Live data could not produce: stopped machines (phase 1), booting cloud VMs (no boat), free-slot pills (no live node reports a slot total; unknown totals correctly show 0/? and no pills), the Codex ring and per-agent waiting pills (phase 3). These were checked on the fixture build only",
         "Windows host load on the WSL2 desktop is pending the owner's approval of the Windows probe; the live machine shows WSL VM load labelled 'Windows host probe missing: showing WSL VM load'",
@@ -372,7 +372,8 @@
           "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440-fit.png",
           "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440-agent-control.png",
           "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440-agent-reconnect.png",
-          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-phone-390-agent.png"
+          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-phone-390-agent.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-fixture-desktop-1440-d4-pills.png"
         ],
         "live": [
           "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440.png",
@@ -388,14 +389,25 @@
           "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390-server-pane.png",
           "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390-machine-pane.png",
           "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390-agent.png",
-          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-320.png"
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-320.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-desktop-1440-d1-server-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d1-server-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-desktop-1440-d2-keyboard-focus.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-desktop-1440-d8-select-pan.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d8-select-pan.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d6-pane-labels.png"
         ]
       },
-      "reviewer": "Claude Opus 5.5, swarm phase 2 live acceptance A1 on aq-ms1, 2026-11-08",
-      "served_bundle_sha256": null,
-      "live_served_bundle_sha256": "33fda9c51cbe6cca50790ea3e4ab5669457509d2a4802eaf21d86ab3a6118b70",
+      "reviewer": "Claude Opus 5.5, swarm phase 2 live acceptance A1 and recheck on aq-ms1, 2026-11-08",
+      "served_bundle_sha256": "dc663559e3b9bae481636d369537c608b78cedd755617549c2e8a0f72cdcf8d7",
+      "live_served_bundle_sha256": "dc663559e3b9bae481636d369537c608b78cedd755617549c2e8a0f72cdcf8d7",
       "live_evidence": "docs/implementation/evidence/swarm-p2/live/results.md",
-      "reason": "A1 ran on the served bundle 33fda9c5… (live_served_bundle_sha256; served_bundle_sha256 stays null while open) and found two blocking defects: (1) the server pane's 'Running agents' and the tree's agent pills include stopped attempts that still hold their task (aq-ms1: 5 shown while Overview reports 0 running); (2) tree cards have no visible keyboard focus indicator, and a focused card that is partly off-screen is not panned into view. See live/results.md for repro steps and the non-blocking defects"
+      "previous_live_served_bundle_sha256": "33fda9c51cbe6cca50790ea3e4ab5669457509d2a4802eaf21d86ab3a6118b70",
+      "recheck": "Recheck 2026-11-08 on the served bundle dc663559… (aq-dashboard 30b13ce with #88, aq-server 91be1177 with #113): D1 passes (Running agents 0 = Overview running 0, no pills for stopped sessions), D2 passes (visible 2px outline on focused cards, inside the tree viewport), D3, D6 and D8 pass live, D4 passes on the fixture only (no live agent was running and none was created). See live/results.md, Recheck.",
+      "pending_checks": [
+        "Windows host-load probe check: pending owner approval of the probe (not installed); after approval confirm host-load.json under 10 s old, 'Load source Windows host (WSL2)' and the CPU bar rising under Windows load",
+        "Live agent-terminal control check (take control, typing, Reconnect, two-viewer takeover): pending phase 1 task W13 (terminal input); live agent terminals are watch-only until then"
+      ]
     }
   },
   "pages": {

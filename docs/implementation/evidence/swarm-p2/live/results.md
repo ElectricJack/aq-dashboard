@@ -93,3 +93,25 @@ Stopped machines (phase 1), booting VMs (no boat), free-slot pills (no slot tota
 - Task `aa28645e-022c-46bb-9f4e-e0ea56d48aac` created (priority 900), one attempt 98627b5d (session a620064c) ran 361 s, task retired.
 - No QA or MS1 evidence task touched; the measurement was not re-run.
 
+
+## Recheck (2026-11-08, after aq-server #113 and aq-dashboard #88)
+
+Deployed: `wt/ms1h-server` at origin/main 91be1177 (#113), `up.sh rebuild-server`; aq-dashboard main 30b13ce (#88), `pnpm build`, server container restarted. `/healthz` ok (`/health` is not a route on this server). Served bundle `sha256:dc663559e3b9bae481636d369537c608b78cedd755617549c2e8a0f72cdcf8d7` = bootstrap `dashboard_digest` = sha256 of the served `/dashboard-manifest.json` = sha256 of `dist/dashboard-manifest.json` (44 files, source 30b13ce). It replaces `33fda9c5…` (see `bundle.json`). `remeasure.sh check`: valid (runtime revision 17, expires 2026-11-08T22:09:50Z); not re-profiled. Real browser (agent-browser) at 1440x900 and 390x844, live aq-ms1; no console or page errors; 32 text nodes in main, none under 12 px; no horizontal overflow.
+
+| # | Check | Result | Evidence |
+| --- | --- | --- | --- |
+| D1 | `/agents?select=server`: Running agents 0 = `GET /api/v1/overview` running 0 (exact); no agent pills in the tree (7 nodes: server, 5 machines, waiting) | PASS (1440 and 390) | `recheck-desktop-1440-d1-server-pane.png`, `recheck-phone-390-d1-server-pane.png` |
+| D2 | Sessions tab focused, Tab: server root, desktop, ms1-desktop, e0-local-development, ... each node wrapper has computed `outline: solid 2px rgb(243,197,118)`; every focused card lies inside the tree region (x 248-1046, y 245-785), including `desktop` (527-767, 459-572) | PASS | `recheck-desktop-1440-d2-keyboard-focus.png` (e0-local-development focused) |
+| D3 | Usage window reads `anthropic unknown` | PASS | same server-pane screenshots |
+| D4 | Pill `title` carries the full text and pills read `claude · standard` (harness label). No live agent was running, and none was created, so this is the fixture build (`pnpm dev:mock`, port 5192) only | PASS (fixture) | `recheck-fixture-desktop-1440-d4-pills.png` |
+| D6 | Phone machine pane: every dt top equals its dd top (offset 0, was 8 px) | PASS | `recheck-phone-390-d6-pane-labels.png` |
+| D8 | `?select=machine:desktop` pans to the card: it sits inside the tree region at 1440 (viewport `translate(278px, 118.5px)`) and 390 | PASS | `recheck-desktop-1440-d8-select-pan.png`, `recheck-phone-390-d8-select-pan.png` |
+
+No required state regressed: Swarm/Sessions tabs, root, machine cards and bars, holding/offline/waiting states, panes and the phone layout still render as before. D5 and D7 are unchanged and non-blocking. The record `14-swarm-tree-v3.png` is set to `accepted` with the new digest (`live_served_bundle_sha256`, and `served_bundle_sha256`).
+
+### Still pending (recorded in `acceptance.json` `pending_checks`)
+- Windows host-load probe check: the probe is not installed and awaits owner approval. After approval: install, confirm `host-load.json` under 10 s old, `Load source Windows host (WSL2)`, and the CPU bar rising under Windows load.
+- Live agent-terminal control check (take control, typing, Reconnect, two-viewer takeover): pending phase 1 task W13 (terminal input). Live agent terminals stay watch-only until then; auto control, typing and Reconnect were checked on the fixture build only.
+
+### Recheck mutations
+aq-ms1 server rebuilt to 91be1177 and the server container restarted; no task, attempt or QA data touched.

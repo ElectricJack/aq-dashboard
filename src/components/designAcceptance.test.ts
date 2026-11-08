@@ -30,7 +30,12 @@ test.each(records)("%s is accepted with a complete record and existing captures"
   expect(Array.isArray(record.deferred_differences)).toBe(true);
   // An open record names what it waits for and has no served bundle yet; accepting it records the bundle digest.
   if (record.status === "open") { expect(String(record.reason ?? "")).not.toBe(""); expect(record.served_bundle_sha256 ?? null).toBeNull(); }
-  else expect(record.served_bundle_sha256).toBe(acceptance.served_bundle.manifest_sha256);
+  else if (record.live_served_bundle_sha256) {
+    // A record accepted on its own later live run names that run's bundle, which must match its evidence bundle.json.
+    expect(record.served_bundle_sha256).toBe(record.live_served_bundle_sha256);
+    const evidence = JSON.parse(read(`${String(record.live_evidence).replace(/[^/]+$/, "")}bundle.json`).toString());
+    expect(`sha256:${record.served_bundle_sha256}`.replace("sha256:sha256:", "sha256:")).toBe(`sha256:${evidence.manifest_sha256}`);
+  } else expect(record.served_bundle_sha256).toBe(acceptance.served_bundle.manifest_sha256);
   const captures = [...record.captures.fixture, ...(record.captures.live ?? [])];
   expect(captures.filter((c) => /desktop-1440/.test(c)).length).toBeGreaterThan(0);
   expect(captures.filter((c) => /phone-390/.test(c)).length).toBeGreaterThan(0);
