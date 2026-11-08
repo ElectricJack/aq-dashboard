@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -20,7 +20,9 @@ function renderFailing(error: Error) {
 test("a failed chunk reloads once automatically", async () => {
   renderFailing(new TypeError("Failed to fetch dynamically imported module: /assets/overview-x.js"));
   expect(await screen.findByText("Updating dashboard…")).toBeInTheDocument();
-  expect(reload).toHaveBeenCalledTimes(1);
+  // "Updating dashboard…" renders on the first commit; the reload fires from a passive effect
+  // that may flush after findByText resolves, so wait for it instead of asserting immediately.
+  await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
 });
 
 test("a repeat chunk failure shows the friendly state with Reload and details", async () => {
