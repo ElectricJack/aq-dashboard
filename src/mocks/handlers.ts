@@ -9,6 +9,7 @@ import { decisionHandlers } from "./decisions";
 import { swarmHandlers } from "./swarm";
 import { withDecisionFixtures } from "./decisionFixtures";
 import { questionHandlers, withQuestionFixtures } from "./questions";
+import { swarmActionHandlers } from "./swarmActions";
 import { PLAYBOOK_CAPABILITIES, playbookActionHandlers, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
 export function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
@@ -96,6 +97,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...(questions ? questionHandlers() : []),
     ...humanGraphHandlers(s.reads, s.graph),
     ...swarmHandlers(s.reads),
+    ...swarmActionHandlers(),
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),

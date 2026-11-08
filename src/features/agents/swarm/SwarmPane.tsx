@@ -6,6 +6,7 @@ import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
 import { AgentPane, scopeOnly } from "./AgentPane";
+import { MachineControls } from "./MachineControls";
 import { showWaiting, type Selection } from "./graph";
 import styles from "./Swarm.module.css";
 
@@ -23,12 +24,12 @@ function Settings({ label }: { label: string }) {
   const { search } = useLocation();
   return <Link className={styles.linkButton} to={{ pathname: "/settings", search: scopeOnly(search) }}>{label}</Link>;
 }
-function WorkerControls({ labels }: { labels: string[] }) {
+function NodeControls() {
   const { bootstrap } = useSession();
   const enabled = bootstrap.capability("swarm.worker.control").enabled;
   return <>
-    <div className={styles.actions}>{labels.map(l => <ActionButton key={l} disabled={!enabled}>{l}</ActionButton>)}</div>
-    {!enabled && <p className={styles.actionNote}>Worker start, stop and drain are not available on this server yet.</p>}
+    <div className={styles.actions}>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
+    <p className={styles.actionNote}>{enabled ? "Drain node, restart and logs are not available yet. Use the machine's controls." : "Worker start, stop and drain are not available on this server yet."}</p>
   </>;
 }
 
@@ -80,7 +81,7 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
       {m.kind === "cloud" && <><dt>Cost</dt><dd>{m.cost ? `$${(m.cost.microsPerHour / 1e6).toFixed(2)} / h · up ${formatAge(serverTime, m.cost.startedAt).replace(/ ago$/, "")}` : "—"}</dd></>}
       <Holding holds={m.holding} />
     </DetailList>
-    <WorkerControls labels={["Start worker", "Stop worker", "Drain"]} />
+    <MachineControls m={m} />
   </>;
 }
 
@@ -97,7 +98,7 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
       <dt>Channel</dt><dd>{n.agentChannel === "ready" ? "agent channel ready" : n.agentChannel === "unavailable" ? "agent channel unavailable" : "not reported"}</dd>
       <Holding holds={n.holding} />
     </DetailList>
-    <WorkerControls labels={["Drain node", "Restart", "View logs"]} />
+    <NodeControls />
   </>;
 }
 
