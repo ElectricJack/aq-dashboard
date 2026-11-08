@@ -1,4 +1,4 @@
-import { useMemo, useRef, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, type FocusEvent, type KeyboardEvent } from "react";
 import { Background, Controls, ReactFlow, type ReactFlowInstance } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { SwarmView } from "../../../api/adapters/swarm";
@@ -12,6 +12,9 @@ const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean }
   { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "free slot", color: "transparent", dashed: true }, { label: "waiting for a slot", color: "transparent", dashed: true },
 ];
 
+/** The part of the React Flow instance the tree uses. */
+type Flow = Pick<ReactFlowInstance, "setViewport" | "setCenter" | "getViewport" | "getInternalNode">;
+
 export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { view: SwarmView; ready: number | null; selected: Selection | null; stale?: boolean; onSelect(s: Selection): void }) {
   const section = useRef<HTMLElement>(null);
   const laidOut = useMemo(() => {
@@ -21,7 +24,7 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
   const chosen = selected ? selectionId(selected) : null;
   const nodes = useMemo(() => laidOut.nodes.map(n => ({ ...n, selected: n.id === chosen })), [laidOut, chosen]);
   // Open at zoom 1 so card text is never under 12px: the whole tree when it fits, otherwise centred on the server root. The user pans.
-  const open = (flow: { setViewport: ReactFlowInstance["setViewport"] }) => {
+  const open = (flow: Pick<Flow, "setViewport">) => {
     const width = section.current?.clientWidth ?? 0;
     if (!width || laidOut.nodes.length === 0) return;
     const left = Math.min(...laidOut.nodes.map(n => n.position.x)), right = Math.max(...laidOut.nodes.map(n => n.position.x + (n.width ?? 0)));
@@ -31,18 +34,57 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
     const centre = fits || !root ? (left + right) / 2 : root.position.x + (root.width ?? 0) / 2;
     void flow.setViewport({ x: width / 2 - centre, y: 24 - top, zoom: 1 });
   };
+  const flow = useRef<Flow | null>(null);
+  const ownSelectId = useRef<string | null>(null);
+  const initCentred = useRef<string | null>(null);
+  // Centre on a node at the current zoom; unless forced, only when its box is not fully inside the tree viewport.
+  const reveal = (id: string, force: boolean) => {
+    const instance = flow.current, box = section.current;
+    if (!instance || !box) return;
+    const found = laidOut.nodes.find(n => n.id === id);
+    const internal = instance.getInternalNode(id);
+    const pos = internal?.internals.positionAbsolute ?? found?.position;
+    const w = internal?.measured.width ?? found?.data.box.width, h = internal?.measured.height ?? found?.data.box.height;
+    if (!pos || !w || !h) return;
+    const { x, y, zoom } = instance.getViewport();
+    const left = pos.x * zoom + x, top = pos.y * zoom + y;
+    const inside = left >= 0 && top >= 0 && left + w * zoom <= box.clientWidth && top + h * zoom <= box.clientHeight;
+    if (force || !inside) void instance.setCenter(pos.x + w / 2, pos.y + h / 2, { zoom, duration: 200 });
+  };
+  const initialised = useRef(false);
+  const onInit = (instance: Flow) => {
+    flow.current = instance;
+    initialised.current = true;
+    if (chosen && laidOut.nodes.some(n => n.id === chosen)) { open(instance); initCentred.current = chosen; reveal(chosen, true); } else open(instance);
+  };
+  // A selection that changes from outside the tree (?select=, history) pans to the card; a click inside the tree does not recentre.
+  useEffect(() => {
+    if (!chosen || !initialised.current) return;
+    const mine = ownSelectId.current === chosen, centred = initCentred.current === chosen;
+    ownSelectId.current = null; initCentred.current = null;
+    if (mine || centred) return;
+    reveal(chosen, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen]);
+  const choose = (s: Selection) => { ownSelectId.current = selectionId(s); onSelect(s); };
+  // Keyboard focus lands on the node wrapper; pan it into view when it is not fully visible. A mouse click focuses without :focus-visible and never pans.
+  const focused = (event: FocusEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (!target.matches(".react-flow__node") || !target.matches(":focus-visible")) return;
+    if (target.dataset.id) reveal(target.dataset.id, false);
+  };
   // Enter and Space on a focused card select it (React Flow focuses the node and pans to it).
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     const holder = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
     const hit = holder && laidOut.nodes.find(n => n.id === holder.dataset.id);
-    if (hit) { event.preventDefault(); onSelect(hit.data.selection); }
+    if (hit) { event.preventDefault(); choose(hit.data.selection); }
   };
   return (
     <div>
-      <section ref={section} aria-label="Swarm tree" className={styles.flow} onKeyDown={keys}>
-        <ReactFlow nodes={nodes} edges={laidOut.edges} nodeTypes={nodeTypes} onInit={open} nodesDraggable={false} nodesConnectable={false} nodesFocusable edgesFocusable={false} elementsSelectable
-          proOptions={{ hideAttribution: true }} onNodeClick={(_, n) => onSelect(n.data.selection)} minZoom={0.5} maxZoom={2}>
+      <section ref={section} aria-label="Swarm tree" className={styles.flow} onKeyDown={keys} onFocus={focused}>
+        <ReactFlow nodes={nodes} edges={laidOut.edges} nodeTypes={nodeTypes} onInit={onInit} nodesDraggable={false} nodesConnectable={false} nodesFocusable edgesFocusable={false} elementsSelectable
+          proOptions={{ hideAttribution: true }} onNodeClick={(_, n) => choose(n.data.selection)} minZoom={0.5} maxZoom={2}>
           <Background gap={18} size={1} />
           <Controls showInteractive={false} />
         </ReactFlow>

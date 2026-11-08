@@ -105,4 +105,10 @@ describe("buildSwarmGraph", () => {
     const g = build(v, 3); const placed = layoutSwarm(g.nodes, g.edges);
     expect(placed.find(n => n.id === "waiting")!.height).toBe(many.data.box.height);
   });
+  it("labels an agent pill with its harness, falling back to the provider", () => {
+    const v = view();
+    v.machines[0]!.nodes = [worker("local-1", 3, 2, 1, [{ ...agent(1, "anthropic", "standard"), harness: "claude" }, agent(2, "anthropic", "fast")])];
+    const labels = buildSwarmGraph(v, { host: "h", ready: 0, now: NOW }).nodes.filter(n => n.data.kind === "agent").map(n => n.data.label);
+    expect(labels).toEqual(["claude · standard", "anthropic · fast"]);
+  });
 });

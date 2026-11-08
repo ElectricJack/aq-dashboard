@@ -14,7 +14,7 @@ export function SwarmCard({ data }: NodeProps<Node<SwarmCardData>>) {
       {data.kind !== "server" && <Handle type="target" position={Position.Top} isConnectable={false} style={handle} />}
       <button type="button" className={pill ? `${styles.card} ${styles.pill}` : styles.card} data-kind={data.kind} data-state={data.state ?? undefined}
         data-machine-kind={data.machineKind ?? undefined} data-class={pill ? data.intelligenceClass ?? "none" : undefined} data-provider={pill ? data.provider ?? undefined : undefined}
-        tabIndex={-1} title={data.tooltip ?? undefined}
+        tabIndex={-1} title={data.tooltip ?? (pill ? data.label : undefined)}
         aria-label={data.meters ? `${data.ariaLabel}, ${data.meters.map(m => `${m.label} ${m.percent}%`).join(", ")}` : data.ariaLabel}>
         <span className={styles.title} aria-hidden="true">{data.label}</span>
         {data.sub && <>{" "}<span className={styles.sub} aria-hidden="true">{data.sub}</span></>}

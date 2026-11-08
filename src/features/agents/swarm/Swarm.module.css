@@ -19,6 +19,8 @@
 .card[data-kind="free"] { background: transparent; color: var(--color-text-secondary); border: 1px dashed var(--color-text-secondary); }
 .card[data-kind="waitingAgent"] { background: transparent; color: #c7802e; border: 1px dashed #c7802e; }
 :global(.react-flow__node.selected) .card { outline: 2px solid #57c; outline-offset: 2px; }
+/* React Flow styles .react-flow__node.selectable:focus-visible itself, so the selectable form is repeated to win on specificity. */
+.flow :global(.react-flow__node):focus-visible, .flow :global(.react-flow__node.selectable):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .meters { margin-top: 4px; display: grid; gap: 2px; color: var(--color-text-secondary); text-align: left; }
 .meter { display: grid; grid-template-columns: 36px 1fr 36px; gap: 2px 5px; align-items: center; }
@@ -40,7 +42,7 @@
 .paneHead { padding: 10px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-raised); }
 .kicker { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; color: var(--color-text-secondary); }
 .paneTitle { margin: 0; font-weight: 700; font-size: var(--font-size-body); }
-.facts { margin: 0; padding: 10px 12px; display: grid; grid-template-columns: 110px 1fr; gap: 5px 10px; font-size: var(--font-size-xs); }
+.facts { align-items: baseline; margin: 0; padding: 10px 12px; display: grid; grid-template-columns: 110px 1fr; gap: 5px 10px; font-size: var(--font-size-xs); }
 .facts dt { color: var(--color-text-secondary); }
 .facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .actions { padding: 0 12px 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -49,3 +51,5 @@
 @media (pointer: coarse) { .linkButton { min-block-size: 44px; } }
 .terminal { flex: 1; min-height: 360px; display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
 .coverage { margin: 0 0 var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+/* The shared DetailList stacks label over value and adds a top margin to labels at <=600px; keep label and value on one row. */
+@media (max-width: 767px) { .pane .facts { grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); align-items: start; } .pane .facts dt { margin-block-start: 0; } }
