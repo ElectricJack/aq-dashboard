@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { Swarm, HoldReason, SwarmAgent, SwarmNode } from "../api/wire/swarm";
+import type { Swarm, OwnerAvailability, HoldReason, SwarmAgent, SwarmNode } from "../api/wire/swarm";
 import { SERVER_TIME, SESSIONS } from "./inspectionData";
 import { fixtureTerminalId } from "./terminal";
 
@@ -82,12 +82,20 @@ export function swarmEnvelope<T>(data: T) {
   };
 }
 
-export function swarmHandlers(reads: "ok" | "partial" | "empty" | "failed") {
+/** `?scenario=swarm-availability-off|unset` serves the owner availability switch in that state (default is on). */
+const AVAILABILITY_SCENARIOS: Record<string, OwnerAvailability> = {
+  "swarm-availability-off": { state: "off", generation: "3", since: ago(600_000) },
+  "swarm-availability-unset": { state: "unset", generation: "4", since: null, note: "The switch was set by a former owner, so it reads as unset." },
+};
+
+export function swarmHandlers(reads: "ok" | "partial" | "empty" | "failed", scenarioName?: string | null) {
+  const availability = AVAILABILITY_SCENARIOS[scenarioName ?? ""];
+  const swarm = availability ? { ...SWARM_MOCKUP, server: { ...SWARM_MOCKUP.server, owner_availability: availability } } : SWARM_MOCKUP;
   return [
     http.get("/api/v1/swarm", () => {
       if (reads === "failed") return HttpResponse.json({ request_id: "mock", code: "read_model_unavailable", message: "The read model is temporarily unavailable.", retryable: true }, { status: 503 });
       if (reads === "empty") return HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, machines: [], waiting: { reasons: [NO_MACHINE_ONLINE], agents: [] } }));
-      return HttpResponse.json(swarmEnvelope(SWARM_MOCKUP));
+      return HttpResponse.json(swarmEnvelope(swarm));
     }),
   ];
 }

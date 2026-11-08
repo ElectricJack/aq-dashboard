@@ -29,7 +29,8 @@ export function adaptProjectBindings(raw: unknown, after: string | null) {
     ensure((v.expires_at_ms as number) > (v.observed_at_ms as number));
     ensure(Array.isArray(b.allowed_node_ids) && b.allowed_node_ids.length <= 256 && b.allowed_node_ids.every(uuid) && new Set(b.allowed_node_ids).size === b.allowed_node_ids.length);
     const workerGroups = labels(b.allowed_worker_groups, true);
-    const enrolledNodes = b.allow_enrolled_nodes === true;
+    // The server omits the field when it is true (default on), so only an explicit false turns it off.
+    const enrolledNodes = b.allow_enrolled_nodes !== false;
     ensure(workerGroups.length > 0 || b.allowed_node_ids.length > 0 || enrolledNodes);
     previous = b.project_id;
     return { id: b.project_id, name: b.name, revision: row.revision, enabled: b.enabled, repositoryId: b.repository_id, repositoryGeneration: b.repository_binding_generation,

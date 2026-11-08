@@ -8,6 +8,17 @@ import styles from "./Swarm.module.css";
 // Port 28081 is the worker listener of the aq-ms1 stack; the owner edits the URL for any other deployment.
 const defaultWorkerUrl = () => `${window.location.protocol}//${window.location.hostname}:28081`;
 
+const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+const NUMERIC_LOOPBACK = /^(127(\.\d{1,3}){3}|\[::1\])$/;
+/** The worker URL is safe to put in the install command: https, or plain http only to numeric loopback. */
+export function workerUrlProblem(value: string): string | null {
+  let url: URL;
+  try { url = new URL(value.trim()); } catch { return "Enter a full Worker URL such as https://aq.example.com:28081."; }
+  if (url.protocol === "https:") return null;
+  if (url.protocol === "http:" && NUMERIC_LOOPBACK.test(url.hostname)) return null;
+  return url.protocol === "http:" ? "This Worker URL is plain http to a non-loopback address; the worker would send its credentials unencrypted. Use https." : "The Worker URL must start with https://.";
+}
+
 type Enrollment = { code: string; expiresAt: string };
 
 /**
@@ -22,6 +33,13 @@ export function AddMachine() {
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false), [copied, setCopied] = useState<"code" | "command" | "failed" | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    if (!enrollment) return;
+    const left = Date.parse(enrollment.expiresAt) - Date.now();
+    if (!Number.isFinite(left)) return;
+    const timer = setTimeout(() => { setEnrollment(null); setCopied(null); }, Math.max(0, Math.min(left, 2 ** 31 - 1)));
+    return () => clearTimeout(timer);
+  }, [enrollment]);
   if (!capability.enabled) return null;
 
   async function create() {
@@ -38,13 +56,14 @@ export function AddMachine() {
   async function copy(text: string, what: "code" | "command") {
     try { await navigator.clipboard.writeText(text); setCopied(what); } catch { setCopied("failed"); }
   }
-  const command = `packaging/service/aq-install.sh --server ${workerUrl} --bundle ~/aq-bundle --slots 2`;
+  const problem = workerUrlProblem(workerUrl);
+  const command = problem ? null : `packaging/service/aq-install.sh --server ${shellQuote(workerUrl.trim())} --bundle ~/aq-bundle --slots 2`;
   return <section aria-label="Add machine" className={styles.addMachine}>
-    <div className={styles.actions}><ActionButton disabled={busy} onClick={() => void create()}>Add machine</ActionButton></div>
+    <div className={styles.actions}><ActionButton disabled={busy || !!enrollment} onClick={() => void create()}>Add machine</ActionButton></div>
     {failed && <p role="alert">The enrollment code could not be created.</p>}
     {enrollment && <div>
       <label>Worker URL <input type="text" value={workerUrl} onChange={e => setWorkerUrl(e.target.value)} autoComplete="off" spellCheck={false} /></label>
-      <p><code>{command}</code> <ActionButton onClick={() => void copy(command, "command")}>Copy command</ActionButton></p>
+      {command ? <p><code>{command}</code> <ActionButton onClick={() => void copy(command, "command")}>Copy command</ActionButton></p> : <p role="alert">{problem}</p>}
       <p className={styles.actionNote}>Run it from an aq-worker checkout on the new machine. ~/aq-bundle holds the runtime binaries, native.json and repositories.json (docs/operations/install-service.md). The machine is allowed automatically and appears on this page.</p>
       <label>Enrollment code <input type="text" readOnly value={enrollment.code} autoComplete="off" spellCheck={false} aria-label="Enrollment code" /></label>{" "}
       <ActionButton onClick={() => void copy(enrollment.code, "code")}>Copy code</ActionButton>

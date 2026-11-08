@@ -18,7 +18,7 @@ export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation:
 export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
   holding: HoldReasonView[]; lastSeenAt: string | null; load: LoadView | null;
   hardware: { logicalCpus: number | null; memoryTotalBytes: number; diskTotalBytes: number | null; diskFreeBytes: number | null } | null;
-  agentMax: number | null; cost: { currency: string; microsPerHour: number; startedAt: string } | null; control: MachineControlView | null; nodes: NodeView[] };
+  agentMax: number | null; cost: { currency: string; microsPerHour: number; startedAt: string } | null; control: MachineControlView | null; controlUnrecognised: boolean; nodes: NodeView[] };
 export type WaitingAgentView = { taskId: string; title: string; project: { id: string; label: string }; provider: string | null;
   intelligenceClass: "fast" | "standard" | "deep" | null; reasons: HoldReasonView[]; since: string | null };
 export type SwarmView = { serverTime: string; server: { version: string; sourceRevision: string; runningAgents: number | null; ownerAvailability: OwnerAvailabilityView | null };
@@ -104,7 +104,7 @@ function machine(m: SwarmMachine): MachineView {
     hardware: hw ? { logicalCpus: num(hw.logical_cpus), memoryTotalBytes: num(hw.memory_total_bytes) ?? 0, diskTotalBytes: num(hw.disk_total_bytes), diskFreeBytes: num(hw.disk_free_bytes) } : null,
     agentMax: num(m.agent_max),
     cost: cost ? { currency: String(cost.currency), microsPerHour: num(cost.micros_per_hour) ?? 0, startedAt: String(cost.started_at) } : null,
-    control: control(m.control),
+    control: control(m.control), controlUnrecognised: isRecord(m.control) && control(m.control) === null,
     nodes: list<SwarmNode>(m.nodes).filter(isRecord).map(node),
   };
 }

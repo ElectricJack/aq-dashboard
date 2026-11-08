@@ -166,7 +166,7 @@ function Body({ view, selection, ready, autoControlled }: { view: SwarmView; sel
   }
   const hit = find(view, selection);
   if (!hit) return <Empty />;
-  if (selection.kind === "machine") return <MachinePane m={hit.m} serverTime={view.serverTime} />;
+  if (selection.kind === "machine") return <MachinePane key={hit.m.id} m={hit.m} serverTime={view.serverTime} />;
   if (selection.kind === "node" && hit.n) return <NodePane n={hit.n} serverTime={view.serverTime} />;
   if (selection.kind === "free" && hit.n) {
     const hold = hit.m.state === "holding" ? hit.m.holding[0] : undefined;

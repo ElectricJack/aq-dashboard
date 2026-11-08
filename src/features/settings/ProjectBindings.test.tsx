@@ -47,3 +47,15 @@ test("pagination is explicit and uses the exact returned UUID cursor", async () 
   await userEvent.click(screen.getByRole("button", { name: "Load more project bindings" })); await screen.findByText("Project 26");
   await waitFor(() => expect(screen.queryByRole("button", { name: "Load more project bindings" })).toBeNull()); expect(calls).toBe(2);
 });
+test("a binding with no lists and no allow_enrolled_nodes field renders as enrolled machines allowed", async () => {
+  capability(true); const r = projectRecord(); r.binding.allowed_worker_groups = [];
+  server.use(http.get("/api/projects", () => HttpResponse.json({ items: [r], next_cursor: null })));
+  renderApp("/settings"); const list = await screen.findByRole("list", { name: "Project execution bindings" });
+  expect(list).toHaveTextContent(/Enrolled machines\s*allowed/);
+});
+test("allow_enrolled_nodes false renders as not allowed", async () => {
+  capability(true); const r = projectRecord() as ReturnType<typeof projectRecord> & { binding: Record<string, unknown> }; r.binding.allow_enrolled_nodes = false;
+  server.use(http.get("/api/projects", () => HttpResponse.json({ items: [r], next_cursor: null })));
+  renderApp("/settings"); const list = await screen.findByRole("list", { name: "Project execution bindings" });
+  expect(list).toHaveTextContent(/Enrolled machines\s*not allowed/);
+});

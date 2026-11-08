@@ -30,5 +30,5 @@ export function swarmActionHandlers() {
 
 /** Mock-mode enrollment: a labelled fixture code, not a credential. */
 export function enrollmentHandlers() {
-  return [http.post("/api/enrollments", () => HttpResponse.json({ code: "MOCK-ENROLLMENT-CODE", expires_at: "2026-10-31T12:15:00.000Z" }, { status: 201 }))];
+  return [http.post("/api/enrollments", () => HttpResponse.json({ code: "MOCK-ENROLLMENT-CODE", expires_at: new Date(Date.now() + 15 * 60_000).toISOString() }, { status: 201 }))];
 }

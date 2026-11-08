@@ -55,7 +55,7 @@ export function ProjectBindings() {
             <dt>Project ID</dt><dd>{p.id}</dd>
             <dt>Repository binding generation</dt><dd>{p.repositoryGeneration}</dd>
             <dt>Explicitly allowed worker node IDs</dt><dd>{p.nodeIds.join(", ") || "None individually listed"}</dd>
-            {p.enrolledNodes ? <><dt>Enrolled machines</dt><dd>allowed</dd></> : null}
+            <dt>Enrolled machines</dt><dd>{p.enrolledNodes ? "allowed" : "not allowed"}</dd>
             <dt>Catalog digest</dt><dd>{p.catalogDigest}</dd>
             <dt>Check observed at</dt><dd><Timestamp iso={p.validation.observedAt} /></dd>
             <dt>Check expiry</dt><dd><Timestamp iso={p.validation.expiresAt} /></dd>

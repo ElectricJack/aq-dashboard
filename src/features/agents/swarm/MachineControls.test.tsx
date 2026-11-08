@@ -87,6 +87,48 @@ test("disabled with the existing note without swarm.worker.control", async () =>
   expect(screen.getByText("Worker start, stop and drain are not available on this server yet.")).toBeInTheDocument();
 });
 
+test("shows the server's capability reason when worker control is not advertised", async () => {
+  const { default: bootstrap } = await import("../../../../contracts/proposed/bootstrap.json");
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, capabilities: [
+    ...bootstrap.data.capabilities.filter(c => !["swarm.read", "swarm.worker.control"].includes(c.name)), { name: "swarm.read", version: "1", enabled: true },
+    { name: "swarm.worker.control", version: "1", enabled: false, reason: "Worker control requires an owner account" }] } })));
+  await openMachine();
+  expect(await button("Start worker")).toBeDisabled();
+  expect(screen.getByText("Worker control requires an owner account")).toBeInTheDocument();
+});
+
+test("an unrecognised worker state is not 'not installed' and keeps Revoke", async () => {
+  swarm({ ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => m.id !== "desktop" ? m : { ...m, control: { desired: "hibernating", generation: "1", since: null, pending_handoffs: 0 } }) });
+  await openMachine();
+  expect(await screen.findByText(/reported an unrecognised state/)).toBeInTheDocument();
+  expect(screen.queryByText(/not installed as a service/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Start worker" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Revoke machine" })).toBeEnabled();
+});
+
+test("an unsettled operation does not follow the selection to another machine", async () => {
+  const other = { ...SWARM_MOCKUP.machines[0]!, id: "desk2", label: "desk2", nodes: [] };
+  swarm({ ...SWARM_MOCKUP, machines: [...SWARM_MOCKUP.machines, other] });
+  const posts: { subject: { id: string }; operation_id: string }[] = [];
+  server.use(http.post("/api/v1/actions", async ({ request }) => { posts.push(await request.clone().json() as never); return HttpResponse.error(); }));
+  await openMachine();
+  await userEvent.click(await button("Stop worker"));
+  const dialog = await confirmAndSubmit("Stop worker", /Stop desktop now/);
+  expect(await within(dialog).findByText(/Outcome unknown/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Close action" }));
+  expect(await button("Stop worker · operation")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: /^desk2/ }));
+  expect(await screen.findByRole("button", { name: "Stop worker" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Stop worker · operation" })).toBeNull();
+  const sent = posts.length;
+  await userEvent.click(screen.getByRole("button", { name: "Stop worker" }));
+  const fresh = await confirmAndSubmit("Stop worker", /Stop desk2 now/);
+  await waitFor(() => expect(posts.length).toBeGreaterThan(sent));
+  expect(posts.slice(sent).every(p => p.subject.id === "desk2")).toBe(true);
+  expect(new Set(posts.map(p => p.operation_id)).size).toBe(2);
+  expect(fresh).toBeInTheDocument();
+});
+
 test("conflict shows reload guidance", async () => {
   server.use(http.post("/api/v1/actions", () => HttpResponse.json({ request_id: "r", code: "conflict", message: "The machine control generation changed.", retryable: false }, { status: 409 })));
   await openMachine();

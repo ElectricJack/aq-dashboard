@@ -92,3 +92,35 @@ test("a former owner's switch reads unset, shows its note and turning on sends t
   await waitFor(() => expect(bodies).toHaveLength(1));
   expect(bodies[0]).toMatchObject({ kind: "swarm.availability.set", payload: { available: true, expected_generation: "7" } });
 });
+
+test("the availability dialog survives the refetch after it confirms, keeps its reference and returns focus", async () => {
+  const bodies = capture();
+  await openServerPane();
+  const opener = await screen.findByRole("button", { name: "Turn off availability" });
+  await userEvent.click(opener);
+  await submit("Turn off availability", /Turn my availability off/);
+  withAvailability({ state: "off", generation: "3", since: null });
+  const dialog = await screen.findByRole("dialog", { name: "Turn off availability" });
+  await waitFor(() => expect(dialog.querySelector("details p")?.textContent).toBeTruthy());
+  const reference = dialog.querySelector("details p")?.textContent;
+  expect(await within(dialog).findByText("Availability is off.", {}, { timeout: 6000 })).toBeInTheDocument();
+  await waitFor(() => expect(fact("Owner availability")).toHaveTextContent("Off"));
+  expect(screen.getByRole("dialog", { name: "Turn off availability" })).toBeInTheDocument();
+  expect(bodies).toHaveLength(1);
+  expect(dialog.querySelector("details p")?.textContent).toBe(reference);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Close action" }));
+  const keep = await screen.findByRole("button", { name: "Keep available" });
+  expect(keep).toBe(opener);
+  await waitFor(() => expect(keep).toHaveFocus());
+}, 15000);
+
+test("an availability conflict says availability changed, not the machine", async () => {
+  server.use(http.post("/api/v1/actions", () => HttpResponse.json({ request_id: "r", code: "conflict", message: "The availability switch changed.", retryable: false }, { status: 409 })));
+  await openServerPane();
+  await userEvent.click(await screen.findByRole("button", { name: "Turn off availability" }));
+  await submit("Turn off availability", /Turn my availability off/);
+  const dialog = await screen.findByRole("dialog", { name: "Turn off availability" });
+  expect(await within(dialog).findByRole("status")).toHaveTextContent("availability changed since this page loaded");
+  expect(dialog).toHaveTextContent("The availability switch changed.");
+  expect(dialog).not.toHaveTextContent("machine changed");
+});

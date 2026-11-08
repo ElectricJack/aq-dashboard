@@ -5,6 +5,9 @@ import { SwarmAction } from "./SwarmAction";
 import { freezeRevoke, freezeWorkerAction, workerLabels } from "./swarmActions";
 import styles from "./Swarm.module.css";
 
+// What the bootstrap adapter says when the server gave no reason of its own.
+const GENERIC_REASONS = new Set(["Not offered by this AQ server", "Disabled by this AQ server"]);
+
 function statusLine(m: MachineView): string {
   const c = m.control;
   if (!c) return "";
@@ -23,12 +26,12 @@ export function MachineControls({ m }: { m: MachineView }) {
   const c = m.control;
   const l = m.label;
   const worker = (kind: "worker.start" | "worker.stop" | "worker.drain", blocked: string | undefined, intro: React.ReactNode, confirm: string, pendingText: string, confirmedText: string) =>
-    c ? <SwarmAction label={workerLabels[kind]} capability="swarm.worker.control" blocked={blocked} intro={intro} confirm={confirm}
+    c ? <SwarmAction label={workerLabels[kind]} capability="swarm.worker.control" scope={`${m.id}:${kind}`} blocked={blocked} intro={intro} confirm={confirm}
       freeze={() => freezeWorkerAction(kind, m)} pendingText={pendingText} confirmedText={confirmedText} /> : null;
   if (!control.enabled) {
     return <>
       <div className={styles.actions}>{["Start worker", "Stop worker", "Drain"].map(label => <ActionButton key={label} disabled>{label}</ActionButton>)}</div>
-      <p className={styles.actionNote}>Worker start, stop and drain are not available on this server yet.</p>
+      <p className={styles.actionNote}>{control.reason && !GENERIC_REASONS.has(control.reason) ? control.reason : "Worker start, stop and drain are not available on this server yet."}</p>
     </>;
   }
   return <>
@@ -44,10 +47,11 @@ export function MachineControls({ m }: { m: MachineView }) {
         {worker("worker.drain", c.desired !== "running" ? "Only a running worker can drain" : undefined,
           <p>Running agents on {l} finish; no new work starts here.</p>, `Drain ${l}`, "Drain requested — awaiting confirmation.", "Worker drain confirmed.")}
       </> : ["Start worker", "Stop worker", "Drain"].map(label => <ActionButton key={label} disabled>{label}</ActionButton>)}
-      {(c || m.id.startsWith("node:")) && <SwarmAction label={workerLabels["worker.revoke"]} capability="swarm.worker.control" freeze={() => freezeRevoke(m)}
+      {(c || m.controlUnrecognised || m.id.startsWith("node:")) && <SwarmAction label={workerLabels["worker.revoke"]} capability="swarm.worker.control" scope={`${m.id}:worker.revoke`} freeze={() => freezeRevoke(m)}
         intro={<p>Revoking removes the credentials of every worker node on {l}. Its service stops taking work, and the machine leaves the Swarm page. Stop it first so running agents hand off their work. To use it again, enroll it with a new code.</p>}
         confirm={`Revoke ${l}`} pendingText="Revoke requested — awaiting confirmation." confirmedText="Machine revoked." />}
     </div>
-    {!c && <p className={styles.actionNote}>This machine's worker is not installed as a service, so it cannot be started or stopped here.</p>}
+    {!c && m.controlUnrecognised && <p className={styles.actionNote}>This machine's worker reported an unrecognised state, so it cannot be started or stopped here. It can still be revoked.</p>}
+    {!c && !m.controlUnrecognised && <p className={styles.actionNote}>This machine's worker is not installed as a service, so it cannot be started or stopped here.</p>}
   </>;
 }

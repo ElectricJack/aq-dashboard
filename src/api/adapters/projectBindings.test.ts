@@ -30,14 +30,22 @@ test("empty explicit node list remains group-only admission, never unrestricted"
   const p = adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!;
   expect(p.nodeIds).toEqual([]); expect(p.workerGroups).toEqual(["engineering"]);
   record.binding.allowed_worker_groups = [];
+  (record.binding as Record<string, unknown>).allow_enrolled_nodes = false;
   expect(() => adaptProjectBindings({ items: [record], next_cursor: null }, null)).toThrow();
 });
 
-test("a binding that allows enrolled machines with no listed nodes adapts", () => {
+test("allow_enrolled_nodes defaults to allowed when the server omits it", () => {
   const record = projectRecord();
   record.binding.allowed_worker_groups = []; record.binding.allowed_node_ids = [];
-  expect(() => adaptProjectBindings({ items: [record], next_cursor: null }, null)).toThrow();
-  (record.binding as Record<string, unknown>).allow_enrolled_nodes = true;
+  delete (record.binding as Record<string, unknown>).allow_enrolled_nodes;
   const p = adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!;
-  expect(p.enrolledNodes).toBe(true); expect(p.nodeIds).toEqual([]);
+  expect(p.enrolledNodes).toBe(true); expect(p.nodeIds).toEqual([]); expect(p.workerGroups).toEqual([]);
+});
+
+test("allow_enrolled_nodes false is not allowed, true is allowed", () => {
+  const record = projectRecord();
+  (record.binding as Record<string, unknown>).allow_enrolled_nodes = false;
+  expect(adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!.enrolledNodes).toBe(false);
+  (record.binding as Record<string, unknown>).allow_enrolled_nodes = true;
+  expect(adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!.enrolledNodes).toBe(true);
 });

@@ -96,7 +96,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...(questions ? questionHandlers() : []),
     ...humanGraphHandlers(s.reads, s.graph),
-    ...swarmHandlers(s.reads),
+    ...swarmHandlers(s.reads, name),
     ...swarmActionHandlers(),
     ...enrollmentHandlers(),
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),

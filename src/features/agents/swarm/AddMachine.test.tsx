@@ -15,11 +15,11 @@ afterEach(() => { server.resetHandlers(); server.events.removeAllListeners(); vi
 afterAll(() => { server.close(); restore(); });
 
 async function openServerPane() { renderApp("/agents"); fireEvent.click(await screen.findByRole("button", { name: /^AQ server/ })); }
-function enroll(status = 201) {
+function enroll(status = 201, ttlMs = 15 * 60_000) {
   const seen: { method: string; headers: Headers; body: string }[] = [];
   server.use(http.post("/api/enrollments", async ({ request }) => {
     seen.push({ method: request.method, headers: request.headers, body: await request.text() });
-    return status === 201 ? HttpResponse.json({ code: CODE, expires_at: "2026-11-07T12:15:00.000Z" }, { status }) : HttpResponse.json({ message: "no" }, { status });
+    return status === 201 ? HttpResponse.json({ code: CODE, expires_at: new Date(Date.now() + ttlMs).toISOString() }, { status }) : HttpResponse.json({ message: "no" }, { status });
   }));
   return seen;
 }
@@ -35,10 +35,11 @@ test("creates a code and shows it apart from the command", async () => {
   expect(seen[0]!.body).toBe("");
   const url = screen.getByRole("textbox", { name: /Worker URL/ }) as HTMLInputElement;
   expect(url.value).toBe(`${window.location.protocol}//${window.location.hostname}:28081`);
-  expect(screen.getByText(/^packaging\/service\/aq-install\.sh --server /)).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent("plain http to a non-loopback address");
+  expect(screen.queryByText(/^packaging\/service\/aq-install\.sh/)).toBeNull();
   expect(screen.getByText(/Paste this when the script asks for it\. It works once and expires at/)).toBeInTheDocument();
   await userEvent.clear(url); await userEvent.type(url, "https://aq.example");
-  expect(screen.getByText("packaging/service/aq-install.sh --server https://aq.example --bundle ~/aq-bundle --slots 2")).toBeInTheDocument();
+  expect(screen.getByText("packaging/service/aq-install.sh --server 'https://aq.example' --bundle ~/aq-bundle --slots 2")).toBeInTheDocument();
 });
 
 test("command never contains the code", async () => {
@@ -47,6 +48,7 @@ test("command never contains the code", async () => {
   await openServerPane();
   await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
   await screen.findByRole("textbox", { name: "Enrollment code" });
+  await userEvent.clear(screen.getByRole("textbox", { name: /Worker URL/ })); await userEvent.type(screen.getByRole("textbox", { name: /Worker URL/ }), "https://aq.example");
   const command = screen.getByText(/^packaging\/service\/aq-install\.sh/);
   expect(command.textContent).not.toContain(CODE);
   expect(window.location.href).not.toContain(CODE);
@@ -83,4 +85,35 @@ test("settings offers Add machine too", async () => {
   renderApp("/settings");
   const panel = await screen.findByRole("region", { name: "Add machine" });
   expect(within(panel).getByRole("button", { name: "Add machine" })).toBeInTheDocument();
+});
+
+test("the command quotes the Worker URL and is withheld for plain http off loopback", async () => {
+  enroll();
+  await openServerPane();
+  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  const url = await screen.findByRole("textbox", { name: /Worker URL/ });
+  const set = async (v: string) => { await userEvent.clear(url); await userEvent.click(url); await userEvent.paste(v); };
+  await set("https://a.example/x; rm -rf ~ #");
+  expect(screen.getByText("packaging/service/aq-install.sh --server 'https://a.example/x; rm -rf ~ #' --bundle ~/aq-bundle --slots 2")).toBeInTheDocument();
+  await set("https://a.example/it's");
+  expect(screen.getByText("packaging/service/aq-install.sh --server 'https://a.example/it'\\''s' --bundle ~/aq-bundle --slots 2")).toBeInTheDocument();
+  await set("http://127.0.0.1:28081");
+  expect(screen.getByText("packaging/service/aq-install.sh --server 'http://127.0.0.1:28081' --bundle ~/aq-bundle --slots 2")).toBeInTheDocument();
+  await set("http://localhost:28081");
+  expect(screen.getByRole("alert")).toHaveTextContent("plain http");
+  expect(screen.queryByText(/^packaging\/service\/aq-install\.sh/)).toBeNull();
+  await set("http://aq.example:28081");
+  expect(screen.queryByText(/^packaging\/service\/aq-install\.sh/)).toBeNull();
+  await set("not a url");
+  expect(screen.getByRole("alert")).toHaveTextContent("Enter a full Worker URL");
+});
+
+test("Add machine is disabled while an unexpired code is shown and the code clears at expiry", async () => {
+  enroll(201, 1500);
+  await openServerPane();
+  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await screen.findByRole("textbox", { name: "Enrollment code" });
+  expect(screen.getByRole("button", { name: "Add machine" })).toBeDisabled();
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Enrollment code" })).toBeNull(), { timeout: 3000 });
+  expect(screen.getByRole("button", { name: "Add machine" })).toBeEnabled();
 });

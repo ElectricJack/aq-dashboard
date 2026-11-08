@@ -13,7 +13,7 @@ const worker = (id: string, total: number | null, occupied: number, idle: number
 });
 const machine = (id: string, state: MachineView["state"], extra: Partial<MachineView> = {}): MachineView => ({
   id, label: id, kind: "local", state, holding: [], lastSeenAt: NOW, load: null, hardware: { logicalCpus: 8, memoryTotalBytes: 2 ** 34, diskTotalBytes: null, diskFreeBytes: null },
-  agentMax: null, cost: null, control: null, nodes: [], ...extra,
+  agentMax: null, cost: null, control: null, controlUnrecognised: false, nodes: [], ...extra,
 });
 const load = (cpu: number, ram: number) => ({ source: "windows_host" as const, hostProbe: "fresh" as const, cpuPercent: cpu, memoryPercent: ram, cpuAvgPercent: cpu, memoryAvgPercent: ram, samples: 60, observedAt: NOW, fresh: true });
 function view(): SwarmView {
