@@ -1,5 +1,5 @@
 import { ContractError, isRecord } from "./contract";
-import type { Swarm, SwarmAgent, SwarmMachine, SwarmNode, HoldReason, MachineLoad, WaitingAgent } from "../wire/swarm";
+import type { MachineControl, OwnerAvailability, Swarm, SwarmAgent, SwarmMachine, SwarmNode, HoldReason, MachineLoad, WaitingAgent } from "../wire/swarm";
 
 export const SWARM_POLL_MS = 10_000;
 
@@ -13,13 +13,15 @@ export type NodeView = { id: string; name: string; health: "online" | "offline" 
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
   slots: { total: number | null; occupied: number; idle: number | null }; holding: HoldReasonView[]; agents: AgentView[] };
+export type MachineControlView = { desired: "running" | "draining" | "stopped"; generation: string; since: string | null; pendingHandoffs: number };
+export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation: string; since: string | null };
 export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
   holding: HoldReasonView[]; lastSeenAt: string | null; load: LoadView | null;
   hardware: { logicalCpus: number | null; memoryTotalBytes: number; diskTotalBytes: number | null; diskFreeBytes: number | null } | null;
-  agentMax: number | null; cost: { currency: string; microsPerHour: number; startedAt: string } | null; nodes: NodeView[] };
+  agentMax: number | null; cost: { currency: string; microsPerHour: number; startedAt: string } | null; control: MachineControlView | null; nodes: NodeView[] };
 export type WaitingAgentView = { taskId: string; title: string; project: { id: string; label: string }; provider: string | null;
   intelligenceClass: "fast" | "standard" | "deep" | null; reasons: HoldReasonView[]; since: string | null };
-export type SwarmView = { serverTime: string; server: { version: string; sourceRevision: string; runningAgents: number | null };
+export type SwarmView = { serverTime: string; server: { version: string; sourceRevision: string; runningAgents: number | null; ownerAvailability: OwnerAvailabilityView | null };
   machines: MachineView[]; waiting: { reasons: HoldReasonView[]; agents: WaitingAgentView[] } };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -32,6 +34,20 @@ const text = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const percent = (bps: unknown): number => Math.round((num(bps) ?? 0) / 100);
+
+const GENERATION = /^[1-9][0-9]{0,18}$/;
+function control(c: MachineControl | null | undefined): MachineControlView | null {
+  if (!isRecord(c)) return null;
+  const desired = oneOfOrNull(c.desired, ["running", "draining", "stopped"] as const);
+  if (!desired || typeof c.generation !== "string" || !GENERATION.test(c.generation)) return null;
+  return { desired, generation: c.generation, since: text(c.since), pendingHandoffs: num(c.pending_handoffs) ?? 0 };
+}
+function availability(a: OwnerAvailability | null | undefined): OwnerAvailabilityView | null {
+  if (!isRecord(a)) return null;
+  const state = oneOfOrNull(a.state, ["unset", "on", "off"] as const);
+  if (!state || typeof a.generation !== "string" || !GENERATION.test(a.generation)) return null;
+  return { state, generation: a.generation, since: text(a.since) };
+}
 
 const CLASSES = ["fast", "standard", "deep"] as const;
 
@@ -88,6 +104,7 @@ function machine(m: SwarmMachine): MachineView {
     hardware: hw ? { logicalCpus: num(hw.logical_cpus), memoryTotalBytes: num(hw.memory_total_bytes) ?? 0, diskTotalBytes: num(hw.disk_total_bytes), diskFreeBytes: num(hw.disk_free_bytes) } : null,
     agentMax: num(m.agent_max),
     cost: cost ? { currency: String(cost.currency), microsPerHour: num(cost.micros_per_hour) ?? 0, startedAt: String(cost.started_at) } : null,
+    control: control(m.control),
     nodes: list<SwarmNode>(m.nodes).filter(isRecord).map(node),
   };
 }
@@ -105,7 +122,7 @@ export function adaptSwarm(raw: Swarm, serverTime: string): SwarmView {
   const server = isRecord(raw.server) ? raw.server : { version: "", source_revision: "", running_agents: null };
   return {
     serverTime,
-    server: { version: String(server.version ?? ""), sourceRevision: String(server.source_revision ?? ""), runningAgents: num(server.running_agents) },
+    server: { version: String(server.version ?? ""), sourceRevision: String(server.source_revision ?? ""), runningAgents: num(server.running_agents), ownerAvailability: availability((server as { owner_availability?: OwnerAvailability | null }).owner_availability) },
     machines: raw.machines.map(machine),
     waiting: { reasons: holds(raw.waiting.reasons), agents: list<WaitingAgent>(raw.waiting.agents).filter(isRecord).map(waitingAgent) },
   };

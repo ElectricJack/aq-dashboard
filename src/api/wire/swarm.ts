@@ -27,6 +27,8 @@ export type MachineLoad = {
 };
 export type MachineHardware = { logical_cpus: number; memory_total_bytes: number; disk_total_bytes: number | null; disk_free_bytes: number | null };
 export type MachineCost = { currency: string; micros_per_hour: number; started_at: Timestamp };
+export type MachineControl = { desired: "running" | "draining" | "stopped"; generation: string; since: Timestamp | null; pending_handoffs: number };
+export type OwnerAvailability = { state: "unset" | "on" | "off"; generation: string; since: Timestamp | null };
 export type WorkerService = { state: ServiceState; since: Timestamp | null };
 export type NodeSlots = { total: number | null; occupied: number; idle: number | null };
 export type SwarmAgent = {
@@ -42,12 +44,12 @@ export type SwarmNode = {
 export type SwarmMachine = {
   id: string; label: string; kind: MachineKind; state: MachineState; holding: HoldReason[];
   last_seen_at: Timestamp | null; load: MachineLoad | null; hardware: MachineHardware | null;
-  agent_max: number | null; cost: MachineCost | null; nodes: SwarmNode[];
+  agent_max: number | null; cost: MachineCost | null; control?: MachineControl | null; nodes: SwarmNode[];
 };
 export type WaitingAgent = {
   task: TitledRef; project: ProjectRef; provider: string | null; intelligence_class: IntelligenceClass | null;
   reasons: HoldReason[]; since: Timestamp | null;
 };
 export type SwarmWaiting = { reasons: HoldReason[]; agents: WaitingAgent[] };
-export type SwarmServer = { version: string; source_revision: string; running_agents: number };
+export type SwarmServer = { version: string; source_revision: string; running_agents: number; owner_availability?: OwnerAvailability | null };
 export type Swarm = { server: SwarmServer; machines: SwarmMachine[]; waiting: SwarmWaiting };

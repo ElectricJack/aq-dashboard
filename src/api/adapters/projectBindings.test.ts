@@ -32,3 +32,12 @@ test("empty explicit node list remains group-only admission, never unrestricted"
   record.binding.allowed_worker_groups = [];
   expect(() => adaptProjectBindings({ items: [record], next_cursor: null }, null)).toThrow();
 });
+
+test("a binding that allows enrolled machines with no listed nodes adapts", () => {
+  const record = projectRecord();
+  record.binding.allowed_worker_groups = []; record.binding.allowed_node_ids = [];
+  expect(() => adaptProjectBindings({ items: [record], next_cursor: null }, null)).toThrow();
+  (record.binding as Record<string, unknown>).allow_enrolled_nodes = true;
+  const p = adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!;
+  expect(p.enrolledNodes).toBe(true); expect(p.nodeIds).toEqual([]);
+});

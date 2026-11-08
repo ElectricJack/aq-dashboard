@@ -28,25 +28,26 @@ function worker(n: number, name: string, backend: string, total: number | null, 
 
 // Labelled fixture reproducing swarm-tree-v3.html; not real infrastructure.
 export const SWARM_MOCKUP: Swarm = {
-  server: { version: "0.1.0", source_revision: "85070006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", running_agents: 4 },
+  server: { version: "0.1.0", source_revision: "85070006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", running_agents: 4, owner_availability: { state: "on", generation: "2", since: ago(3_600_000) } },
   machines: [
     {
       id: "desktop", label: "desktop", kind: "local", state: "online", holding: [], last_seen_at: ago(4_000),
       load: { source: "windows_host", host_probe: "fresh", cpu_busy_bps: 6100, memory_used_bps: 5800, cpu_avg_15m_bps: 5500, memory_avg_15m_bps: 5600, samples_15m: 60, observed_at: ago(5_000), fresh: true },
       hardware: { logical_cpus: 24, memory_total_bytes: 64 * 2 ** 30, disk_total_bytes: 2e12, disk_free_bytes: 294e9 }, agent_max: 5, cost: null,
+      control: { desired: "running", generation: "1", since: null, pending_handoffs: 0 },
       nodes: [
         worker(1, "local-1", "docker-local", 3, [agent(0, "claude", "claude-sonnet-5", "claude", "standard"), agent(1, "claude", "claude-opus-5-5", "claude", "deep"), agent(2, "codex", "gpt-5.3-codex", "codex", "fast")]),
         worker(2, "local-2", "docker-local", 2, [agent(3, "claude", "claude-haiku-5", "claude", "fast")]),
       ],
     },
     {
-      id: "laptop", label: "laptop", kind: "local", state: "offline", holding: [], last_seen_at: ago(2 * 3_600_000), load: null, hardware: null, agent_max: null, cost: null,
+      id: "laptop", label: "laptop", kind: "local", state: "offline", holding: [], last_seen_at: ago(2 * 3_600_000), load: null, hardware: null, agent_max: null, cost: null, control: null,
       nodes: [worker(3, "laptop-1", "docker-local", 2, [], { health: "offline", last_seen_at: ago(2 * 3_600_000) })],
     },
     {
       id: "studio", label: "studio", kind: "local", state: "holding", holding: [MEASUREMENT_EXPIRED], last_seen_at: ago(6_000),
       load: { source: "linux", host_probe: "not_applicable", cpu_busy_bps: 2350, memory_used_bps: 4000, cpu_avg_15m_bps: 2000, memory_avg_15m_bps: 3900, samples_15m: 58, observed_at: ago(6_000), fresh: true },
-      hardware: { logical_cpus: 8, memory_total_bytes: 32 * 2 ** 30, disk_total_bytes: 1e12, disk_free_bytes: 600e9 }, agent_max: 2, cost: null,
+      hardware: { logical_cpus: 8, memory_total_bytes: 32 * 2 ** 30, disk_total_bytes: 1e12, disk_free_bytes: 600e9 }, agent_max: 2, cost: null, control: null,
       nodes: [worker(4, "studio-1", "docker-local", 2, [], { holding: [MEASUREMENT_EXPIRED] })],
     },
     {
@@ -61,6 +62,16 @@ export const SWARM_MOCKUP: Swarm = {
       { task: { id: uuid(902), title: "Bump sandbox image" }, project: { id: SESSIONS[0]!.project.id, label: SESSIONS[0]!.project.label }, provider: "codex", intelligence_class: "fast", reasons: [NO_FREE_SLOT], since: ago(2 * 60_000) },
     ],
   },
+};
+
+const stoppedService = { state: "stopped", since: ago(60_000) } as const;
+/** The desktop machine after the owner stopped its worker; one handoff is still pending. */
+export const SWARM_STOPPED: Swarm = {
+  ...SWARM_MOCKUP,
+  machines: SWARM_MOCKUP.machines.map((m) => m.id !== "desktop" ? m : {
+    ...m, state: "stopped", control: { desired: "stopped", generation: "2", since: ago(60_000), pending_handoffs: 1 },
+    nodes: m.nodes.map((n) => ({ ...n, service: stoppedService })),
+  }),
 };
 
 export function swarmEnvelope<T>(data: T) {

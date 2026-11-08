@@ -85,4 +85,30 @@ describe("adaptSwarm", () => {
     expect(v.cpuAvgPercent).toBeNull(); expect(v.memoryAvgPercent).toBeNull();
     expect(v.cpuPercent).toBe(61);
   });
+  it("adapts machine control", () => {
+    const f = fixture(); f.machines[0]!.control = { desired: "stopped", generation: "2", since: "2026-11-07T10:00:00.000Z", pending_handoffs: 1 };
+    expect(adaptSwarm(f, TIME).machines[0]!.control).toEqual({ desired: "stopped", generation: "2", since: "2026-11-07T10:00:00.000Z", pendingHandoffs: 1 });
+  });
+  it("unknown desired state gives no control", () => {
+    const f = fixture() as unknown as { machines: Record<string, unknown>[] };
+    f.machines[0]!.control = { desired: "paused", generation: "1", since: null, pending_handoffs: 0 };
+    expect(adaptSwarm(f as unknown as Swarm, TIME).machines[0]!.control).toBeNull();
+    f.machines[0]!.control = { desired: "running", generation: "0", since: null, pending_handoffs: 0 };
+    expect(adaptSwarm(f as unknown as Swarm, TIME).machines[0]!.control).toBeNull();
+    f.machines[0]!.control = { desired: "running", generation: "1", since: null };
+    expect(adaptSwarm(f as unknown as Swarm, TIME).machines[0]!.control?.pendingHandoffs).toBe(0);
+  });
+  it("missing control is null (older server)", () => {
+    expect(adaptSwarm(fixture(), TIME).machines[0]!.control).toBeNull();
+  });
+  it("adapts owner availability", () => {
+    const f = fixture(); f.server.owner_availability = { state: "on", generation: "2", since: "2026-11-07T09:00:00.000Z" };
+    expect(adaptSwarm(f, TIME).server.ownerAvailability).toEqual({ state: "on", generation: "2", since: "2026-11-07T09:00:00.000Z" });
+    expect(adaptSwarm(fixture(), TIME).server.ownerAvailability).toBeNull();
+  });
+  it("unknown availability state is null", () => {
+    const f = fixture() as unknown as { server: Record<string, unknown> };
+    f.server.owner_availability = { state: "maybe", generation: "2", since: null };
+    expect(adaptSwarm(f as unknown as Swarm, TIME).server.ownerAvailability).toBeNull();
+  });
 });
