@@ -351,7 +351,7 @@
       "served_bundle_sha256": "419e9f3318ffd27b0f21f8b43027bca1c51d0f14d2c911f0e2b0ba92d2757f55"
     },
     "14-swarm-tree-v3.png": {
-      "status": "accepted",
+      "status": "open",
       "reference": "docs/design/14-swarm-tree-v3.png",
       "surface": "agents-swarm",
       "delivered_subset": "Agents > Swarm tab: top-down tree with the AQ server at the root; machine cards with CPU/RAM bars, dashed free slots, greyed dashed offline machine, amber holding and booting machines, amber waiting branch; legend; properties pane for server, machine, worker node, agent, free slot and waiting; agent terminal opens with control requested.",
@@ -398,8 +398,9 @@
           "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d6-pane-labels.png"
         ]
       },
+      "reason": "Phase 2 read-only page passed live acceptance on aq-ms1 (bundle dc663559…, D1–D8 recheck pass). Stays open for: the controls bar (phase 3), the Windows host-load probe (awaiting owner approval), and live terminal control (phase 1 W13).",
       "reviewer": "Claude Opus 5.5, swarm phase 2 live acceptance A1 and recheck on aq-ms1, 2026-11-08",
-      "served_bundle_sha256": "dc663559e3b9bae481636d369537c608b78cedd755617549c2e8a0f72cdcf8d7",
+      "served_bundle_sha256": null,
       "live_served_bundle_sha256": "dc663559e3b9bae481636d369537c608b78cedd755617549c2e8a0f72cdcf8d7",
       "live_evidence": "docs/implementation/evidence/swarm-p2/live/results.md",
       "previous_live_served_bundle_sha256": "33fda9c51cbe6cca50790ea3e4ab5669457509d2a4802eaf21d86ab3a6118b70",
