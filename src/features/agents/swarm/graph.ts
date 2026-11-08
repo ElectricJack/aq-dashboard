@@ -106,7 +106,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     link(machineId, id);
     for (const a of w.agents) {
       const s: Selection = { kind: "agent", sessionId: a.sessionId };
-      nodes.push(node({ ...base("agent", s, `${a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider }));
+      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider }));
       link(id, selectionId(s));
     }
     const idle = w.slots.idle ?? 0;

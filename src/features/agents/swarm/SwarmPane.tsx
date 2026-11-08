@@ -37,7 +37,7 @@ function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) 
   const projects = useProjects();
   const waitingShown = showWaiting(view, ready);
   const usageText = usage.state.status === "ready" && usage.state.data.providers.length > 0
-    ? usage.state.data.providers.map(p => `${p.providerId} ${p.windows.find(w => w.id === p.preferredWindowId)?.usedPercent ?? "unknown"}%`).join(" · ") : "unavailable";
+    ? usage.state.data.providers.map(p => usageLabel(p.providerId, p.windows.find(w => w.id === p.preferredWindowId)?.usedPercent)).join(" · ") : "unavailable";
   return <>
     <Head kicker="AQ server" title={window.location.host} />
     <DetailList className={styles.facts}>
@@ -173,4 +173,9 @@ function Body({ view, selection, ready, autoControlled }: { view: SwarmView; sel
     </>;
   }
   return <Empty />;
+}
+
+/** "anthropic 42%", or "anthropic unknown" when the percentage is not known. */
+export function usageLabel(providerId: string, usedPercent: number | null | undefined): string {
+  return `${providerId} ${usedPercent === null || usedPercent === undefined ? "unknown" : `${usedPercent}%`}`;
 }

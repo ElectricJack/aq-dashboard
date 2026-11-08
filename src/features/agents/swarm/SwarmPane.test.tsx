@@ -1,3 +1,4 @@
+import { usageLabel } from "./SwarmPane";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
@@ -206,4 +207,11 @@ test("a machine without 15-minute samples shows a dash for the average", async (
   server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, machines }))));
   renderApp("/agents?select=machine:desktop");
   await waitFor(() => expect(fact("Load avg")).toHaveTextContent(/^—$/));
+});
+
+test("usage window reads 'unknown' without a percent sign when the value is unknown", () => {
+  expect(usageLabel("anthropic", null)).toBe("anthropic unknown");
+  expect(usageLabel("anthropic", undefined)).toBe("anthropic unknown");
+  expect(usageLabel("anthropic", 42)).toBe("anthropic 42%");
+  expect(usageLabel("anthropic", 0)).toBe("anthropic 0%");
 });

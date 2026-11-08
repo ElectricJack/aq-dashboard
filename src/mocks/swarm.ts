@@ -35,8 +35,8 @@ export const SWARM_MOCKUP: Swarm = {
       load: { source: "windows_host", host_probe: "fresh", cpu_busy_bps: 6100, memory_used_bps: 5800, cpu_avg_15m_bps: 5500, memory_avg_15m_bps: 5600, samples_15m: 60, observed_at: ago(5_000), fresh: true },
       hardware: { logical_cpus: 24, memory_total_bytes: 64 * 2 ** 30, disk_total_bytes: 2e12, disk_free_bytes: 294e9 }, agent_max: 5, cost: null,
       nodes: [
-        worker(1, "local-1", "docker-local", 3, [agent(0, "claude", "claude-sonnet-5", "claude-code", "standard"), agent(1, "claude", "claude-opus-5-5", "claude-code", "deep"), agent(2, "codex", "gpt-5.3-codex", "codex", "fast")]),
-        worker(2, "local-2", "docker-local", 2, [agent(3, "claude", "claude-haiku-5", "claude-code", "fast")]),
+        worker(1, "local-1", "docker-local", 3, [agent(0, "claude", "claude-sonnet-5", "claude", "standard"), agent(1, "claude", "claude-opus-5-5", "claude", "deep"), agent(2, "codex", "gpt-5.3-codex", "codex", "fast")]),
+        worker(2, "local-2", "docker-local", 2, [agent(3, "claude", "claude-haiku-5", "claude", "fast")]),
       ],
     },
     {
