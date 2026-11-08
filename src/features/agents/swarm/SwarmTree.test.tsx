@@ -49,7 +49,9 @@ test("focusing a card outside the viewport pans to its centre at the current zoo
   render(<SwarmTree view={view} ready={6} selected={null} onSelect={vi.fn()} />);
   const wrapper = await wrapperOf(/^desktop, local/);
   flow.nodes.set(wrapper.dataset.id!, { internals: { positionAbsolute: { x: -300, y: 20 } }, measured: { width: 240, height: 52 } });
+  const visible = vi.spyOn(HTMLElement.prototype, "matches").mockImplementation(function (this: HTMLElement, sel: string) { return sel === ":focus-visible" || Element.prototype.matches.call(this, sel); });
   fireEvent.focus(wrapper);
+  visible.mockRestore();
   expect(flow.setCenter).toHaveBeenCalledWith(-300 + 120, 20 + 26, { zoom: 1.5, duration: 200 });
 });
 
@@ -75,12 +77,12 @@ test("opening with a selection centres on it; with none it keeps the zoom-1 root
 test("a selection that changes from outside pans to it, but a click inside the tree does not", async () => {
   const onSelect = vi.fn();
   const { rerender } = render(<SwarmTree view={view} ready={6} selected={null} onSelect={onSelect} />);
-  const wrapper = await wrapperOf(/^desktop, local/);
+  await wrapperOf(/^desktop, local/);
   await waitFor(() => expect(flow.setViewport).toHaveBeenCalled());
   rerender(<SwarmTree view={view} ready={6} selected={{ kind: "machine", machineId: "desktop" }} onSelect={onSelect} />);
   expect(flow.setCenter).toHaveBeenCalledTimes(1);
   flow.setCenter.mockClear();
-  fireEvent.click(wrapper.querySelector("button")!);
+  fireEvent.click((await wrapperOf(/^studio, local/)).querySelector("button")!);
   expect(onSelect).toHaveBeenCalled();
   rerender(<SwarmTree view={view} ready={6} selected={{ kind: "machine", machineId: "studio" }} onSelect={onSelect} />);
   expect(flow.setCenter).not.toHaveBeenCalled();
@@ -92,4 +94,34 @@ test("agent pills carry their full text as a title and show the harness", async 
   expect(pills[0]).toHaveAttribute("title", "claude · standard");
   const codex = (await screen.findAllByRole("button", { name: /^codex · fast/ })).find(b => b.getAttribute("data-kind") === "agent");
   expect(codex).toHaveAttribute("title", "codex · fast");
+});
+
+test("a click-originated focus on a partially visible card does not pan", async () => {
+  render(<SwarmTree view={view} ready={6} selected={null} onSelect={vi.fn()} />);
+  const wrapper = await wrapperOf(/^desktop, local/);
+  flow.nodes.set(wrapper.dataset.id!, { internals: { positionAbsolute: { x: -100, y: 20 } }, measured: { width: 240, height: 52 } });
+  // A mouse click focuses the inner button, or the wrapper without :focus-visible.
+  fireEvent.focus(wrapper.querySelector("button")!);
+  fireEvent.focus(wrapper);
+  expect(flow.setCenter).not.toHaveBeenCalled();
+});
+
+test("re-selecting the already selected card does not swallow the next outside change", async () => {
+  const onSelect = vi.fn();
+  const desktop = { kind: "machine", machineId: "desktop" } as const;
+  const { rerender } = render(<SwarmTree view={view} ready={6} selected={desktop} onSelect={onSelect} />);
+  const wrapper = await wrapperOf(/^desktop, local/);
+  await waitFor(() => expect(flow.setCenter).toHaveBeenCalledTimes(1));
+  flow.setCenter.mockClear();
+  fireEvent.click(wrapper.querySelector("button")!);
+  fireEvent.keyDown(wrapper, { key: "Enter" });
+  rerender(<SwarmTree view={view} ready={6} selected={{ kind: "machine", machineId: "studio" }} onSelect={onSelect} />);
+  expect(flow.setCenter).toHaveBeenCalledTimes(1);
+});
+
+test("the selection centred at init is not centred a second time", async () => {
+  render(<SwarmTree view={view} ready={6} selected={{ kind: "machine", machineId: "desktop" }} onSelect={vi.fn()} />);
+  await waitFor(() => expect(flow.setCenter).toHaveBeenCalledTimes(1));
+  await new Promise(r => setTimeout(r, 50));
+  expect(flow.setCenter).toHaveBeenCalledTimes(1);
 });

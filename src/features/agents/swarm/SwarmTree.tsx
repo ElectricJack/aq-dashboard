@@ -35,7 +35,8 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
     void flow.setViewport({ x: width / 2 - centre, y: 24 - top, zoom: 1 });
   };
   const flow = useRef<Flow | null>(null);
-  const ownSelect = useRef(false);
+  const ownSelectId = useRef<string | null>(null);
+  const initCentred = useRef<string | null>(null);
   // Centre on a node at the current zoom; unless forced, only when its box is not fully inside the tree viewport.
   const reveal = (id: string, force: boolean) => {
     const instance = flow.current, box = section.current;
@@ -54,20 +55,23 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
   const onInit = (instance: Flow) => {
     flow.current = instance;
     initialised.current = true;
-    if (chosen && laidOut.nodes.some(n => n.id === chosen)) { open(instance); reveal(chosen, true); } else open(instance);
+    if (chosen && laidOut.nodes.some(n => n.id === chosen)) { open(instance); initCentred.current = chosen; reveal(chosen, true); } else open(instance);
   };
   // A selection that changes from outside the tree (?select=, history) pans to the card; a click inside the tree does not recentre.
   useEffect(() => {
     if (!chosen || !initialised.current) return;
-    if (ownSelect.current) { ownSelect.current = false; return; }
+    const mine = ownSelectId.current === chosen, centred = initCentred.current === chosen;
+    ownSelectId.current = null; initCentred.current = null;
+    if (mine || centred) return;
     reveal(chosen, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chosen]);
-  const choose = (s: Selection) => { ownSelect.current = true; onSelect(s); };
-  // Keyboard focus lands on the node wrapper; pan it into view when it is not fully visible.
+  const choose = (s: Selection) => { ownSelectId.current = selectionId(s); onSelect(s); };
+  // Keyboard focus lands on the node wrapper; pan it into view when it is not fully visible. A mouse click focuses without :focus-visible and never pans.
   const focused = (event: FocusEvent<HTMLElement>) => {
-    const holder = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
-    if (holder?.dataset.id) reveal(holder.dataset.id, false);
+    const target = event.target as HTMLElement;
+    if (!target.matches(".react-flow__node") || !target.matches(":focus-visible")) return;
+    if (target.dataset.id) reveal(target.dataset.id, false);
   };
   // Enter and Space on a focused card select it (React Flow focuses the node and pans to it).
   const keys = (event: KeyboardEvent<HTMLElement>) => {

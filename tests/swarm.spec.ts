@@ -38,21 +38,31 @@ for (const vp of VIEWPORTS) {
       await page.goto("/agents");
       await expect(page.getByRole("button", { name: /^AQ server/ })).toBeInViewport();
       await page.getByRole("link", { name: "Sessions" }).focus();
-      let machine: string | null = null;
-      for (let i = 0; i < 12 && !machine; i++) {
+      const onMachine = () => page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return !!el?.classList.contains("react-flow__node") && /^desktop, local/.test(el.querySelector("button")?.getAttribute("aria-label") ?? "");
+      });
+      let reached = false;
+      for (let i = 0; i < 40 && !reached; i++) {
         await page.keyboard.press("Tab");
-        machine = await page.evaluate(() => {
-          const el = document.activeElement as HTMLElement | null;
-          return el?.classList.contains("react-flow__node") && /^desktop, local/.test(el.querySelector("button")?.getAttribute("aria-label") ?? "") ? el.dataset.id ?? null : null;
-        });
+        reached = await onMachine();
       }
-      expect(machine).not.toBeNull();
+      expect(reached).toBe(true);
       const focused = page.locator(".react-flow__node:focus");
       await expect(focused).toBeFocused();
+      // Wait for the 200ms setCenter animation: the box must be identical across two reads.
+      let last = "";
       await expect.poll(async () => {
-        const [box, tree] = [await focused.boundingBox(), await page.getByRole("region", { name: "Swarm tree" }).boundingBox()];
-        return !!box && !!tree && box.x >= tree.x - 1 && box.y >= tree.y - 1 && box.x + box.width <= tree.x + tree.width + 1 && box.y + box.height <= tree.y + tree.height + 1;
+        const box = JSON.stringify(await focused.boundingBox());
+        const settled = box === last;
+        last = box;
+        return settled;
       }).toBe(true);
+      const [box, tree] = [await focused.boundingBox(), await page.getByRole("region", { name: "Swarm tree" }).boundingBox()];
+      expect(box!.x).toBeGreaterThanOrEqual(tree!.x - 1);
+      expect(box!.y).toBeGreaterThanOrEqual(tree!.y - 1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(tree!.x + tree!.width + 1);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(tree!.y + tree!.height + 1);
       expect(await focused.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
     });
 
