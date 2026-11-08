@@ -71,8 +71,8 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
       <dt>State</dt><dd>{stateText(m)}</dd>
       <dt>Load now</dt><dd>{l ? `CPU ${l.cpuPercent}% · RAM ${l.memoryPercent}%${l.fresh ? "" : ` (as of ${formatAge(serverTime, l.observedAt)})`}` : "—"}</dd>
       <dt>Load avg</dt><dd>{l ? l.cpuAvgPercent === null && l.memoryAvgPercent === null ? "—" : `CPU ${l.cpuAvgPercent === null ? "—" : `${l.cpuAvgPercent}%`} · RAM ${l.memoryAvgPercent === null ? "—" : `${l.memoryAvgPercent}%`} (last 15 min)` : "—"}</dd>
-      <dt>Load source</dt><dd>{l ? (l.source === "windows_host" ? "Windows host (WSL2)" : l.source === "linux" ? "Linux" : "unknown") : "unknown"}</dd>
-      {l && (l.hostProbe === "stale" || l.hostProbe === "missing") && <><dt>Note</dt><dd>{`Windows host probe ${l.hostProbe}: showing WSL VM load`}</dd></>}
+      <dt>Load source</dt><dd>{l ? (l.source === "windows_host" ? "Windows host (WSL2)" : l.source === "linux" ? (l.hostProbe === "missing" ? "WSL VM" : "Linux") : "unknown") : "unknown"}</dd>
+      {l && l.hostProbe === "stale" && <><dt>Note</dt><dd>Windows host probe stale: showing WSL VM load</dd></>}
       <dt>Max agents</dt><dd>{m.agentMax ?? "unknown"} <Settings label="Edit in Settings" /></dd>
       <dt>Cores / RAM</dt><dd>{m.hardware ? `${m.hardware.logicalCpus ?? "—"} / ${gb(m.hardware.memoryTotalBytes, 2 ** 30)} GB` : "unknown"}</dd>
       <dt>Disk free</dt><dd>{m.hardware?.diskFreeBytes != null ? `${gb(m.hardware.diskFreeBytes, 1e9)} GB` : "unknown"}</dd>

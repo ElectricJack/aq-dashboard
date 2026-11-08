@@ -46,6 +46,23 @@ test("machine pane names a stale Windows probe", async () => {
   expect(fact("Load now")).toHaveTextContent(/as of/);
 });
 
+test("machine pane shows a plain WSL VM label when the host probe is missing, with no note", async () => {
+  const machines = SWARM_MOCKUP.machines.map(m => (m.id === "desktop" ? { ...m, load: { ...m.load!, source: "linux" as const, host_probe: "missing" as const } } : m));
+  server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, machines }))));
+  renderApp("/agents");
+  await click(/^desktop/);
+  await waitFor(() => expect(fact("Load source")).toHaveTextContent("WSL VM"));
+  expect(screen.queryByText(/missing/i)).not.toBeInTheDocument();
+  expect(screen.queryByText("Note")).not.toBeInTheDocument();
+});
+
+test("machine pane shows Linux when the host probe is not applicable", async () => {
+  renderApp("/agents");
+  await click(/^studio, local/);
+  await waitFor(() => expect(fact("Load source")).toHaveTextContent(/^Linux$/));
+  expect(screen.queryByText("Note")).not.toBeInTheDocument();
+});
+
 test("holding machine lists reason and remedy", async () => {
   renderApp("/agents");
   await click(/^studio, local/);
