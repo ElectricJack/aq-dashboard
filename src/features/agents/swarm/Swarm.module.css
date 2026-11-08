@@ -53,3 +53,7 @@
 .coverage { margin: 0 0 var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 /* The shared DetailList stacks label over value and adds a top margin to labels at <=600px; keep label and value on one row. */
 @media (max-width: 767px) { .pane .facts { grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); align-items: start; } .pane .facts dt { margin-block-start: 0; } }
+.addMachine { display: flex; flex-direction: column; gap: var(--space-2); min-inline-size: 0; overflow-wrap: anywhere; }
+.addMachine code { display: block; padding: var(--space-2); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); white-space: pre-wrap; }
+.addMachine input { max-inline-size: 100%; box-sizing: border-box; }
+.addMachine .actionNote { padding: 0; }

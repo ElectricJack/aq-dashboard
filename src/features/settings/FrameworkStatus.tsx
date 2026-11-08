@@ -5,6 +5,7 @@ import { ContractError, isRecord } from "../../api/adapters/contract";
 import { useSession } from "../../app/session";
 import { Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { AddMachine } from "../agents/swarm/AddMachine";
 import { Timestamp } from "./Timestamp";
 import styles from "./Settings.module.css";
 
@@ -71,6 +72,7 @@ export function FrameworkStatus() {
           )}
         </>
       )}
+      <AddMachine />
     </Panel>
   );
 }

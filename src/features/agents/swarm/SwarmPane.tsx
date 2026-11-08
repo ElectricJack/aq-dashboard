@@ -6,6 +6,7 @@ import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
 import { AgentPane, scopeOnly } from "./AgentPane";
+import { AddMachine } from "./AddMachine";
 import { MachineControls } from "./MachineControls";
 import { showWaiting, type Selection } from "./graph";
 import styles from "./Swarm.module.css";
@@ -49,6 +50,7 @@ function ServerPane({ view, ready }: { view: SwarmView; ready: number | null }) 
       <dt>Projects</dt><dd>{projects.data?.view.length ? projects.data.view.map(p => p.label).join(", ") : "unavailable"}</dd>
     </DetailList>
     <div className={styles.actions}><Settings label="Open settings" /></div>
+    <AddMachine />
   </>;
 }
 
