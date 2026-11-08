@@ -359,18 +359,56 @@
         "The controls bar (agents per provider, mix by intelligence class, cloud VMs, projected usage burn) is deferred; it needs slider values the server does not provide yet",
         "The fast class colour is darker than the mockup's so white text keeps 4.5:1",
         "The mockup's Prefer left-to-right toggle is not offered",
-        "The tree opens at zoom 1 (card text at least 12px) centred on the server root, so a wide tree is panned; fit view is a control",
-        "Captured from the fixture mock build (vite --mode mock), not a served bundle"
+        "The tree opens at zoom 1 (card text at least 12px) centred on the server root, so a wide tree is panned; fit view is a control. On the live aq-ms1 data (5 machines) the only machine with load starts off-screen at 1440 and 390; a ?select= deep link now pans to the selection (#88)",
+        "The dashboard theme is dark; the mockup is light",
+        "Live data could not produce: stopped machines (phase 1), booting cloud VMs (no boat), free-slot pills (no live node reports a slot total; unknown totals correctly show 0/? and no pills), the Codex ring and per-agent waiting pills (phase 3). These were checked on the fixture build only",
+        "Windows host load on the WSL2 desktop is pending the owner's approval of the Windows probe; the live machine shows WSL VM load labelled 'Windows host probe missing: showing WSL VM load'",
+        "Terminal control, typing, Reconnect and two-viewer takeover could not be shown on a live agent: the Claude docker-local recipe requires terminal input off, so every live agent terminal is watch-only (shown with the correct reason, and no control request is sent). Auto control, typing and Reconnect were checked on the fixture build; takeover between two viewers is covered by unit tests only"
       ],
       "captures": {
         "fixture": [
           "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440.png",
-          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-phone-390.png"
+          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-phone-390.png",
+          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440-fit.png",
+          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440-agent-control.png",
+          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-desktop-1440-agent-reconnect.png",
+          "docs/implementation/evidence/swarm-p2/fixture/agents-swarm-phone-390-agent.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-fixture-desktop-1440-d4-pills.png"
+        ],
+        "live": [
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-open.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-machine-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-agent-control.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-after-run-fit.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-agents-zoom1.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-keyboard-focus.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-keyboard-focus3.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-desktop-1440-popout.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390-server-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390-machine-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-390-agent.png",
+          "docs/implementation/evidence/swarm-p2/live/agents-swarm-phone-320.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-desktop-1440-d1-server-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d1-server-pane.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-desktop-1440-d2-keyboard-focus.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-desktop-1440-d8-select-pan.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d8-select-pan.png",
+          "docs/implementation/evidence/swarm-p2/live/recheck-phone-390-d6-pane-labels.png"
         ]
       },
-      "reviewer": "Claude Opus 5.5, AQ worker session (swarm phase 2 dashboard lane), 2026-11-07",
+      "reason": "Phase 2 read-only page passed live acceptance on aq-ms1 (bundle dc663559…, D1–D8 recheck pass). Stays open for: the controls bar (phase 3), the Windows host-load probe (awaiting owner approval), and live terminal control (phase 1 W13).",
+      "reviewer": "Claude Opus 5.5, swarm phase 2 live acceptance A1 and recheck on aq-ms1, 2026-11-08",
       "served_bundle_sha256": null,
-      "reason": "awaiting live acceptance A1 on the served bundle"
+      "live_served_bundle_sha256": "dc663559e3b9bae481636d369537c608b78cedd755617549c2e8a0f72cdcf8d7",
+      "live_evidence": "docs/implementation/evidence/swarm-p2/live/results.md",
+      "previous_live_served_bundle_sha256": "33fda9c51cbe6cca50790ea3e4ab5669457509d2a4802eaf21d86ab3a6118b70",
+      "recheck": "Recheck 2026-11-08 on the served bundle dc663559… (aq-dashboard 30b13ce with #88, aq-server 91be1177 with #113): D1 passes (Running agents 0 = Overview running 0, no pills for stopped sessions), D2 passes (visible 2px outline on focused cards, inside the tree viewport), D3, D6 and D8 pass live, D4 passes on the fixture only (no live agent was running and none was created). See live/results.md, Recheck.",
+      "pending_checks": [
+        "Windows host-load probe check: pending owner approval of the probe (not installed); after approval confirm host-load.json under 10 s old, 'Load source Windows host (WSL2)' and the CPU bar rising under Windows load",
+        "Live agent-terminal control check (take control, typing, Reconnect, two-viewer takeover): pending phase 1 task W13 (terminal input); live agent terminals are watch-only until then"
+      ]
     }
   },
   "pages": {
