@@ -1,9 +1,9 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "b57b5c5c841c1619e1d12a31c01c06c41bad76f8",
+  "commit": "b88c51f8c1129dadd796f1657c68e14c0b141f8f",
   "status": "Published on aq-server main at 7529e623",
   "sha256": {
-    "dashboard-read/v1/README.md": "7fa5b8c76a62758d24585f03fb93104b29c57f6d1018381243fc42b3633f7553",
+    "dashboard-read/v1/README.md": "50c6be5d6403179b0bb4703474ae9e99451d91c44688f2e42ab4d2a0be618bcb",
     "dashboard-read/v1/check.py": "e9b92a35253223bed0089a6975141f86cadaeaf0e2bc4c2163e2ee6ae07cb9a7",
     "dashboard-read/v1/fixtures/bootstrap.json": "e0b3f940b963c0180f24bcaf673af30fb06ea53375c790bdbf570a91877267d0",
     "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
@@ -29,6 +29,6 @@
     "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
     "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
     "dashboard-read/v1/fixtures/swarm.json": "0c513d2d2b82aa460b188f9f58e6b28f042134850196274a50c11b335cb5a7b8",
-    "dashboard-read/v1/schema.json": "55dd79ef930f5a7f7c282d504941f105203250abe105e36f1ede0f216c97e6ae"
+    "dashboard-read/v1/schema.json": "ea232b563a5c54972d947cea27f195c318f270386129647abaca3233bc36266a"
   }
 }
