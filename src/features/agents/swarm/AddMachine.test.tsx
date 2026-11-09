@@ -82,7 +82,7 @@ test("a failed request says so", async () => {
 });
 
 test("settings offers Add machine too", async () => {
-  renderApp("/settings");
+  renderApp("/settings?tab=connection");
   const panel = await screen.findByRole("region", { name: "Add machine" });
   expect(within(panel).getByRole("button", { name: "Add machine" })).toBeInTheDocument();
 });

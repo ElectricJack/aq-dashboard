@@ -26,3 +26,11 @@
 .field { display: grid; gap: var(--space-2); margin-block-start: var(--space-4); max-inline-size: 240px; }
 .field span { font-weight: 600; }
 .field select { min-block-size: var(--control-height); padding-inline: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-raised); color: var(--color-text); font: inherit; }
+
+.tabs { display: flex; gap: var(--space-2); overflow-x: auto; min-inline-size: 0; margin-block: var(--space-5); padding-block: var(--space-1); border-block-end: 1px solid var(--color-border); }
+.tabs button { flex: none; min-block-size: var(--control-height); padding: var(--space-2) var(--space-4); font: inherit; color: var(--color-text-secondary); background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--color-accent); background: var(--color-raised); border-color: var(--color-border); }
+.tabs button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+.tabPanel { min-inline-size: 0; }
+.tabPanel[hidden] { display: none; }
+.sectionTitle { margin-block: 0 var(--space-4); font-size: var(--font-size-h2); }

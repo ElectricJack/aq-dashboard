@@ -8,6 +8,12 @@ function IndexRedirect() {
   return <Navigate to={{ pathname: "/overview", search }} replace />;
 }
 
+function IntelligenceSettingsRedirect() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search); params.set("tab", "intelligence");
+  return <Navigate to={{ pathname: "/settings", search: `?${params}` }} replace />;
+}
+
 /** Routes from docs/specs/0002-product-design.md section 3; feature modules load lazily. */
 export const appRoutes: RouteObject[] = [
   {
@@ -33,7 +39,7 @@ export const appRoutes: RouteObject[] = [
           { path: "playbooks/runs/:runId", lazy: () => import("../features/playbooks") },
           { path: "knowledge/:nodeId?", lazy: () => import("../features/knowledge") },
           { path: "settings", lazy: () => import("../features/settings") },
-          { path: "settings/intelligence", lazy: () => import("../features/settings/intelligence") },
+          { path: "settings/intelligence", Component: IntelligenceSettingsRedirect },
         { path: "*", Component: NotFoundPage },
         ],
       },

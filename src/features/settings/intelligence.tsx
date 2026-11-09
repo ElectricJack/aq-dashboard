@@ -1,155 +1,160 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { inspectIntelligenceSave, readIntelligence, saveIntelligence, type Candidate, type IntelligenceProfile, type IntelligenceSettings, type ModelChoice, type SaveIntelligence, type IntelligenceSaved } from "../../api/intelligenceSettings";
 import { queryKey } from "../../api/queryKeys";
-import { PageTitle } from "../../app/DestinationPage";
 import { useSession } from "../../app/session";
-import { useDocumentTitle } from "../../app/documentTitle";
-import { ActionButton, Panel } from "../../components/layout/Workspace";
+import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import styles from "./Intelligence.module.css";
 
-const profileKey = (p: IntelligenceProfile) => `${p.id}@${p.version}`;
-const modelKey = (p: Pick<ModelChoice, "provider" | "model">) => `${p.provider}:${p.model}`;
-function choiceFor(candidate: Candidate, choices: ModelChoice[]) {
-  return choices.find(c => c.provider === candidate.provider && c.model === candidate.model
+const PROVIDERS: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", google: "Google" };
+const modelKey = (c: Pick<ModelChoice, "provider" | "model">) => `${c.provider}:${c.model}`;
+function choiceFor(candidate: Candidate | undefined, choices: ModelChoice[]) {
+  return candidate && choices.find(c => c.provider === candidate.provider && c.model === candidate.model
     && c.reasoning_configuration_reference === candidate.reasoning_configuration_reference && candidate.harnesses.includes(c.harness));
 }
-function pick(candidate: Candidate, choice: ModelChoice): Candidate {
-  return { ...candidate, provider: choice.provider, model: choice.model,
-    reasoning_configuration_reference: choice.reasoning_configuration_reference, harnesses: [choice.harness] };
-}
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.serverMessage ?? "The save could not be confirmed." : "The save could not be confirmed.";
 }
-
-function Editor({ profile, settings, onSaved, onCancel }: {
-  profile: IntelligenceProfile; settings: IntelligenceSettings; onSaved(result: IntelligenceSaved): void; onCancel(): void;
+function ProfileRow({ profile, settings, provider, busy, onBusy, onSaved, onRemove, onReload }: {
+  profile: IntelligenceProfile; settings: IntelligenceSettings; provider: string; busy: boolean;
+  onBusy(value: boolean): void; onSaved(result: IntelligenceSaved): Promise<void>; onRemove(): void; onReload(): Promise<void>;
 }) {
-  // The mounted form owns its snapshot. Background reads never replace a draft.
   const [name, setName] = useState(profile.name ?? profile.id);
   const [description, setDescription] = useState(profile.description ?? "");
   const [candidates, setCandidates] = useState(() => structuredClone(profile.candidates));
+  const [version, setVersion] = useState(profile.version);
+  const [dirty, setDirty] = useState(profile.version === 0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [unconfirmed, setUnconfirmed] = useState<SaveIntelligence | null>(null);
   const [retrySame, setRetrySame] = useState(false);
   const [conflict, setConflict] = useState(false);
   const locked = pending || unconfirmed !== null;
-  const models = settings.model_choices.filter((choice, i, all) => all.findIndex(c => modelKey(c) === modelKey(choice)) === i);
-  const change = (index: number, value: Candidate) => setCandidates(old => old.map((candidate, i) => i === index ? value : candidate));
+  // A clean row follows refreshed server data; an edited row keeps its draft.
+  const shownName = dirty ? name : profile.name ?? profile.id;
+  const shownDescription = dirty ? description : profile.description ?? "";
+  const shownCandidates = dirty ? candidates : profile.candidates;
+  const shownVersion = dirty ? version : profile.version;
+  const candidate = shownCandidates.find(c => c.provider === provider);
+  const choices = settings.model_choices.filter(c => c.provider === provider);
+  const models = choices.filter((c, i, all) => all.findIndex(other => other.model === c.model) === i);
+  const configured = choiceFor(candidate, choices);
+  const reasoning = choices.filter(c => c.model === candidate?.model);
+  function beginEdit() {
+    if (!dirty) { setName(shownName); setDescription(shownDescription); setCandidates(structuredClone(shownCandidates)); setVersion(shownVersion); }
+    setDirty(true); setNotice(null);
+  }
+  function setChoice(choice: ModelChoice | null) {
+    beginEdit();
+    const otherProviders = shownCandidates.filter(c => c.provider !== provider && c.provider !== "configuration-required");
+    setCandidates(choice ? [...otherProviders, { id: candidate?.id ?? `choice-${crypto.randomUUID()}`, provider: choice.provider,
+      model: choice.model, reasoning_configuration_reference: choice.reasoning_configuration_reference, harnesses: [choice.harness] }] : otherProviders);
+  }
+  async function complete(result: IntelligenceSaved) {
+    setName(result.profile.name ?? result.profile.id); setDescription(result.profile.description ?? "");
+    setCandidates(structuredClone(result.profile.candidates)); setVersion(result.profile.version);
+    await onSaved(result); setDirty(false); setUnconfirmed(null); setError(null); setConflict(false);
+    setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
+  }
   async function send(request: SaveIntelligence) {
     if (pending) return;
-    setPending(true); setError(null); setConflict(false);
-    try { onSaved(await saveIntelligence(request)); }
+    setPending(true); onBusy(true); setError(null); setNotice(null); setConflict(false);
+    try { await complete(await saveIntelligence(request)); }
     catch (e) {
       if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) {
         setError(errorMessage(e)); setConflict(e.status === 409); setUnconfirmed(null);
       } else {
-        setUnconfirmed(request); setRetrySame(false);
-        setError("The connection was interrupted, so this save is unconfirmed. Check its status before editing again.");
+        setUnconfirmed(request); setRetrySame(false); setError("Save unconfirmed. Check its status before editing this row again.");
       }
-    } finally { setPending(false); }
+    } finally { setPending(false); onBusy(false); }
   }
   async function check() {
     if (!unconfirmed || pending) return;
-    setPending(true);
-    try { onSaved(await inspectIntelligenceSave(unconfirmed.operation_id)); }
+    setPending(true); onBusy(true);
+    try { await complete(await inspectIntelligenceSave(unconfirmed.operation_id)); }
     catch (e) {
       setRetrySame(e instanceof ApiError && e.status === 404);
-      setError(e instanceof ApiError && e.status === 404 ? "This save has not been recorded yet. You can retry the same save safely." : "Save status is unavailable. Your draft is preserved.");
-    } finally { setPending(false); }
+      setError(e instanceof ApiError && e.status === 404 ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. This row is preserved.");
+    } finally { setPending(false); onBusy(false); }
   }
-  return <Panel title={`Edit ${profile.name ?? profile.id}`}>
-    <form onSubmit={event => {
-      event.preventDefault();
-      if (locked || conflict || !name.trim()) return;
-      void send({ operation_id: crypto.randomUUID(), expected_revision: settings.revision, profile_id: profile.id,
-        profile_version: profile.version, name: name.trim(), description, candidates });
-    }}>
-      <p className={styles.meta}>Changes apply to future agent launches. Running sessions keep their current settings.</p>
-      <fieldset disabled={locked} className={styles.fields}>
-        <label>Name<input value={name} maxLength={128} required onChange={event => setName(event.target.value)} /></label>
-        <label>Description<textarea value={description} maxLength={2000} rows={3} onChange={event => setDescription(event.target.value)} /></label>
-        <h3 className={styles.heading}>Model choices</h3>
-        <p className={styles.meta}>Choose from models and reasoning settings configured on this system. Choices are tried in order.</p>
-        {candidates.map((candidate, index) => {
-          const configured = choiceFor(candidate, settings.model_choices);
-          const reasoning = settings.model_choices.filter(c => modelKey(c) === modelKey(candidate));
-          return <fieldset key={candidate.id} className={styles.candidate}>
-            <legend>Choice {index + 1}</legend>
-            {!configured && <p className={styles.warning}>This choice needs launch configuration before it can run.</p>}
-            <label>Provider and model<select value={modelKey(candidate)} onChange={event => {
-              const choice = models.find(c => modelKey(c) === event.target.value); if (choice) change(index, pick(candidate, choice));
-            }}>
-              {!models.some(c => modelKey(c) === modelKey(candidate)) && <option value={modelKey(candidate)}>{candidate.provider} · {candidate.model} (not configured)</option>}
-              {models.map(choice => <option key={modelKey(choice)} value={modelKey(choice)}>{choice.provider} · {choice.model}</option>)}
-            </select></label>
-            <label>Reasoning<select value={configured ? `${configured.reasoning_configuration_reference}:${configured.harness}` : "unconfigured"} onChange={event => {
-              const choice = reasoning.find(c => `${c.reasoning_configuration_reference}:${c.harness}` === event.target.value); if (choice) change(index, pick(candidate, choice));
-            }}>
-              {!configured && <option value="unconfigured">Not configured</option>}
-              {reasoning.map(choice => <option key={`${choice.reasoning_configuration_reference}:${choice.harness}`} value={`${choice.reasoning_configuration_reference}:${choice.harness}`}>{choice.reasoning}</option>)}
-            </select></label>
-            {candidates.length > 1 && <ActionButton onClick={() => setCandidates(old => old.filter((_, i) => i !== index))}>Remove choice {index + 1}</ActionButton>}
-          </fieldset>;
-        })}
-        <ActionButton disabled={settings.model_choices.length === 0 || candidates.length >= 16} onClick={() => {
-          const choice = settings.model_choices[0];
-          if (choice) setCandidates(old => [...old, pick({ id: `choice-${crypto.randomUUID()}`, provider: "", model: "", reasoning_configuration_reference: "", harnesses: [] }, choice)]);
-        }}>Add model choice</ActionButton>
-      </fieldset>
-      <p className={styles.meta}>Used by {profile.projects.length} {profile.projects.length === 1 ? "project" : "projects"}{profile.projects.length > 0 && `: ${profile.projects.map(p => p.name).join(", ")}`}. Their saved profile references update together.</p>
-      {error && <div role="alert" className={styles.warning}><p>{error}</p>{conflict && <p>Your draft is preserved. Cancel and reopen the editor to load the current settings.</p>}</div>}
-      {unconfirmed && <div className={styles.actions}>
-        <ActionButton disabled={pending} onClick={() => void check()}>Check save status</ActionButton>
-        {retrySame && <ActionButton disabled={pending} onClick={() => void send(unconfirmed)}>Retry same save</ActionButton>}
-      </div>}
-      <div className={styles.actions}>
-        <ActionButton disabled={locked} onClick={onCancel}>Cancel</ActionButton>
-        <ActionButton type="submit" disabled={locked || conflict || !name.trim()}>{pending ? "Saving…" : "Save changes"}</ActionButton>
-      </div>
-    </form>
-  </Panel>;
+  const label = shownName.trim() || "new profile";
+  return <Fragment>
+    <tr aria-label={label} data-profile-id={profile.id}>
+      <td><input aria-label="Profile name" value={shownName} required maxLength={128} disabled={locked} onChange={e => { beginEdit(); setName(e.target.value); }} /></td>
+      <td><input aria-label="Description" value={shownDescription} maxLength={2000} disabled={locked} onChange={e => { beginEdit(); setDescription(e.target.value); }} /></td>
+      <td><select aria-label="Model" value={candidate ? modelKey(candidate) : ""} disabled={locked || models.length === 0} onChange={e => setChoice(models.find(c => modelKey(c) === e.target.value) ?? null)}>
+        <option value="">Not set</option>
+        {candidate && !models.some(c => c.model === candidate.model) && <option value={modelKey(candidate)}>{candidate.model} (not configured)</option>}
+        {models.map(c => <option key={modelKey(c)} value={modelKey(c)}>{c.model}</option>)}
+      </select></td>
+      <td><select aria-label="Reasoning effort" value={configured ? `${configured.reasoning_configuration_reference}:${configured.harness}` : ""} disabled={locked || reasoning.length === 0} onChange={e => {
+        const choice = reasoning.find(c => `${c.reasoning_configuration_reference}:${c.harness}` === e.target.value); if (choice) setChoice(choice);
+      }}>
+        {!configured && <option value="">{candidate ? "Not configured" : "—"}</option>}
+        {reasoning.map(c => <option key={`${c.reasoning_configuration_reference}:${c.harness}`} value={`${c.reasoning_configuration_reference}:${c.harness}`}>{c.reasoning}</option>)}
+      </select></td>
+      <td><div className={styles.rowActions}>
+        <ActionButton aria-label={`Save ${label}`} disabled={busy || locked || conflict || !dirty || !shownName.trim()} onClick={() => void send({ operation_id: crypto.randomUUID(), expected_revision: settings.revision,
+          profile_id: profile.id, profile_version: shownVersion, name: shownName.trim(), description: shownDescription, candidates: shownCandidates })}>{pending ? "Saving…" : "Save"}</ActionButton>
+        {profile.version === 0 && <ActionButton disabled={locked} aria-label={`Remove ${label}`} onClick={onRemove}>Remove</ActionButton>}
+        {profile.version !== 0 && (dirty || error) && !unconfirmed && <ActionButton disabled={locked} aria-label={`Reset ${label}`} onClick={() => {
+          setPending(true); void onReload().finally(() => { setDirty(false); setError(null); setConflict(false); setNotice(null); setPending(false); });
+        }}>Reset</ActionButton>}
+        {notice && <span className={styles.success} role="status">{notice}</span>}
+      </div></td>
+    </tr>
+    {error && <tr><td colSpan={5}><div role="alert" className={styles.warning}>{label}: {error}{conflict && " Your edits are preserved. Reset this row to load the latest settings."}</div>
+      {unconfirmed && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void check()}>Check save status</ActionButton>
+        {retrySame && <ActionButton disabled={pending} onClick={() => void send(unconfirmed)}>Retry same save</ActionButton>}</div>}
+    </td></tr>}
+  </Fragment>;
 }
 
-export function Component() {
-  useDocumentTitle("Intelligence profiles");
-  const { queryContext } = useSession();
-  const queryClient = useQueryClient();
+export function IntelligenceSettings() {
+  const { queryContext } = useSession(); const queryClient = useQueryClient(); const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: queryKey(queryContext, "intelligence-settings", {}), queryFn: ({ signal }) => readIntelligence(signal), retry: false });
-  const [editing, setEditing] = useState<{ profile: IntelligenceProfile; settings: IntelligenceSettings } | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  function saved(result: IntelligenceSaved) {
-    setEditing(null);
-    setNotice(result.disposition === "unchanged" ? "No changes to save." : "Profile saved. Future agent launches will use the updated settings.");
-    void queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("intelligence-settings") || q.queryKey.includes("project-execution-bindings") });
+  const [added, setAdded] = useState<IntelligenceProfile[]>([]); const [busy, setBusy] = useState(false);
+  const provider = params.get("provider") ?? query.data?.model_choices[0]?.provider ?? "anthropic";
+  const providers = Array.from(new Set([...Object.keys(PROVIDERS), ...(query.data?.model_choices.map(c => c.provider) ?? []),
+    ...(query.data?.profiles.flatMap(p => p.candidates.map(c => c.provider).filter(p => p !== "configuration-required")) ?? []), provider]));
+  const profiles = [...(query.data?.profiles ?? []), ...added.filter(p => !query.data?.profiles.some(existing => existing.id === p.id))];
+  const choices = query.data?.model_choices.filter(c => c.provider === provider) ?? [];
+  async function saved(result: IntelligenceSaved) {
+    queryClient.setQueryData<IntelligenceSettings>(queryKey(queryContext, "intelligence-settings", {}), old => {
+      if (!old) return old;
+      const previous = old.profiles.find(p => p.id === result.profile.id);
+      const profile = { ...result.profile, projects: previous?.projects ?? [] };
+      return { ...old, revision: result.revision, active_digest: result.active_digest,
+        profiles: previous ? old.profiles.map(p => p.id === profile.id ? profile : p) : [...old.profiles, profile] };
+    });
+    await query.refetch(); setAdded(old => old.filter(p => p.id !== result.profile.id));
+    void queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("project-execution-bindings") });
   }
-  const profiles = query.data?.profiles.slice().sort((a, b) => Number(b.candidates.some(c => choiceFor(c, query.data!.model_choices))) - Number(a.candidates.some(c => choiceFor(c, query.data!.model_choices))));
-  return <div className={styles.page}>
-    <Link to="/settings">← Settings</Link>
-    <PageTitle>Intelligence profiles</PageTitle>
-    <p className={styles.meta}>Choose the models and reasoning settings your agents use.</p>
-    {notice && <p role="status" className={styles.success}>{notice}</p>}
+  return <div className={styles.sheet}>
+    <div className={styles.toolbar}>
+      <label className={styles.provider}>Provider<select aria-label="Provider" value={provider} disabled={busy} onChange={e => setParams(old => { const next = new URLSearchParams(old); next.set("provider", e.target.value); return next; })}>
+        {providers.map(id => <option key={id} value={id}>{PROVIDERS[id] ?? id}</option>)}
+      </select></label>
+      <ActionButton disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton>
+    </div>
+    <p className={styles.meta}>Edit model and reasoning choices for {PROVIDERS[provider] ?? provider}. Switching providers keeps the same profiles and preserves the other providers’ settings.</p>
+    {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
     <RetainedNotice query={query} />
-    {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="intelligence profiles" onRetry={() => void query.refetch()} /> : (
-      <div className={styles.columns}>
-        <Panel title="Profiles">
-          {profiles?.length === 0 ? <p>No intelligence profiles are configured.</p> : <ul className={styles.profiles} aria-label="Intelligence profiles">
-            {profiles?.map(profile => <li key={profileKey(profile)}>
-              <strong>{profile.name ?? profile.id}</strong>
-              {profile.description && <p className={styles.meta}>{profile.description}</p>}
-              <p className={styles.meta}>{profile.candidates.map(c => `${c.provider} · ${c.model}`).join(", ")}</p>
-              <ActionButton disabled={editing !== null} onClick={() => { setNotice(null); setEditing({ profile: structuredClone(profile), settings: structuredClone(query.data!) }); }}>Edit {profile.name ?? profile.id}</ActionButton>
-            </li>)}
-          </ul>}
-        </Panel>
-        {editing ? <Editor key={profileKey(editing.profile)} profile={editing.profile} settings={editing.settings} onSaved={saved} onCancel={() => { setEditing(null); void query.refetch(); }} />
-          : <Panel title="Edit a profile"><p className={styles.meta}>Select a profile to view and edit its model choices. Changes apply to every project using that profile.</p></Panel>}
+    {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="intelligence profiles" onRetry={() => void query.refetch()} /> : <>
+      <div className={styles.tableWrap} role="region" aria-label="Intelligence profiles spreadsheet, scroll horizontally" tabIndex={0}>
+        <table className={styles.table} aria-label="Intelligence profiles">
+          <thead><tr><th scope="col">Profile</th><th scope="col">Description</th><th scope="col">Model</th><th scope="col">Reasoning effort</th><th scope="col">Actions</th></tr></thead>
+          <tbody>{profiles.map(profile => <ProfileRow key={profile.id} profile={profile} settings={query.data!} provider={provider} busy={busy} onBusy={setBusy} onSaved={saved}
+            onRemove={() => setAdded(old => old.filter(p => p.id !== profile.id))} onReload={async () => { await query.refetch(); }} />)}</tbody>
+        </table>
       </div>
-    )}
+      {profiles.length === 0 && <p className={styles.meta}>No profiles yet. Add a row to get started.</p>}
+      <p className={styles.meta}>Save each row when ready. Changes apply to future launches.</p>
+    </>}
   </div>;
 }
