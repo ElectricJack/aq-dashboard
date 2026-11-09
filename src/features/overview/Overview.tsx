@@ -348,8 +348,12 @@ export function Overview() {
           </li>
         ))}
       </ul>
-      {coverage.reason && view.sources.length === 0 && <details className={styles.coverageDisclosure}><summary>Partial overview</summary><p>{coverage.reason}</p></details>}
-      {view.sources.length > 0 && <details className={styles.coverageDisclosure}><summary>Source coverage</summary><ul className={styles.sourceList}>{view.sources.map((source,index)=><li key={`${source.source}:${source.project?.id??index}`}><strong>{source.source.replaceAll('_',' ')}</strong> · {source.coverage.state} · <CountLabel total={source.total} /> records · {source.observation ? formatAge(serverTime,source.observation.observed_at) : 'Observation unavailable'}{source.project && ` · ${source.project.label}`}{source.coverage.reason && <span>{source.coverage.reason.replaceAll('_',' ')}</span>}</li>)}</ul></details>}
+      {(coverage.state !== "complete" || view.sources.some(source => source.coverage.state !== "complete")) && (
+        <p className={styles.warning} role="status">
+          Some overview information is unavailable or incomplete. Counts and lists may be incomplete.{" "}
+          <Link to={{ pathname: "/settings", search, hash: "#overview-diagnostics" }}>View diagnostics</Link>
+        </p>
+      )}
       <div className={styles.columns}><div className={styles.primary}>
       <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">

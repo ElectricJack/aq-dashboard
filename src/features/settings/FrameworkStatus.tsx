@@ -7,6 +7,7 @@ import { Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { AddMachine } from "../agents/swarm/AddMachine";
 import { Timestamp } from "./Timestamp";
+import { OverviewDiagnostics } from "./OverviewDiagnostics";
 import styles from "./Settings.module.css";
 
 type Worker = { id: string; name: string; worker_version: string; status: string; last_seen_at: string | null };
@@ -73,6 +74,7 @@ export function FrameworkStatus() {
         </>
       )}
       <AddMachine />
+      <OverviewDiagnostics />
     </Panel>
   );
 }
