@@ -54,7 +54,7 @@ export function FrameworkStatus() {
       : status.data === undefined ? { state: "unknown", text: "Checking…" }
         : { state: HEALTHY.has(status.data.toLowerCase()) ? "healthy" : "unknown", text: status.data };
   return (
-    <Panel title="Framework connection" description="AQ daemon health and the worker nodes enrolled with it.">
+    <Panel className={styles.connection} title="Framework connection" description="AQ daemon health and the worker nodes enrolled with it.">
       <p className={styles.status} data-state={daemon.state} role="status">Daemon: {daemon.text}</p>
       <h3 className={styles.subheading}>Worker nodes</h3>
       {!workerCapability.enabled ? <p className={styles.meta}>{workerCapability.reason}</p> : !currentWorkers ? (
