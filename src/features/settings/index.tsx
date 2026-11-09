@@ -1,4 +1,5 @@
 import { DestinationPage } from "../../app/DestinationPage";
+import { Link } from "react-router";
 import { useSession } from "../../app/session";
 import { DetailList, Panel } from "../../components/layout/Workspace";
 import { ProjectBindings } from "./ProjectBindings";
@@ -27,6 +28,9 @@ export function Component() {
           </details>
         </Panel>
         <DisplayPreferences />
+        <Panel title="Intelligence profiles" description="Models and reasoning settings for future agent launches.">
+          <Link to="/settings/intelligence">Manage intelligence profiles →</Link>
+        </Panel>
         <FrameworkStatus />
         <ProjectBindings />
         {/* Full width so the inbox list and delivery details each get a readable column (ISSUE-014). */}

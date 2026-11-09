@@ -33,6 +33,7 @@ export const appRoutes: RouteObject[] = [
           { path: "playbooks/runs/:runId", lazy: () => import("../features/playbooks") },
           { path: "knowledge/:nodeId?", lazy: () => import("../features/knowledge") },
           { path: "settings", lazy: () => import("../features/settings") },
+          { path: "settings/intelligence", lazy: () => import("../features/settings/intelligence") },
         { path: "*", Component: NotFoundPage },
         ],
       },
