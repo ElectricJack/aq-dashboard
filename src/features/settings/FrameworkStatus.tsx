@@ -47,6 +47,7 @@ export function FrameworkStatus() {
     refetchInterval: 15_000,
     queryFn: async ({ signal }) => workers(await apiGet<unknown>("/api/workers", signal)),
   });
+  const currentWorkers = roster.data?.filter(worker => worker.status !== "revoked");
   const daemon = !statusCapability.enabled
     ? { state: "unknown", text: statusCapability.reason }
     : status.isError ? { state: "unavailable", text: "Status unavailable" }
@@ -56,14 +57,14 @@ export function FrameworkStatus() {
     <Panel title="Framework connection" description="AQ daemon health and the worker nodes enrolled with it.">
       <p className={styles.status} data-state={daemon.state} role="status">Daemon: {daemon.text}</p>
       <h3 className={styles.subheading}>Worker nodes</h3>
-      {!workerCapability.enabled ? <p className={styles.meta}>{workerCapability.reason}</p> : !roster.data ? (
+      {!workerCapability.enabled ? <p className={styles.meta}>{workerCapability.reason}</p> : !currentWorkers ? (
         <QueryStatus status={roster.isError ? "error" : "pending"} error={roster.error} label="worker nodes" onRetry={() => void roster.refetch()} />
       ) : (
         <>
           {roster.isError && <p className={styles.meta} role="status">Refresh failed. These worker observations may be out of date.</p>}
-          {roster.data.length === 0 ? <p className={styles.meta}>No worker nodes enrolled.</p> : (
+          {currentWorkers.length === 0 ? <p className={styles.meta}>No worker nodes enrolled.</p> : (
             <ul className={styles.workers} aria-label="Worker nodes">
-              {roster.data.map((worker) => (
+              {currentWorkers.map((worker) => (
                 <li key={worker.id}>
                   <span><strong>{worker.name}</strong> · {["online", "offline", "revoked"].includes(worker.status) ? worker.status : "Unknown status"} · version {worker.worker_version}</span>
                   <span className={styles.meta}>Last heartbeat: {worker.last_seen_at ? <Timestamp iso={worker.last_seen_at} /> : "Never reported"}</span>

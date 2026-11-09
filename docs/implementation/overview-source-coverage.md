@@ -17,3 +17,9 @@ Settings → Framework connection → Overview diagnostics holds the source name
 - Visual reviewer: Codex, by inspecting desktop and phone captures. This records the narrow visual change, not an independent code review or full-page acceptance. Existing unrelated capacity, provider, terminal and other deferred features remain outside this change.
 
 The local aq-ms1 deployment uses the compiled branch bundle. Its deployed manifest and rollback copy are recorded with the local evidence; merging the branch remains subject to the existing review process.
+
+## Settings roster cleanup
+
+Owner follow-up, 2026-11-09: remove retired worker registrations from the Settings roster too. Framework connection now filters `revoked` registrations from the visible list. Current online and offline workers still appear, and a roster containing only retired registrations uses the existing empty state. Historical registrations remain stored by the server.
+
+Validation: the existing FrameworkStatus component checks and production build pass. Browser checks cover the actual local roster, an all-retired roster, and an offline current worker. Local desktop, 390px and 320px Settings captures are saved under `/home/jkern/dev/aq-platform/qa/2026-11-09/settings-retired-workers/`. This delivery changes the existing Framework connection list only; the shared Settings composition and other panels remain unchanged.
