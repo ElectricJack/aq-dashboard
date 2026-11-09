@@ -1,0 +1,11 @@
+# Habit Hooks pilot (started 2026-11-09). See .habit-hooks/README.md.
+plugins = ["typescript", "generic"]
+
+# Replaces the default ["snooze"]: rather than snoozing the backlog file by
+# file, coach only on code the branch changed.
+transformers = ["changed-lines"]
+
+[scope]
+autoBranchOffMain = true
+branchBase = "main"
+mainBranch = "main"
