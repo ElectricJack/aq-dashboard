@@ -33,9 +33,9 @@ export const READINESS_STATES = ["draft", "completed", "canceled", "running", "h
 /** A known readiness state, or `unrecognized` for a value a newer server sends that this bundle doesn't know (W77). */
 export type WorkReadiness = (typeof READINESS_STATES)[number] | "unrecognized";
 /** Codes AQ gives for a hold; a newer code is kept as reported and its message still shown. */
-export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed"] as const;
+export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held"] as const;
 /** Why a stopped or finished attempt still holds the task (`readiness.reasons`, at most 4). */
-export type HoldReason = { code: string; attempt_id: string; status: string; message: string };
+export type HoldReason = { code: string; attempt_id: string; status: string; message: string; hold_reason?: string };
 /** `satisfied` is true only for a completed blocker, null when the blocker isn't in the read Context. */
 export type TaskBlocker = { edge_id: string; id: string; title: string | null; task_state: string | null; satisfied: boolean | null };
 /** `reported` is the server's readiness value as sent: for `unrecognized`, the value to show. */
@@ -59,7 +59,8 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
     check(Array.isArray(rawReasons) && rawReasons.length <= 4);
     const reasons = rawReasons.map((r): HoldReason => {
       check(isRecord(r) && openEnumValue(r.code) && validGraphId(r.attempt_id) && text(r.status, 64) && text(r.message, 512));
-      return { code: r.code as string, attempt_id: r.attempt_id as string, status: r.status as string, message: r.message as string };
+      check(r.hold_reason === undefined || (typeof r.hold_reason === "string" && r.hold_reason.length >= 1 && r.hold_reason.length <= 96));
+      return { code: r.code as string, attempt_id: r.attempt_id as string, status: r.status as string, message: r.message as string, ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }) };
     });
     const e = value.execution;
     check(e === null || (isRecord(e) && validGraphId(e.attempt_id) && validGraphId(e.session_id) && text(e.status, 64)));
