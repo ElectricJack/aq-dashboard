@@ -126,7 +126,7 @@ test("saved rows require confirmation before deletion and return focus to Add ro
 });
 
 test("deletion blocked by a project preserves the row and its unsaved edits", async () => {
-  read(); server.use(http.post("/api/settings/intelligence", () => HttpResponse.json({ code: "conflict", message: "This profile is allowed by project Example.", request_id: "used", retryable: false }, { status: 409 })));
+  read(); server.use(http.post("/api/settings/intelligence", () => HttpResponse.json({ error: "conflict", message: "This profile is allowed by project Example." }, { status: 409 })));
   const row = await open(); await userEvent.type(within(row).getByLabelText("Profile name"), " draft");
   await userEvent.click(within(row).getByRole("button", { name: "Delete Standard draft" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard draft" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("allowed by project Example"); expect(within(row).getByLabelText("Profile name")).toHaveValue("Standard draft");

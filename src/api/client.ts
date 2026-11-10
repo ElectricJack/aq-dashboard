@@ -58,9 +58,12 @@ export function retryAfterMs(response: Pick<Response, "headers">, now = Date.now
 export function httpError(response: Pick<Response, "status" | "headers">, payload?: unknown, message = `AQ responded ${response.status}`): ApiError {
   const envelope = isErrorEnvelope(payload) ? payload : undefined;
   const after = retryAfterMs(response);
+  const serverMessage = isRecord(payload) && typeof payload.error === "string" &&
+    typeof payload.message === "string" && payload.message.length <= 2000 ? payload.message : undefined;
   return new ApiError("http", message, {
     status: response.status,
     ...(envelope && { envelope }),
+    ...(serverMessage !== undefined && { serverMessage }),
     ...(after !== undefined && { retryAfterMs: after }),
   });
 }
