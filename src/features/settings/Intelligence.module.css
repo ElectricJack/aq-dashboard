@@ -14,3 +14,5 @@
 .rowActions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-inline-size: 130px; }
 .warning { color: var(--color-attention); overflow-wrap: anywhere; }
 .success { color: var(--color-success); font-size: var(--font-size-meta); }
+.catalog summary { cursor: pointer; min-block-size: var(--control-height); align-content: center; }
+.catalog summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }

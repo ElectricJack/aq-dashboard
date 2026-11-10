@@ -146,10 +146,13 @@ export function IntelligenceSettings() {
       <div className={styles.rowActions}><ActionButton disabled={query.isFetching || busy} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
       <ActionButton disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
     </div>
-    <p className={styles.meta}>Edit model and reasoning choices for {PROVIDERS[provider] ?? provider}. Switching providers keeps the same profiles and preserves the other providers’ settings.</p>
+    <p className={styles.meta}>Choose a model and effort for each profile. Other providers’ settings are preserved.</p>
     {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
-    {choices.some(c => c.preference_only) && <p className={styles.meta}>Imported defaults are saved preferences. Worker and provider support are checked before launch.</p>}
-    {sources.length > 0 && <p className={styles.meta}>Model sources: {sources.join(", ")}{observed && <> · updated <time dateTime={observed}>{new Date(observed).toLocaleString()}</time></>}</p>}
+    {(sources.length > 0 || choices.some(c => c.preference_only)) && <details className={`${styles.meta} ${styles.catalog}`}>
+      <summary>Model catalog{observed && <> · updated <time dateTime={observed}>{new Date(observed).toLocaleString()}</time></>}</summary>
+      {choices.some(c => c.preference_only) && <p>Imported defaults are saved preferences. Worker and provider support are checked before launch.</p>}
+      {sources.length > 0 && <p>Sources: {sources.join(", ")}</p>}
+    </details>}
     <RetainedNotice query={query} />
     {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="intelligence profiles" onRetry={() => void query.refetch()} /> : <>
       <div className={styles.tableWrap} role="region" aria-label="Intelligence profiles spreadsheet, scroll horizontally" tabIndex={0}>

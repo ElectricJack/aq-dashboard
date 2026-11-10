@@ -105,5 +105,6 @@ test("imported provider defaults display exact effort and preserve service optio
   read(data); const row = await open();
   await userEvent.selectOptions(screen.getByLabelText("Provider"), "openai");
   expect(within(row).getByLabelText("Reasoning effort")).toHaveValue("high@1:codex");
+  await userEvent.click(screen.getByText("Model catalog", { exact: true }));
   expect(screen.getByText(/Imported defaults are saved preferences/)).toBeVisible();
 });
