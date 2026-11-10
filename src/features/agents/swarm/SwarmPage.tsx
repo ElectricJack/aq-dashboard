@@ -65,6 +65,7 @@ function SwarmPageBody() {
     }
   });
   const coverage = swarm.data?.coverage;
+  const resolvedCapacity=coverage?.reason==='Some online workers advertise no slot total'&&view?.machines.every(m=>m.nodes.every(n=>n.health!=='online'||n.slots.total!==null));
   const stale = swarm.isError && !!view;
   const anchor = swarm.data && { serverTime: swarm.data.serverTime, receivedAt: performance.now() - (Date.now() - swarm.dataUpdatedAt) };
   const now = useServerNow(anchor);
@@ -77,9 +78,9 @@ function SwarmPageBody() {
   }
   return <>
     <AgentsTabs current="swarm" />
-    {coverage?.state === "partial" && coverage.reason && <p className={styles.coverage}>{coverage.reason}</p>}
+    {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
-    <div className={styles.stage} data-wide={shown.selection?.kind === "agent" || undefined}>
+    <div className={styles.stage} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}

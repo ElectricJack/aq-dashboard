@@ -69,7 +69,7 @@ function machineSub(m: MachineView, now: string): string {
     case "stopped": return `${m.kind} · stopped`;
     case "booting": return `${m.kind} · booting`;
     case "unknown": return `${m.kind} · state unknown`;
-    default: return `${m.kind} · ${m.hardware?.logicalCpus ?? "?"} cores · max ${m.agentMax ?? "?"} agents`;
+    default: return `${m.kind} · ${m.hardware?.logicalCpus ?? "?"} cores${m.agentMax!==null?` · max ${m.agentMax} agents`:""}`;
   }
 }
 
@@ -106,7 +106,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     link(machineId, id);
     for (const a of w.agents) {
       const s: Selection = { kind: "agent", sessionId: a.sessionId };
-      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:'booting' as const,tooltip:a.manual.stage}: {}) }));
+      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:a.manual.stage}: {}) }));
       link(id, selectionId(s));
     }
     const idle = w.slots.idle ?? 0;

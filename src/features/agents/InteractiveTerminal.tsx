@@ -254,12 +254,12 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       <footer className={styles.footer}>
         {/* Reference 08 order: Output · Progress · ● Connected. */}
         <span>{state.outputObservedAtMs && now !== null ? `Output ${formatAge(new Date(now).toISOString(), new Date(state.outputObservedAtMs).toISOString())}` : 'Output unavailable'}</span>
-        <span>Progress unavailable</span>
+        {!manual&&<span>Progress unavailable</span>}
         <span className={styles.connection} data-phase={phase}><span className={styles.dot} aria-hidden="true" />{phase === 'connected' ? 'Connected' : phase === 'connecting' ? 'Connecting' : 'Disconnected'}</span>
         {/* Phone: the pan hint joins the footer's second line so the terminal keeps its rows. */}
         {phone && panHint}
         {facts && <span className={styles.facts}>{facts}</span>}
-        <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">Resident output · incomplete</span>
+        <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">{manual?'Live tmux session':'Resident output · incomplete'}</span>
       </footer>
       {keyBar && <div className={styles.keys} ref={keys} role="group" aria-label="Terminal keyboard" data-fade-start={keyFade.start || undefined} data-fade-end={keyFade.end || undefined} onScroll={updateKeyFade}>
         <button type="button" ref={typeButton} disabled={!state.controlling} onClick={() => terminal.current?.focus()}>Type</button>

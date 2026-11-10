@@ -104,6 +104,8 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
     <DetailList className={styles.facts}>
       <dt>Backend</dt><dd>{n.backendKind ?? "unknown"}</dd>
       <dt>Slots</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
+      {n.slots.idle!==null&&<><dt>Available</dt><dd>{n.slots.idle}</dd></>}
+      {n.slots.target!==undefined&&<><dt>Draining to</dt><dd>{n.slots.target} project slots</dd></>}
       <dt>Heartbeat</dt><dd>{n.lastSeenAt ? formatAge(serverTime, n.lastSeenAt) : "never"}</dd>
       <dt>Service</dt><dd>{n.service === "unreported" ? "not reported" : n.service}</dd>
       <dt>Version</dt><dd>{`aq-worker ${n.workerVersion}`}</dd>
@@ -182,7 +184,7 @@ function Body({ view, selection, ready }: { view: SwarmView; selection: Selectio
   }
   if (selection.kind === "agent" && hit.a) {
     return <>
-      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.manual?`${hit.a.project.label} · interactive agent`:hit.a.task?.title ?? "No task"} />
+      <Head kicker={hit.a.manual?"Interactive agent":`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.manual?`${hit.a.project.label} · interactive agent`:hit.a.task?.title ?? "No task"} />
       <AgentPane agent={hit.a} serverTime={view.serverTime} />
     </>;
   }

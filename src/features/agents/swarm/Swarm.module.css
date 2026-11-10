@@ -61,3 +61,10 @@
 .launch { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border-subtle, #334155); }
 .launch label { display: grid; gap: 6px; }
 .launch select { width: 100%; min-height: var(--control-height); background: var(--surface-raised, #17202d); color: inherit; border: 1px solid var(--border-subtle, #334155); border-radius: 6px; padding: 8px; }
+
+.terminal > :global([data-interactive-terminal]) { flex: 1; min-block-size: 480px; }
+.stage[data-focus] { grid-template-columns: minmax(0, 1fr); }
+.stage[data-focus] > :first-child { display: none; }
+.stage[data-focus] .pane { min-block-size: calc(100dvh - 240px); }
+.pill[data-state="booting"] { border: 1px dashed #c7802e; color: var(--color-attention); background: var(--color-panel); }
+.pill[data-kind="agent"][data-state="online"] { background: #1b7f6c; }

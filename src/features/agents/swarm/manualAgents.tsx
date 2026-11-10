@@ -48,6 +48,9 @@ export function mergeManual(view:SwarmView,fleet:ManualFleet|undefined,project:s
   const running=manual.filter(s=>!['pending','stopped','failed'].includes(s.status)).length;
   const total=project?capacity(fleet,n.id,project):Math.min(report.max_slots,fleet.projects.reduce((sum,p)=>sum+capacity(fleet,n.id,p.id),0));
   const occupied=n.agents.length+running;
-  return {...n,backendKind:n.backendKind??'docker-local',slots:{total,occupied,idle:Math.max(0,total-occupied)},agents:[...n.agents,...manual.map(s=>({sessionId:s.id,attemptId:s.id,task:null,project:{id:s.project_id,label:s.spec.project_name},provider:s.spec.provider||null,model:s.spec.model||null,harness:'claude',intelligenceClass:null,terminalId:s.status==='running'?s.id:null,startedAt:new Date(s.created_at_ms).toISOString(),manual:s}))]};
+  const allManual=fleet.sessions.filter(s=>s.node_id===n.id&&['preparing','running','stopping'].includes(s.status)).length;
+  const elsewhere=Math.max(0,allManual-running);
+  const idle=Math.min(Math.max(0,total-occupied),Math.max(0,report.max_slots-occupied-elsewhere));
+  return {...n,backendKind:n.backendKind??'docker-local',slots:{total:Math.max(total,occupied),occupied,idle,...(total<occupied?{target:total}:{})},agents:[...n.agents,...manual.map(s=>({sessionId:s.id,attemptId:s.id,task:null,project:{id:s.project_id,label:s.spec.project_name},provider:s.spec.provider||null,model:s.spec.model||null,harness:'claude',intelligenceClass:null,terminalId:s.status==='running'?s.id:null,startedAt:new Date(s.created_at_ms).toISOString(),manual:s}))]};
  })}))};
 }
