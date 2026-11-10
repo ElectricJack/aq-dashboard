@@ -57,3 +57,7 @@
 .addMachine code { display: block; padding: var(--space-2); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); white-space: pre-wrap; }
 .addMachine input { max-inline-size: 100%; box-sizing: border-box; }
 .addMachine .actionNote { padding: 0; }
+.hostedCommand { display: flex; flex-direction: column; align-items: start; gap: var(--space-2); margin-block: var(--space-2); }
+.hostedCommand details { min-inline-size: 0; max-inline-size: 100%; }
+.hostedCommand summary { cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.hostedCommand code { margin-block-start: var(--space-1); }
