@@ -102,7 +102,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
     // Below 80 columns the frame scrolls instead of the font shrinking; size the floor in terminal cells, not page `ch`.
     if (term.element) term.element.style.minInlineSize = `${Math.ceil(MIN_PANE_COLUMNS * terminalCellWidth(fontSizeRef.current)) + SCROLLBAR_PX}px`;
-    const guarded = [...guardUntrustedOutput(term), ...guardObservedTerminalQueries(term)];
+    const guarded = [...guardUntrustedOutput(term), ...(manual?[]:guardObservedTerminalQueries(term))];
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
     term.textarea?.setAttribute('aria-describedby', helpId);
     term.attachCustomKeyEventHandler(event => {

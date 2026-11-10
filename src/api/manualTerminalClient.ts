@@ -1,41 +1,44 @@
-/** Same-session tmux connection. Keyboard bytes are sent once, then only receipts are read. */
-import {apiGet,apiSend} from './client';
+/** A disposable raw tmux attachment. Input is never queued or replayed across connections. */
+import {apiSend} from './client';
 import {isRecord} from './adapters/contract';
 import type {connectInteractiveTerminal,TerminalState} from './interactiveTerminalClient';
 type Options=Parameters<typeof connectInteractiveTerminal>[0];
+const OUTPUT_BOUND=1024*1024,INPUT_BOUND=65536;
 export function connectManualTerminal(options:Options){
  const abort=new AbortController(),client=crypto.randomUUID(),path=`/api/manual-agents/${options.terminalId}/terminal`;
- let connected=false,controlling=false,paused=options.initiallyPaused??false,generation=0,sequence=0,renewAt=0,busy=false,observed:number|null=null,clock:{serverMs:number;at:number}|undefined;
- const queue:({bytes:number[]}|{columns:number;rows:number})[]=[];
- const emit=(message:string)=>{const state:TerminalState={message,connected,controlling:controlling&&!paused,canControl:connected,paused,outputObservedAtMs:observed,clock};options.state(state);};
- const sleep=(ms:number)=>new Promise<void>(resolve=>{const end=()=>{clearTimeout(timer);abort.signal.removeEventListener('abort',end);resolve();};const timer=setTimeout(end,ms);abort.signal.addEventListener('abort',end,{once:true});});
- const signal=()=>AbortSignal.any([abort.signal,AbortSignal.timeout(5000)]);
- async function control(){const v=await apiSend<unknown>('POST',`${path}/connect`,{client_id:client,...(generation?{expected_generation:generation}:{})},signal());if(!isRecord(v)||!Number.isSafeInteger(v.generation))throw Error('Invalid terminal connection');generation=Number(v.generation);renewAt=performance.now()+5000;}
- async function run(){let failures=0;while(!abort.signal.aborted){try{
-  if(!paused&&performance.now()>=renewAt)await control();
-  const v=await apiGet<unknown>(`${path}?client_id=${client}&after=${sequence}`,signal());
-  if(!isRecord(v)||!Number.isSafeInteger(v.sequence)||!isRecord(v.session))throw Error('Invalid terminal snapshot');
-  if(typeof v.snapshot==='string'&&v.snapshot.length<=131072){sequence=Number(v.sequence);options.reset();await options.write(new TextEncoder().encode('\x1b[H\x1b[2J'+v.snapshot.replace(/\r?\n/g,'\r\n')));}
-  observed=typeof v.observed_at_ms==='number'?v.observed_at_ms:null;clock={serverMs:Number(v.server_time_ms),at:performance.now()};
-  connected=v.session.status==='running'&&Number(v.server_time_ms)-Number(v.session.worker_seen_at_ms)<15000;
-  if(connected&&Number(v.generation)!==generation){paused=true;queue.length=0;}
-  controlling=connected&&v.controlling===true;failures=0;emit(paused?(Number(v.generation)!==generation?'Terminal connected elsewhere — reconnect to type here':'Input delivery uncertain — reconnect to inspect the current screen'):controlling?'Connected — ready for typing':connected?'Connecting for input…':String(v.session.stage??'Agent stopped'));
-  if(['stopped','failed'].includes(String(v.session.status)))return;
-  if(controlling&&!paused)void flush();await sleep(300);
- }catch{if(abort.signal.aborted)return;connected=false;controlling=false;queue.length=0;renewAt=0;emit('Reconnecting to the same agent…');await sleep(Math.min(5000,300*2**Math.min(failures++,4)));}}
+ let socket:WebSocket|null=null,closed=false,connected=false,paused=options.initiallyPaused??false,generation=0,columns=80,rows=24,pending=0,observed:number|null=null,clock:{serverMs:number;at:number}|undefined;
+ let writing=Promise.resolve(),failure:string|null=null;
+ const emit=(message:string)=>{const state:TerminalState={message,connected,controlling:connected&&!paused,canControl:connected,paused,outputObservedAtMs:observed,clock};options.state(state);};
+ const freeze=(message:string)=>{if(closed)return;failure??=message;paused=true;connected=false;socket?.close();emit(failure);};
+ async function connect(){
+  if(paused){emit('Reconnect to inspect the same agent before typing');return;}
+  try{
+   const v=await apiSend<unknown>('POST',`${path}/connect`,{client_id:client},AbortSignal.any([abort.signal,AbortSignal.timeout(5000)]));
+   if(closed)return;if(!isRecord(v)||!Number.isSafeInteger(v.generation))throw Error('Invalid terminal connection');generation=Number(v.generation);
+   const url=new URL(`${path}/live`,window.location.href);url.protocol=url.protocol==='https:'?'wss:':'ws:';url.search=new URLSearchParams({client_id:client,generation:String(generation),columns:String(columns),rows:String(rows)}).toString();
+   const ws=new WebSocket(url);socket=ws;ws.binaryType='arraybuffer';
+   ws.onmessage=event=>{
+    if(closed||socket!==ws)return;
+    if(typeof event.data==='string'){
+     let value:unknown;try{value=JSON.parse(event.data);}catch{freeze('Invalid terminal response — reconnect');return;}
+     if(!isRecord(value)||value.kind!=='ready'||!Number.isSafeInteger(value.server_time_ms)){freeze('Invalid terminal response — reconnect');return;}
+     clock={serverMs:Number(value.server_time_ms),at:performance.now()};options.reset();connected=true;paused=false;emit('Connected — ready for typing');
+     ws.send(JSON.stringify({kind:'resize',columns,rows}));return;
+    }
+    if(!(event.data instanceof ArrayBuffer)||event.data.byteLength>16384){freeze('Terminal output exceeded its bound — reconnect');return;}
+    const bytes=new Uint8Array(event.data);pending+=bytes.length;if(pending>OUTPUT_BOUND){freeze('Terminal display fell behind — reconnect');return;}
+    writing=writing.then(async()=>{try{if(!closed&&!paused){await options.write(bytes);observed=clock?clock.serverMs+performance.now()-clock.at:Date.now();emit('Connected — ready for typing');}}finally{pending-=bytes.length;}}).catch(()=>freeze('Terminal display interrupted — reconnect'));
+   };
+   ws.onerror=()=>freeze('Terminal connection interrupted — reconnect to the same agent');
+   ws.onclose=()=>{if(!closed)freeze('Disconnected — reconnect to the same agent');};
+  }catch{if(!closed)freeze('Live terminal is connecting — reconnect to the same agent');}
  }
- async function flush(){if(busy||!controlling||paused||abort.signal.aborted)return;busy=true;
-  try{while(queue.length&&controlling&&!paused&&!abort.signal.aborted){let payload=queue.shift()!;if('bytes' in payload){while(payload.bytes.every(b=>b>=32&&b!==127)&&queue.length&&'bytes' in queue[0]!&&(queue[0] as {bytes:number[]}).bytes.every(b=>b>=32&&b!==127)&&payload.bytes.length+(queue[0] as {bytes:number[]}).bytes.length<=4096){payload={bytes:[...payload.bytes,...(queue.shift() as {bytes:number[]}).bytes]};}}const operation=crypto.randomUUID();
-   try{await apiSend('POST',`${path}/input`,{operation_id:operation,client_id:client,generation,...payload},signal());}catch{/* Receipt lookup, never keyboard replay. */}
-   let applied=false;
-   for(let n=0;n<300&&!abort.signal.aborted;n++){
-    const r=await apiGet<unknown>(`${path}/receipts/${operation}`,signal());
-    if(!isRecord(r))throw Error('Invalid input receipt');if(r.disposition==='applied'){applied=true;break;}if(['unknown','rejected'].includes(String(r.disposition)))break;await sleep(100);
-   }
-   if(!applied)throw Error('Input outcome is uncertain');
-  }}catch{if(!abort.signal.aborted){paused=true;controlling=false;queue.length=0;emit('Input delivery uncertain — reconnect to inspect the current screen');}}
-  finally{busy=false;}
- }
- void run();
- return {takeControl:control,async release(){controlling=false;queue.length=0;},sendInput(bytes:Uint8Array){if(!controlling||paused||!bytes.length)return;if(queue.reduce((n,v)=>n+('bytes'in v?v.bytes.length:0),0)+bytes.length>16384){paused=true;queue.length=0;emit('Input queue full — reconnect');return;}for(let at=0;at<bytes.length;at+=4096)queue.push({bytes:[...bytes.slice(at,at+4096)]});void flush();},resize(columns:number,rows:number){if(!controlling||paused)return;const size={columns:Math.max(2,Math.min(500,columns)),rows:Math.max(1,Math.min(300,rows))};const pending=queue.findLastIndex(v=>'columns' in v);if(pending>=0)queue[pending]=size;else queue.push(size);void flush();},close(){abort.abort();queue.length=0;connected=false;controlling=false;}};
+ void connect();
+ return {
+  async takeControl(){/* A fresh explicit reconnect constructs a new fenced attachment. */},
+  async release(){connected=false;socket?.close();},
+  sendInput(bytes:Uint8Array){if(!connected||paused||closed||!bytes.length||socket?.readyState!==WebSocket.OPEN)return;if(socket.bufferedAmount+bytes.length>INPUT_BOUND){freeze('Terminal input connection fell behind — reconnect');return;}for(let n=0;n<bytes.length;n+=4096)socket.send(bytes.slice(n,n+4096));},
+  resize(c:number,r:number){columns=Math.max(2,Math.min(500,c));rows=Math.max(1,Math.min(300,r));if(connected&&!paused&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({kind:'resize',columns,rows}));},
+  close(){closed=true;abort.abort();socket?.close();socket=null;connected=false;}
+ };
 }
