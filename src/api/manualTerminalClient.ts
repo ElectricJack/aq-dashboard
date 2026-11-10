@@ -25,7 +25,7 @@ export function connectManualTerminal(options:Options){
  }catch{if(abort.signal.aborted)return;connected=false;controlling=false;queue.length=0;renewAt=0;emit('Reconnecting to the same agent…');await sleep(Math.min(5000,300*2**Math.min(failures++,4)));}}
  }
  async function flush(){if(busy||!controlling||paused||abort.signal.aborted)return;busy=true;
-  try{while(queue.length&&controlling&&!paused&&!abort.signal.aborted){let payload=queue.shift()!;if('bytes' in payload){while(queue.length&&'bytes' in queue[0]!&&payload.bytes.length+(queue[0] as {bytes:number[]}).bytes.length<=4096){payload={bytes:[...payload.bytes,...(queue.shift() as {bytes:number[]}).bytes]};}}const operation=crypto.randomUUID();
+  try{while(queue.length&&controlling&&!paused&&!abort.signal.aborted){let payload=queue.shift()!;if('bytes' in payload){while(payload.bytes.every(b=>b>=32&&b!==127)&&queue.length&&'bytes' in queue[0]!&&(queue[0] as {bytes:number[]}).bytes.every(b=>b>=32&&b!==127)&&payload.bytes.length+(queue[0] as {bytes:number[]}).bytes.length<=4096){payload={bytes:[...payload.bytes,...(queue.shift() as {bytes:number[]}).bytes]};}}const operation=crypto.randomUUID();
    try{await apiSend('POST',`${path}/input`,{operation_id:operation,client_id:client,generation,...payload},signal());}catch{/* Receipt lookup, never keyboard replay. */}
    let applied=false;
    for(let n=0;n<300&&!abort.signal.aborted;n++){
