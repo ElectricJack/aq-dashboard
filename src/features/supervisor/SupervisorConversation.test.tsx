@@ -275,3 +275,24 @@ test("SO-14/ISSUE-007: opening the dock moves focus into it and closing returns 
   await userEvent.click(screen.getByRole("button", { name: "Close chat" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Open supervisor" })).toHaveFocus());
 });
+
+
+test("global and project supervisors keep separate drafts, and Start works before a controller is online",async()=>{
+ const app=setup();
+ const project='a22afccc-d61a-5f77-aef8-9fd73311c68a',conversation='e0000000-0000-4000-8000-000000000099';
+ const profile={profile_id:'standard-medium',profile_version:1,candidate_id:'codex',name:'Standard',provider:'openai',model:'gpt-test',reasoning:'medium',harness:'codex'};
+ const scope=(id:string,project_id:string|null,label:string)=>({id,actor_id:supervisorActor,project_id,label,enabled:false,revision:0,profile:null,phase:'unavailable',stage:'Controller not started',observed_at_ms:null,generation:null,session_id:null,last_error:null});
+ const global=scope(discovery.conversation.id,null,'Global supervisor'),local=scope(conversation,project,'AQ server supervisor');
+ const controls:unknown[]=[];
+ server.use(http.get('/api/supervisors',()=>HttpResponse.json({supervisors:[global,local],profiles:[profile],server_time_ms:1})),
+ http.get(`/api/human/conversations/projects/${project}`,()=>HttpResponse.json({...discovery,conversation:{id:conversation,revision:'1',label:local.label}})),
+ http.get(`/api/human/conversations/${conversation}/messages`,()=>HttpResponse.json({...supervisorHistory([]),conversation:{id:conversation,revision:'1',label:local.label}})),
+ http.post(`/api/supervisors/${conversation}/control`,async({request})=>{const body=await request.json() as Record<string,unknown>;controls.push(body);return HttpResponse.json({...body,conversation_id:conversation,revision:1});}));
+ await ready();await userEvent.type(await composer(),'Global draft');
+ await userEvent.selectOptions(await screen.findByRole('combobox',{name:'Supervisor'}),`project:${project}`);
+ const input=await screen.findByRole('textbox',{name:'Message the project supervisor'});expect(input).toHaveValue('');await userEvent.type(input,'Project draft');
+ await userEvent.click(screen.getByRole('button',{name:'Start supervisor'}));await waitFor(()=>expect(controls).toHaveLength(1));expect(controls[0]).toMatchObject({enabled:true,expected_revision:0,intelligence_profile:{profile_id:'standard-medium',candidate_id:'codex'}});
+ await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),'global');expect(await composer()).toHaveValue('Global draft');
+ await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),`project:${project}`);expect(await screen.findByRole('textbox',{name:'Message the project supervisor'})).toHaveValue('Project draft');
+ app.unmount();
+});
