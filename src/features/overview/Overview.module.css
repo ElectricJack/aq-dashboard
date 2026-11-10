@@ -373,3 +373,5 @@
 .projectControls h2 span { margin-inline-start:var(--space-3);font-size:var(--font-size-meta);color:var(--color-text-secondary);font-weight:400; }
 .projectControls h2 span[data-started] { color:var(--color-success); }
 .projectControls p { margin-block:var(--space-2) 0;font-size:var(--font-size-meta);color:var(--color-text-secondary);overflow-wrap:anywhere; }
+
+.layout { gap:var(--space-3); }

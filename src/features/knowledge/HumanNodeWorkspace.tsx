@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { BookOpen, Circle, List, ListChecks, Network, RefreshCw, Search as SearchIcon, Shield, Tag, Workflow, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useScope } from "../../app/scope";
-import { PageTitle } from "../../app/DestinationPage";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { useProjects, useProjectsCapability } from "../../app/useProjects";
 import { useGraphList, useGraphDetail } from "../../api/humanGraphReads";
 import { mergeGraphPages, validGraphId, GRAPH_MAX_PAGES, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
@@ -68,16 +68,13 @@ export function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
  * Knowledge page header (reference 07): H1 with "Add record" on the same row and one subtitle.
  * The action slot stays in place in every state; the project name belongs to scope and document meta.
  */
-function KnowledgeHeader({detail}:{detail:boolean}) {
+function KnowledgeHeader() {
   const [scope]=useScope();const [params]=useSearchParams();
   const project=scope.kind==="project" && validGraphId(scope.project_id) ? scope.project_id : "";
   // Same query key as the library list, so this shares its cache and adds no request.
   const list=useGraphList(project,"knowledge",(params.get("q")??"").slice(0,256));
   const pending=!project?"Choose a project first":list.isError?"Project records are unavailable":"Loading project records";
-  return <header className={styles.pageHeader} data-detail={detail}>
-    <div className={styles.pageHeading}><PageTitle>Knowledge</PageTitle><AddRecordAction project={list.data?.pages[0]?.project} pendingReason={pending}/></div>
-    <p className={styles.subtitle}>Find the decisions, procedures, and evidence behind the work.</p>
-  </header>;
+  return <PageHeader title="Knowledge" actions={<AddRecordAction project={list.data?.pages[0]?.project} pendingReason={pending}/>} />;
 }
 export function HumanNodeWorkspace({kind}:{kind:GraphNode["kind"]}) {
   const [scope]=useScope();const route=useParams();const [params]=useSearchParams();const id=kind === "task" ? route.taskId : route.nodeId;
@@ -85,7 +82,7 @@ export function HumanNodeWorkspace({kind}:{kind:GraphNode["kind"]}) {
   const body=scope.kind !== "project" ? <ProjectChoice kind={kind} id={id}/> :
     !validGraphId(scope.project_id) || (id && !validGraphId(id)) ? (kind==="task"&&validGraphId(scope.project_id)?<TaskInspectorUnavailable search={withoutRevision(`?${params}`)} status={missing}/>:missing) :
     <ProjectWorkspace key={`${scope.project_id}:${kind}`} project={scope.project_id} kind={kind} id={id}/>;
-  return kind==="knowledge" ? <><KnowledgeHeader detail={!!id}/>{body}</> : body;
+  return kind==="knowledge" ? <><KnowledgeHeader/>{body}</> : body;
 }
 function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind"];id?:string}) {
   const [params,setParams]=useSearchParams();

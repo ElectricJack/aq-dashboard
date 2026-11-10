@@ -17,7 +17,7 @@ import { SelectedProjectControl } from "./SelectedProjectControl";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
 import { useSession } from "../../app/session";
-import { PageTitle } from "../../app/DestinationPage";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { CreateTaskAction } from "../work/CreateTask";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
@@ -208,17 +208,9 @@ export function motionSentence(inMotion: OverviewView["inMotion"], complete: boo
 function OverviewHeader({ children, action = true }: { children: ReactNode; action?: boolean }) {
   const { bootstrap } = useSession();
   return (<>
-    <div className={styles.header}>
-      <div className={styles.titleBlock}>
-        <PageTitle>Overview</PageTitle>
-        <p className={styles.summary} data-testid="overview-summary">{children}</p>
-      </div>
-      {action && bootstrap.capability("tasks.create").enabled && (
-        <div className={styles.headerAction}>
-          <CreateTaskAction />
-        </div>
-      )}
-    </div>
+    <PageHeader title="Overview" actions={action && bootstrap.capability("tasks.create").enabled ? <CreateTaskAction /> : undefined}>
+      <span data-testid="overview-summary">{children}</span>
+    </PageHeader>
     {action && <SelectedProjectControl />}
   </>);
 }

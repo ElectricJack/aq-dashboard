@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { List, ListChecks, Search, Workflow } from "lucide-react";
-import { PageTitle } from "../../app/DestinationPage";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { useScope } from "../../app/scope";
 import { useGraphDetail, useGraphList } from "../../api/humanGraphReads";
 import { GRAPH_MAX_PAGES, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
@@ -31,14 +31,9 @@ export function WorkWorkspace({ action }: { action?: ReactNode }) {
 }
 
 function WorkHead({ action, project, children }: { action?: ReactNode; project?: string; children?: ReactNode }) {
-  return <header className={styles.head}>
-    <div className={styles.titleBlock}>
-      {project && <p className={styles.crumb}><span className="visually-hidden">Project: </span>{project}</p>}
-      <PageTitle>Work</PageTitle>
-      {children}
-    </div>
-    {action && <div className={styles.headAction}>{action}</div>}
-  </header>;
+  return <PageHeader title="Work" actions={action}>
+    {project && <span><span className="visually-hidden">Project: </span>{project}</span>}{children}
+  </PageHeader>;
 }
 
 function TaskWorkspace({ project, id, action }: { project: string; id?: string; action?: ReactNode }) {
@@ -117,13 +112,12 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
     : <Panel title="Dependency graph">{graphStatus}</Panel>;
 
   return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={graph ? "graph" : "list"} data-focus={focused || undefined}>
-    <WorkHead action={action} project={query.data?.pages[0]?.project.name}>
+    <WorkHead action={action} project={query.data?.pages[0]?.project.name} />
+    <Toolbar className={styles.toolbar}>
       <nav aria-label="Work view" className={styles.segmented}>
         <ActionButton aria-pressed={!graph} onClick={() => update("view", "")}><List size={18} aria-hidden/>List</ActionButton>
         <ActionButton aria-pressed={graph} onClick={() => update("view", "graph")}><Workflow size={18} aria-hidden/>Graph</ActionButton>
       </nav>
-    </WorkHead>
-    <Toolbar className={styles.toolbar}>
       <form role="search" className={styles.search} onSubmit={e => { e.preventDefault(); update("q", draft.trim()); }}>
         <label className="visually-hidden" htmlFor="find-task">Search tasks</label>
         <Search size={18} aria-hidden className={styles.searchIcon}/>

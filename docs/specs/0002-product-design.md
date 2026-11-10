@@ -50,6 +50,8 @@ Prefer dense, legible rows and deliberate empty space over a grid of decorative 
 
 Navigation order is **Overview, Supervisor, Work, Results, Decisions, Agents, Playbooks, Knowledge**, with Settings and identity at the bottom. Supervisor is directly below Overview. The desktop rail stays visible in full-page chat. Explicit terminal Expand may collapse it.
 
+**Owner update, November 10, 2026:** All eight destinations use the compact Agents header: one title/action row, shared spacing, and the supervisor launcher in that row. Keep touch controls usable at 390px and 320px. Remove introductory subtitle rows; secondary summaries stay inline on desktop.
+
 The persistent top area contains scope, provider quota, search and connection/freshness affordances. The quota strip remains above every destination, including full chat and terminal focus. Quota is account-scoped and labelled accordingly; selecting a project must not imply that an account-wide percentage became project usage.
 
 Each provider entry shows provider/account label, **percent used**, actual window name, reset time and observation freshness. Never invert remaining percentage into used without a defined source field. Unknown is “Usage unavailable,” never zero. A stale value retains its timestamp and stale label. Multiple windows disclose their individual percentages and reset times; do not invent a combined percentage. The preferred window comes from server policy, not a hard-coded assumption that “primary” means weekly. Distinguish quota, provider availability, session token/cost accounting and worker capacity.
@@ -81,6 +83,8 @@ Use IDs and filters in URLs, never secrets, message bodies or draft content. Bro
 The graph initially renders a bounded neighborhood around the selected task, with a 100-node target cap and explicit omitted counts/expansion controls. Hierarchy, execution dependencies and informational evidence links have distinct styling and labels. Stable positions preserve orientation when data changes. A textual dependency list offers the same navigation without graph interaction. Mobile opens a dedicated graph view deliberately; task lists remain the default.
 
 **Decisions.** One inbox can discover reviews, questions and failure interventions, but each retains its domain-specific form and permission. Show exact source/task/result revision, requested judgment, evidence availability, previous responses and downstream effect. Approve/reject/answer binds that revision. A newer subject shows a superseded warning; no automatic retargeting. The mobile action bar must not hide evidence or keyboard focus. Submission remains pending until the server confirms; a conflict retains the draft and presents a deliberate refresh/review path.
+
+**Owner update, November 10, 2026:** Work offers Delete task with only “Are you sure?” confirmation. Deletion has no workflow gate or dependency refusal: incident links are removed and other tasks survive. Cancel task needs no entered reason and immediately records canceled task lifecycle; the server and worker complete native stop/disposition automatically.
 
 Cancellation is an intent, not proof the process stopped. Source retained, result submitted, result accepted, task complete, candidate published and change merged/deployed are distinct facts wherever shown.
 

@@ -520,7 +520,7 @@ test("P1-02: on a phone every action sits in one Task actions menu", async () =>
     expect(within(header).queryByRole("button", { name: "Edit task" })).toBeNull();
     await userEvent.click(within(header).getByRole("button", { name: "Task actions" }));
     const menu = screen.getByRole("menu", { name: "Task actions" });
-    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Cancel attempt", "Retry attempt", "Add dependency", "Remove dependency"]);
+    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Cancel task", "Delete task", "Retry attempt", "Add dependency", "Remove dependency"]);
   } finally { vi.unstubAllGlobals(); }
 });
 

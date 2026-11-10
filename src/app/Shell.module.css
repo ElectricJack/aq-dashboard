@@ -617,3 +617,7 @@
 .shell:has(.main [data-viewport-fit]) .main { display: flex; flex-direction: column; min-block-size: 0; }
 
 .main:has([data-agents-compact]) { padding-block: var(--space-3); gap: var(--space-2); }
+
+/* Every destination gives the workspace the same space as Agents. */
+.main { padding-block:var(--space-3); gap:var(--space-2); }
+@media(max-width:767px) { .main { padding-block-end:calc(var(--touch-target) + var(--space-6) + env(safe-area-inset-bottom)); } }

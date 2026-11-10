@@ -137,3 +137,5 @@
  .draftFooter { padding-block-end:calc(var(--space-4) + env(safe-area-inset-bottom)); }
  .draftFooter > * { flex:1 1 0; }
 }
+
+.layout { gap:var(--space-3); }

@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "7529e6236d1b880d112bc9c6e0e8ba4585c4f75d",
+  "commit": "21a77e9b1c67e4485d522d3227c2a84b7b8f54b6",
   "status": "Published on aq-server main at 7529e623",
   "sha256": {
-    "dashboard-actions/v1/README.md": "c545b9ae03344673d545e4239e08fb78dd1a8c88513f5e25621c95847c4b6ad7",
-    "dashboard-actions/v1/check.py": "7bdcf205430d31739522dfb52c89159aeb01ffcfdf79e086854adab7192f9528",
-    "dashboard-actions/v1/fixtures/compatibility.json": "8ace47fdf9889cdae8325bf4cea4661ac1db90611e0036539911a9fd7071a7bb",
+    "dashboard-actions/v1/README.md": "5f13957eab7c3b73af99fab598eab20a7a6a90e6b10d275b22dfd436917a8505",
+    "dashboard-actions/v1/check.py": "0f49c6aefa6f073fb8c378ee1bdee7cbac26a38125c8d4485d99624e4294a228",
+    "dashboard-actions/v1/fixtures/compatibility.json": "d8e52ede795122bd7c7a2a16a041bb3a0a831401ed7d338a180c8e62baac9fda",
     "dashboard-actions/v1/fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "dashboard-actions/v1/fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "dashboard-actions/v1/fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -40,12 +40,13 @@
     "dashboard-actions/v1/fixtures/request-session-message-send.json": "2d53f5324f010334ea3b8a4cd496a5f55abe0ed0a9948e612f81b7891ecd5464",
     "dashboard-actions/v1/fixtures/request-supervisor-message-send.json": "18c2a8a37e89bc9a71c632403392d0609f518bc8d8d986abca23d2167adebe80",
     "dashboard-actions/v1/fixtures/request-swarm-availability-set.json": "bc9e9c5de392703d6946e53089ee1328a538737d1d8c1fdffd16de0a17b4ac72",
-    "dashboard-actions/v1/fixtures/request-task-cancel.json": "b586aef7b6d990f23359969fac2995ce3a1b4ab93d347a8425029d14f578648c",
+    "dashboard-actions/v1/fixtures/request-task-cancel.json": "4d7fdd79395e4575e001db9d6bf42956c3074ea3888fb6fee400650d4d776217",
     "dashboard-actions/v1/fixtures/request-task-comment-add.json": "2883f2e724f32fbee85c6f52fdaf8c3f63080a193ec34ccce5f68e96bfc0b15d",
     "dashboard-actions/v1/fixtures/request-task-comment-delete.json": "3cbc259a42d9a2852311cb21c49b9ec590622012a41371decf596ea8fe098107",
     "dashboard-actions/v1/fixtures/request-task-comment-edit.json": "da143a5657c92318782b0d4b64fb2b5340ba938b0a44a165966765799344d46b",
     "dashboard-actions/v1/fixtures/request-task-create-metadata.json": "9bb66914d76af754ac3b263fe19a6bfe2a200f7c5ac77eff8f85579575a36c46",
     "dashboard-actions/v1/fixtures/request-task-create.json": "74e509719353a518acdbde71125aca2d4b25ba989fd3219244254ae2ce1e6699",
+    "dashboard-actions/v1/fixtures/request-task-delete.json": "dd9ab78309d90dc936d9d44f6cd2f0d1daf127318ae35bd50d08ae7f2b8f016d",
     "dashboard-actions/v1/fixtures/request-task-dependency-add.json": "2e38bb567b63a66697ba59d6bda902d0372850ae834cb82a70bd8c82c68be39e",
     "dashboard-actions/v1/fixtures/request-task-dependency-remove.json": "59b1c344fa3b18b25f5c58f0f438019840d57b090127f36091a8d352beb89de6",
     "dashboard-actions/v1/fixtures/request-task-edit.json": "e02981ac7e569c5f9248365e1d96e972a4b0907204b8c8b36f6dcd08a29a148f",
@@ -56,6 +57,6 @@
     "dashboard-actions/v1/fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
-    "dashboard-actions/v1/schema.json": "67e991d5fe15be26fd2a26aefd09031609c82e4b1770a7731727fb20af2d5f15"
+    "dashboard-actions/v1/schema.json": "502cd9ead7bc90255f0a46a044c9c6a81b4a2bb94da28669407a673244bf81d2"
   }
 }

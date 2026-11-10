@@ -9,14 +9,14 @@ import { renderApp } from "../../test/renderApp";
 import { graphEnvelope, graphNode, graphProject, graphId } from "../../test/humanGraph";
 
 const actions = [
-  ["task.edit", "Edit task"], ["task.reprioritize", "Reprioritize"], ["task.cancel", "Cancel attempt"], ["task.retry", "Retry attempt"],
+  ["task.edit", "Edit task"], ["task.reprioritize", "Reprioritize"], ["task.cancel", "Cancel task"], ["task.retry", "Retry attempt"],
   ["task.dependency.add", "Add dependency"], ["task.dependency.remove", "Remove dependency"],
   ["knowledge.author", "Add record"], ["knowledge.correct", "Correct record"],
   ["knowledge.verify", "Verify record"], ["knowledge.retire", "Retire record"],
 ] as const;
 const taskCapabilities:Record<string,string>={"task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.cancel":"tasks.cancel","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove"};
 const server = setupServer(...handlersFor("default"));
-const confirmedText=(kind:string)=>kind==="task.cancel"?"Cancellation requested":kind==="task.reprioritize"?"Priority set to -7":"Action confirmed";
+const confirmedText=(kind:string)=>kind==="task.cancel"?"Task canceled":kind==="task.reprioritize"?"Priority set to -7":"Action confirmed";
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 let holding = true;
@@ -25,8 +25,8 @@ function setup(kind: string, disabled?: string, labels?:string[]) {
   const type = kind.startsWith("task.") ? "task" : "knowledge", node = {...graphNode(type),...(labels?{labels}:{})};
   let version = node.version, detailReads = 0;
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data,
-    capabilities: [...bootstrap.data.capabilities.filter(c => !["human.graph.read", "tasks.read", "knowledge.read", "dashboard.actions", ...actions.map(a=>taskCapabilities[a[0]]??a[0])].includes(c.name)),
-      ...["human.graph.read", "tasks.read", "knowledge.read", "dashboard.actions", ...actions.map(a=>taskCapabilities[a[0]]??a[0])].map(name=>({name,version:"1",enabled:name!==disabled,...(name===disabled?{reason:"Administrator required for verified records"}:{})}))],
+    capabilities: [...bootstrap.data.capabilities.filter(c => !["human.graph.read", "tasks.read", "knowledge.read", "dashboard.actions", "tasks.delete", ...actions.map(a=>taskCapabilities[a[0]]??a[0])].includes(c.name)),
+      ...["human.graph.read", "tasks.read", "knowledge.read", "dashboard.actions", "tasks.delete", ...actions.map(a=>taskCapabilities[a[0]]??a[0])].map(name=>({name,version:"1",enabled:name!==disabled,...(name===disabled?{reason:"Administrator required for verified records"}:{})}))],
   }})));
   const base = `/api/human/projects/${graphProject}/${type==="task"?"tasks":"knowledge"}`;
   server.use(http.get(base, () => HttpResponse.json(graphEnvelope({items:[{...node,version}],next_cursor:null}))),
@@ -55,12 +55,12 @@ async function open(kind:string,label:string,labels?:string[]){
  if(["task.edit","knowledge.author","knowledge.correct"].includes(kind)){
   const title=within(dialog).getByLabelText("Title"); await userEvent.clear(title);await userEvent.type(title,"A revised title");
  }
- if(["task.cancel","knowledge.verify","knowledge.retire"].includes(kind))await userEvent.type(within(dialog).getByLabelText("Reason"),"Checked the source");
+ if(["knowledge.verify","knowledge.retire"].includes(kind))await userEvent.type(within(dialog).getByLabelText("Reason"),"Checked the source");
  if(kind==="task.dependency.add")await userEvent.type(within(dialog).getByLabelText("Blocker task"),graphId(11));
  if(kind==="task.reprioritize")await userEvent.type(within(dialog).getByLabelText("Priority"),"-7");
  if(kind==="task.dependency.remove")await userEvent.selectOptions(within(dialog).getByLabelText("Dependency"),graphId(50));
  if(kind==="knowledge.verify")await userEvent.type(within(dialog).getByLabelText("Evidence URL"),"https://example.org/runbook");
- if(["task.cancel","knowledge.retire"].includes(kind))await userEvent.click(within(dialog).getByRole("checkbox"));
+ if(["knowledge.retire"].includes(kind))await userEvent.click(within(dialog).getByRole("checkbox"));
  return {node,dialog,...state};
 }
 
@@ -71,7 +71,7 @@ test.each(actions)("%s submits a version-bound typed action and refreshes confir
   return HttpResponse.json(operation(String(body.operation_id)));
  }));
  const {node,dialog,reads}=await open(kind,label);const before=reads();
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText(confirmedText(kind),{exact:true})).toBeVisible();
  expect(requests).toHaveLength(1);
  const body=requests[0]!,payload=body.payload as Record<string,unknown>;
@@ -89,7 +89,7 @@ test.each(actions)("%s preserves an unknown effect and retries identical bytes",
  server.use(http.post("/api/v1/actions",async({request})=>{bytes.push(await request.text());return bytes.length===1?HttpResponse.error():HttpResponse.json(operation(JSON.parse(bytes[0]!).operation_id));}),
   http.get("/api/v1/operations/:id",()=>{lookups++;return HttpResponse.json({request_id:"lookup",code:"not_found",message:"Not available",retryable:false},{status:404});}));
  const {dialog}=await open(kind,label);
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText(/Outcome unknown/)).toBeVisible();
  await waitFor(()=>expect(lookups).toBeGreaterThan(0));
  expect(within(dialog).queryByText("Action confirmed",{exact:true})).not.toBeInTheDocument();
@@ -103,7 +103,7 @@ test("work_task_edit_handles_unknown_effect",async()=>{
  server.use(http.post("/api/v1/actions",async({request})=>{const body=await request.json() as {operation_id:string};id=body.operation_id;posts++;return HttpResponse.error();}),
  http.get("/api/v1/operations/:id",({params})=>HttpResponse.json(operation(String(params.id)))));
  const {dialog}=await open("task.edit","Edit task");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  await within(dialog).findByText("Action confirmed",{exact:true});expect(id).not.toBe("");expect(posts).toBe(1);
 });
 
@@ -111,14 +111,14 @@ test("knowledge_correct_conflict_offers_reload",async()=>{
  const requests:{operation_id:string;expected_versions:unknown}[]=[];
  server.use(http.post("/api/v1/actions",async({request})=>{const body=await request.json() as typeof requests[number];requests.push(body);return HttpResponse.json(operation(body.operation_id,requests.length===1?"conflict":"confirmed",{current_versions:{knowledge:"9007199254740994"}}));}));
  const {dialog,changeVersion}=await open("knowledge.correct","Correct record");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText(/Conflict/)).toBeVisible();expect(within(dialog).getByText(/knowledge: 9007199254740994/)).toBeVisible();
  expect(within(dialog).getByLabelText("Title")).toHaveValue("A revised title");
  changeVersion("9007199254740994");
  await userEvent.click(within(dialog).getByRole("button",{name:"Reload current versions"}));
- await waitFor(()=>expect(within(dialog).getByRole("button",{name:"Submit"})).toBeEnabled());
+ await waitFor(()=>expect(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/})).toBeEnabled());
  expect(within(dialog).getByLabelText("Title")).toHaveValue("A revised title");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText("Action confirmed",{exact:true});
  expect(requests[1]!.operation_id).not.toBe(requests[0]!.operation_id);expect(requests[1]!.expected_versions).toEqual({knowledge:"9007199254740994"});
 });
 
@@ -143,14 +143,14 @@ test("pending cancellation is an intent and polls without optimistic task lifecy
  let id="",lookup=0;
  server.use(http.post("/api/v1/actions",async({request})=>{id=(await request.json() as {operation_id:string}).operation_id;return HttpResponse.json(operation(id,"pending"),{status:202});}),
   http.get("/api/v1/operations/:id",()=>{lookup++;return HttpResponse.json(operation(id));}));
- const {dialog}=await open("task.cancel","Cancel attempt");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
- await within(dialog).findByText("Cancellation requested",{exact:true});expect(lookup).toBeGreaterThan(0);expect(screen.getAllByText("Active",{exact:true}).length).toBeGreaterThan(0);
+ const {dialog}=await open("task.cancel","Cancel task");
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
+ await within(dialog).findByText("Task canceled",{exact:true});expect(lookup).toBeGreaterThan(0);expect(screen.getAllByText("Active",{exact:true}).length).toBeGreaterThan(0);
 });
 
 test("rejection gives a definite safe explanation",async()=>{
  server.use(http.post("/api/v1/actions",async({request})=>HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id,"rejected"))));
- const {dialog}=await open("task.retry","Retry attempt");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ const {dialog}=await open("task.retry","Retry attempt");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText(/Rejected/)).toBeVisible();expect(within(dialog).queryByText("Action confirmed",{exact:true})).not.toBeInTheDocument();
  // WD-08: no reason in the contract, so AQ's refusal is stated without blaming permissions.
  expect(within(dialog).getByRole("status")).toHaveTextContent("Rejected — AQ refused this action. It retries only an active task whose last attempt can be replaced.");
@@ -159,26 +159,26 @@ test("rejection gives a definite safe explanation",async()=>{
 
 test("an HTTP refusal shows the server's own message when it sends one (WD-08)",async()=>{
  server.use(http.post("/api/v1/actions",()=>HttpResponse.json({request_id:"r",code:"invalid_request",message:"Blocker would create a dependency cycle",retryable:false},{status:422})));
- const {dialog}=await open("task.dependency.add","Add dependency");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ const {dialog}=await open("task.dependency.add","Add dependency");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Blocker would create a dependency cycle");expect(within(dialog).queryByText(/permissions/)).toBeNull();
 });
 
-test("cancel attempt is disabled with AQ's precondition when no attempt holds the task (WD-11)",async()=>{
+test("a task can be canceled without a holding attempt",async()=>{
  holding=false;const {node}=setup("task.edit");renderApp(`/work/${node.id}?scope=project:${graphProject}`);
  await screen.findByText("No agent attempt holds this task.");
  await userEvent.click(await screen.findByRole("button",{name:"More actions"}));
- const cancel=within(screen.getByRole("menu")).getByRole("menuitem",{name:/Cancel attempt/});
- expect(cancel).toHaveAttribute("aria-disabled","true");expect(cancel).toHaveAccessibleDescription("No agent attempt holds this task");
+ const cancel=within(screen.getByRole("menu")).getByRole("menuitem",{name:/Cancel task/});
+ expect(cancel).not.toHaveAttribute("aria-disabled");
  expect(within(screen.getByRole("menu")).getByRole("menuitem",{name:/Retry attempt/})).not.toHaveAttribute("aria-disabled");
- await userEvent.click(cancel);expect(screen.queryByRole("dialog")).toBeNull();
+ await userEvent.click(cancel);const dialog=screen.getByRole("dialog",{name:"Cancel task"});expect(within(dialog).queryByLabelText("Reason")).toBeNull();expect(within(dialog).queryByRole("checkbox")).toBeNull();
 });
 
-test("retry and cancel are disabled for a task no attempt can hold (WD-11)",async()=>{
+test("draft tasks can be canceled while retry retains its execution preconditions",async()=>{
  const {node}=setup("task.edit");server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}`,()=>HttpResponse.json(graphEnvelope({...node,task_state:"draft"}))));
  renderApp(`/work/${node.id}?scope=project:${graphProject}`);await userEvent.click(await screen.findByRole("button",{name:"More actions"}));
  const menu=screen.getByRole("menu");
  expect(within(menu).getByRole("menuitem",{name:/Retry attempt/})).toHaveAccessibleDescription("AQ retries attempts of active tasks only");
- expect(within(menu).getByRole("menuitem",{name:/Cancel attempt/})).toHaveAccessibleDescription("No agent attempt can hold a draft task");
+ expect(within(menu).getByRole("menuitem",{name:/Cancel task/})).not.toHaveAttribute("aria-disabled");
 });
 
 test("add dependency picks the blocker by title search (WD-09)",async()=>{
@@ -193,7 +193,7 @@ test("add dependency picks the blocker by title search (WD-09)",async()=>{
  // The task itself is never offered as its own blocker.
  expect(within(choices).getAllByRole("radio")).toHaveLength(1);
  await userEvent.click(within(choices).getByRole("radio",{name:/Define lease contract/}));
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText("Action confirmed",{exact:true});
  expect((posts[0]!.payload as Record<string,unknown>).blocker_id).toBe(blocker.id);
 });
 
@@ -201,7 +201,7 @@ test("edit title is required and limited like the server (WD-03)",async()=>{
  let posts=0;server.use(http.post("/api/v1/actions",()=>{posts++;return HttpResponse.json({});}));
  const {dialog}=await open("task.edit","Edit task");const title=within(dialog).getByLabelText("Title");
  expect(title).toHaveAttribute("maxLength","512");await userEvent.clear(title);await userEvent.type(title,"   ");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Title is required.");expect(posts).toBe(0);
 });
 
@@ -209,12 +209,12 @@ test("duplicate submit and close/reopen retain one unresolved operation",async()
  const bytes:string[]=[];let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
  server.use(http.post("/api/v1/actions",async({request})=>{bytes.push(await request.text());await gate;return HttpResponse.error();}),http.get("/api/v1/operations/:id",()=>HttpResponse.json({request_id:"lookup",code:"not_found",message:"Not available",retryable:false},{status:404})));
  const {dialog}=await open("task.edit","Edit task");
- await userEvent.dblClick(within(dialog).getByRole("button",{name:"Submit"}));await waitFor(()=>expect(bytes).toHaveLength(1));
+ await userEvent.dblClick(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await waitFor(()=>expect(bytes).toHaveLength(1));
  await userEvent.click(within(dialog).getByRole("button",{name:"Close action"}));
  await userEvent.click(screen.getByRole("button",{name:"Edit task · operation"}));
  expect(within(screen.getByRole("dialog")).getByLabelText("Title")).toHaveValue("A revised title");
  release();await within(dialog).findByText(/Outcome unknown/);
- expect(bytes).toHaveLength(1);expect(within(dialog).queryByRole("button",{name:"Submit"})).not.toBeInTheDocument();
+ expect(bytes).toHaveLength(1);expect(within(dialog).queryByRole("button",{name:/^(Submit|Cancel task)$/})).not.toBeInTheDocument();
 });
 
 test("a late response cannot open an operation on a different subject",async()=>{
@@ -222,7 +222,7 @@ test("a late response cannot open an operation on a different subject",async()=>
  server.use(http.post("/api/v1/actions",async({request})=>{const body=await request.json() as {operation_id:string};await gate;return HttpResponse.json(operation(body.operation_id));}));
  const {node}=setup("task.edit");const {router}=renderApp(`/work/${node.id}?scope=project:${graphProject}`);
  await userEvent.click(await screen.findByRole("button",{name:"Edit task"}));
- await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  await router.navigate(`/knowledge?scope=project:${graphProject}`);await screen.findByRole("heading",{name:"Knowledge",level:1});
  release();await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
  expect(screen.queryByText("Action confirmed",{exact:true})).not.toBeInTheDocument();
@@ -232,7 +232,7 @@ test("confirmed receipt survives a failed record refresh",async()=>{
  const {node}=setup("task.edit");let reads=0;
  server.use(http.get(`/api/human/projects/${graphProject}/tasks/${node.id}`,()=>++reads===1?HttpResponse.json(graphEnvelope(node)):HttpResponse.json({error:"identity_unavailable",message:"Graph read unavailable"},{status:503})),http.post("/api/v1/actions",async({request})=>HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id))));
  renderApp(`/work/${node.id}?scope=project:${graphProject}`);await userEvent.click(await screen.findByRole("button",{name:"Edit task"}));
- const dialog=screen.getByRole("dialog",{name:"Edit task"});await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ const dialog=screen.getByRole("dialog",{name:"Edit task"});await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  await waitFor(()=>expect(reads).toBeGreaterThan(1));expect(await within(dialog).findByText("Action confirmed",{exact:true})).toBeVisible();
  expect(screen.getByText(/Showing previously read revision/)).toBeInTheDocument();
 });
@@ -242,44 +242,44 @@ test.each([["task.edit","Edit task"],["knowledge.correct","Correct record"]])("%
  let payload:Record<string,unknown>|undefined;
  server.use(http.post("/api/v1/actions",async({request})=>{const body=await request.json() as {operation_id:string;payload:Record<string,unknown>};payload=body.payload;return HttpResponse.json(operation(body.operation_id));}));
  const {dialog}=await open(kind,label,["ops,critical",...Array.from({length:16},(_,i)=>`label-${i}`)]);
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText("Action confirmed",{exact:true});
  expect(payload).not.toHaveProperty("labels");
 });
 
 test.each(actions.filter(([kind])=>!["task.edit","knowledge.author","knowledge.correct"].includes(kind)))("%s accepts records with 17 existing labels",async(kind,label)=>{
  let posts=0;server.use(http.post("/api/v1/actions",async({request})=>{posts++;return HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id));}));
  const {dialog}=await open(kind,label,Array.from({length:17},(_,i)=>`label-${i}`));
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText(confirmedText(kind),{exact:true});expect(posts).toBe(1);
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText(confirmedText(kind),{exact:true});expect(posts).toBe(1);
 });
 
 test.each(["lookup","exact retry"])("%s receipt retirement preserves uncertainty and the original identity",async(path)=>{
  let id="",posts=0,lookups=0;
  const retired=()=>HttpResponse.json({request_id:"retired",code:"operation_retired",message:"Receipt expired",retryable:false},{status:410});
  server.use(http.post("/api/v1/actions",async({request})=>{id=(await request.json() as {operation_id:string}).operation_id;return ++posts===1?HttpResponse.error():retired();}),http.get("/api/v1/operations/:id",()=>{lookups++;return path==="lookup"?retired():HttpResponse.json({request_id:"lookup",code:"not_found",message:"Not available",retryable:false},{status:404});}));
- const {dialog}=await open("task.edit","Edit task");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ const {dialog}=await open("task.edit","Edit task");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  if(path==="exact retry"){await within(dialog).findByText(/Outcome unknown/);await waitFor(()=>expect(lookups).toBeGreaterThan(0));await userEvent.click(within(dialog).getByRole("button",{name:"Retry exact submission"}));}
  expect(await within(dialog).findByText(/Receipt details expired/)).toBeVisible();
  expect(within(dialog).queryByText(/Rejected/)).not.toBeInTheDocument();expect(within(dialog).queryByRole("button",{name:"Reload current versions"})).not.toBeInTheDocument();expect(within(dialog).queryByRole("button",{name:"Retry exact submission"})).not.toBeInTheDocument();
  await userEvent.click(within(dialog).getByText("Operation reference and receipts"));expect(within(dialog).getByText(id,{exact:true})).toBeVisible();
- await userEvent.click(within(dialog).getByRole("button",{name:"Close action"}));await userEvent.click(screen.getByRole("button",{name:"Edit task · operation"}));expect(within(dialog).queryByRole("button",{name:"Submit"})).not.toBeInTheDocument();
+ await userEvent.click(within(dialog).getByRole("button",{name:"Close action"}));await userEvent.click(screen.getByRole("button",{name:"Edit task · operation"}));expect(within(dialog).queryByRole("button",{name:/^(Submit|Cancel task)$/})).not.toBeInTheDocument();
 });
 // SO-03 / ISSUE-003: one refused action stays in its dialog; the draft and the dashboard remain.
 test.each([["knowledge.author","Add record"],["knowledge.correct","Correct record"],["task.edit","Edit task"]] as const)("a 403 on %s keeps the dialog, the draft and the shell",async(kind,label)=>{
  const ids:string[]=[];
  server.use(http.post("/api/v1/actions",async({request})=>{ids.push(String(((await request.json()) as {operation_id?:string}).operation_id));return HttpResponse.json({request_id:"r",code:"forbidden",message:"This request is not available to your account",retryable:false},{status:403});}));
  const {dialog}=await open(kind,label);
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText(/AQ refused this action\. This request is not available to your account\. Nothing was changed\. Your draft is preserved\./)).toBeInTheDocument();
  expect(within(dialog).getByLabelText("Title")).toHaveValue("A revised title");
  expect(screen.queryByRole("heading",{name:/Access denied|Access not confirmed/})).not.toBeInTheDocument();
  expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
  // A resubmission is a new operation, never a replay of the refused one.
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await waitFor(()=>expect(ids).toHaveLength(2));expect(ids[0]).not.toBe(ids[1]);
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await waitFor(()=>expect(ids).toHaveLength(2));expect(ids[0]).not.toBe(ids[1]);
 });
 test("WD-03: a blank edited title says it is required",async()=>{
  const {dialog}=await open("task.edit","Edit task");
  await userEvent.clear(within(dialog).getByLabelText("Title"));await userEvent.type(within(dialog).getByLabelText("Title"),"   ");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText("Title is required.")).toBeInTheDocument();
 });
 
@@ -298,15 +298,15 @@ test("WDR-01: reload after a conflict takes AQ's values for untouched fields, so
  const acceptance=within(dialog).getByLabelText("Acceptance criteria");await userEvent.clear(acceptance);await userEvent.type(acceptance,"Tab 1 acceptance.");
  // Tab 2 confirmed a description edit meanwhile.
  tab2({body:`${node.body}\nEdited in tab 2.`});
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByText(/Conflict/)).toBeVisible();
  await userEvent.click(within(dialog).getByRole("button",{name:"Reload current versions"}));
- await waitFor(()=>expect(within(dialog).getByRole("button",{name:"Submit"})).toBeEnabled());
+ await waitFor(()=>expect(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/})).toBeEnabled());
  expect(within(dialog).getByText(/· Record version 9007199254740994$/)).toBeVisible();
  expect(within(dialog).getByLabelText("Description")).toHaveValue(`${node.body}\nEdited in tab 2.`);
  expect(within(dialog).getByLabelText("Acceptance criteria")).toHaveValue("Tab 1 acceptance.");
  expect(within(dialog).getByRole("region",{name:"Reloaded record"})).toHaveTextContent("Reloaded record version 9007199254740994. Updated from AQ: Description. Your own edits are kept.");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText("Action confirmed",{exact:true});
  expect(posts[1]!.payload).toMatchObject({body:`${node.body}\nEdited in tab 2.`,acceptance_criteria:"Tab 1 acceptance.",title:node.title,expected_version:"9007199254740994"});
  expect(posts[1]!.payload).not.toHaveProperty("labels");
 });
@@ -314,7 +314,7 @@ test("WDR-01: a field both tabs changed keeps the user's edit and shows AQ's val
  const {node,dialog,posts,tab2}=await editConflict();
  const body=within(dialog).getByLabelText("Description");await userEvent.clear(body);await userEvent.type(body,"Tab 1 description.");
  tab2({title:"Retitled in tab 2",body:"Tab 2 description."});
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText(/Conflict/);
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText(/Conflict/);
  await userEvent.click(within(dialog).getByRole("button",{name:"Reload current versions"}));
  const notice=await within(dialog).findByRole("region",{name:"Reloaded record"});
  expect(notice).toHaveTextContent("Updated from AQ: Title.");
@@ -325,14 +325,14 @@ test("WDR-01: a field both tabs changed keeps the user's edit and shows AQ's val
  await userEvent.click(within(notice).getByRole("button",{name:"Use AQ's description"}));
  expect(within(dialog).getByLabelText("Description")).toHaveValue("Tab 2 description.");
  expect(within(notice).queryByText(/was also changed in AQ/)).toBeNull();
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));await within(dialog).findByText("Action confirmed",{exact:true});
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));await within(dialog).findByText("Action confirmed",{exact:true});
  expect(posts[1]!.payload).toMatchObject({title:"Retitled in tab 2",body:"Tab 2 description.",acceptance_criteria:node.acceptance_criteria});
 });
 
 // WDR-05: the dependency refusal copy names the cause that applies.
 test("WDR-05: a nonexistent blocker says it doesn't exist, without the cycle precondition",async()=>{
  server.use(http.post("/api/v1/actions",()=>HttpResponse.json({request_id:"r",code:"not_found",message:"Resource not found",retryable:false},{status:404})));
- const {dialog}=await open("task.dependency.add","Add dependency");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ const {dialog}=await open("task.dependency.add","Add dependency");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByRole("alert")).toHaveTextContent("The blocker task doesn't exist or isn't available to you.");
  expect(within(dialog).getByRole("status")).toHaveTextContent(/^Rejected — AQ refused this action\.$/);
  expect(within(dialog).queryByText(/cycle|repeat/)).toBeNull();
@@ -340,7 +340,7 @@ test("WDR-05: a nonexistent blocker says it doesn't exist, without the cycle pre
 test("WDR-05: a refused dependency names the cycle rule and never claims repeats are refused",async()=>{
  server.use(http.post("/api/v1/actions",async({request})=>HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id,"rejected"))));
  const {dialog}=await open("task.dependency.add","Add dependency");
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByRole("status")).toHaveTextContent("Rejected — AQ refused this action. AQ refuses a dependency that would create a cycle");
  expect(within(dialog).queryByText(/repeat/)).toBeNull();
 });
@@ -357,7 +357,7 @@ test("WDR-05: the picker doesn't offer a task that already blocks this one",asyn
  // A pasted ID of an existing blocker is caught before submitting.
  const input=within(dialog).getByLabelText("Blocker task");await userEvent.clear(input);await userEvent.type(input,graphId(13));
  expect(within(dialog).getByText(`Task ${graphId(13)} already blocks this task.`)).toBeVisible();
- await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByRole("alert")).toHaveTextContent("That task already blocks this one.");expect(posts).toBe(0);
 });
 
@@ -383,6 +383,21 @@ test("Reprioritize refuses a priority outside AQ's range before submitting",asyn
  let posts=0;server.use(http.post("/api/v1/actions",()=>{posts++;return HttpResponse.json({});}));
  const {node}=setup("task.reprioritize");renderApp(`/work/${node.id}?scope=project:${graphProject}`);await launch("Reprioritize",true);
  const dialog=screen.getByRole("dialog",{name:"Reprioritize"});
- await userEvent.type(within(dialog).getByLabelText("Priority"),"1000001");await userEvent.click(within(dialog).getByRole("button",{name:"Submit"}));
+ await userEvent.type(within(dialog).getByLabelText("Priority"),"1000001");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Enter a whole-number priority from -1000000 to 1000000.");expect(posts).toBe(0);
+});
+
+
+test("delete asks only Are you sure, then removes the selected task without dependency gates",async()=>{
+ let submitted:Record<string,unknown>|undefined,deleted=false;
+ const {node}=setup("task.delete");
+ server.use(http.get(`/api/human/projects/${graphProject}/tasks`,()=>HttpResponse.json(graphEnvelope({items:deleted?[]:[node],next_cursor:null}))),http.post("/api/v1/actions",async({request})=>{submitted=await request.json() as Record<string,unknown>;deleted=true;return HttpResponse.json(operation(String(submitted.operation_id)));}));
+ const {router}=renderApp(`/work/${node.id}?scope=project:${graphProject}`);
+ await launch("Delete task",true);
+ const dialog=screen.getByRole("dialog",{name:"Are you sure?"});
+ expect(within(dialog).queryByLabelText(/Reason/)).toBeNull();expect(within(dialog).queryByRole("checkbox")).toBeNull();
+ await userEvent.click(within(dialog).getByRole("button",{name:/^Delete$/}));
+ await waitFor(()=>expect(router.state.location.pathname).toBe("/work"));
+ expect(submitted?.kind).toBe("task.delete");expect(submitted).not.toHaveProperty("reason");
+ expect(screen.queryByRole("dialog")).toBeNull();
 });

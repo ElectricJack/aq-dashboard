@@ -105,3 +105,5 @@
   .page[data-detail=true][data-view=list] .headAction,
   .page[data-detail=true][data-view=list] .crumb { display:none; }
 }
+
+.page { gap:var(--space-3); } .segmented { margin-block-start:0; }

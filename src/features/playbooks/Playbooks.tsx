@@ -6,7 +6,7 @@ import { scopedKey } from "../../api/queryKeys";
 import { Calendar, ChevronRight, FileText, RefreshCw } from "lucide-react";
 import { adaptAdmissions, adaptRunDetail, adaptRuns, mergeRunPages, statusLabel, timestamp, type Run } from "../../api/adapters/playbooks";
 import { useSession } from "../../app/session";
-import { PageTitle } from "../../app/DestinationPage";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { scopeSearch, useScope } from "../../app/scope";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { Panel, Toolbar, ActionButton, DetailList } from "../../components/layout/Workspace";
@@ -89,7 +89,7 @@ export function Playbooks() {
     event.preventDefault(); moved.current = true; selectTab(TABS[target]![0]);
   }
   return <div className={styles.page} data-detail={detail}>
-    <header className={styles.header}><PageTitle>Playbooks</PageTitle><p className={styles.subtitle}>Inspect policy and follow each execution.</p></header>
+    <PageHeader title="Playbooks" />
     <Toolbar className={styles.viewBar}>
       <div className={styles.tabs} role="tablist" aria-label="Playbook views" onKeyDown={tabKey}>
         {TABS.map(([id, label]) => <button key={id} id={`playbooks-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={tab === id ? `playbooks-panel-${id}` : undefined} tabIndex={tab === id ? 0 : -1} ref={element => { if (element) tabRefs.current.set(id, element); else tabRefs.current.delete(id); }} onClick={() => selectTab(id)}>{label}</button>)}

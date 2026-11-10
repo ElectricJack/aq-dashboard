@@ -5,6 +5,7 @@ import { destination, type DestinationId } from "./destinations";
 import { useDocumentTitle } from "./documentTitle";
 import { useSession } from "./session";
 import styles from "./Shell.module.css";
+import { PageHeader } from "../components/layout/PageHeader";
 
 /** Last focused destination, owned by the Shell so it survives route component remounts. */
 export const TitleFocusContext = createContext<RefObject<string | null> | null>(null);
@@ -44,7 +45,7 @@ export function DestinationPage({ id, children }: { id: DestinationId; children?
 
   return (
     <>
-      <PageTitle>{dest.label}</PageTitle>
+      <PageHeader title={dest.label} />
       {!capability.enabled ? (
         <div className={styles.notice} role="status">
           <h2>{dest.label} is not available</h2>

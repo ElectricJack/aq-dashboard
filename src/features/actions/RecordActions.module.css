@@ -39,3 +39,6 @@
 .rebase p { margin:0; }
 .overlap { display:grid;gap:var(--space-2);justify-items:start; }
 .current { white-space:pre-wrap;max-block-size:12em;overflow:auto;inline-size:100%;box-sizing:border-box;padding:var(--space-2);background:var(--color-canvas);border-radius:var(--radius-control); }
+
+.dialog[data-kind="task.delete"] { inline-size:min(380px,calc(100vw - 32px)); }
+.dialog[data-kind="task.delete"] .fields:empty { display:none; }

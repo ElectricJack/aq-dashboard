@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { MessageSquare } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { useSession } from "../../app/session";
 import {useDraft} from "../../app/useDraft";
 import {SupervisorControls,useSupervisors,validSupervisorScope} from "./SupervisorControls";
 import { SupervisorConversation } from "./SupervisorConversation";
 import styles from "./SupervisorConversation.module.css";
+import { PageHeaderActionContext } from "../../components/layout/PageHeader";
 
 /** One mounted conversation owns messages, immutable sends, draft and reading position. */
 export function SupervisorWorkspace({ children }: { children: ReactNode }) {
@@ -72,9 +74,8 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
     if (focus) returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   };
   const close = () => { setDock(false); requestAnimationFrame(() => (returnFocus.current?.isConnected ? returnFocus.current : launcher.current)?.focus()); };
-  return <div ref={surfaces} className={styles.surfaces} data-docked={docked || undefined} data-agents-compact={location.pathname === "/agents" || undefined}>
+  return <PageHeaderActionContext value={!full && !dock ? <button ref={launcher} className={styles.launcher} aria-label="Open supervisor" title="Open supervisor" type="button" onClick={() => { remember(); setOpened(true); if (desktop) { focusDock.current = true; setDock(true); } else void navigate("/supervisor"); }}><MessageSquare size={18} aria-hidden /><span className={styles.launcherText}>Open supervisor</span></button> : null}><div ref={surfaces} className={styles.surfaces} data-docked={docked || undefined} data-agents-compact={location.pathname === "/agents" || undefined}>
     {/* In normal flow above the page, never floating over page content (gap SV-E). */}
-    {!full && !dock && <div className={styles.launcherBar}><button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) { focusDock.current = true; setDock(true); } else void navigate("/supervisor"); }}>Open supervisor</button></div>}
     <div className={styles.destination} data-supervisor-destination="" hidden={full}>{children}</div>
     <div ref={presentation} className={styles.presentation} hidden={!full && !(dock && desktop)} data-mode={full ? "full" : "dock"}>
       {(opened || full) && <SupervisorConversation key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${queryContext.contractVersion}:${scope}`} projectId={scope==='global'?null:scope.slice(8)} label={selected?.label} management={management} runtimeAvailable={runtimeAvailable} presentation={full ? "full" : "dock"} visible={full || dock && desktop} controls={full ? <>
@@ -84,5 +85,5 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
         <button type="button" className={styles.presentationButton} aria-label="Close chat" onClick={close}><span className={styles.fullControl}>Close chat</span><span className={styles.compactControl} aria-hidden="true">×</span></button>
       </>} />}
     </div>
-  </div>;
+  </div></PageHeaderActionContext>;
 }
