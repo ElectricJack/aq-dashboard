@@ -137,3 +137,10 @@
 @media (max-width: 600px) { .management { padding: 8px 12px; gap: 8px; } .management label { width: 100%; display: flex; align-items: center; gap: 8px; } .management select { flex: 1; width: 0; max-width: 100%; } }
 
 .confirmedReset { border: 0; padding: 4px 8px; min-block-size: 32px; background: transparent; color: var(--color-accent); cursor: pointer; font: inherit; }
+
+.controlDisclosure { flex: none; min-inline-size: 0; }
+.controlDisclosure > summary { display: none; cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+@media(max-width:767px) {
+ .controlDisclosure > summary { display: flex; justify-content: space-between; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-block-end: 1px solid var(--color-border); }
+ .workspace[data-presentation=full] .history { min-block-size: 0; }
+}

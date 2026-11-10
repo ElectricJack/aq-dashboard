@@ -14,10 +14,15 @@ export function useSupervisors(enabled:boolean){const {bootstrap,queryContext}=u
 const validIntent=(v:unknown):v is SupervisorIntent|null=>v===null||isRecord(v)&&supervisorId(v.operation_id)&&Number.isSafeInteger(v.expected_revision)&&typeof v.enabled==='boolean'&&(v.intelligence_profile===undefined||isRecord(v.intelligence_profile));
 const labels={idle:'Ready',working:'Working',waiting:'Waiting',stopped:'Stopped',stopping:'Stopping',failed:'Needs attention',uncertain:'Needs inspection',unavailable:'Offline'};
 export function SupervisorControls({fleet,selected,scope,onScope,onChanged}:{fleet:SupervisorFleet|undefined;selected:SupervisorControl|undefined;scope:string;onScope:(scope:string)=>void;onChanged:()=>Promise<unknown>}){
- return <div className={styles.management} aria-label="Supervisor controls">
+ const [mobile,setMobile]=useState(()=>window.innerWidth<768),[expanded,setExpanded]=useState(false);
+ useEffect(()=>{const resize=()=>setMobile(window.innerWidth<768);window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
+ useEffect(()=>{setExpanded(!selected?.enabled);},[scope,selected?.enabled]);
+ return <details className={styles.controlDisclosure} open={!mobile||expanded} onToggle={e=>{if(mobile)setExpanded(e.currentTarget.open);}}>
+  <summary><span>Supervisor controls</span><span>{selected?labels[selected.phase]:'Unavailable'}</span></summary>
+  <div className={styles.management} aria-label="Supervisor controls">
   <label>Supervisor<select aria-label="Supervisor" value={scope} onChange={e=>onScope(e.target.value)}><option value="global">Global supervisor</option>{fleet?.supervisors.filter(s=>s.project_id).map(s=><option key={s.id} value={`project:${s.project_id}`}>{s.label}</option>)}{scope!=='global'&&!selected&&<option value={scope}>Project supervisor unavailable</option>}</select></label>
   {selected&&fleet?<Settings key={selected.id} value={selected} fleet={fleet} onChanged={onChanged}/>:<span role="status">Supervisor controls unavailable</span>}
- </div>;
+ </div></details>;
 }
 function Settings({value:s,fleet,onChanged}:{value:SupervisorControl;fleet:SupervisorFleet;onChanged:()=>Promise<unknown>}){
  const client=useQueryClient();const [profile,setProfile]=useState('');const [pending,setPending]=useDraft<SupervisorIntent|null>(`supervisor-control:${s.id}`,null,validIntent);const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);const lock=useRef(false),alive=useRef(true);
