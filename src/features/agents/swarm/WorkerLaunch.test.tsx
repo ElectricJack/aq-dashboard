@@ -44,3 +44,11 @@ test('project slots update independently and pending agents change into ready gr
  a.status='running';a.worker_seen_at_ms=Date.now();expect(mergeManual(view,fleet,graphProject,`agent:${a.id}`).machines[0]!.nodes[0]!.agents.find(v=>v.manual)?.terminalId).toBe(a.id);
  expect(()=>adaptManualFleet({...fleet,slots:[{node_id:node.node.id,project_id:graphProject,slots:999,revision:1}]})).toThrow();
 });
+
+test('fresh original-worker reports keep manual capacity online while native execution is paused',()=>{
+ const view=adaptSwarm(SWARM_MOCKUP,new Date().toISOString());const machine=view.machines[0]!,worker=machine.nodes[0]!;machine.state='offline';worker.health='offline';worker.lastSeenAt='2020-01-01T00:00:00Z';
+ const online=mergeManual(view,fleet,graphProject,null);expect(online.machines[0]!.state).toBe('online');expect(online.machines[0]!.nodes[0]!.health).toBe('online');expect(online.machines[0]!.nodes[0]!.lastSeenAt).toBe(new Date(fleet.workers[0]!.observed_at_ms).toISOString());
+ fleet.workers[0]!.observed_at_ms-=16000;expect(mergeManual(view,fleet,graphProject,null).machines[0]!.nodes[0]!.health).toBe('offline');
+ fleet.workers[0]!.observed_at_ms=fleet.server_time_ms;worker.health='revoked';expect(mergeManual(view,fleet,graphProject,null).machines[0]!.nodes[0]!.health).toBe('revoked');
+ machine.state='stopped';expect(mergeManual(view,fleet,graphProject,null).machines[0]!.state).toBe('stopped');
+});

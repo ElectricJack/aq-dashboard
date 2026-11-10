@@ -42,8 +42,9 @@ export const useManualAgents=()=>useContext(Context);
 export function capacity(fleet:ManualFleet,node:string,project:string){const p=fleet.projects.find(p=>p.id===project),w=fleet.workers.find(w=>w.node_id===node);if(!p||!w||!w.repositories.includes(p.repository_id))return 0;return Math.min(w.max_slots,fleet.slots.find(s=>s.node_id===node&&s.project_id===project)?.slots??1);}
 export function mergeManual(view:SwarmView,fleet:ManualFleet|undefined,project:string|null,selected:string|null):SwarmView {
  if(!fleet)return view;
- return {...view,machines:view.machines.map(m=>({...m,nodes:m.nodes.map(n=>{
-  const report=fleet.workers.find(w=>w.node_id===n.id);if(!report)return n;
+ return {...view,machines:view.machines.map(m=>({...m,state:(m.state==='offline'||m.state==='unknown')&&m.control?.desired!=='stopped'&&m.nodes.some(n=>n.health!=='revoked'&&fleet.workers.some(w=>w.node_id===n.id&&Math.max(fleet.server_time_ms,Date.parse(view.serverTime)||0)-w.observed_at_ms<15000))?'online' as const:m.state,nodes:m.nodes.map(n=>{
+  const report=fleet.workers.find(w=>w.node_id===n.id);if(!report||n.health==='revoked')return n;
+  const fresh=Math.max(fleet.server_time_ms,Date.parse(view.serverTime)||0)-report.observed_at_ms<15000;
   const manual=fleet.sessions.filter(s=>s.node_id===n.id&&(!project||s.project_id===project)&&(!['stopped','failed'].includes(s.status)||selected===`agent:${s.id}`));
   const running=manual.filter(s=>!['pending','stopped','failed'].includes(s.status)).length;
   const total=project?capacity(fleet,n.id,project):Math.min(report.max_slots,fleet.projects.reduce((sum,p)=>sum+capacity(fleet,n.id,p.id),0));
@@ -51,6 +52,6 @@ export function mergeManual(view:SwarmView,fleet:ManualFleet|undefined,project:s
   const allManual=fleet.sessions.filter(s=>s.node_id===n.id&&['preparing','running','stopping'].includes(s.status)).length;
   const elsewhere=Math.max(0,allManual-running);
   const idle=Math.min(Math.max(0,total-occupied),Math.max(0,report.max_slots-occupied-elsewhere));
-  return {...n,backendKind:n.backendKind??'docker-local',slots:{total:Math.max(total,occupied),occupied,idle,...(total<occupied?{target:total}:{})},agents:[...n.agents,...manual.map(s=>({sessionId:s.id,attemptId:s.id,task:null,project:{id:s.project_id,label:s.spec.project_name},provider:s.spec.provider||null,model:s.spec.model||null,harness:'claude',intelligenceClass:null,terminalId:s.status==='running'?s.id:null,startedAt:new Date(s.created_at_ms).toISOString(),manual:s}))]};
+  return {...n,...(fresh?{health:'online' as const,lastSeenAt:new Date(report.observed_at_ms).toISOString()}:{}),backendKind:n.backendKind??'docker-local',slots:{total:Math.max(total,occupied),occupied,idle,...(total<occupied?{target:total}:{})},agents:[...n.agents,...manual.map(s=>({sessionId:s.id,attemptId:s.id,task:null,project:{id:s.project_id,label:s.spec.project_name},provider:s.spec.provider||null,model:s.spec.model||null,harness:'claude',intelligenceClass:null,terminalId:s.status==='running'?s.id:null,startedAt:new Date(s.created_at_ms).toISOString(),manual:s}))]};
  })}))};
 }
