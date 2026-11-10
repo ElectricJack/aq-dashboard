@@ -18,7 +18,7 @@ beforeEach(()=>{sessionStorage.clear();vi.stubGlobal("crypto",webcrypto);});
 afterEach(()=>{server.resetHandlers();vi.unstubAllGlobals();});afterAll(()=>{server.close();restore();});
 const node=SWARM_MOCKUP.machines[0]!.nodes[0]!;
 function enable(allowed=true){
- server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["tasks.create","swarm.read"].includes(c.name)),{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner required"},{name:"swarm.read",version:"1",enabled:true}]}})));
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["tasks.create","swarm.read","terminal.watch","terminal.control"].includes(c.name)),{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner required"},{name:"swarm.read",version:"1",enabled:true},{name:"terminal.watch",version:"1",enabled:true},{name:"terminal.control",version:"1",enabled:false,reason:"Watch only"}]}})));
  server.use(http.get("/api/human/workers/:node/launch-projects",()=>HttpResponse.json({projects:[{id:graphProject,revision:"9007199254740993"}]})));
 }
 function receipt(bytes:string){const id=JSON.parse(bytes).operation_id as string;return confirmedTaskOperation({operation_id:id,task_id:id,request_digest:`sha256:${createHash("sha256").update(bytes).digest("hex")}`,receipt:{...confirmedTaskOperation().receipt!,task_id:id}});}
@@ -37,6 +37,8 @@ test("launch targets the selected worker once, then offers its actual terminal",
  await queryClient.invalidateQueries({predicate:q=>JSON.stringify(q.queryKey).includes('swarm')});
  const terminal=await within(modal).findByRole("link",{name:"Open agent terminal"});
  expect(terminal).toHaveAttribute("href",`/agents?select=agent%3A${graphId(99)}`);
+ await userEvent.click(terminal);
+ expect(await screen.findByRole("region",{name:"Agent terminal"})).toBeInTheDocument();
 });
 test("lost response retains exact intent across closing the pane and never silently resubmits",async()=>{
  enable();const sent:string[]=[];

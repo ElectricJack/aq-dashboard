@@ -62,7 +62,7 @@ export function WorkerLaunch({node}:{node:NodeView}){
   function check(kind:"lookup"|"recover"|"submit"){if(!frozen||lock.current)return;lock.current=true;setBusy(true);void execute(kind,frozen);}
   const search=new URLSearchParams(location.search);if(started)search.set("select",`agent:${started.sessionId}`);
   return <>
-    <ActionButton disabled={!cap.enabled||node.health!=="online"} title={!cap.enabled?cap.reason:node.health!=="online"?"Select an online worker":undefined} onClick={()=>setOpen(true)}>Launch agent</ActionButton>
+    <ActionButton disabled={!cap.enabled||(node.health!=="online"&&!frozen)} title={!cap.enabled?cap.reason:node.health!=="online"?"Select an online worker":undefined} onClick={()=>setOpen(true)}>Launch agent</ActionButton>
     <dialog ref={dialog} className={styles.dialog} aria-label="Launch agent" onCancel={()=>setOpen(false)} onClose={()=>setOpen(false)}>
       <header className={styles.header}><h2>Launch agent</h2><ActionButton onClick={()=>setOpen(false)}>Close</ActionButton></header>
       <p className={styles.meta}>Worker: {node.name}. The agent uses the project's configured model and workspace.</p>
