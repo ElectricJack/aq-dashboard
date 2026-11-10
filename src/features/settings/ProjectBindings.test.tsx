@@ -25,7 +25,9 @@ test("loading is explicit, then actual configuration and historical status label
   renderApp("/settings?tab=projects"); await screen.findByText("Loading project execution bindings…"); resolve();
   const list = await screen.findByRole("list", { name: "Project execution bindings" });
   expect(within(list).getByText("Project 1")).toBeInTheDocument();
-  expect(list).toHaveTextContent("Configured enabled · Revision 2"); expect(list).toHaveTextContent("Repository: Verified · Graph: Stale");
+  expect(list).toHaveTextContent("Setup needed");
+  await userEvent.click(within(list).getByText("Configuration and connection details"));
+  expect(list).toHaveTextContent("Revision 2"); expect(list).toHaveTextContent("Repository: Verified · Graph: Stale");
   expect(list).toHaveTextContent("None individually listed");
   expect(list).toHaveTextContent("Allowed worker groups");
   expect(list).toHaveTextContent("reviewer@2"); expect(list).toHaveTextContent("Recorded external checks");

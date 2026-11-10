@@ -66,6 +66,7 @@ export function WorkerLaunch({node}:{node:NodeView}){
     <dialog ref={dialog} className={styles.dialog} aria-label="Launch agent" onCancel={()=>setOpen(false)} onClose={()=>setOpen(false)}>
       <header className={styles.header}><h2>Launch agent</h2><ActionButton onClick={()=>setOpen(false)}>Close</ActionButton></header>
       <p className={styles.meta}>Worker: {node.name}. The agent uses the project's configured model and workspace.</p>
+      <p className={styles.meta}><Link to="/settings?tab=projects">Manage projects</Link> · Only started projects with worker setup appear here.</p>
       {error&&<p role="alert" className={styles.warning}>{error}</p>}
       {!frozen&&<form onSubmit={e=>void submit(e)}><fieldset className={styles.fields} disabled={busy||!cap.enabled}>
         <label>Project<select value={selected?.id??""} onChange={e=>setProject(e.target.value)}>{choices.data?.map(p=><option value={p.id} key={p.id}>{projects.data?.view.find(v=>v.id===p.id)?.label??p.id}</option>)}</select></label>
