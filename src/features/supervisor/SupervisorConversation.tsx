@@ -237,13 +237,13 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
       <div className={styles.composerActions}><span><span className={styles.fullControl}>Text only · no attachments or context</span><span className={styles.compactControl}>Text only</span></span><ActionButton className={styles.send} aria-label={sending ? "Sending…" : "Send"} type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim()}><Icon icon={sending ? LoaderCircle : SendHorizontal} size={20} /><span className={styles.compactControl}>{sending ? "Sending…" : "Send"}</span></ActionButton></div>
       {!canSend && <p role="status">Sending is unavailable. Your draft is preserved.</p>}
       {sendError && <p role="status">{sendError}</p>}
-      {receipt && <p role="status">{receipt.disposition === "confirmed" ? `Queued in the ${projectId?"project":"global"} mailbox. This acknowledgement does not confirm delivery or completed work.` : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : "Not queued: the request was rejected."}</p>}
-      {operation && <div className={styles.recovery}>
+      {receipt && <p role="status">{receipt.disposition === "confirmed" ? <>Message queued. <button type="button" className={styles.confirmedReset} aria-label="Compose another message" disabled={sending} onClick={another}>New message</button></> : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : "Not queued: the request was rejected."}</p>}
+      {operation && receipt?.disposition !== "confirmed" && <div className={styles.recovery}>
         <small>Operation {operation}</small>
         <ActionButton disabled={sending} onClick={() => retry("lookup")}>Check message status</ActionButton>
-        {!settled && receipt?.disposition !== "confirmed" && frozen && <ActionButton disabled={sending || !canSend} onClick={() => retry("post")}>Retry exact message</ActionButton>}
+        {!settled && frozen && <ActionButton disabled={sending || !canSend} onClick={() => retry("post")}>Retry exact message</ActionButton>}
         {!settled && !frozen && <small>The original request body is no longer held here. Status lookup does not send a new message.</small>}
-        {settled && <ActionButton disabled={sending} onClick={another}>{receipt.disposition === "confirmed" ? "Compose another message" : "Revise message"}</ActionButton>}
+        {settled && <ActionButton disabled={sending} onClick={another}>Revise message</ActionButton>}
       </div>}
 
     </form>

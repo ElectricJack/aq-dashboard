@@ -76,7 +76,7 @@ test("keeps one global history and draft across project changes without scoped r
 test("sends one frozen text-only intent and renders actual queued history without inventing a reply", async () => {
   const app = setup(); await ready(); await userEvent.type(await composer(), "Inspect the retained boundary");
   await userEvent.dblClick(screen.getByRole("button", { name: "Send" }));
-  await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
+  await screen.findByText(/^Message queued\./);
   expect(app.posts).toHaveLength(1); const body = JSON.parse(app.posts[0]!).payload;
   expect(body.context).toEqual([]); expect(body.attachments).toEqual([]); expect(body.expected_conversation_revision).toBe("1"); expect(body.message_id).not.toBe(body.operation_id);
   expect(new URLSearchParams(app.router.state.location.search).get("operation")).toBe(body.operation_id);
@@ -93,7 +93,7 @@ test("lost response and missing lookup receipt keep exact intent; retry preserve
   expect(await composer()).toHaveValue("Only the original request"); expect(await composer()).toHaveAttribute("readonly");
   await userEvent.click(screen.getByRole("button", { name: "Check message status" })); await screen.findByText(/No receipt is available yet/);
   expect(writes).toBe(1); expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: "Retry exact message" })); await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
+  await userEvent.click(screen.getByRole("button", { name: "Retry exact message" })); await screen.findByText(/^Message queued\./);
   expect(bytes).toHaveLength(2); expect(bytes[0]).toBe(bytes[1]); expect(app.posts).toHaveLength(0);
 });
 test("401 after send clears private draft/history and fences later writes", async () => {
@@ -140,7 +140,7 @@ test("IME composition and Shift+Enter never enqueue prematurely", async () => {
   fireEvent.compositionStart(input); fireEvent.keyDown(input, { key: "Enter" }); fireEvent.compositionEnd(input);
   fireEvent.keyDown(input, { key: "Enter", shiftKey: true }); fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
   expect(app.posts).toHaveLength(0); fireEvent.keyDown(input, { key: "Enter" });
-  await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work."); expect(app.posts).toHaveLength(1);
+  await screen.findByText(/^Message queued\./); expect(app.posts).toHaveLength(1);
 });
 test("history-only authority preserves a usable draft and cannot enqueue", async () => {
   const app = setup({ write: false }); await ready(); await userEvent.type(await composer(), "Draft without enqueue permission");
@@ -155,7 +155,7 @@ test("changing operation reference fences a late response from the original inte
   await act(() => app.router.navigate(`/supervisor?operation=${supervisorId(80)}&message=${supervisorId(81)}`));
   await screen.findByText(/No receipt is available yet/);
   await act(async () => { release(); await gate; });
-  expect(screen.queryByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.")).toBeNull();
+  expect(screen.queryByText(/^Message queued\./)).toBeNull();
   expect(await composer()).toHaveValue(""); expect(screen.queryByRole("button", { name: "Retry exact message" })).toBeNull();
 });
 test("new history does not scroll a reader who moved up and offers an explicit latest marker", async () => {
