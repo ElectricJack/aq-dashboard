@@ -135,12 +135,13 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
     finally { jobs.current.delete(owner); historyBusyRef.current = false; if (active.current) setHistoryBusy(false); }
   }
   useEffect(() => { if (conversation) void load("latest"); }, [conversation?.id]);
+  const latestLoad=useRef(load); latestLoad.current=load;
   // Poll retained history, never re-send or reinject a message. Cursors include replies.
   useEffect(() => {
     if (!conversation || !visible || !available) return;
-    const timer = window.setInterval(() => void load("refresh"), 2500);
+    const timer = window.setInterval(() => void latestLoad.current("refresh"), 2500);
     return () => window.clearInterval(timer);
-  });
+  }, [conversation?.id, visible, available]);
   async function execute(kind: "post" | "lookup", op: string, message: string, intent?: FrozenSupervisorMessage) {
     if (!conversation || !supervisorId(op) || !supervisorId(message)) { setSendError("The retained operation reference is unavailable."); setSending(false); busy.current = false; return; }
     const current = ++ticket.current, owner = new AbortController(); jobs.current.add(owner); sendJob.current = owner;

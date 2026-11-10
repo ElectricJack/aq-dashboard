@@ -296,3 +296,11 @@ test("global and project supervisors keep separate drafts, and Start works befor
  await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),`project:${project}`);expect(await screen.findByRole('textbox',{name:'Message the project supervisor'})).toHaveValue('Project draft');
  app.unmount();
 });
+
+test("live history refresh is not starved by faster supervisor status updates",async()=>{
+ const app=setup();
+ server.use(http.get('/api/supervisors',()=>HttpResponse.json({supervisors:[],profiles:[],server_time_ms:Date.now()})));
+ await ready();const initial=app.reads.length;
+ await waitFor(()=>expect(app.reads.length).toBeGreaterThan(initial),{timeout:6000});
+ app.unmount();
+});
