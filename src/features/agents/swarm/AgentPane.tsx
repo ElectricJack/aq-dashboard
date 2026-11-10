@@ -1,3 +1,4 @@
+import {ManualAgentPane} from "./ManualAgentPane";
 import { Link, useLocation } from "react-router";
 import type { AgentView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
@@ -7,8 +8,10 @@ import { InteractiveTerminal } from "../InteractiveTerminal";
 import { useAgentTokens } from "./useAgentTokens";
 import styles from "./Swarm.module.css";
 
-/** `autoControlled` holds the session ids already auto-controlled on this page, so a remount never retakes control. */
-export function AgentPane({ agent, serverTime, autoControlled }: { agent: AgentView; serverTime: string; autoControlled: Set<string> }) {
+export function AgentPane({agent,serverTime}:{agent:AgentView;serverTime:string}) {
+  return agent.manual?<ManualAgentPane agent={agent}/>:<NativeAgentPane agent={agent} serverTime={serverTime}/>;
+}
+function NativeAgentPane({agent,serverTime}:{agent:AgentView;serverTime:string}) {
   const { bootstrap } = useSession();
   const { search } = useLocation();
   const tokens = useAgentTokens(agent.sessionId);
@@ -31,7 +34,7 @@ export function AgentPane({ agent, serverTime, autoControlled }: { agent: AgentV
         ? <p role="note" className={styles.actionNote}>No terminal was recorded for this agent.</p>
         : !terminal.enabled
           ? <p role="note" className={styles.actionNote}>{terminal.reason}</p>
-          : <div className={styles.terminal}><InteractiveTerminal key={agent.terminalId} terminalId={agent.terminalId} name={label} autoControl={!autoControlled.has(agent.sessionId)} onAutoControl={() => autoControlled.add(agent.sessionId)} label="Agent terminal" /></div>}
+          : <div className={styles.terminal}><InteractiveTerminal key={agent.terminalId} terminalId={agent.terminalId} name={label} label="Agent terminal" /></div>}
     </>
   );
 }

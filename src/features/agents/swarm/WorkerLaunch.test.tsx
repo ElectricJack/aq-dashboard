@@ -1,58 +1,46 @@
-import {createHash,webcrypto} from "node:crypto";
-import {screen,within,waitFor,fireEvent} from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import {http,HttpResponse} from "msw";
-import {setupServer} from "msw/node";
-import {vi} from "vitest";
-import bootstrap from "../../../../contracts/proposed/bootstrap.json";
-import {handlersFor} from "../../../mocks/handlers";
-import {renderApp} from "../../../test/renderApp";
-import {stubReactFlowDom} from "../../../test/reactFlow";
-import {SWARM_MOCKUP,swarmEnvelope} from "../../../mocks/swarm";
-import {graphProject,graphId} from "../../../test/humanGraph";
-import {confirmedTaskOperation,taskActor} from "../../../test/taskCreate";
-const server=setupServer(...handlersFor("default",{fixtures:true}));
-let restore:()=>void;
-beforeAll(()=>{restore=stubReactFlowDom();server.listen({onUnhandledFrame:"error"});});
-beforeEach(()=>{sessionStorage.clear();vi.stubGlobal("crypto",webcrypto);});
+import {webcrypto} from 'node:crypto';
+import {screen,waitFor,fireEvent} from '@testing-library/react';
+import {http,HttpResponse} from 'msw';
+import {setupServer} from 'msw/node';
+import {vi} from 'vitest';
+import bootstrap from '../../../../contracts/proposed/bootstrap.json';
+import {handlersFor} from '../../../mocks/handlers';
+import {renderApp} from '../../../test/renderApp';
+import {stubReactFlowDom} from '../../../test/reactFlow';
+import {SWARM_MOCKUP} from '../../../mocks/swarm';
+import {graphProject,graphId} from '../../../test/humanGraph';
+import type {ManualAgent,ManualFleet} from './manualAgents';
+import {adaptManualFleet,capacity,mergeManual} from './manualAgents';
+import {adaptSwarm} from '../../../api/adapters/swarm';
+const server=setupServer(...handlersFor('default',{fixtures:true}));let restore:()=>void;
+const node=SWARM_MOCKUP.machines[0]!.nodes[0]!,repo=graphId(101);
+let fleet:ManualFleet;
+beforeAll(()=>{restore=stubReactFlowDom();server.listen({onUnhandledFrame:'error'});});
+beforeEach(()=>{sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);fleet={sessions:[],workers:[{node_id:node.node.id,max_slots:4,repositories:[repo],observed_at_ms:Date.now()}],slots:[],projects:[{id:graphProject,name:'Project example',repository_id:repo}],server_time_ms:Date.now()};
+ server.use(http.get('/api/v1/bootstrap',()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c=>!['tasks.create','swarm.read'].includes(c.name)),{name:'tasks.create',version:'1',enabled:true},{name:'swarm.read',version:'1',enabled:true}]}})),http.get('/api/manual-agents',()=>HttpResponse.json(fleet)));
+});
 afterEach(()=>{server.resetHandlers();vi.unstubAllGlobals();});afterAll(()=>{server.close();restore();});
-const node=SWARM_MOCKUP.machines[0]!.nodes[0]!;
-function enable(allowed=true){
- server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["tasks.create","swarm.read","terminal.watch","terminal.control"].includes(c.name)),{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner required"},{name:"swarm.read",version:"1",enabled:true},{name:"terminal.watch",version:"1",enabled:true},{name:"terminal.control",version:"1",enabled:false,reason:"Watch only"}]}})));
- server.use(http.get("/api/human/workers/:node/launch-projects",()=>HttpResponse.json({projects:[{id:graphProject,revision:"9007199254740993"}]})));
-}
-function receipt(bytes:string){const id=JSON.parse(bytes).operation_id as string;return confirmedTaskOperation({operation_id:id,task_id:id,request_digest:`sha256:${createHash("sha256").update(bytes).digest("hex")}`,receipt:{...confirmedTaskOperation().receipt!,task_id:id}});}
-async function open(){await userEvent.click(await screen.findByRole("button",{name:"Launch agent"}));return screen.getByRole("dialog",{name:"Launch agent"});}
-test("launch targets the selected worker once, then offers its actual terminal",async()=>{
- enable();let bytes="";let posts=0;
- server.use(http.post(`/api/human/projects/${graphProject}/workers/${node.node.id}/launch`,async({request})=>{posts++;bytes=await request.text();return HttpResponse.json(receipt(bytes));}));
- const {queryClient}=renderApp(`/agents?select=node:${node.node.id}`);const modal=await open();
- await userEvent.type(within(modal).getByRole("textbox"),"Inspect the scratch project");
- await waitFor(()=>expect(within(modal).getByRole("button",{name:`Launch on ${node.name}`})).toBeEnabled());
- await userEvent.dblClick(within(modal).getByRole("button",{name:`Launch on ${node.name}`}));
- await within(modal).findByText(/Launch queued on this worker/);expect(posts).toBe(1);
- expect(JSON.parse(bytes)).toMatchObject({expected_project_revision:"9007199254740993",task_state:"active",body:"Inspect the scratch project"});
- const started={...node.agents[0]!,session_id:graphId(99),task:{id:JSON.parse(bytes).operation_id,title:"Inspect the scratch project"}};
- server.use(http.get("/api/v1/swarm",()=>HttpResponse.json(swarmEnvelope({...SWARM_MOCKUP,machines:SWARM_MOCKUP.machines.map(m=>({...m,nodes:m.nodes.map(n=>n.node.id===node.node.id?{...n,agents:[started]}:n)}))}))));
- await queryClient.invalidateQueries({predicate:q=>JSON.stringify(q.queryKey).includes('swarm')});
- const terminal=await within(modal).findByRole("link",{name:"Open agent terminal"});
- expect(terminal).toHaveAttribute("href",`/agents?select=agent%3A${graphId(99)}`);
- await userEvent.click(terminal);
- expect(await screen.findByRole("region",{name:"Agent terminal"})).toBeInTheDocument();
+const pending=(id:string):ManualAgent=>({id,node_id:node.node.id,project_id:graphProject,spec:{project_name:'Project example',repository_id:repo,provider:'anthropic',model:'fixture-model'},status:'pending',stage:'Waiting for a slot',desired_running:true,created_at_ms:Date.now(),updated_at_ms:Date.now(),worker_seen_at_ms:null});
+test('launch needs no assignment or modal and immediately selects a graph placeholder',async()=>{
+ let posts=0,release:()=>void=()=>{};const delayed=new Promise<void>(r=>release=r);
+ server.use(http.post(`/api/manual-agents/workers/${node.node.id}/projects/${graphProject}`,async({request})=>{posts++;const body=await request.json() as {operation_id:string};expect(Object.keys(body)).toEqual(['operation_id']);await delayed;const agent=pending(body.operation_id);fleet.sessions=[agent];return HttpResponse.json(agent);}));
+ renderApp(`/agents?select=node:${node.node.id}`);
+ const launch=await screen.findByRole('button',{name:'Launch agent'});await waitFor(()=>expect(launch).toBeEnabled());fireEvent.click(launch);
+ expect(screen.queryByRole('dialog',{name:'Launch agent'})).not.toBeInTheDocument();expect(screen.queryByRole('textbox',{name:'What should the agent do?'})).not.toBeInTheDocument();
+ expect(await screen.findByText('Requesting agent startup')).toBeInTheDocument();expect(posts).toBe(1);release();
+ expect(await screen.findByText('Waiting for a slot')).toBeInTheDocument();expect(await screen.findByRole('button',{name:'Stop agent'})).toBeInTheDocument();
 });
-test("lost response retains exact intent across closing the pane and never silently resubmits",async()=>{
- enable();const sent:string[]=[];
- server.use(http.post(`/api/human/projects/${graphProject}/workers/${node.node.id}/launch`,async({request})=>{sent.push(await request.text());return HttpResponse.error();}),http.get("/api/human/operations/:id",()=>HttpResponse.json(receipt(sent[0]!))));
- renderApp(`/agents?select=node:${node.node.id}`);let modal=await open();
- await userEvent.type(within(modal).getByRole("textbox"),"Inspect only");
- await waitFor(()=>expect(within(modal).getByRole("button",{name:`Launch on ${node.name}`})).toBeEnabled());
- fireEvent.click(within(modal).getByRole("button",{name:`Launch on ${node.name}`}));
- await within(modal).findByText(/Launch outcome is uncertain/);
- await userEvent.click(within(modal).getByRole("button",{name:"Close"}));modal=await open();
- await userEvent.click(within(modal).getByRole("button",{name:"Check status"}));
- await within(modal).findByText(/Launch queued on this worker/);expect(sent).toHaveLength(1);
+test('lost launch response keeps one stable graph intent for exact retry',async()=>{
+ const sent:string[]=[];
+ server.use(http.post(`/api/manual-agents/workers/${node.node.id}/projects/${graphProject}`,async({request})=>{const text=await request.text();sent.push(text);if(sent.length===1)return HttpResponse.error();const a=pending(JSON.parse(text).operation_id);fleet.sessions=[a];return HttpResponse.json(a);}));
+ renderApp(`/agents?select=node:${node.node.id}`);const launch=await screen.findByRole('button',{name:'Launch agent'});await waitFor(()=>expect(launch).toBeEnabled());fireEvent.click(launch);
+ fireEvent.click(await screen.findByRole('button',{name:'Retry same launch'}));await screen.findByText('Waiting for a slot');expect(sent).toHaveLength(2);expect(sent[0]).toBe(sent[1]);
 });
-test("owners cannot submit through a disabled capability",async()=>{
- enable(false);renderApp(`/agents?select=node:${node.node.id}`);
- expect(await screen.findByRole("button",{name:"Launch agent"})).toBeDisabled();
+test('project slots update independently and pending agents change into ready graph nodes',()=>{
+ const other=graphId(102);fleet.projects.push({id:other,name:'Other',repository_id:repo});fleet.slots.push({node_id:node.node.id,project_id:graphProject,slots:3,revision:1});
+ expect(capacity(fleet,node.node.id,graphProject)).toBe(3);expect(capacity(fleet,node.node.id,other)).toBe(1);
+ const a=pending(graphId(103));fleet.sessions=[a];const view=adaptSwarm(SWARM_MOCKUP,new Date().toISOString());
+ const merged=mergeManual(view,fleet,graphProject,`agent:${a.id}`);const worker=merged.machines[0]!.nodes[0]!;expect(worker.slots.total).toBe(3);expect(worker.agents.find(v=>v.manual)?.terminalId).toBeNull();
+ a.status='running';a.worker_seen_at_ms=Date.now();expect(mergeManual(view,fleet,graphProject,`agent:${a.id}`).machines[0]!.nodes[0]!.agents.find(v=>v.manual)?.terminalId).toBe(a.id);
+ expect(()=>adaptManualFleet({...fleet,slots:[{node_id:node.node.id,project_id:graphProject,slots:999,revision:1}]})).toThrow();
 });

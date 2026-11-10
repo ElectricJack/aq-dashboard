@@ -11,6 +11,7 @@ import { PANEL_READ, useSession } from "../../../app/session";
 import { useRead } from "../../../app/useRead";
 import { AgentsTabs } from "../AgentsTabs";
 import { buildSwarmGraph, selectionId, type Selection } from "./graph";
+import {ManualAgentsProvider,useManualAgents,mergeManual} from "./manualAgents";
 import { SwarmPane } from "./SwarmPane";
 import { SwarmTree } from "./SwarmTree";
 import styles from "./Swarm.module.css";
@@ -18,7 +19,8 @@ import styles from "./Swarm.module.css";
 /** Polls an object may be missing from the swarm before the pane lets go of its last known state. */
 export const HOLD_POLLS = 3;
 
-export function SwarmPage() {
+export function SwarmPage() { return <ManualAgentsProvider><SwarmPageBody /></ManualAgentsProvider>; }
+function SwarmPageBody() {
   const { bootstrap } = useSession();
   const cap = bootstrap.capability("swarm.read");
   const { search } = useLocation();
@@ -27,11 +29,11 @@ export function SwarmPage() {
   const swarm = useRead<Swarm, SwarmView>({ resource: "swarm", path: "/api/v1/swarm", adapt: adaptSwarm, pollMs: SWARM_POLL_MS, enabled: cap.enabled, meta: PANEL_READ });
   const overviewCap = bootstrap.capability("dashboard.overview");
   const overview = useRead<OverviewWire, OverviewView>({ resource: "overview", path: "/api/v1/overview", scope: { kind: "all_authorized" }, adapt: adaptOverview, pollMs: 10_000, enabled: overviewCap.enabled });
-  const view = swarm.data?.view;
+  const manual=useManualAgents();
+  const view = swarm.data?.view ? mergeManual(swarm.data.view,manual?.fleet,manual?.project??null,params.get("select")) : undefined;
   const ready = overview.data?.view.counts.ready.value ?? null;
   const selectParam = params.get("select");
   // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.
-  const autoControlled = useRef(new Set<string>());
   const pane = useRef<HTMLElement>(null);
   const focusPane = useRef(false);
   const held = useRef<{ param: string; view: SwarmView; selection: Selection; misses: number; seenAt: number } | null>(null);
@@ -81,7 +83,7 @@ export function SwarmPage() {
       {view
         ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}
-      <aside ref={pane} className={styles.pane} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} autoControlled={autoControlled.current} note={shown.note} />}</aside>
+      <aside ref={pane} className={styles.pane} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} />}</aside>
     </div>
   </>;
 }

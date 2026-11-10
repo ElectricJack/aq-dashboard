@@ -108,7 +108,7 @@ test("agent pane is watch-only without terminal.control", async () => {
   renderApp("/agents");
   await click("claude · standard");
   const region = await screen.findByRole("region", { name: "Agent terminal" });
-  await waitFor(() => expect(within(region).getAllByText("Watch only").length).toBeGreaterThan(0), { timeout: 8000 });
+  await waitFor(() => expect(within(region).getAllByText("Waiting for interactive connection").length).toBeGreaterThan(0), { timeout: 8000 });
   // The watch mutation proves the posted list has been recorded before asserting that no control was sent.
   await waitFor(() => expect(posts).toContain("watch"));
   expect(posts).not.toContain("control");
@@ -130,7 +130,7 @@ const controlPosts = () => { const kinds: string[] = []; server.events.on("reque
 const withoutAgent = (id: string) => ({ ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: n.agents.filter(a => a.session_id !== id) })) })) });
 const serve = (data: unknown) => server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope(data))));
 
-test("a manual Reconnect posts no control acquire", async () => {
+test("Reconnect automatically restores interactive control", async () => {
   FIXTURE_HANDLERS();
   const kinds = controlPosts();
   renderApp("/agents?select=agent:sess-07");
@@ -139,7 +139,7 @@ test("a manual Reconnect posts no control acquire", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
   fireEvent.click(await screen.findByRole("button", { name: "Reconnect" }));
   await waitFor(() => expect(kinds.filter(k => k === "watch").length).toBeGreaterThan(1), { timeout: 8000 });
-  expect(kinds.filter(k => k === "control")).toHaveLength(1);
+  expect(kinds.filter(k => k === "control")).toHaveLength(2);
 });
 
 test("a data flap keeps the terminal mounted and never retakes control", async () => {

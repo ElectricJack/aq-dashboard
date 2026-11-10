@@ -6,7 +6,7 @@ export const SWARM_POLL_MS = 10_000;
 export type HoldReasonView = { code: string; message: string; remedy: string | null };
 export type LoadView = { source: "linux" | "windows_host" | "unknown"; hostProbe: "not_applicable" | "fresh" | "stale" | "missing";
   cpuPercent: number; memoryPercent: number; cpuAvgPercent: number | null; memoryAvgPercent: number | null; samples: number; observedAt: string; fresh: boolean };
-export type AgentView = { sessionId: string; attemptId: string; task: { id: string; title: string } | null; project: { id: string; label: string };
+export type AgentView = { manual?: import("../../features/agents/swarm/manualAgents").ManualAgent; sessionId: string; attemptId: string; task: { id: string; title: string } | null; project: { id: string; label: string };
   provider: string | null; model: string | null; harness: string | null; intelligenceClass: "fast" | "standard" | "deep" | null;
   terminalId: string | null; startedAt: string | null };
 export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";

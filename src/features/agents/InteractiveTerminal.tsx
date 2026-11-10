@@ -1,3 +1,4 @@
+import {connectManualTerminal} from '../../api/manualTerminalClient';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -62,20 +63,18 @@ export interface TerminalPaneProps {
   facts?: ReactNode;
   /** Names the region when several panes share a page (split view). */
   label?: string;
-  /** Take control once, after the first terminal info (Swarm pane). Never repeated on automatic reconnect. */
-  autoControl?: boolean;
-  /** Called once when this pane makes its automatic Take control, so the owner can remember it. */
-  onAutoControl?: () => void;
+  /** Persistent manual session transport. */
+  manual?: boolean;
 }
 export function InteractiveTerminal(props: TerminalPaneProps) {
   const { queryContext: c } = useSession();
   return <TerminalPane key={`${props.terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} {...props} />;
 }
 /** The pane reports `data-cols` (rendered) and `data-fit-cols` (what its width fits, before the 80-column floor). */
-function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', autoControl = false, onAutoControl }: TerminalPaneProps) {
+function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', manual = false }: TerminalPaneProps) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
-  const controlCapability = bootstrap.capability('terminal.control'), allowControl = controlCapability.enabled;
+  const controlCapability = bootstrap.capability('terminal.control'), allowControl = manual || controlCapability.enabled;
   const phone = useMediaQuery('(max-width: 767px)');
   const ids = useId(), helpId = `${ids}-help`, menuId = `${ids}-more`, messageNoteId = `${ids}-message-note`;
   const actions = useRef<HTMLDivElement>(null);
@@ -84,9 +83,6 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const terminal = useRef<Terminal | null>(null);
   const uncertain = useRef(false);
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
-  // Automatic control happens on this pane's first connection only: Reconnect and Disconnect then Reconnect never retake it.
-  const autoTaken = useRef(false), autoControlRef = useRef(autoControl), onAutoControlRef = useRef(onAutoControl);
-  autoControlRef.current = autoControl; onAutoControlRef.current = onAutoControl;
   const [state, setState] = useState<TerminalState>({ message: 'Connecting…', connected: false, controlling: false, canControl: false, paused: false });
   const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true);
   // U11: the screen at the moment observation stopped, and the identity/epoch a reconnect must match.
@@ -116,7 +112,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     });
     const job = crypto.randomUUID();
     const freeze = () => { const lines = snapshotLines(term.buffer.active, term.rows); if (lines.length) setSnapshot(lines); };
-    const transport = connectInteractiveTerminal({ terminalId, allowControl, autoControl: autoControlRef.current && !autoTaken.current, onAutoControl: () => { autoTaken.current = true; onAutoControlRef.current?.(); }, initiallyPaused: uncertain.current, expect: binding.current,
+    const transport = (manual ? connectManualTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
       write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
       reset: () => { freeze(); feed?.restart(); term.reset(); },
@@ -169,7 +165,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
-  }, [terminalId, name, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
+  }, [terminalId, name, manual, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
   useEffect(() => {
     if (state.controlling && terminal.current) connection.current?.resize(terminal.current.cols, terminal.current.rows);
     if (!state.controlling) setCtrl(false);
@@ -183,7 +179,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       relayout.current(true);
     }
   }, [fontSize]);
-  // Phone watch mode (reference 11) has no key bar: every key is inert until control, and Disconnect is under More.
+  // Keys become active after the interactive connection is acknowledged.
   const keyBar = !phone || state.controlling;
   const updateKeyFade = useCallback(() => {
     const bar = keys.current; if (!bar) return;
@@ -206,26 +202,24 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
     connection.current?.sendInput(new TextEncoder().encode(value)); focusTerminal();
   }
-  const toggleControl = () => { if (state.controlling) void connection.current?.release(); else void connection.current?.takeControl(); };
   const controlBlocked = !state.controlling && (!state.canControl || state.paused);
-  // Why Take control is disabled (N-07), from what this pane knows: capability, delivery pause, connection, policy.
+  // Why typing is temporarily unavailable (N-07), from what this pane knows: capability, delivery pause, connection, policy.
   const controlReason = !controlBlocked ? null
     : !allowControl ? controlCapability.enabled ? 'Terminal control is not offered by this AQ server' : controlCapability.reason
     : state.paused ? 'Input delivery is uncertain, so typing is paused. Reconnect to check this terminal again.'
-    : !state.connected ? 'Connect to the terminal to take control.'
+    : !state.connected ? 'Connecting to the terminal for input.'
     : 'This terminal does not accept input: its AQ terminal policy has input turned off.';
   const controlReasonId = `${ids}-control-reason`;
-  const reconnect = () => { setWatching(true); setAttempt(n => n + 1); };
+  const reconnect = () => { if(manual) uncertain.current=false; setWatching(true); setAttempt(n => n + 1); };
   const disconnect = () => { void connection.current?.release(); setWatching(false); setState({ message: 'Disconnected', controlling: false, connected: false, canControl: false, paused: state.paused }); };
   const phase = state.connected ? 'connected' : watching && state.message === 'Connecting…' ? 'connecting' : 'disconnected';
   const lease = state.lease && now !== null ? state.lease : null;
   const frozen = phase === 'disconnected' && snapshot !== null;
   const leaseText = lease && `Controlled by ${lease.mine ? `${bootstrap.principal.displayName} (you)` : 'another viewer'} · lease expires in ${countdown(lease.expiresAtMs - now!)}`;
   // The lease line restates the default mode message, so keep that message for assistive technology only.
-  const routineMessage = state.message === 'You have control' || state.message === 'Watch only';
+  const routineMessage = state.message === 'You have control' || state.message === 'Waiting for interactive connection';
   const viewSwitch = onTranscript && <OutputViewSwitch transcript={transcriptOpen} onTranscript={onTranscript} />;
-  // A disabled Take control never wears the primary fill (N-07).
-  const controlButton = <ActionButton className={controlBlocked ? undefined : phone ? styles.primary : state.controlling ? undefined : styles.primaryOutline} disabled={controlBlocked} title={controlReason ?? undefined} aria-describedby={controlReason ? controlReasonId : undefined} onClick={toggleControl}>{state.controlling ? 'Release control' : 'Take control'}</ActionButton>;
+
   const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-label="More terminal actions"]') ?? undefined;
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
@@ -243,14 +237,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
           <span className={styles.size}>{fontSize}px</span>
           <button type="button" aria-label="A+ Increase text size" disabled={fontSize >= TERMINAL_FONT_SIZE_MAX} onClick={() => setFontSize(size => clampTerminalFontSize(size + TERMINAL_FONT_SIZE_STEP))}>A+</button>
         </div>
-        <label className={styles.mode}><span className="visually-hidden">Terminal mode</span>
-          <select value={state.controlling ? 'control' : 'watch'} onChange={event => { if ((event.target.value === 'control') !== state.controlling) toggleControl(); }}>
-            <option value="watch">Watch only</option>
-            <option value="control" disabled={!state.controlling && controlBlocked}>Controlling</option>
-          </select>
-        </label>
-        {!phone && controlButton}
-        {!phone && phase === 'disconnected' && <ActionButton onClick={reconnect} disabled={state.paused}>Reconnect</ActionButton>}
+        {!phone && phase === 'disconnected' && <ActionButton onClick={reconnect}>Reconnect</ActionButton>}
         {!phone && controlReason && <span id={controlReasonId} className={styles.controlReason}>{controlReason}</span>}
       </div>
     </div>
@@ -260,7 +247,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         {/* Input is frozen while disconnected: the last observation is text, never a live terminal. */}
         {frozen && <figure className={styles.observation} aria-label="Last observation">
           <pre tabIndex={0}>{snapshot.join('\n')}</pre>
-          <figcaption>Last observation · output after this point was not observed. Reconnect reads this same terminal{binding.current ? ` (epoch ${binding.current.terminal.epoch})` : ''} again and replays what it retained; it never relaunches the agent or takes control.</figcaption>
+          <figcaption>Last observation · output after this point was not observed. Reconnect reads this same terminal{binding.current ? ` (epoch ${binding.current.terminal.epoch})` : ''} again and replays what it retained; it never relaunches the agent.</figcaption>
         </figure>}
       </div>
       {!phone && panHint && <div className={styles.view}>{panHint}</div>}
@@ -281,19 +268,18 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         {KEYS.slice(2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
         <button type="button" onClick={disconnect}>Disconnect</button>
       </div>}
-      <p id={helpId} className={styles.help}>Take control to type. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
+      <p id={helpId} className={styles.help}>Type to interact. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
     </>
     {phone && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}
       {controlReason && <p id={controlReasonId} className={styles.controlReason}>{controlReason}</p>}
       <div className={styles.actionBar}>
-        {controlButton}
         {/* Message slot (AG-C): the session's durable mailbox message, when offered. */}
         <ActionButton disabled={!!messageReason || !onMessage} aria-describedby={messageReason ? messageNoteId : undefined} aria-haspopup="dialog" onClick={event => onMessage?.(event.currentTarget)}>Message</ActionButton>
         {messageReason && <span id={messageNoteId} className="visually-hidden">{messageReason}</span>}
         <ActionButton aria-label="More terminal actions" aria-haspopup="true" aria-expanded={moreOpen} aria-controls={menuId} onClick={() => setMoreOpen(v => !v)}>…</ActionButton>
         {moreOpen && <div id={menuId} className={styles.more} role="group" aria-label="More terminal actions" onKeyDown={event => { if (event.key === 'Escape') closeMore(); }}>
-          <ActionButton autoFocus disabled={state.paused} onClick={() => { closeMore(); reconnect(); }}>Reconnect</ActionButton>
+          <ActionButton autoFocus onClick={() => { closeMore(); reconnect(); }}>Reconnect</ActionButton>
           <ActionButton disabled={!watching} onClick={() => { closeMore(); disconnect(); }}>Disconnect</ActionButton>
           {onDetails && <ActionButton aria-haspopup="dialog" onClick={() => { const opener = moreButton(); setMoreOpen(false); if (opener) onDetails(opener); }}>Session details</ActionButton>}
         </div>}

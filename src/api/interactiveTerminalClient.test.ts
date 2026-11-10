@@ -48,7 +48,7 @@ it('allows a fresh user operation after a definitive rejection without replaying
   const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { states.push(s.message); controlling = s.controlling; canControl = s.canControl; } });
   try {
     await vi.waitFor(() => expect(canControl).toBe(true));
-    expect(controlling).toBe(false); // Stale peer contact permits intent, never stdin.
+    expect(controlling).toBe(true); // Acknowledged automatic control permits intent, never stdin.
     await c.takeControl(); await vi.waitFor(() => expect(controlling).toBe(true));
     c.sendInput(new Uint8Array([65]));
     await vi.waitFor(() => expect(states).toContain('Input rejected — type again'));
@@ -177,32 +177,32 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
 
   it('auto control acquires once after the first info', async () => {
     const m = mock(); const states: { controlling: boolean; message: string }[] = [];
-    const c = connect({ autoControl: true }, states);
+    const c = connect({  }, states);
     try {
       await vi.waitFor(() => expect(states.at(-1)?.controlling).toBe(true));
       expect(m.controls).toHaveLength(1);
     } finally { c.close(); }
   });
-  it('auto control is not retried after an automatic reconnect', async () => {
+  it('automatically restores interactive control after reconnecting to the same terminal', async () => {
     const m = mock({ failFirstTail: true }); const states: { controlling: boolean; message: string }[] = [];
-    const c = connect({ autoControl: true }, states);
+    const c = connect({  }, states);
     try {
       await vi.waitFor(() => expect(states.some(s => s.message.startsWith('Reconnecting'))).toBe(true));
       await vi.waitFor(() => expect(vi.mocked(terminalJson).mock.calls.filter(call => String(call[0]).endsWith('/tail?subscription_id=10000000-0000-4000-8000-000000000004&after_sequence=0')).length).toBeGreaterThan(1));
-      expect(m.controls).toHaveLength(1);
+      expect(m.controls).toHaveLength(2);
     } finally { c.close(); }
   });
   it('auto control never runs without terminal.control', async () => {
     const m = mock({ initialLease: foreign }); const states: { controlling: boolean; message: string }[] = [];
-    const c = connect({ autoControl: true, allowControl: false }, states);
+    const c = connect({ allowControl: false }, states);
     try {
-      await vi.waitFor(() => expect(states.at(-1)?.message).toBe('Watch only'));
+      await vi.waitFor(() => expect(states.at(-1)?.message).toBe('Waiting for interactive connection'));
       expect(m.controls).toHaveLength(0);
     } finally { c.close(); }
   });
   it('lease taken by another viewer drops control and raises the notice', async () => {
     const m = mock(); const states: { controlling: boolean; notice?: string | null; message: string }[] = [];
-    const c = connect({ autoControl: true }, states);
+    const c = connect({  }, states);
     try {
       await vi.waitFor(() => expect(states.at(-1)?.controlling).toBe(true));
       m.setLease(foreign);
@@ -214,7 +214,6 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
     const c = connect({}, states);
     try {
       await vi.waitFor(() => expect(states.length).toBeGreaterThan(0));
-      await c.takeControl();
       await vi.waitFor(() => expect(states.at(-1)?.notice).toBe(TAKEOVER_NOTICE_TOOK));
     } finally { c.close(); }
   });
@@ -223,7 +222,6 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
     const c = connect({}, states);
     try {
       await vi.waitFor(() => expect(states.length).toBeGreaterThan(0));
-      await c.takeControl();
       await vi.waitFor(() => expect(states.at(-1)?.notice).toBe(TAKEOVER_NOTICE_TOOK));
       await c.release();
       expect(states.at(-1)?.notice).toBeNull();

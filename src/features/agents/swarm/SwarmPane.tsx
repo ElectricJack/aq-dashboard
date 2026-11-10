@@ -103,7 +103,7 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
     <Head kicker="Worker node" title={n.name} />
     <DetailList className={styles.facts}>
       <dt>Backend</dt><dd>{n.backendKind ?? "unknown"}</dd>
-      <dt>Slots</dt><dd>{`${n.slots.occupied}/${n.slots.total ?? "?"} slots`}</dd>
+      <dt>Slots</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
       <dt>Heartbeat</dt><dd>{n.lastSeenAt ? formatAge(serverTime, n.lastSeenAt) : "never"}</dd>
       <dt>Service</dt><dd>{n.service === "unreported" ? "not reported" : n.service}</dd>
       <dt>Version</dt><dd>{`aq-worker ${n.workerVersion}`}</dd>
@@ -137,12 +137,12 @@ function Empty() {
   </>;
 }
 
-export function SwarmPane({ view, selection, ready, autoControlled, note }: { view: SwarmView; selection: Selection | null; ready: number | null; autoControlled: Set<string>; note?: string | null }) {
+export function SwarmPane({ view, selection, ready, note }: { view: SwarmView; selection: Selection | null; ready: number | null; note?: string | null }) {
   if (!selection) return <Empty />;
-  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} autoControlled={autoControlled} /></>;
+  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} /></>;
 }
 
-function Body({ view, selection, ready, autoControlled }: { view: SwarmView; selection: Selection; ready: number | null; autoControlled: Set<string> }) {
+function Body({ view, selection, ready }: { view: SwarmView; selection: Selection; ready: number | null }) {
   if (selection.kind === "server") return <ServerPane view={view} ready={ready} />;
   if (selection.kind === "waiting") {
     const n = view.waiting.agents.length || ready || 0;
@@ -182,8 +182,8 @@ function Body({ view, selection, ready, autoControlled }: { view: SwarmView; sel
   }
   if (selection.kind === "agent" && hit.a) {
     return <>
-      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.task?.title ?? "No task"} />
-      <AgentPane agent={hit.a} serverTime={view.serverTime} autoControlled={autoControlled} />
+      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.manual?`${hit.a.project.label} · interactive agent`:hit.a.task?.title ?? "No task"} />
+      <AgentPane agent={hit.a} serverTime={view.serverTime} />
     </>;
   }
   return <Empty />;
