@@ -98,3 +98,12 @@ test("an unconfigured provider still permits adding empty profile rows", async (
   await userEvent.click(screen.getByRole("button", { name: "Add row" })); const row = screen.getByRole("row", { name: "new profile" });
   expect(within(row).getByLabelText("Model")).toBeDisabled(); expect(within(row).getByLabelText("Profile name")).toBeEnabled();
 });
+
+test("imported provider defaults display exact effort and preserve service options without implying launch readiness", async () => {
+  const data = snapshot();
+  data.model_choices = data.model_choices.map(c => ({ ...c, preference_only: true, options: { service_tier: "fast" } }));
+  read(data); const row = await open();
+  await userEvent.selectOptions(screen.getByLabelText("Provider"), "openai");
+  expect(within(row).getByLabelText("Reasoning effort")).toHaveValue("high@1:codex");
+  expect(screen.getByText(/Imported defaults are saved preferences/)).toBeVisible();
+});

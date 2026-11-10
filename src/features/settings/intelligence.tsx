@@ -10,7 +10,7 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import styles from "./Intelligence.module.css";
 
-const PROVIDERS: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", google: "Google" };
+const PROVIDERS: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", google: "Google", ollama: "Ollama", opencode: "OpenCode", longcat: "LongCat", nemotron: "Nemotron" };
 const modelKey = (c: Pick<ModelChoice, "provider" | "model">) => `${c.provider}:${c.model}`;
 function choiceFor(candidate: Candidate | undefined, choices: ModelChoice[]) {
   return candidate && choices.find(c => c.provider === candidate.provider && c.model === candidate.model
@@ -44,7 +44,8 @@ function ProfileRow({ profile, settings, provider, busy, onBusy, onSaved, onRemo
   const choices = settings.model_choices.filter(c => c.provider === provider);
   const models = choices.filter((c, i, all) => all.findIndex(other => other.model === c.model) === i);
   const configured = choiceFor(candidate, choices);
-  const reasoning = choices.filter(c => c.model === candidate?.model);
+  const variants = choices.filter(c => c.model === candidate?.model);
+  const reasoning = [...(configured ? [configured] : []), ...variants].filter((c, i, all) => all.findIndex(other => other.reasoning === c.reasoning && other.harness === c.harness) === i);
   function beginEdit() {
     if (!dirty) { setName(shownName); setDescription(shownDescription); setCandidates(structuredClone(shownCandidates)); setVersion(shownVersion); }
     setDirty(true); setNotice(null);
@@ -124,6 +125,8 @@ export function IntelligenceSettings() {
     ...(query.data?.profiles.flatMap(p => p.candidates.map(c => c.provider).filter(p => p !== "configuration-required")) ?? []), provider]));
   const profiles = [...(query.data?.profiles ?? []), ...added.filter(p => !query.data?.profiles.some(existing => existing.id === p.id))];
   const choices = query.data?.model_choices.filter(c => c.provider === provider) ?? [];
+  const sources = Array.from(new Set(choices.map(c => c.source).filter(Boolean)));
+  const observed = choices.flatMap(c => c.observed_at ? [c.observed_at] : []).sort().at(-1);
   async function saved(result: IntelligenceSaved) {
     queryClient.setQueryData<IntelligenceSettings>(queryKey(queryContext, "intelligence-settings", {}), old => {
       if (!old) return old;
@@ -140,10 +143,13 @@ export function IntelligenceSettings() {
       <label className={styles.provider}>Provider<select aria-label="Provider" value={provider} disabled={busy} onChange={e => setParams(old => { const next = new URLSearchParams(old); next.set("provider", e.target.value); return next; })}>
         {providers.map(id => <option key={id} value={id}>{PROVIDERS[id] ?? id}</option>)}
       </select></label>
-      <ActionButton disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton>
+      <div className={styles.rowActions}><ActionButton disabled={query.isFetching || busy} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
+      <ActionButton disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
     </div>
     <p className={styles.meta}>Edit model and reasoning choices for {PROVIDERS[provider] ?? provider}. Switching providers keeps the same profiles and preserves the other providers’ settings.</p>
     {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
+    {choices.some(c => c.preference_only) && <p className={styles.meta}>Imported defaults are saved preferences. Worker and provider support are checked before launch.</p>}
+    {sources.length > 0 && <p className={styles.meta}>Model sources: {sources.join(", ")}{observed && <> · updated <time dateTime={observed}>{new Date(observed).toLocaleString()}</time></>}</p>}
     <RetainedNotice query={query} />
     {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="intelligence profiles" onRetry={() => void query.refetch()} /> : <>
       <div className={styles.tableWrap} role="region" aria-label="Intelligence profiles spreadsheet, scroll horizontally" tabIndex={0}>

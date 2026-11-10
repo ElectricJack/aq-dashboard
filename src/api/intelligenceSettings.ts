@@ -2,7 +2,7 @@ import { apiGet, apiSend } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 
 export type Candidate = { id: string; provider: string; model: string; reasoning_configuration_reference: string; harnesses: string[] };
-export type ModelChoice = { provider: string; model: string; reasoning_configuration_reference: string; reasoning: string; harness: string };
+export type ModelChoice = { provider: string; model: string; reasoning_configuration_reference: string; reasoning: string; harness: string; preference_only?: boolean; options?: Record<string, unknown>; source?: string; observed_at?: string };
 export type IntelligenceProfile = {
   id: string; version: number; name?: string; description?: string; candidates: Candidate[];
   projects: { id: string; name: string; enabled: boolean }[];
@@ -24,7 +24,7 @@ function candidate(v: unknown): Candidate {
 }
 export function adaptIntelligenceSettings(v: unknown): IntelligenceSettings {
   ensure(isRecord(v) && revision(v.revision) && (v.active_digest === null || digest(v.active_digest))
-    && Array.isArray(v.profiles) && v.profiles.length <= 128 && Array.isArray(v.model_choices) && v.model_choices.length <= 1024);
+    && Array.isArray(v.profiles) && v.profiles.length <= 128 && Array.isArray(v.model_choices) && v.model_choices.length <= 4096);
   const profiles = v.profiles.map((p: unknown): IntelligenceProfile => {
     ensure(isRecord(p) && text(p.id, 96) && typeof p.version === "number" && Number.isSafeInteger(p.version) && p.version > 0
       && (p.name === undefined || text(p.name, 128)) && (p.description === undefined || text(p.description, 2000))
@@ -37,7 +37,11 @@ export function adaptIntelligenceSettings(v: unknown): IntelligenceSettings {
   });
   const choices = v.model_choices.map((c: unknown): ModelChoice => {
     ensure(isRecord(c) && text(c.provider) && text(c.model) && text(c.reasoning_configuration_reference) && text(c.reasoning) && text(c.harness));
-    return { provider: c.provider, model: c.model, reasoning_configuration_reference: c.reasoning_configuration_reference, reasoning: c.reasoning, harness: c.harness };
+    ensure(c.preference_only === undefined || typeof c.preference_only === "boolean");
+    ensure(c.options === undefined || isRecord(c.options));
+    ensure(c.source === undefined || text(c.source));
+    ensure(c.observed_at === undefined || text(c.observed_at));
+    return { provider: c.provider, model: c.model, reasoning_configuration_reference: c.reasoning_configuration_reference, reasoning: c.reasoning, harness: c.harness, preference_only: c.preference_only as boolean | undefined, options: c.options as Record<string, unknown> | undefined, source: c.source as string | undefined, observed_at: c.observed_at as string | undefined };
   });
   return { revision: v.revision, active_digest: v.active_digest, profiles, model_choices: choices };
 }
