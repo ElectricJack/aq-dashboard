@@ -13,6 +13,7 @@ import { FACT_LABEL, subjectPath } from "../../app/subjects";
 import { useRead } from "../../app/useRead";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import styles from "./Overview.module.css";
+import { SelectedProjectControl } from "./SelectedProjectControl";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
 import { useSession } from "../../app/session";
@@ -206,7 +207,7 @@ export function motionSentence(inMotion: OverviewView["inMotion"], complete: boo
 /** Title and summary on the left, the primary Create task action on the right (reference 01). */
 function OverviewHeader({ children, action = true }: { children: ReactNode; action?: boolean }) {
   const { bootstrap } = useSession();
-  return (
+  return (<>
     <div className={styles.header}>
       <div className={styles.titleBlock}>
         <PageTitle>Overview</PageTitle>
@@ -218,7 +219,8 @@ function OverviewHeader({ children, action = true }: { children: ReactNode; acti
         </div>
       )}
     </div>
-  );
+    {action && <SelectedProjectControl />}
+  </>);
 }
 
 function Attention({ view, attention, total, serverTime, complete, search }: {

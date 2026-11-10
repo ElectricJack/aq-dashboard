@@ -10,6 +10,7 @@ import styles from "./ProjectBindings.module.css";
 
 type Intent={operation:string;revision:number;enabled:boolean;body:Record<string,unknown>};
 function intent(v:unknown):v is Intent|null{return v===null||(isRecord(v)&&typeof v.operation==="string"&&typeof v.revision==="number"&&typeof v.enabled==="boolean"&&isRecord(v.body));}
+export function projectState(p:ProjectBindingView){return p.enabled?p.workerPolicy==="enabled"?"Started":"Setup needed":"Stopped";}
 export function ProjectControl({project:p,onChanged}:{project:ProjectBindingView;onChanged:()=>Promise<unknown>}){
   const {queryContext}=useSession();const client=useQueryClient();
   const [pending,setPending]=useDraft<Intent|null>(`project-control:${p.id}`,null,intent);
@@ -26,7 +27,7 @@ export function ProjectControl({project:p,onChanged}:{project:ProjectBindingView
       if(!alive.current)return;
       setPending(null);setMessage(saved.enabled?"Start request confirmed.":"Stop request confirmed.");
       await onChanged();
-      await client.invalidateQueries({predicate:q=>q.queryKey.includes(queryContext.principalId)&&q.queryKey.some(k=>["worker-launch-projects","projects","overview","human-graph-list"].includes(String(k)))});
+      await client.invalidateQueries({predicate:q=>q.queryKey.includes(queryContext.principalId)&&q.queryKey.some(k=>["worker-launch-projects","projects","overview","human-graph-list","selected-project-control","project-execution-bindings"].includes(String(k)))});
     }catch(e){if(alive.current){
       if(e instanceof ApiError&&[400,401,403,404,409,413,422].includes(e.status??0)){
         setPending(null);setMessage(e.serverMessage??"AQ refused the change. Refresh the project and try again.");

@@ -5,7 +5,7 @@ import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
-import { ProjectControl } from "./ProjectControl";
+import { ProjectControl, projectState } from "./ProjectControl";
 import { Timestamp } from "./Timestamp";
 import styles from "./ProjectBindings.module.css";
 
@@ -37,7 +37,7 @@ export function ProjectBindings() {
       {pages[0]?.items.length === 0 && <p className={styles.meta}>No project execution bindings configured.</p>}
       <ul className={styles.list} aria-label="Project execution bindings">
         {items.map(p => <li className={styles.card} key={p.id} data-project-id={p.id}>
-          <div className={styles.heading}><h3>{p.name}</h3><span className={styles.state} data-started={p.enabled && p.workerPolicy === "enabled" || undefined}>{p.enabled ? p.workerPolicy === "enabled" ? "Started" : "Setup needed" : "Stopped"}</span></div>
+          <div className={styles.heading}><h3>{p.name}</h3><span className={styles.state} data-started={p.enabled && p.workerPolicy === "enabled" || undefined}>{projectState(p)}</span></div>
           <ProjectControl key={`${p.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} project={p} onChanged={()=>query.refetch()}/>
           <details className={styles.details}><summary>Configuration and connection details</summary>
           <p className={styles.meta}>Revision {p.revision}</p>
