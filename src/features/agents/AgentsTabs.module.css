@@ -2,3 +2,6 @@
 .tab { display: inline-flex; align-items: center; min-block-size: var(--control-height); padding: var(--space-2) var(--space-4); margin-block-end: -1px; font-size: var(--font-size-meta); color: var(--color-text-secondary); text-decoration: none; border-block-end: 2px solid transparent; }
 .tab[data-current] { color: var(--color-accent); border-block-end-color: var(--color-accent); }
 .tab:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+
+:global([data-agents-compact]) .tabs { margin-block-end: var(--space-1); flex: none; }
+:global([data-agents-compact]) .tab { padding-block: var(--space-1); }

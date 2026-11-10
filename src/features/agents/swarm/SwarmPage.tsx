@@ -4,6 +4,7 @@ import { adaptOverview, type OverviewView } from "../../../api/adapters/inspecti
 import { adaptSwarm, SWARM_POLL_MS, type SwarmView } from "../../../api/adapters/swarm";
 import type { Overview as OverviewWire } from "../../../api/wire/proposed";
 import type { Swarm } from "../../../api/wire/swarm";
+import {useMediaQuery} from "../../../components/useMediaQuery";
 import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { formatAge } from "../../../components/time/relative";
 import { useServerNow } from "../../../components/time/useServerNow";
@@ -23,6 +24,7 @@ export function SwarmPage() { return <ManualAgentsProvider><SwarmPageBody /></Ma
 function SwarmPageBody() {
   const { bootstrap } = useSession();
   const cap = bootstrap.capability("swarm.read");
+  const desktop=useMediaQuery("(min-width: 1024px)");
   const { search } = useLocation();
   const [params, setParams] = useSearchParams();
   // A malformed swarm response stays in this view (PANEL_READ), never the global update screen.
@@ -80,7 +82,7 @@ function SwarmPageBody() {
     <AgentsTabs current="swarm" />
     {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
-    <div className={styles.stage} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    <div className={styles.stage} data-viewport-fit={shown.selection?.kind==="agent"&&(desktop||params.get("focus")==="terminal")||undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}

@@ -68,3 +68,13 @@
 .stage[data-focus] .pane { min-block-size: calc(100dvh - 240px); }
 .pill[data-state="booting"] { border: 1px dashed #c7802e; color: var(--color-attention); background: var(--color-panel); }
 .pill[data-kind="agent"][data-state="online"] { background: #1b7f6c; }
+
+.manualHead { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 6px 12px; }
+.manualIdentity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; min-inline-size: 0; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+.manualIdentity h2 { margin: 0; font-size: var(--font-size-body); color: var(--color-text); }
+.manualActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.stage[data-viewport-fit] { flex: 1; min-block-size: 0; }
+.stage[data-viewport-fit] > :first-child { display: flex; flex-direction: column; min-block-size: 0; }
+.stage[data-viewport-fit] .flow { height: auto; flex: 1; min-block-size: 0; }
+.stage[data-viewport-fit] .pane, .stage[data-viewport-fit] .terminal, .stage[data-viewport-fit] .terminal > :global([data-interactive-terminal]) { min-block-size: 0; }
+.stage[data-focus] > :first-child { display: none; }

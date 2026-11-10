@@ -183,8 +183,9 @@ function Body({ view, selection, ready }: { view: SwarmView; selection: Selectio
     </>;
   }
   if (selection.kind === "agent" && hit.a) {
+    if(hit.a.manual) return <AgentPane agent={hit.a} serverTime={view.serverTime} />;
     return <>
-      <Head kicker={hit.a.manual?"Interactive agent":`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.manual?`${hit.a.project.label} · interactive agent`:hit.a.task?.title ?? "No task"} />
+      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.task?.title ?? "No task"} />
       <AgentPane agent={hit.a} serverTime={view.serverTime} />
     </>;
   }

@@ -106,7 +106,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
     term.textarea?.setAttribute('aria-describedby', helpId);
     term.attachCustomKeyEventHandler(event => {
-      if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'm') { typeButton.current?.focus(); return false; }
+      if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'm') { (typeButton.current??pane.current)?.focus(); return false; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && term.hasSelection()) return false;
       return true;
     });
@@ -180,7 +180,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     }
   }, [fontSize]);
   // Keys become active after the interactive connection is acknowledged.
-  const keyBar = !phone || state.controlling;
+  const keyBar = phone && state.controlling;
   const updateKeyFade = useCallback(() => {
     const bar = keys.current; if (!bar) return;
     const start = bar.scrollLeft > 1, end = bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 1;
@@ -206,7 +206,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   // Why typing is temporarily unavailable (N-07), from what this pane knows: capability, delivery pause, connection, policy.
   const controlReason = !controlBlocked ? null
     : !allowControl ? controlCapability.enabled ? 'Terminal control is not offered by this AQ server' : controlCapability.reason
-    : state.paused ? 'Input delivery is uncertain, so typing is paused. Reconnect to check this terminal again.'
+    : state.paused ? manual ? null : 'Input delivery is uncertain, so typing is paused. Reconnect to check this terminal again.'
     : !state.connected ? 'Connecting to the terminal for input.'
     : 'This terminal does not accept input: its AQ terminal policy has input turned off.';
   const controlReasonId = `${ids}-control-reason`;
@@ -223,7 +223,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-label="More terminal actions"]') ?? undefined;
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
-  return <section ref={pane} className={styles.pane} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
+  return <section ref={pane} className={styles.pane} tabIndex={-1} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
     <div className={styles.toolbar}>
       {state.notice && <p role="status" className={styles.notice}>{state.notice}</p>}
       <div className={styles.controls} data-lease={leaseText ? true : undefined} data-disconnected={phase === 'disconnected' || undefined}>
@@ -237,7 +237,8 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
           <span className={styles.size}>{fontSize}px</span>
           <button type="button" aria-label="A+ Increase text size" disabled={fontSize >= TERMINAL_FONT_SIZE_MAX} onClick={() => setFontSize(size => clampTerminalFontSize(size + TERMINAL_FONT_SIZE_STEP))}>A+</button>
         </div>
-        {!phone && phase === 'disconnected' && <ActionButton onClick={reconnect}>Reconnect</ActionButton>}
+        {!phone && (phase === 'disconnected'||state.paused) && <ActionButton onClick={reconnect}>Reconnect</ActionButton>}
+        {!phone && phase === 'connected' && !state.paused && <ActionButton onClick={disconnect}>Disconnect</ActionButton>}
         {!phone && controlReason && <span id={controlReasonId} className={styles.controlReason}>{controlReason}</span>}
       </div>
     </div>
@@ -268,7 +269,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         {KEYS.slice(2).map(([label, name, bytes]) => <button type="button" key={label} disabled={!state.controlling} aria-label={name} onClick={() => send(bytes)}>{label}</button>)}
         <button type="button" onClick={disconnect}>Disconnect</button>
       </div>}
-      <p id={helpId} className={styles.help}>Type to interact. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.</p>
+      <p id={helpId} className={phone?styles.help:'visually-hidden'}>{phone?'Type to interact. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.':'Type to interact. Ctrl+M moves focus outside the terminal. Ctrl+C sends an interrupt.'}</p>
     </>
     {phone && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}

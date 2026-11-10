@@ -123,3 +123,9 @@
 .workCard h3, .workCard p { margin: 0; }
 .workCard p, .workCard label { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
 .workCard input, .workCard textarea { inline-size: 100%; min-inline-size: 0; color: var(--color-text); background: var(--color-canvas); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; padding: var(--space-2); }
+
+/* Agents keeps the launcher beside its heading, leaving the viewport for output. */
+.surfaces[data-agents-compact]:not([data-docked]) { display: flex; flex-direction: column; flex: 1; min-block-size: 0; }
+.surfaces[data-agents-compact] > .destination { display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-block-size: 0; }
+.surfaces[data-agents-compact] > .destination > h1 { margin: 0; min-block-size: var(--control-height); display: flex; align-items: center; padding-inline-end: 160px; font-size: var(--font-size-h3); flex: none; }
+.surfaces[data-agents-compact] > .launcherBar { position: absolute; inset-block-start: 0; inset-inline-end: 0; margin: 0; z-index: 1; }

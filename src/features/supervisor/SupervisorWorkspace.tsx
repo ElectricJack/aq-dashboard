@@ -61,7 +61,7 @@ export function SupervisorWorkspace({ children }: { children: ReactNode }) {
     if (focus) returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   };
   const close = () => { setDock(false); requestAnimationFrame(() => (returnFocus.current?.isConnected ? returnFocus.current : launcher.current)?.focus()); };
-  return <div ref={surfaces} className={styles.surfaces} data-docked={docked || undefined}>
+  return <div ref={surfaces} className={styles.surfaces} data-docked={docked || undefined} data-agents-compact={location.pathname === "/agents" || undefined}>
     {/* In normal flow above the page, never floating over page content (gap SV-E). */}
     {!full && !dock && <div className={styles.launcherBar}><button ref={launcher} className={styles.launcher} type="button" onClick={() => { remember(); setOpened(true); if (desktop) { focusDock.current = true; setDock(true); } else void navigate("/supervisor"); }}>Open supervisor</button></div>}
     <div className={styles.destination} data-supervisor-destination="" hidden={full}>{children}</div>

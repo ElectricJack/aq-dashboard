@@ -136,6 +136,7 @@ test("Reconnect automatically restores interactive control", async () => {
   renderApp("/agents?select=agent:sess-07");
   await screen.findByText("You have control", {}, { timeout: 8000 });
   expect(kinds.filter(k => k === "control")).toHaveLength(1);
+  expect(screen.queryByRole("group", { name: "Terminal keyboard" })).not.toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
   fireEvent.click(await screen.findByRole("button", { name: "Reconnect" }));
   await waitFor(() => expect(kinds.filter(k => k === "watch").length).toBeGreaterThan(1), { timeout: 8000 });
