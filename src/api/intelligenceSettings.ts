@@ -10,9 +10,9 @@ export type IntelligenceProfile = {
 export type IntelligenceSettings = { revision: string; active_digest: string | null; profiles: IntelligenceProfile[]; model_choices: ModelChoice[] };
 export type SaveIntelligence = {
   operation_id: string; expected_revision: string; profile_id: string; profile_version: number;
-  name: string; description: string; candidates: Candidate[];
+  name: string; description: string; candidates: Candidate[]; delete?: boolean;
 };
-export type IntelligenceSaved = { operation_id: string; disposition: "saved" | "unchanged"; revision: string; active_digest: string; profile: Omit<IntelligenceProfile, "projects">; updated_projects: { id: string; name: string; revision: string }[] };
+export type IntelligenceSaved = { operation_id: string; disposition: "saved" | "unchanged" | "deleted"; revision: string; active_digest: string; profile: Omit<IntelligenceProfile, "projects">; updated_projects: { id: string; name: string; revision: string }[] };
 const text = (v: unknown, max = 512): v is string => typeof v === "string" && v.length <= max;
 const revision = (v: unknown): v is string => typeof v === "string" && /^(0|[1-9]\d*)$/.test(v);
 const digest = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
@@ -46,7 +46,7 @@ export function adaptIntelligenceSettings(v: unknown): IntelligenceSettings {
   return { revision: v.revision, active_digest: v.active_digest, profiles, model_choices: choices };
 }
 function saved(v: unknown, operation: string): IntelligenceSaved {
-  ensure(isRecord(v) && v.operation_id === operation && ["saved", "unchanged"].includes(String(v.disposition))
+  ensure(isRecord(v) && v.operation_id === operation && ["saved", "unchanged", "deleted"].includes(String(v.disposition))
     && revision(v.revision) && digest(v.active_digest) && Array.isArray(v.updated_projects));
   for (const p of v.updated_projects) ensure(isRecord(p) && text(p.id) && text(p.name) && revision(p.revision));
   ensure(isRecord(v.profile) && text(v.profile.id) && typeof v.profile.version === "number" && Array.isArray(v.profile.candidates));

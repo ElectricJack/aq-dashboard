@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
@@ -34,6 +34,11 @@ function ProfileRow({ profile, settings, provider, busy, onBusy, onSaved, onRemo
   const [unconfirmed, setUnconfirmed] = useState<SaveIntelligence | null>(null);
   const [retrySame, setRetrySame] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const confirmButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (confirmDelete) { confirmButton.current?.focus(); confirmButton.current?.scrollIntoView?.({ block: "center", inline: "nearest" }); } }, [confirmDelete]);
   const locked = pending || unconfirmed !== null;
   // A clean row follows refreshed server data; an edited row keeps its draft.
   const shownName = dirty ? name : profile.name ?? profile.id;
@@ -64,15 +69,15 @@ function ProfileRow({ profile, settings, provider, busy, onBusy, onSaved, onRemo
   }
   async function send(request: SaveIntelligence) {
     if (pending) return;
-    setPending(true); onBusy(true); setError(null); setNotice(null); setConflict(false);
+    setPending(true); setPendingDelete(request.delete === true); setConfirmDelete(false); onBusy(true); setError(null); setNotice(null); setConflict(false);
     try { await complete(await saveIntelligence(request)); }
     catch (e) {
       if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) {
-        setError(errorMessage(e)); setConflict(e.status === 409); setUnconfirmed(null);
+        setError(errorMessage(e)); setConflict(e.status === 409 && !request.delete); setUnconfirmed(null);
       } else {
-        setUnconfirmed(request); setRetrySame(false); setError("Save unconfirmed. Check its status before editing this row again.");
+        setUnconfirmed(request); setRetrySame(false); setError(`${request.delete ? "Delete" : "Save"} unconfirmed. Check its status before editing this row again.`);
       }
-    } finally { setPending(false); onBusy(false); }
+    } finally { setPending(false); setPendingDelete(false); onBusy(false); }
   }
   async function check() {
     if (!unconfirmed || pending) return;
@@ -101,17 +106,24 @@ function ProfileRow({ profile, settings, provider, busy, onBusy, onSaved, onRemo
       </select></td>
       <td><div className={styles.rowActions}>
         <ActionButton aria-label={`Save ${label}`} disabled={busy || locked || conflict || !dirty || !shownName.trim()} onClick={() => void send({ operation_id: crypto.randomUUID(), expected_revision: settings.revision,
-          profile_id: profile.id, profile_version: shownVersion, name: shownName.trim(), description: shownDescription, candidates: shownCandidates })}>{pending ? "Saving…" : "Save"}</ActionButton>
-        {profile.version === 0 && <ActionButton disabled={locked} aria-label={`Remove ${label}`} onClick={onRemove}>Remove</ActionButton>}
+          profile_id: profile.id, profile_version: shownVersion, name: shownName.trim(), description: shownDescription, candidates: shownCandidates })}>{pending && !pendingDelete ? "Saving…" : "Save"}</ActionButton>
+        {profile.version === 0 ? <ActionButton disabled={busy || locked} aria-label={`Delete ${label}`} onClick={onRemove}>Delete</ActionButton> :
+          <ActionButton ref={deleteButton} disabled={busy || locked} aria-label={`Delete ${label}`} onClick={() => setConfirmDelete(true)}>{pendingDelete ? "Deleting…" : "Delete"}</ActionButton>}
         {profile.version !== 0 && (dirty || error) && !unconfirmed && <ActionButton disabled={locked} aria-label={`Reset ${label}`} onClick={() => {
           setPending(true); void onReload().finally(() => { setDirty(false); setError(null); setConflict(false); setNotice(null); setPending(false); });
         }}>Reset</ActionButton>}
+    {confirmDelete && <div className={styles.confirmDelete} role="group" aria-label={`Confirm delete ${label}`}>
+      <span>Delete “{label}” for all providers?</span>
+      <ActionButton ref={confirmButton} aria-label={`Confirm delete ${label}`} disabled={busy || locked} onClick={() => void send({ operation_id: crypto.randomUUID(), expected_revision: settings.revision,
+        profile_id: profile.id, profile_version: shownVersion, name: profile.name ?? profile.id, description: profile.description ?? "", candidates: profile.candidates, delete: true })}>Confirm delete</ActionButton>
+      <ActionButton disabled={busy || locked} onClick={() => { setConfirmDelete(false); deleteButton.current?.focus(); }}>Cancel</ActionButton>
+    </div>}
         {notice && <span className={styles.success} role="status">{notice}</span>}
       </div></td>
     </tr>
     {error && <tr><td colSpan={5}><div role="alert" className={styles.warning}>{label}: {error}{conflict && " Your edits are preserved. Reset this row to load the latest settings."}</div>
-      {unconfirmed && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void check()}>Check save status</ActionButton>
-        {retrySame && <ActionButton disabled={pending} onClick={() => void send(unconfirmed)}>Retry same save</ActionButton>}</div>}
+      {unconfirmed && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void check()}>{unconfirmed.delete ? "Check delete status" : "Check save status"}</ActionButton>
+        {retrySame && <ActionButton disabled={pending} onClick={() => void send(unconfirmed)}>{unconfirmed.delete ? "Retry same delete" : "Retry same save"}</ActionButton>}</div>}
     </td></tr>}
   </Fragment>;
 }
@@ -120,6 +132,9 @@ export function IntelligenceSettings() {
   const { queryContext } = useSession(); const queryClient = useQueryClient(); const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: queryKey(queryContext, "intelligence-settings", {}), queryFn: ({ signal }) => readIntelligence(signal), retry: false });
   const [added, setAdded] = useState<IntelligenceProfile[]>([]); const [busy, setBusy] = useState(false);
+  const [deletedNotice, setDeletedNotice] = useState<string | null>(null); const addButton = useRef<HTMLButtonElement>(null);
+  const focusAfterDelete = useRef(false);
+  useEffect(() => { if (!busy && focusAfterDelete.current) { focusAfterDelete.current = false; addButton.current?.focus(); } }, [busy]);
   const provider = params.get("provider") ?? query.data?.model_choices[0]?.provider ?? "anthropic";
   const providers = Array.from(new Set([...Object.keys(PROVIDERS), ...(query.data?.model_choices.map(c => c.provider) ?? []),
     ...(query.data?.profiles.flatMap(p => p.candidates.map(c => c.provider).filter(p => p !== "configuration-required")) ?? []), provider]));
@@ -133,9 +148,10 @@ export function IntelligenceSettings() {
       const previous = old.profiles.find(p => p.id === result.profile.id);
       const profile = { ...result.profile, projects: previous?.projects ?? [] };
       return { ...old, revision: result.revision, active_digest: result.active_digest,
-        profiles: previous ? old.profiles.map(p => p.id === profile.id ? profile : p) : [...old.profiles, profile] };
+        profiles: result.disposition === "deleted" ? old.profiles.filter(p => p.id !== profile.id) : previous ? old.profiles.map(p => p.id === profile.id ? profile : p) : [...old.profiles, profile] };
     });
     await query.refetch(); setAdded(old => old.filter(p => p.id !== result.profile.id));
+    if (result.disposition === "deleted") { focusAfterDelete.current = true; setDeletedNotice(`Deleted “${result.profile.name ?? result.profile.id}”.`); }
     void queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("project-execution-bindings") });
   }
   return <div className={styles.sheet}>
@@ -144,7 +160,7 @@ export function IntelligenceSettings() {
         {providers.map(id => <option key={id} value={id}>{PROVIDERS[id] ?? id}</option>)}
       </select></label>
       <div className={styles.rowActions}><ActionButton disabled={query.isFetching || busy} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
-      <ActionButton disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
+      <ActionButton ref={addButton} disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
     </div>
     <p className={styles.meta}>Choose a model and effort for each profile. Other providers’ settings are preserved.</p>
     {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
@@ -153,13 +169,14 @@ export function IntelligenceSettings() {
       {choices.some(c => c.preference_only) && <p>Imported defaults are saved preferences. Worker and provider support are checked before launch.</p>}
       {sources.length > 0 && <p>Sources: {sources.join(", ")}</p>}
     </details>}
+    {deletedNotice && <p role="status" className={styles.success}>{deletedNotice}</p>}
     <RetainedNotice query={query} />
     {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="intelligence profiles" onRetry={() => void query.refetch()} /> : <>
       <div className={styles.tableWrap} role="region" aria-label="Intelligence profiles spreadsheet, scroll horizontally" tabIndex={0}>
         <table className={styles.table} aria-label="Intelligence profiles">
           <thead><tr><th scope="col">Profile</th><th scope="col">Description</th><th scope="col">Model</th><th scope="col">Reasoning effort</th><th scope="col">Actions</th></tr></thead>
           <tbody>{profiles.map(profile => <ProfileRow key={profile.id} profile={profile} settings={query.data!} provider={provider} busy={busy} onBusy={setBusy} onSaved={saved}
-            onRemove={() => setAdded(old => old.filter(p => p.id !== profile.id))} onReload={async () => { await query.refetch(); }} />)}</tbody>
+            onRemove={() => { setAdded(old => old.filter(p => p.id !== profile.id)); addButton.current?.focus(); }} onReload={async () => { await query.refetch(); }} />)}</tbody>
         </table>
       </div>
       {profiles.length === 0 && <p className={styles.meta}>No profiles yet. Add a row to get started.</p>}

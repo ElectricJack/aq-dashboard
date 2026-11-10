@@ -108,3 +108,41 @@ test("imported provider defaults display exact effort and preserve service optio
   await userEvent.click(screen.getByText("Model catalog", { exact: true }));
   expect(screen.getByText(/Imported defaults are saved preferences/)).toBeVisible();
 });
+
+test("saved rows require confirmation before deletion and return focus to Add row", async () => {
+  let data = snapshot(); let submitted: Record<string, unknown> | undefined;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(data)), http.post("/api/settings/intelligence", async ({ request }) => {
+    submitted = await request.json() as Record<string, unknown>; data = { ...data, profiles: [], revision: "13" };
+    return HttpResponse.json({ ...saved(submitted.operation_id as string), disposition: "deleted", profile });
+  }));
+  const row = await open(); await userEvent.click(within(row).getByRole("button", { name: "Delete Standard" }));
+  expect(submitted).toBeUndefined(); expect(screen.getByText('Delete “Standard” for all providers?')).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(within(row).getByRole("button", { name: "Delete Standard" })).toHaveFocus(); expect(submitted).toBeUndefined();
+  await userEvent.click(within(row).getByRole("button", { name: "Delete Standard" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard" }));
+  await screen.findByText('Deleted “Standard”.'); expect(screen.queryByRole("row", { name: "Standard" })).not.toBeInTheDocument();
+  expect(submitted).toMatchObject({ delete: true, expected_revision: "12", profile_id: "standard", profile_version: 1 });
+  expect(screen.getByRole("button", { name: "Add row" })).toHaveFocus();
+});
+
+test("deletion blocked by a project preserves the row and its unsaved edits", async () => {
+  read(); server.use(http.post("/api/settings/intelligence", () => HttpResponse.json({ code: "conflict", message: "This profile is allowed by project Example.", request_id: "used", retryable: false }, { status: 409 })));
+  const row = await open(); await userEvent.type(within(row).getByLabelText("Profile name"), " draft");
+  await userEvent.click(within(row).getByRole("button", { name: "Delete Standard draft" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard draft" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("allowed by project Example"); expect(within(row).getByLabelText("Profile name")).toHaveValue("Standard draft");
+  expect(within(row).getByRole("button", { name: "Save Standard draft" })).toBeEnabled();
+});
+
+test("unsaved rows can be deleted locally", async () => {
+  read(); let posts = 0; server.use(http.post("/api/settings/intelligence", () => { posts++; return HttpResponse.error(); }));
+  await open(); await userEvent.click(screen.getByRole("button", { name: "Add row" }));
+  await userEvent.click(screen.getByRole("button", { name: "Delete new profile" })); expect(screen.queryByRole("row", { name: "new profile" })).not.toBeInTheDocument(); expect(posts).toBe(0);
+});
+
+test("an interrupted deletion reconciles its original operation without sending another deletion", async () => {
+  let data = snapshot(); let posts = 0;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(data)), http.post("/api/settings/intelligence", () => { posts++; return HttpResponse.error(); }),
+    http.get("/api/settings/intelligence/operations/:id", ({ params }) => { data = { ...data, profiles: [], revision: "13" }; return HttpResponse.json({ ...saved(String(params.id)), disposition: "deleted", profile }); }));
+  const row = await open(); await userEvent.click(within(row).getByRole("button", { name: "Delete Standard" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Check delete status" })); await screen.findByText('Deleted “Standard”.'); expect(posts).toBe(1);
+});
