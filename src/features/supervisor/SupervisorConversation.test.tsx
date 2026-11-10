@@ -304,3 +304,13 @@ test("live history refresh is not starved by faster supervisor status updates",a
  await waitFor(()=>expect(app.reads.length).toBeGreaterThan(initial),{timeout:6000});
  app.unmount();
 });
+
+
+test("typing after a confirmed message starts the next message without a separate reset",async()=>{
+ const app=setup();await ready();await send('First request');
+ await screen.findByRole('button',{name:'Compose another message'});
+ await userEvent.type(await composer(),'Second request');await userEvent.click(screen.getByRole('button',{name:'Send',exact:true}));
+ await waitFor(()=>expect(app.posts).toHaveLength(2));
+ const first=JSON.parse(app.posts[0]!),second=JSON.parse(app.posts[1]!);expect(second.operation_id).not.toBe(first.operation_id);expect(second.payload.body).toBe('Second request');
+ app.unmount();
+});

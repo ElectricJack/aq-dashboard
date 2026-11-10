@@ -231,7 +231,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
     </div>
     <form className={styles.composer} onSubmit={event => void send(event)}>
       <label className="visually-hidden" htmlFor="global-supervisor-message">{projectId?"Message the project supervisor":"Message the global supervisor"}</label>
-      <textarea id="global-supervisor-message" value={draft} readOnly={!!operation || sending} rows={3} placeholder={projectId?"Message the project supervisor…":"Message the global supervisor…"} onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
+      <textarea id="global-supervisor-message" value={draft} readOnly={!!operation && receipt?.disposition !== "confirmed" || sending} rows={3} placeholder={projectId?"Message the project supervisor…":"Message the global supervisor…"} onChange={event => { if(operation && receipt?.disposition === "confirmed") another(); setDraft(event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229 && !event.repeat && window.matchMedia?.("(pointer: fine)")?.matches) { event.preventDefault(); void send(); }
       }} />
       <div className={styles.composerActions}><span><span className={styles.fullControl}>Text only · no attachments or context</span><span className={styles.compactControl}>Text only</span></span><ActionButton className={styles.send} aria-label={sending ? "Sending…" : "Send"} type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim()}><Icon icon={sending ? LoaderCircle : SendHorizontal} size={20} /><span className={styles.compactControl}>{sending ? "Sending…" : "Send"}</span></ActionButton></div>
@@ -247,6 +247,6 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
       </div>}
 
     </form>
-    <p className={styles.footer}><Icon icon={Info} size={16} />Global conversation · draft preserved across views</p>
+    <p className={styles.footer}><Icon icon={Info} size={16} />{projectId?"Project conversation":"Global conversation"} · draft preserved across views</p>
   </section>;
 }
