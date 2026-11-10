@@ -114,6 +114,7 @@ function ProfileRow({ profile, settings, provider, busy, onBusy, onSaved, onRemo
         }}>Reset</ActionButton>}
     {confirmDelete && <div className={styles.confirmDelete} role="group" aria-label={`Confirm delete ${label}`}>
       <span>Delete “{label}” for all providers?</span>
+      <span>Affected work will return to the router.</span>
       <ActionButton ref={confirmButton} aria-label={`Confirm delete ${label}`} disabled={busy || locked} onClick={() => void send({ operation_id: crypto.randomUUID(), expected_revision: settings.revision,
         profile_id: profile.id, profile_version: shownVersion, name: profile.name ?? profile.id, description: profile.description ?? "", candidates: profile.candidates, delete: true })}>Confirm delete</ActionButton>
       <ActionButton disabled={busy || locked} onClick={() => { setConfirmDelete(false); deleteButton.current?.focus(); }}>Cancel</ActionButton>
@@ -151,7 +152,7 @@ export function IntelligenceSettings() {
         profiles: result.disposition === "deleted" ? old.profiles.filter(p => p.id !== profile.id) : previous ? old.profiles.map(p => p.id === profile.id ? profile : p) : [...old.profiles, profile] };
     });
     await query.refetch(); setAdded(old => old.filter(p => p.id !== result.profile.id));
-    if (result.disposition === "deleted") { focusAfterDelete.current = true; setDeletedNotice(`Deleted “${result.profile.name ?? result.profile.id}”.`); }
+    if (result.disposition === "deleted") { focusAfterDelete.current = true; setDeletedNotice(`Deleted “${result.profile.name ?? result.profile.id}”.${result.routing ? " Affected work will use the router." : ""}`); }
     void queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("project-execution-bindings") });
   }
   return <div className={styles.sheet}>

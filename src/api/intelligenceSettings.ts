@@ -12,7 +12,7 @@ export type SaveIntelligence = {
   operation_id: string; expected_revision: string; profile_id: string; profile_version: number;
   name: string; description: string; candidates: Candidate[]; delete?: boolean;
 };
-export type IntelligenceSaved = { operation_id: string; disposition: "saved" | "unchanged" | "deleted"; revision: string; active_digest: string; profile: Omit<IntelligenceProfile, "projects">; updated_projects: { id: string; name: string; revision: string }[] };
+export type IntelligenceSaved = { operation_id: string; disposition: "saved" | "unchanged" | "deleted"; revision: string; active_digest: string; profile: Omit<IntelligenceProfile, "projects">; updated_projects: { id: string; name: string; revision: string }[]; routing?: { mode: "automatic"; profile_reference: string; agent_profiles: string[] } };
 const text = (v: unknown, max = 512): v is string => typeof v === "string" && v.length <= max;
 const revision = (v: unknown): v is string => typeof v === "string" && /^(0|[1-9]\d*)$/.test(v);
 const digest = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
@@ -51,6 +51,8 @@ function saved(v: unknown, operation: string): IntelligenceSaved {
   for (const p of v.updated_projects) ensure(isRecord(p) && text(p.id) && text(p.name) && revision(p.revision));
   ensure(isRecord(v.profile) && text(v.profile.id) && typeof v.profile.version === "number" && Array.isArray(v.profile.candidates));
   v.profile.candidates.forEach(candidate);
+  if (v.routing !== undefined) ensure(isRecord(v.routing) && v.routing.mode === "automatic" && text(v.routing.profile_reference)
+    && Array.isArray(v.routing.agent_profiles) && v.routing.agent_profiles.length <= 128 && v.routing.agent_profiles.every(p => text(p)));
   return v as unknown as IntelligenceSaved;
 }
 export async function readIntelligence(signal?: AbortSignal) {

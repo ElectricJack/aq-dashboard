@@ -125,11 +125,11 @@ test("saved rows require confirmation before deletion and return focus to Add ro
   expect(screen.getByRole("button", { name: "Add row" })).toHaveFocus();
 });
 
-test("deletion blocked by a project preserves the row and its unsaved edits", async () => {
-  read(); server.use(http.post("/api/settings/intelligence", () => HttpResponse.json({ error: "conflict", message: "This profile is allowed by project Example." }, { status: 409 })));
+test("a stale deletion preserves the row and its unsaved edits", async () => {
+  read(); server.use(http.post("/api/settings/intelligence", () => HttpResponse.json({ error: "conflict", message: "Profiles changed since this editor opened." }, { status: 409 })));
   const row = await open(); await userEvent.type(within(row).getByLabelText("Profile name"), " draft");
   await userEvent.click(within(row).getByRole("button", { name: "Delete Standard draft" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard draft" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("allowed by project Example"); expect(within(row).getByLabelText("Profile name")).toHaveValue("Standard draft");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Profiles changed"); expect(within(row).getByLabelText("Profile name")).toHaveValue("Standard draft");
   expect(within(row).getByRole("button", { name: "Save Standard draft" })).toBeEnabled();
 });
 
@@ -145,4 +145,19 @@ test("an interrupted deletion reconciles its original operation without sending 
     http.get("/api/settings/intelligence/operations/:id", ({ params }) => { data = { ...data, profiles: [], revision: "13" }; return HttpResponse.json({ ...saved(String(params.id)), disposition: "deleted", profile }); }));
   const row = await open(); await userEvent.click(within(row).getByRole("button", { name: "Delete Standard" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard" }));
   await userEvent.click(await screen.findByRole("button", { name: "Check delete status" })); await screen.findByText('Deleted “Standard”.'); expect(posts).toBe(1);
+});
+
+
+test("deleting an assigned row succeeds and reports automatic routing", async () => {
+  let data = snapshot();
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(data)), http.post("/api/settings/intelligence", async ({ request }) => {
+    const body = await request.json() as { operation_id: string }; data = { ...data, revision: "13", profiles: [] };
+    return HttpResponse.json({ ...saved(body.operation_id), disposition: "deleted", profile,
+      routing: { mode: "automatic", profile_reference: "router@1", agent_profiles: ["implementer"] } });
+  }));
+  const row = await open(); await userEvent.click(within(row).getByRole("button", { name: "Delete Standard" }));
+  expect(screen.getByText("Affected work will return to the router.")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard" }));
+  expect(await screen.findByText(/Deleted “Standard”. Affected work will use the router/)).toBeVisible();
+  expect(screen.queryByRole("row", { name: "Standard" })).not.toBeInTheDocument();
 });
