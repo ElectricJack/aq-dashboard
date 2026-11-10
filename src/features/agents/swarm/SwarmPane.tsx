@@ -5,6 +5,7 @@ import { ActionButton, DetailList } from "../../../components/layout/Workspace";
 import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
+import { WorkerLaunch } from "./WorkerLaunch";
 import { AgentPane, scopeOnly } from "./AgentPane";
 import { AddMachine } from "./AddMachine";
 import { OwnerAvailability } from "./OwnerAvailability";
@@ -26,11 +27,11 @@ function Settings({ label }: { label: string }) {
   const { search } = useLocation();
   return <Link className={styles.linkButton} to={{ pathname: "/settings", search: scopeOnly(search) }}>{label}</Link>;
 }
-function NodeControls() {
-  const { bootstrap } = useSession();
+function NodeControls({node}: {node: NodeView}) {
+  const { bootstrap, queryContext } = useSession();
   const enabled = bootstrap.capability("swarm.worker.control").enabled;
   return <>
-    <div className={styles.actions}>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
+    <div className={styles.actions}><WorkerLaunch key={`${node.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} node={node}/>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
     <p className={styles.actionNote}>{enabled ? "Drain node, restart and logs are not available yet. Use the machine's controls." : "Worker start, stop and drain are not available on this server yet."}</p>
   </>;
 }
@@ -110,7 +111,7 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
       <dt>Channel</dt><dd>{n.agentChannel === "ready" ? "agent channel ready" : n.agentChannel === "unavailable" ? "agent channel unavailable" : "not reported"}</dd>
       <Holding holds={n.holding} />
     </DetailList>
-    <NodeControls />
+    <NodeControls node={n} />
   </>;
 }
 
