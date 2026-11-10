@@ -15,7 +15,7 @@ export function connectManualTerminal(options:Options){
   if(!paused&&performance.now()>=renewAt)await control();
   const v=await apiGet<unknown>(`${path}?client_id=${client}&after=${sequence}`,signal());
   if(!isRecord(v)||!Number.isSafeInteger(v.sequence)||!isRecord(v.session))throw Error('Invalid terminal snapshot');
-  if(typeof v.snapshot==='string'&&v.snapshot.length<=131072){sequence=Number(v.sequence);options.reset();await options.write(new TextEncoder().encode('\x1b[H\x1b[2J'+v.snapshot));}
+  if(typeof v.snapshot==='string'&&v.snapshot.length<=131072){sequence=Number(v.sequence);options.reset();await options.write(new TextEncoder().encode('\x1b[H\x1b[2J'+v.snapshot.replace(/\r?\n/g,'\r\n')));}
   observed=typeof v.observed_at_ms==='number'?v.observed_at_ms:null;clock={serverMs:Number(v.server_time_ms),at:performance.now()};
   connected=v.session.status==='running'&&Number(v.server_time_ms)-Number(v.session.worker_seen_at_ms)<15000;
   if(connected&&Number(v.generation)!==generation){paused=true;queue.length=0;}
@@ -28,7 +28,7 @@ export function connectManualTerminal(options:Options){
   try{while(queue.length&&controlling&&!paused&&!abort.signal.aborted){let payload=queue.shift()!;if('bytes' in payload){while(queue.length&&'bytes' in queue[0]!&&payload.bytes.length+(queue[0] as {bytes:number[]}).bytes.length<=4096){payload={bytes:[...payload.bytes,...(queue.shift() as {bytes:number[]}).bytes]};}}const operation=crypto.randomUUID();
    try{await apiSend('POST',`${path}/input`,{operation_id:operation,client_id:client,generation,...payload},signal());}catch{/* Receipt lookup, never keyboard replay. */}
    let applied=false;
-   for(let n=0;n<30&&!abort.signal.aborted;n++){
+   for(let n=0;n<300&&!abort.signal.aborted;n++){
     const r=await apiGet<unknown>(`${path}/receipts/${operation}`,signal());
     if(!isRecord(r))throw Error('Invalid input receipt');if(r.disposition==='applied'){applied=true;break;}if(['unknown','rejected'].includes(String(r.disposition)))break;await sleep(100);
    }
