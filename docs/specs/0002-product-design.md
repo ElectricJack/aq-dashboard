@@ -86,9 +86,13 @@ Cancellation is an intent, not proof the process stopped. Source retained, resul
 
 ## 5. Supervisor: docked and full-page conversation
 
+**Owner update, November 10, 2026:** support both a global supervisor and separate project supervisors. An explicit Supervisor selector chooses the recipient. Each conversation retains its own history, draft and unresolved operation identity across dock/full-page views. Saved intelligence profiles and Start/Stop controls operate on that supervisor. Verified task receipt links carry their project into Work.
+
+**Implementation choice (my call):** keep controls inline on desktop and in a compact disclosure on phones. A fresh enabled controller reports Ready between real turns and Working during a turn. Confirmed enqueue releases the composer for the next message; uncertain requests retain exact-body retry and lookup. This delivered slice is text chat and verified task receipts; context/attachment composition and richer result/media cards below remain separate requirements.
+
 The docked panel and full-page view share one conversation state, message collection, attachments, draft and reading position. Full page fills the area beside the rail and below the provider strip; message text has a comfortable maximum reading width. The phone always uses a full-page conversation. No duplicate conversation or new supervisor session is created by changing presentation.
 
-The header explicitly says Global supervisor. Project scope can attach context but never silently changes recipient. A context chip identifies the exact task/result/document revision and can be removed before send. Result cards link to retained evidence. Message history is paginated; auto-scroll only when the reader is already at the bottom. Otherwise show a new-message marker.
+The header names the selected supervisor. Global remains the default; changing the application project filter never silently changes the conversation recipient. A context chip identifies the exact task/result/document revision and can be removed before send. Result cards link to retained evidence. Message history is paginated; auto-scroll only when the reader is already at the bottom. Otherwise show a new-message marker.
 
 The composer supports plain text and authorized artifact/context references. Enter sends on desktop; Shift+Enter adds a newline; mobile provides a labelled Send button. IME composition must not send prematurely. A local pending message remains identifiable through send retries. Show admitted/queued, delivery evidence, unknown and failure separately; an acknowledgement is not proof that the requested work was performed.
 
