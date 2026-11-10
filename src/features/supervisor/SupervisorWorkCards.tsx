@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
+import {scopeSearch} from "../../app/scope";
 import { Link } from "react-router";
 import { validateTaskDraft, type TaskDraft } from "../../api/adapters/taskCreate";
 import { supervisorId, type ActionReceiptAttachment } from "../../api/adapters/supervisor";
@@ -31,5 +32,5 @@ export function SupervisorWorkReceipt({ operation, kind }: { operation: ActionOp
 
 /** History contains server-verified receipts bound to this supervisor session. */
 export function SupervisorHistoryReceipt({receipt}:{receipt:ActionReceiptAttachment}) {
- return <div className={styles.workCard}><h3>{receipt.kind==='task.graph.create'?'Task graph created':'Task created'}</h3><p>Creation confirmed · execution is tracked in Work.</p>{receipt.created_task_ids.map(id=><Link key={id} to={`/work/${encodeURIComponent(id)}`}>Open task {id.slice(0,8)}</Link>)}</div>;
+ return <div className={styles.workCard}><h3>{receipt.kind==='task.graph.create'?'Task graph created':'Task created'}</h3><p>Creation confirmed · execution is tracked in Work.</p>{receipt.created_task_ids.map(id=><Link key={id} to={`/work/${encodeURIComponent(id)}${scopeSearch({kind:"project",project_id:receipt.project_id})}`}>Open task {id.slice(0,8)}</Link>)}</div>;
 }

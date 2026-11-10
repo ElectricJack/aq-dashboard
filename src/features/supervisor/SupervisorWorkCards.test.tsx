@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import graphRequest from "../../../contracts/live/supervisor-conversation/task-graph-create.fixture.json";
 import taskRequest from "../../../contracts/live/dashboard-actions/fixtures/request-task-create.json";
-import { SupervisorTaskProposal, SupervisorWorkReceipt } from "./SupervisorWorkCards";
+import { SupervisorTaskProposal, SupervisorWorkReceipt, SupervisorHistoryReceipt } from "./SupervisorWorkCards";
 import type { ActionOperation } from "../actions/actionClient";
 
 test("typed F2 task proposal is editable and only explicit Create authorizes the edited draft", async () => {
@@ -22,4 +22,11 @@ test("confirmed F2 graph receipts link each created task and pending receipts cl
   expect(screen.getAllByRole("link", { name: /Open task/ }).map(link => link.getAttribute("href"))).toEqual(graphRequest.payload.tasks.map(task => `/work/${task.id}`));
   view.rerender(<MemoryRouter><SupervisorWorkReceipt kind="task.graph.create" operation={{ ...operation, disposition: "pending" }} /></MemoryRouter>);
   expect(screen.queryByRole("link")).toBeNull();
+});
+
+
+test("history task receipts carry their project scope into Work",()=>{
+ const receipt={type:'action_receipt',project_id:taskRequest.subject.id,created_task_ids:[taskRequest.operation_id],kind:'task.create'} as import('../../api/adapters/supervisor').ActionReceiptAttachment;
+ render(<MemoryRouter><SupervisorHistoryReceipt receipt={receipt}/></MemoryRouter>);
+ expect(screen.getByRole('link',{name:/Open task/})).toHaveAttribute('href',`/work/${taskRequest.operation_id}?scope=project%3A${taskRequest.subject.id}`);
 });
