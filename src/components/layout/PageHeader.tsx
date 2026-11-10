@@ -6,8 +6,8 @@ import styles from "./PageHeader.module.css";
 export const PageHeaderActionContext = createContext<ReactNode>(null);
 export function PageHeader({ title, children, actions }: { title: ReactNode; children?: ReactNode; actions?: ReactNode }) {
   const launcher = useContext(PageHeaderActionContext);
-  return <header className={styles.header} data-page-header="">
+  return <div className={styles.header} data-page-header="">
     <div className={styles.identity}><PageTitle>{title}</PageTitle>{children && <div className={styles.meta}>{children}</div>}</div>
     {(actions || launcher) && <div className={styles.actions}>{actions}{launcher}</div>}
-  </header>;
+  </div>;
 }
