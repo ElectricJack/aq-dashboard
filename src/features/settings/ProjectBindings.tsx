@@ -5,6 +5,7 @@ import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
+import { ProjectControl, projectState } from "./ProjectControl";
 import { Timestamp } from "./Timestamp";
 import styles from "./ProjectBindings.module.css";
 
@@ -29,15 +30,17 @@ export function ProjectBindings() {
   let pageError: unknown;
   try { items = mergeProjectPages(pages ?? []); } catch (e) { pageError = e; }
   const loaded = capability.enabled && !!pages && !query.isError && !pageError;
-  return <Panel title="Project execution bindings" description="Saved project settings and recorded connection checks."
-    actions={loaded && <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh bindings</ActionButton>}>
+  return <Panel title="Projects" description="Start permits queued work to launch. Stop prevents new launches; running agents may stop at their next policy check."
+    actions={loaded && <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh projects</ActionButton>}>
     {!capability.enabled ? <p className={styles.meta}>{capability.reason}</p> : !pages || query.isError || pageError ?
       <QueryStatus status={query.isError || pageError ? "error" : "pending"} error={query.error ?? pageError} label="project execution bindings" onRetry={() => void query.refetch()} /> : <>
       {pages[0]?.items.length === 0 && <p className={styles.meta}>No project execution bindings configured.</p>}
       <ul className={styles.list} aria-label="Project execution bindings">
         {items.map(p => <li className={styles.card} key={p.id} data-project-id={p.id}>
-          <h3>{p.name}</h3>
-          <p>{p.enabled ? "Configured enabled" : "Configured disabled"} · Revision {p.revision}</p>
+          <div className={styles.heading}><h3>{p.name}</h3><span className={styles.state} data-started={p.enabled && p.workerPolicy === "enabled" || undefined}>{projectState(p)}</span></div>
+          <ProjectControl key={`${p.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} project={p} onChanged={()=>query.refetch()}/>
+          <details className={styles.details}><summary>Configuration and connection details</summary>
+          <p className={styles.meta}>Revision {p.revision}</p>
           <dl className={styles.facts}>
             <dt>Repository ID</dt><dd>{p.repositoryId}</dd>
             <dt>Graph workspace ID</dt><dd>{p.workspaceId}</dd>
@@ -62,6 +65,7 @@ export function ProjectBindings() {
             <dt>Binding validated at</dt><dd><Timestamp iso={p.validation.recordedAt} /></dd>
           </dl>
           <p>Worker admission uses listed node IDs or configured group membership.</p>
+          </details>
           </details>
         </li>)}
       </ul>

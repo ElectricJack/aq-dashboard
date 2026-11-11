@@ -16,3 +16,5 @@
 @media(max-width:767px) { .layout { display:block; } .layout>section { margin-block:var(--space-3); min-block-size:0; }
   /* Phone list-then-detail: a selected review replaces the inbox, with a way back at the top. */
   .selected>.inboxPane, .placeholder { display:none; } .selected>.back { display:inline-flex; } }
+
+.layout { margin-block-start:0; }

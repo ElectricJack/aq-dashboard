@@ -43,7 +43,7 @@ test("settings uses actual foundation status and worker response shapes", async 
       { id: "node-1", name: "Desktop worker", worker_version: "0.3.3", status: "offline", last_seen_at: null },
     ])),
   );
-  renderApp("/settings");
+  renderApp("/settings?tab=connection");
   const roster = await screen.findByRole("list", { name: "Worker nodes" });
   expect(within(roster).getByText("Desktop worker")).toBeInTheDocument();
   expect(roster).toHaveTextContent("offline");
@@ -61,7 +61,7 @@ test("authorized projects populate the scope picker and navigate without inventi
       },
     })),
   );
-  const { router } = renderApp("/settings");
+  const { router } = renderApp("/settings?tab=connection");
   expect(await screen.findByRole("option", { name: "Live project" })).toBeInTheDocument();
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Scope" }), "project:project-1");
   expect(router.state.location.search).toContain("project%3Aproject-1");
@@ -69,14 +69,14 @@ test("authorized projects populate the scope picker and navigate without inventi
 
 test("unsupported live contract versions fail before loading dashboard data", async () => {
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...liveBootstrap([]), api_version: "future-99" })));
-  renderApp("/settings");
+  renderApp("/settings?tab=connection");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
 });
 
 test("an older daemon without bootstrap reports a compatibility problem", async () => {
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ error: "not_found" }, { status: 404 })));
-  renderApp("/settings");
+  renderApp("/settings?tab=connection");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
 });
 
@@ -87,7 +87,7 @@ test.each([401, 403])("resource %s clears private worker data even when bootstra
       { id: "private-node", name: "Private worker name", worker_version: "1", status: "online", last_seen_at: null },
     ])),
   );
-  const { queryClient } = renderApp("/settings");
+  const { queryClient } = renderApp("/settings?tab=connection");
   await screen.findByText("Private worker name");
   server.use(
     http.get("/api/v1/bootstrap", () => HttpResponse.error()),
@@ -135,7 +135,7 @@ test.each(["version", "scope"])("paged read rejects a mismatched %s before cachi
     scope: mismatch === "scope" ? { kind: "project", project_id: "other-project" } : fixture.scope,
     data: { items: [], has_more: false, next_cursor: null, snapshot_id: "unexpected", total: { value: 0, accuracy: "exact" } },
   })));
-  const { queryClient } = renderApp("/agents/sessions");
+  const { queryClient } = renderApp("/agents/sess-07");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
 });
@@ -159,7 +159,7 @@ test.each(["version", "scope", "upgrade required"])("single read clears previous
     http.get("/api/v1/bootstrap", () => HttpResponse.json(liveBootstrap(["projects.read"]))),
     http.get("/api/v1/projects", () => HttpResponse.json(projectEnvelope)),
   );
-  const { queryClient } = renderApp("/settings");
+  const { queryClient } = renderApp("/settings?tab=connection");
   await screen.findByRole("option", { name: "Private project label" });
   server.use(http.get("/api/v1/projects", () => mismatch === "upgrade required" ? HttpResponse.json({}, { status: 426 }) : HttpResponse.json({
     ...projectEnvelope,
@@ -209,7 +209,7 @@ test("fresh bootstrap sign-out takes priority over an older resource denial", as
 
 test("missing envelope data is a compatibility failure, not an ordinary stale refresh", async () => {
   server.use(http.get("/api/v1/sessions", () => HttpResponse.json({ ...fixture, data: undefined })));
-  const { queryClient } = renderApp("/agents/sessions");
+  const { queryClient } = renderApp("/agents/sess-07");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
 });

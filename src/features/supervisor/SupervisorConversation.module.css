@@ -123,3 +123,40 @@
 .workCard h3, .workCard p { margin: 0; }
 .workCard p, .workCard label { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
 .workCard input, .workCard textarea { inline-size: 100%; min-inline-size: 0; color: var(--color-text); background: var(--color-canvas); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; padding: var(--space-2); }
+
+/* Agents keeps the launcher beside its heading, leaving the viewport for output. */
+.surfaces[data-agents-compact]:not([data-docked]) { display: flex; flex-direction: column; flex: 1; min-block-size: 0; }
+.surfaces[data-agents-compact] > .destination { display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-block-size: 0; }
+.surfaces[data-agents-compact] > .destination > h1 { margin: 0; min-block-size: var(--control-height); display: flex; align-items: center; padding-inline-end: 160px; font-size: var(--font-size-h3); flex: none; }
+.surfaces[data-agents-compact] > .launcherBar { position: absolute; inset-block-start: 0; inset-inline-end: 0; margin: 0; z-index: 1; }
+
+.management { display: flex; align-items: end; flex-wrap: wrap; gap: 8px 12px; padding: 8px 16px; border-bottom: 1px solid var(--color-border); }
+.management label { display: grid; gap: 4px; min-width: 0; font-size: 12px; }
+.management select { max-width: 320px; min-width: 0; min-height: var(--control-height); padding: 6px 8px; background: var(--color-panel); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 6px; }
+.management > span { align-self: center; font-size: 12px; }
+@media (max-width: 600px) { .management { padding: 8px 12px; gap: 8px; } .management label { width: 100%; display: flex; align-items: center; gap: 8px; } .management select { flex: 1; width: 0; max-width: 100%; } }
+
+.confirmedReset { border: 0; padding: 4px 8px; min-block-size: 32px; background: transparent; color: var(--color-accent); cursor: pointer; font: inherit; }
+
+.controlDisclosure { flex: none; min-inline-size: 0; }
+.controlDisclosure > summary { display: none; cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+@media(max-width:767px) {
+ .controlDisclosure > summary { display: flex; justify-content: space-between; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-block-end: 1px solid var(--color-border); }
+ .workspace[data-presentation=full] .history { min-block-size: 0; }
+}
+
+/* Page headers share the compact Agents rhythm. */
+.header { align-items:center; gap:var(--space-2); }
+.header h1 { font-size:var(--font-size-h3); }
+.titleBlock > div { display:flex; align-items:baseline; flex-wrap:wrap; gap:var(--space-1) var(--space-3); }
+.header p { margin:0; }
+.titleIcon { inline-size:20px; block-size:20px; }
+.destination { gap:var(--space-3); }
+
+.destination { display:grid; align-content:start; }
+.surfaces[data-docked] { margin-block:calc(-1 * var(--space-3)); }
+.surfaces[data-docked] > .destination { padding-block:var(--space-3); }
+@media(min-width:768px) { .management { padding:var(--space-1) 0; gap:var(--space-2) var(--space-3); align-items:center; } .management label { display:flex; align-items:center; gap:var(--space-2); } .management select { padding-block:var(--space-1); } }
+
+.launcher { display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2); }
+@media(max-width:767px) { .launcherText { display:none; } .launcher { inline-size:var(--touch-target); padding-inline:0; } }

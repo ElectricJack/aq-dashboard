@@ -217,8 +217,7 @@
 .infrastructureSection h3 { margin: 0; font-size: var(--font-size-body); }
 .capacityValue { margin: 0; font-size: var(--font-size-display); font-weight: 600; }
 .counts { justify-content: space-around; }
-.coverageDisclosure { font-size: var(--font-size-meta); color: var(--color-attention); }
-.coverageDisclosure summary, .scopeDisclosure summary { cursor: pointer; min-block-size: 28px; }
+.scopeDisclosure summary { cursor: pointer; min-block-size: 28px; }
 .recordedHeader { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
 .recordedHeader h3 { margin: 0; font-size: var(--font-size-meta); color: var(--color-text-secondary); font-weight: 400; }
 .scopeDisclosure { font-size: var(--font-size-meta); color: var(--color-text-secondary); }
@@ -232,7 +231,6 @@
 .headerAction { flex: none; max-inline-size: 100%; }
 .referenceDetails { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: var(--space-2); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
 .referenceDetails dd { margin: 0; }
-.sourceList { display: grid; gap: var(--space-3); padding-inline-start: var(--space-5); }
 .sourceList span { display: block; color: var(--color-text-secondary); }
 .attentionMain, .rowTitle { overflow-wrap: anywhere; }
 .sessionRow { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: var(--space-3); }
@@ -368,3 +366,12 @@
 @media (max-width: 767px) {
  .headerAction > div > span:last-child { position: static; inline-size: auto; block-size: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
 }
+
+.projectControls { display:flex;align-items:center;justify-content:space-between;gap:var(--space-3) var(--space-5);flex-wrap:wrap;padding:var(--space-3) var(--space-4);background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-panel);min-inline-size:0; }
+.projectControls>div { min-inline-size:0; }
+.projectControls h2 { margin:0;font-size:var(--font-size-body);overflow-wrap:anywhere; }
+.projectControls h2 span { margin-inline-start:var(--space-3);font-size:var(--font-size-meta);color:var(--color-text-secondary);font-weight:400; }
+.projectControls h2 span[data-started] { color:var(--color-success); }
+.projectControls p { margin-block:var(--space-2) 0;font-size:var(--font-size-meta);color:var(--color-text-secondary);overflow-wrap:anywhere; }
+
+.layout { gap:var(--space-3); }

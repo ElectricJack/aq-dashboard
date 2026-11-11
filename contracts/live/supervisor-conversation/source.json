@@ -1,9 +1,9 @@
 {
   "repository": "aq-server",
-  "commit": "13fb3c32c65f76ca8816330fa383e390df0efebd",
+  "commit": "579f9318d5ce99b645b1828c8d6a6563e6e5a6b4",
   "path": "protocol/human-supervisor-conversation/v1/schema.json",
-  "sha256": "2056d6fe1cdff14eca53784a93981c8a943fcdbc3033c7dee8cb80d79220ef3b",
-  "note": "Owner-message context refs and attachments (limits context_refs=16, attachments=4 from discovery), supervisor reply attachments (proposed_task_draft / action_receipt) on A.R cursors, available runtime binding in discovery/history, receipt reason attachment_unavailable. Pinned from aq-server branch aq/agile-vault-27 (not yet on aq-server main at vendoring time).",
+  "sha256": "0ad1658448757bdbca81ee6edb87de9a0269e38d256883a8c1b2033ae97ea9b9",
+  "note": "Global and project conversations share retained message/history contracts with immutable scoped identity and bounded labels. Live runtime can be idle between physical turns; admission receipts retain the unavailable snapshot.",
   "fixture_note": "mixed-history.fixture.json is a dashboard-authored, visibly labelled deterministic fixture derived from the pinned schema; it is not a live reply or an owner-supplied example.",
   "f2_fixture": {
     "repository": "aq-server",
@@ -11,7 +11,7 @@
     "path": "protocol/dashboard-actions/v1/fixtures/request-task-graph-create.json",
     "sha256": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d"
   },
-  "branch": "aq/agile-vault-27",
+  "branch": "fix/supervisor-service",
   "examples": [
     "create.example.json",
     "discovery.example.json",

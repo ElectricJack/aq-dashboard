@@ -92,6 +92,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
   };
 
   return [
+    http.get("/api/supervisors",()=>HttpResponse.json({supervisors:[],profiles:[],server_time_ms:1})),
     ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...(questions ? questionHandlers() : []),

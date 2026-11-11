@@ -6,7 +6,7 @@ import { validGraphId } from "../../api/adapters/humanGraph";
 import { adaptDecision, adaptDecisions } from "../../api/adapters/decisions";
 import { adaptQuestion, adaptQuestions, QUESTIONS_READ, QUESTIONS_ROOT } from "../../api/adapters/questions";
 import { queryKey } from "../../api/queryKeys";
-import { PageTitle } from "../../app/DestinationPage";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { useSession } from "../../app/session";
 import { useScope } from "../../app/scope";
 import { Panel } from "../../components/layout/Workspace";
@@ -46,7 +46,7 @@ export function Component() {
   const last = inbox.data?.pages.at(-1);
   const setState = (s: InboxState) => setParams(old => { const next = new URLSearchParams(old); next.set("state", s); return next; });
   const back = new URLSearchParams({ ...(project && { scope: `project:${project}` }), state }).toString();
-  return <><div className={styles.heading}><PageTitle>Decisions</PageTitle>{permission.enabled && inbox.data && !inbox.isError && <p className={styles.subtitle}>{unique.length + asked} shown · sampled from your reviews{questionsOffered ? " and agent questions" : ""}</p>}</div>
+  return <><PageHeader title="Decisions">{permission.enabled && inbox.data && !inbox.isError && <p className={styles.subtitle}>{unique.length + asked} shown · sampled from your reviews{questionsOffered ? " and agent questions" : ""}</p>}</PageHeader>
     {!permission.enabled ? <p role="status">{permission.reason}</p> : <>
       <div className={[styles.layout, decisionId && styles.selected].filter(Boolean).join(" ")}>
         <DecisionInbox className={styles.inboxPane} state={state} onState={setState} rows={inbox.data && !inbox.isError ? unique : undefined} error={inbox.isError ? inbox.error : undefined}

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Form
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useLocation } from "react-router";
 import { adaptSupervisorDiscovery, adaptSupervisorHistory, freezeSupervisorMessage, mergeSupervisorMessages, supervisorId, validateSupervisorText,
-  type FrozenSupervisorMessage, type SupervisorMessage } from "../../api/adapters/supervisor";
+  type FrozenSupervisorMessage, type SupervisorMessage, type ActionReceiptAttachment } from "../../api/adapters/supervisor";
 import { supervisorRequest } from "../../api/supervisorClient";
 import { queryKey } from "../../api/queryKeys";
 import { supervisorAction, supervisorActionError } from "./supervisorAction";
@@ -14,19 +14,21 @@ import { PageTitle } from "../../app/DestinationPage";
 import { ActionButton } from "../../components/layout/Workspace";
 import { ArrowDown, History, Info, LoaderCircle, MessagesSquare, SendHorizontal } from "lucide-react";
 import { Icon } from "../../components/icons";
+import {SupervisorHistoryReceipt} from "./SupervisorWorkCards";
 import styles from "./SupervisorConversation.module.css";
 
 const MAX_LOADED = 64;
 const deliveryText = { not_attempted: "Delivery not attempted", pending: "Host delivery pending", delivery_unknown: "Delivery unknown · do not resend", delivered: "Delivered to supervisor host · work not confirmed", not_delivered: "Host delivery failed" };
 const validDraft = (value: unknown): value is string => typeof value === "string";
-export function SupervisorConversation({ presentation = "full", visible = true, controls }: { presentation?: "full" | "dock"; visible?: boolean; controls?: ReactNode }) {
+export function SupervisorConversation({ presentation = "full", visible = true, controls,projectId=null,label,management,runtimeAvailable }: { presentation?: "full" | "dock"; visible?: boolean; controls?: ReactNode;projectId?:string|null;label?:string;management?:ReactNode;runtimeAvailable?:boolean }) {
   const { bootstrap, queryContext } = useSession();
   const client = useQueryClient();
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const full = presentation === "full";
   const operationParam = params.get("operation"), messageParam = params.get("message");
-  const [draft, setDraft] = useDraft("supervisor-global", "", validDraft);
+  const title=label??(projectId?"Project supervisor":"Global supervisor");
+  const [draft, setDraft] = useDraft(projectId?`supervisor-project:${projectId}`:"supervisor-global", "", validDraft);
   const [frozen, setFrozen] = useState<FrozenSupervisorMessage | null>(null);
   const [retained, setRetained] = useState<{ operation: string; message: string } | null>(null);
   const [receipt, setReceipt] = useState<ActionOperation | null>(null);
@@ -46,10 +48,10 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null);
   const historyAllowed = bootstrap.capability("supervisor.history.read").enabled;
-  const available = bootstrap.globalSupervisor.status === "available" && bootstrap.capability("supervisor.conversation").enabled;
-  const discovery = useQuery({ enabled: historyAllowed, queryKey: queryKey(queryContext, "supervisor-global", {}), retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+  const available = runtimeAvailable??(bootstrap.globalSupervisor.status === "available" && bootstrap.capability("supervisor.conversation").enabled);
+  const discovery = useQuery({ enabled: historyAllowed, queryKey: queryKey(queryContext, "supervisor-global", {projectId}), retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => {
-      const value = adaptSupervisorDiscovery(await supervisorRequest("GET", "/api/human/conversations/global", signal));
+      const value = adaptSupervisorDiscovery(await supervisorRequest("GET", projectId?`/api/human/conversations/projects/${encodeURIComponent(projectId)}`:"/api/human/conversations/global", signal));
       if (anchoredId.current && anchoredId.current !== value.conversation.id) throw new ContractError("Global conversation identity changed");
       anchoredId.current = value.conversation.id; return value;
     } });
@@ -133,12 +135,13 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
     finally { jobs.current.delete(owner); historyBusyRef.current = false; if (active.current) setHistoryBusy(false); }
   }
   useEffect(() => { if (conversation) void load("latest"); }, [conversation?.id]);
+  const latestLoad=useRef(load); latestLoad.current=load;
   // Poll retained history, never re-send or reinject a message. Cursors include replies.
   useEffect(() => {
     if (!conversation || !visible || !available) return;
-    const timer = window.setInterval(() => void load("refresh"), 2500);
+    const timer = window.setInterval(() => void latestLoad.current("refresh"), 2500);
     return () => window.clearInterval(timer);
-  });
+  }, [conversation?.id, visible, available]);
   async function execute(kind: "post" | "lookup", op: string, message: string, intent?: FrozenSupervisorMessage) {
     if (!conversation || !supervisorId(op) || !supervisorId(message)) { setSendError("The retained operation reference is unavailable."); setSending(false); busy.current = false; return; }
     const current = ++ticket.current, owner = new AbortController(); jobs.current.add(owner); sendJob.current = owner;
@@ -192,8 +195,8 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
     if (!settled || busy.current) return;
     pending.current = null; setRetained(null); ownReference.current = ":"; setFrozen(null); setReceipt(null); setSendError(null); operationUrl(); void discovery.refetch();
   }
-  return <section ref={workspace} className={styles.workspace} data-presentation={presentation} data-viewport-fit={full || undefined} aria-label="Global supervisor conversation">
-    <header className={styles.header}><div className={styles.titleBlock}><Icon icon={MessagesSquare} size={28} className={styles.titleIcon} /><div>{full ? <PageTitle>Global supervisor</PageTitle> : <h2>Global supervisor</h2>}<p><span className={styles.fullControl}>Global conversation · All projects</span><span className={styles.compactControl}>Global · All projects</span></p></div></div>
+  return <section ref={workspace} className={styles.workspace} data-presentation={presentation} data-viewport-fit={full || undefined} aria-label={projectId?"Project supervisor conversation":"Global supervisor conversation"}>
+    <header className={styles.header}><div className={styles.titleBlock}><Icon icon={MessagesSquare} size={28} className={styles.titleIcon} /><div>{full ? <PageTitle>{title}</PageTitle> : <h2>{title}</h2>}<p><span className={styles.fullControl}>{projectId?"Project conversation":"Global conversation · All projects"}</span><span className={styles.compactControl}>{projectId?"Project":"Global · All projects"}</span></p></div></div>
       <div className={styles.headerActions}>{full && <div className={styles.historyMenu} onKeyDown={event => { if (event.key === "Escape" && menuOpen) { event.stopPropagation(); setMenuOpen(false); menuButton.current?.focus(); } }}>
         {/* One disclosure: "History" on wide screens, "⋯" on the phone (the hidden half is display:none, so it leaves the accessible name). */}
         <button ref={menuButton} type="button" className={styles.historyButton} aria-expanded={menuOpen} aria-controls="global-supervisor-history-actions" onClick={() => setMenuOpen(open => !open)}>
@@ -206,6 +209,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
           <button type="button" disabled={!conversation || !historyAllowed || historyBusy} onClick={() => historyAction(() => void load("new"))}>Refresh messages</button>
         </div>
       </div>}{controls}</div></header>
+    {management}
     {!available && <p className={styles.runtime} role="note">Supervisor is not connected. Conversation unavailable; your draft is preserved.</p>}
     {!historyAllowed && <p role="status">Supervisor history is unavailable.</p>}
     {discovery.isError && <p role="status">Global conversation unavailable. <ActionButton onClick={() => void discovery.refetch()}>Retry conversation</ActionButton></p>}
@@ -214,35 +218,35 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
       {historyError && <p role="status">History could not be refreshed. <ActionButton disabled={historyBusy} onClick={() => void load(loaded ? "new" : "latest")}>Retry history</ActionButton></p>}
       {older && <ActionButton disabled={historyBusy || messages.length >= MAX_LOADED} onClick={() => void load("older")}>Load older messages</ActionButton>}
       {messages.length >= MAX_LOADED && <p>Showing up to 64 loaded messages. <ActionButton disabled={historyBusy} onClick={() => { atBottom.current = true; void load("latest"); }}>Show latest messages</ActionButton></p>}
-      {loaded && !historyError && messages.length === 0 && <p className={styles.empty}>No messages have been admitted to this global conversation.</p>}
+      {loaded && !historyError && messages.length === 0 && <p className={styles.empty}>No messages have been admitted to this conversation.</p>}
       <ol className={styles.messages} aria-label="Supervisor messages">{messages.map(message => { const supervisor = message.author.kind === "supervisor"; const metadata = <p className={styles.metadata}>{message.author.kind === "supervisor" ? "Supervisor" : message.author.user_id === queryContext.principalId ? "You" : `Human ${message.author.user_id.slice(0, 8)}`}<span className={styles.timestamp}> · <time title={new Date(message.created_at_ms).toISOString()} dateTime={new Date(message.created_at_ms).toISOString()}>{new Date(message.created_at_ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></span> · {message.author.kind === "supervisor" ? "Reply received" : full ? `Queued · ${deliveryText[message.host_delivery]}`
           : <span className={styles.delivery} tabIndex={0}>Queued<span className={styles.deliveryDetail}><span className={styles.separator}> · </span>{deliveryText[message.host_delivery]}</span></span>}</p>;
         return <li key={message.message_id} data-message-id={message.message_id} tabIndex={-1} className={styles.message} data-author={message.author.kind} data-own={message.author.kind === "human" && message.author.user_id === queryContext.principalId}>
           {/* Supervisor replies carry the shared avatar mark and lead with who spoke, as in the reference. */}
-          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<p className={styles.body}>{message.body}</p></div></> : <><p className={styles.body}>{message.body}</p>{metadata}</>}
+          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<p className={styles.body}>{message.body}</p>{message.author.kind==="supervisor"&&message.attachments?.filter((a):a is ActionReceiptAttachment=>"type" in a&&a.type==="action_receipt").map(a=><SupervisorHistoryReceipt key={a.operation_id} receipt={a}/>)}</div></> : <><p className={styles.body}>{message.body}</p>{metadata}</>}
         </li>; })}</ol>
       {frozen && !messages.some(item => item.message_id === frozen.message) && <div className={styles.pending} data-message-id={frozen.message} tabIndex={-1}><p className={styles.body}>{JSON.parse(frozen.bytes).body}</p><p role="status">{sending ? "Sending · awaiting admission" : receipt?.disposition === "confirmed" ? "Queued · awaiting history" : receipt?.disposition === "pending" ? "Admission pending" : settled ? "Not queued" : "Admission unknown"}</p></div>}
       {/* The marker stays in the reading flow, pinned to the history's bottom edge (§5). */}
       {newAvailable && <ActionButton className={styles.newMarker} onClick={showLatest}>New messages<Icon icon={ArrowDown} size={16} /></ActionButton>}
     </div>
     <form className={styles.composer} onSubmit={event => void send(event)}>
-      <label className="visually-hidden" htmlFor="global-supervisor-message">Message the global supervisor</label>
-      <textarea id="global-supervisor-message" value={draft} readOnly={!!operation || sending} rows={3} placeholder="Message the global supervisor…" onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
+      <label className="visually-hidden" htmlFor="global-supervisor-message">{projectId?"Message the project supervisor":"Message the global supervisor"}</label>
+      <textarea id="global-supervisor-message" value={draft} readOnly={!!operation && receipt?.disposition !== "confirmed" || sending} rows={3} placeholder={projectId?"Message the project supervisor…":"Message the global supervisor…"} onChange={event => { if(operation && receipt?.disposition === "confirmed") another(); setDraft(event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229 && !event.repeat && window.matchMedia?.("(pointer: fine)")?.matches) { event.preventDefault(); void send(); }
       }} />
       <div className={styles.composerActions}><span><span className={styles.fullControl}>Text only · no attachments or context</span><span className={styles.compactControl}>Text only</span></span><ActionButton className={styles.send} aria-label={sending ? "Sending…" : "Send"} type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim()}><Icon icon={sending ? LoaderCircle : SendHorizontal} size={20} /><span className={styles.compactControl}>{sending ? "Sending…" : "Send"}</span></ActionButton></div>
       {!canSend && <p role="status">Sending is unavailable. Your draft is preserved.</p>}
       {sendError && <p role="status">{sendError}</p>}
-      {receipt && <p role="status">{receipt.disposition === "confirmed" ? "Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work." : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : "Not queued: the request was rejected."}</p>}
-      {operation && <div className={styles.recovery}>
+      {receipt && <p role="status">{receipt.disposition === "confirmed" ? <>Message queued. <button type="button" className={styles.confirmedReset} aria-label="Compose another message" disabled={sending} onClick={another}>New message</button></> : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : "Not queued: the request was rejected."}</p>}
+      {operation && receipt?.disposition !== "confirmed" && <div className={styles.recovery}>
         <small>Operation {operation}</small>
         <ActionButton disabled={sending} onClick={() => retry("lookup")}>Check message status</ActionButton>
-        {!settled && receipt?.disposition !== "confirmed" && frozen && <ActionButton disabled={sending || !canSend} onClick={() => retry("post")}>Retry exact message</ActionButton>}
+        {!settled && frozen && <ActionButton disabled={sending || !canSend} onClick={() => retry("post")}>Retry exact message</ActionButton>}
         {!settled && !frozen && <small>The original request body is no longer held here. Status lookup does not send a new message.</small>}
-        {settled && <ActionButton disabled={sending} onClick={another}>{receipt.disposition === "confirmed" ? "Compose another message" : "Revise message"}</ActionButton>}
+        {settled && <ActionButton disabled={sending} onClick={another}>Revise message</ActionButton>}
       </div>}
 
     </form>
-    <p className={styles.footer}><Icon icon={Info} size={16} />Global conversation · draft preserved across views</p>
+    <p className={styles.footer}><Icon icon={Info} size={16} />{projectId?"Project conversation":"Global conversation"} · draft preserved across views</p>
   </section>;
 }

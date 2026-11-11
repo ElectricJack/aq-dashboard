@@ -102,7 +102,9 @@ test('overview_attention_renders_live_items',async()=>{
  expect(within(region).getByRole('link',{name:/Inspect: Failed process result/})).toHaveAttribute('href',expect.stringMatching(/\/revisions\/[0-9a-f]{64}$/));
  expect(within(region).getByRole('button',{name:'Inspect: Worker offline, worker c46754c8'})).toBeVisible();
  expect(screen.getByRole('region',{name:'Recent outcomes'})).toHaveTextContent('Process failed');
- expect(screen.getByText('Source coverage')).toBeInTheDocument();
+ expect(screen.queryByText('Source coverage')).not.toBeInTheDocument();
+ expect(screen.getByText(/Some overview information is unavailable or incomplete/)).toBeVisible();
+ expect(screen.getByRole('link',{name:'View diagnostics'})).toHaveAttribute('href','/settings#overview-diagnostics');
  expect(screen.getByRole('table',{name:'Work in motion'})).toBeInTheDocument();
 });
 test('question and unsupported attention kinds have distinct controls',async()=>{

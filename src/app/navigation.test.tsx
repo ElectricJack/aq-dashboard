@@ -23,26 +23,26 @@ test("SO-23: every page names itself in the document title", async () => {
 });
 
 test("SO-14/ISSUE-007: Back returns focus to the link that opened the page", async () => {
-  const { router } = renderApp("/agents/sessions");
-  const link = await screen.findByRole("link", { name: /Worker 07/ });
+  const { router } = renderApp("/overview");
+  const link = await screen.findByRole("link", { name: /All sessions/ });
   const href = link.getAttribute("href");
   await userEvent.click(link);
-  await screen.findByRole("region", { name: "Worker 07" });
+  await waitFor(() => expect(router.state.location.pathname).toBe("/agents/history"));
   await act(() => router.navigate(-1));
   await waitFor(() => expect(document.activeElement?.getAttribute("href")).toBe(href));
   expect(document.activeElement?.tagName).toBe("A");
 });
 
 test("each history entry remembers its own initiating link across several Backs", async () => {
-  const { router } = renderApp("/agents/sessions");
-  const link = await screen.findByRole("link", { name: /Worker 07/ });
+  const { router } = renderApp("/overview");
+  const link = await screen.findByRole("link", { name: /All sessions/ });
   await userEvent.click(link);
-  await screen.findByRole("region", { name: "Worker 07" });
+  await waitFor(() => expect(router.state.location.pathname).toBe("/agents/history"));
   await userEvent.click(screen.getByRole("link", { name: "Settings" }));
   await screen.findByRole("heading", { level: 1, name: "Settings" });
   await act(() => router.navigate(-1));
-  // The detail was left through the rail (outside the page content): the usual heading focus applies there.
-  await screen.findByRole("region", { name: "Worker 07" });
+  // History was left through the rail, so the usual heading focus applies there.
+  await waitFor(() => expect(router.state.location.pathname).toBe("/agents/history"));
   await act(() => router.navigate(-1));
-  await waitFor(() => expect(document.activeElement).toHaveAccessibleName(/Worker 07/));
+  await waitFor(() => expect(document.activeElement).toHaveAccessibleName(/All sessions/));
 });

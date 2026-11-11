@@ -4,6 +4,7 @@ import { adaptOverview, type OverviewView } from "../../../api/adapters/inspecti
 import { adaptSwarm, SWARM_POLL_MS, type SwarmView } from "../../../api/adapters/swarm";
 import type { Overview as OverviewWire } from "../../../api/wire/proposed";
 import type { Swarm } from "../../../api/wire/swarm";
+import {useMediaQuery} from "../../../components/useMediaQuery";
 import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { formatAge } from "../../../components/time/relative";
 import { useServerNow } from "../../../components/time/useServerNow";
@@ -11,27 +12,32 @@ import { PANEL_READ, useSession } from "../../../app/session";
 import { useRead } from "../../../app/useRead";
 import { AgentsTabs } from "../AgentsTabs";
 import { buildSwarmGraph, selectionId, type Selection } from "./graph";
+import {ManualAgentsProvider,useManualAgents,mergeManual} from "./manualAgents";
 import { SwarmPane } from "./SwarmPane";
 import { SwarmTree } from "./SwarmTree";
+import { useWorkerSettings, applyWorkerSettings } from "./WorkerManagement";
 import styles from "./Swarm.module.css";
 
 /** Polls an object may be missing from the swarm before the pane lets go of its last known state. */
 export const HOLD_POLLS = 3;
 
-export function SwarmPage() {
+export function SwarmPage() { return <ManualAgentsProvider><SwarmPageBody /></ManualAgentsProvider>; }
+function SwarmPageBody() {
   const { bootstrap } = useSession();
   const cap = bootstrap.capability("swarm.read");
+  const desktop=useMediaQuery("(min-width: 1024px)");
   const { search } = useLocation();
   const [params, setParams] = useSearchParams();
   // A malformed swarm response stays in this view (PANEL_READ), never the global update screen.
   const swarm = useRead<Swarm, SwarmView>({ resource: "swarm", path: "/api/v1/swarm", adapt: adaptSwarm, pollMs: SWARM_POLL_MS, enabled: cap.enabled, meta: PANEL_READ });
   const overviewCap = bootstrap.capability("dashboard.overview");
   const overview = useRead<OverviewWire, OverviewView>({ resource: "overview", path: "/api/v1/overview", scope: { kind: "all_authorized" }, adapt: adaptOverview, pollMs: 10_000, enabled: overviewCap.enabled });
-  const view = swarm.data?.view;
+  const manual=useManualAgents();
+  const settings = useWorkerSettings();
+  const view = swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view,manual?.fleet,manual?.project??null,params.get("select")), settings.data) : undefined;
   const ready = overview.data?.view.counts.ready.value ?? null;
   const selectParam = params.get("select");
   // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.
-  const autoControlled = useRef(new Set<string>());
   const pane = useRef<HTMLElement>(null);
   const focusPane = useRef(false);
   const held = useRef<{ param: string; view: SwarmView; selection: Selection; misses: number; seenAt: number } | null>(null);
@@ -63,6 +69,7 @@ export function SwarmPage() {
     }
   });
   const coverage = swarm.data?.coverage;
+  const resolvedCapacity=coverage?.reason==='Some online workers advertise no slot total'&&view?.machines.every(m=>m.nodes.every(n=>n.health!=='online'||n.slots.total!==null));
   const stale = swarm.isError && !!view;
   const anchor = swarm.data && { serverTime: swarm.data.serverTime, receivedAt: performance.now() - (Date.now() - swarm.dataUpdatedAt) };
   const now = useServerNow(anchor);
@@ -70,18 +77,18 @@ export function SwarmPage() {
   if (!cap.enabled) {
     return <>
       <AgentsTabs current="swarm" />
-      <p role="note">Swarm is not available on this server. <Link to={{ pathname: "/agents/sessions", search }}>Open Sessions</Link></p>
+      <p role="note">Swarm is not available on this server. <Link to={{ pathname: "/agents/history", search }}>Open History</Link></p>
     </>;
   }
   return <>
     <AgentsTabs current="swarm" />
-    {coverage?.state === "partial" && coverage.reason && <p className={styles.coverage}>{coverage.reason}</p>}
+    {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
-    <div className={styles.stage} data-wide={shown.selection?.kind === "agent" || undefined}>
+    <div className={styles.stage} data-viewport-fit={shown.selection?.kind==="agent"&&(desktop||params.get("focus")==="terminal")||undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}
-      <aside ref={pane} className={styles.pane} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} autoControlled={autoControlled.current} note={shown.note} />}</aside>
+      <aside ref={pane} className={styles.pane} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} />}</aside>
     </div>
   </>;
 }

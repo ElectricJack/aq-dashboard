@@ -5,10 +5,13 @@ import { ActionButton, DetailList } from "../../../components/layout/Workspace";
 import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
+import { HostTerminalAction } from "../host/HostTerminalAction";
+import { WorkerLaunch } from "./WorkerLaunch";
 import { AgentPane, scopeOnly } from "./AgentPane";
 import { AddMachine } from "./AddMachine";
 import { OwnerAvailability } from "./OwnerAvailability";
 import { MachineControls } from "./MachineControls";
+import { WorkerManagement } from "./WorkerManagement";
 import { showWaiting, type Selection } from "./graph";
 import styles from "./Swarm.module.css";
 
@@ -26,11 +29,11 @@ function Settings({ label }: { label: string }) {
   const { search } = useLocation();
   return <Link className={styles.linkButton} to={{ pathname: "/settings", search: scopeOnly(search) }}>{label}</Link>;
 }
-function NodeControls() {
-  const { bootstrap } = useSession();
+function NodeControls({node}: {node: NodeView}) {
+  const { bootstrap, queryContext } = useSession();
   const enabled = bootstrap.capability("swarm.worker.control").enabled;
   return <>
-    <div className={styles.actions}>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
+    <div className={styles.actions}><HostTerminalAction nodeId={node.id}/><WorkerLaunch key={`${node.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} node={node}/>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
     <p className={styles.actionNote}>{enabled ? "Drain node, restart and logs are not available yet. Use the machine's controls." : "Worker start, stop and drain are not available on this server yet."}</p>
   </>;
 }
@@ -80,13 +83,13 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
   const offline = m.nodes.filter(n => n.health !== "online").length;
   return <>
     <Head kicker={m.kind === "cloud" ? "Cloud machine (boat VM)" : m.kind === "local" ? "Local machine" : "Machine"} title={m.label} />
+    <WorkerManagement kind="machine" id={m.id} name={m.label} maximum={m.agentMax} />
     <DetailList className={styles.facts}>
       <dt>State</dt><dd>{stateText(m)}</dd>
       <dt>Load now</dt><dd>{l ? `CPU ${l.cpuPercent}% · RAM ${l.memoryPercent}%${l.fresh ? "" : ` (as of ${formatAge(serverTime, l.observedAt)})`}` : "—"}</dd>
       <dt>Load avg</dt><dd>{l ? l.cpuAvgPercent === null && l.memoryAvgPercent === null ? "—" : `CPU ${l.cpuAvgPercent === null ? "—" : `${l.cpuAvgPercent}%`} · RAM ${l.memoryAvgPercent === null ? "—" : `${l.memoryAvgPercent}%`} (last 15 min)` : "—"}</dd>
       <dt>Load source</dt><dd>{l ? (l.source === "windows_host" ? "Windows host (WSL2)" : l.source === "linux" ? (l.hostProbe === "missing" ? "WSL VM" : "Linux") : "unknown") : "unknown"}</dd>
       {l && l.hostProbe === "stale" && <><dt>Note</dt><dd>Windows host probe stale: showing WSL VM load</dd></>}
-      <dt>Max agents</dt><dd>{m.agentMax ?? "unknown"} <Settings label="Edit in Settings" /></dd>
       <dt>Cores / RAM</dt><dd>{m.hardware ? `${m.hardware.logicalCpus ?? "—"} / ${gb(m.hardware.memoryTotalBytes, 2 ** 30)} GB` : "unknown"}</dd>
       <dt>Disk free</dt><dd>{m.hardware?.diskFreeBytes != null ? `${gb(m.hardware.diskFreeBytes, 1e9)} GB` : "unknown"}</dd>
       <dt>Worker nodes</dt><dd>{m.nodes.length}{offline > 0 ? ` (${offline} offline)` : ""}</dd>
@@ -100,9 +103,13 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
 function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
   return <>
     <Head kicker="Worker node" title={n.name} />
+    <WorkerManagement kind="node" id={n.id} name={n.name} maximum={n.slots.total} />
+    {n.slots.scope === "All projects" && <p className={styles.actionNote}>Slots across projects. Select a project above to see its limit.</p>}
     <DetailList className={styles.facts}>
       <dt>Backend</dt><dd>{n.backendKind ?? "unknown"}</dd>
-      <dt>Slots</dt><dd>{`${n.slots.occupied}/${n.slots.total ?? "?"} slots`}</dd>
+      <dt>{n.slots.scope === "All projects" ? "Slots across projects" : n.slots.scope ? `${n.slots.scope} slots` : "Slots"}</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
+      {n.slots.idle!==null&&<><dt>Available</dt><dd>{n.slots.idle}</dd></>}
+      {n.slots.target!==undefined&&<><dt>Draining to</dt><dd>{n.slots.target} project slots</dd></>}
       <dt>Heartbeat</dt><dd>{n.lastSeenAt ? formatAge(serverTime, n.lastSeenAt) : "never"}</dd>
       <dt>Service</dt><dd>{n.service === "unreported" ? "not reported" : n.service}</dd>
       <dt>Version</dt><dd>{`aq-worker ${n.workerVersion}`}</dd>
@@ -110,7 +117,7 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
       <dt>Channel</dt><dd>{n.agentChannel === "ready" ? "agent channel ready" : n.agentChannel === "unavailable" ? "agent channel unavailable" : "not reported"}</dd>
       <Holding holds={n.holding} />
     </DetailList>
-    <NodeControls />
+    <NodeControls node={n} />
   </>;
 }
 
@@ -136,12 +143,12 @@ function Empty() {
   </>;
 }
 
-export function SwarmPane({ view, selection, ready, autoControlled, note }: { view: SwarmView; selection: Selection | null; ready: number | null; autoControlled: Set<string>; note?: string | null }) {
+export function SwarmPane({ view, selection, ready, note }: { view: SwarmView; selection: Selection | null; ready: number | null; note?: string | null }) {
   if (!selection) return <Empty />;
-  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} autoControlled={autoControlled} /></>;
+  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} /></>;
 }
 
-function Body({ view, selection, ready, autoControlled }: { view: SwarmView; selection: Selection; ready: number | null; autoControlled: Set<string> }) {
+function Body({ view, selection, ready }: { view: SwarmView; selection: Selection; ready: number | null }) {
   if (selection.kind === "server") return <ServerPane view={view} ready={ready} />;
   if (selection.kind === "waiting") {
     const n = view.waiting.agents.length || ready || 0;
@@ -180,9 +187,10 @@ function Body({ view, selection, ready, autoControlled }: { view: SwarmView; sel
     </>;
   }
   if (selection.kind === "agent" && hit.a) {
+    if(hit.a.manual) return <AgentPane agent={hit.a} serverTime={view.serverTime} />;
     return <>
       <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.task?.title ?? "No task"} />
-      <AgentPane agent={hit.a} serverTime={view.serverTime} autoControlled={autoControlled} />
+      <AgentPane agent={hit.a} serverTime={view.serverTime} />
     </>;
   }
   return <Empty />;

@@ -6,7 +6,9 @@ import { useSession } from "../../app/session";
 import { Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { AddMachine } from "../agents/swarm/AddMachine";
+import { useWorkerSettings } from "../agents/swarm/WorkerManagement";
 import { Timestamp } from "./Timestamp";
+import { OverviewDiagnostics } from "./OverviewDiagnostics";
 import styles from "./Settings.module.css";
 
 type Worker = { id: string; name: string; worker_version: string; status: string; last_seen_at: string | null };
@@ -27,6 +29,7 @@ function workers(raw: unknown): Worker[] {
 const HEALTHY = new Set(["ok", "healthy"]);
 
 export function FrameworkStatus() {
+  const management = useWorkerSettings();
   const { bootstrap, queryContext } = useSession();
   const workerCapability = bootstrap.capability("workers.read");
   const statusCapability = bootstrap.capability("status.read");
@@ -46,23 +49,24 @@ export function FrameworkStatus() {
     refetchInterval: 15_000,
     queryFn: async ({ signal }) => workers(await apiGet<unknown>("/api/workers", signal)),
   });
+  const currentWorkers = roster.data?.filter(worker => worker.status !== "revoked" && !management.data?.settings.some(s => s.kind === "node" && s.id === worker.id && s.removed));
   const daemon = !statusCapability.enabled
     ? { state: "unknown", text: statusCapability.reason }
     : status.isError ? { state: "unavailable", text: "Status unavailable" }
       : status.data === undefined ? { state: "unknown", text: "Checking…" }
         : { state: HEALTHY.has(status.data.toLowerCase()) ? "healthy" : "unknown", text: status.data };
   return (
-    <Panel title="Framework connection" description="AQ daemon health and the worker nodes enrolled with it.">
+    <Panel className={styles.connection} title="Framework connection" description="AQ daemon health and the worker nodes enrolled with it.">
       <p className={styles.status} data-state={daemon.state} role="status">Daemon: {daemon.text}</p>
       <h3 className={styles.subheading}>Worker nodes</h3>
-      {!workerCapability.enabled ? <p className={styles.meta}>{workerCapability.reason}</p> : !roster.data ? (
+      {!workerCapability.enabled ? <p className={styles.meta}>{workerCapability.reason}</p> : !currentWorkers ? (
         <QueryStatus status={roster.isError ? "error" : "pending"} error={roster.error} label="worker nodes" onRetry={() => void roster.refetch()} />
       ) : (
         <>
           {roster.isError && <p className={styles.meta} role="status">Refresh failed. These worker observations may be out of date.</p>}
-          {roster.data.length === 0 ? <p className={styles.meta}>No worker nodes enrolled.</p> : (
+          {currentWorkers.length === 0 ? <p className={styles.meta}>No worker nodes enrolled.</p> : (
             <ul className={styles.workers} aria-label="Worker nodes">
-              {roster.data.map((worker) => (
+              {currentWorkers.map((worker) => (
                 <li key={worker.id}>
                   <span><strong>{worker.name}</strong> · {["online", "offline", "revoked"].includes(worker.status) ? worker.status : "Unknown status"} · version {worker.worker_version}</span>
                   <span className={styles.meta}>Last heartbeat: {worker.last_seen_at ? <Timestamp iso={worker.last_seen_at} /> : "Never reported"}</span>
@@ -73,6 +77,7 @@ export function FrameworkStatus() {
         </>
       )}
       <AddMachine />
+      <OverviewDiagnostics />
     </Panel>
   );
 }

@@ -57,7 +57,41 @@
 .addMachine code { display: block; padding: var(--space-2); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); white-space: pre-wrap; }
 .addMachine input { max-inline-size: 100%; box-sizing: border-box; }
 .addMachine .actionNote { padding: 0; }
+.management { display: grid; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--color-border); }
+.management label { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 8px; font-size: var(--font-size-xs); }
+.management input { min-inline-size: 0; inline-size: 100%; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-text); padding: 6px 8px; }
+.management .actionNote { padding: 0; }
+.managementActions { display: flex; flex-wrap: wrap; gap: 6px; }
 .hostedCommand { display: flex; flex-direction: column; align-items: start; gap: var(--space-2); margin-block: var(--space-2); }
 .hostedCommand details { min-inline-size: 0; max-inline-size: 100%; }
 .hostedCommand summary { cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 .hostedCommand code { margin-block-start: var(--space-1); }
+
+.launch { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border-subtle, #334155); }
+.launch label { display: grid; gap: 6px; }
+.launch select { width: 100%; min-height: var(--control-height); background: var(--surface-raised, #17202d); color: inherit; border: 1px solid var(--border-subtle, #334155); border-radius: 6px; padding: 8px; }
+
+.terminal > :global([data-interactive-terminal]) { flex: 1; min-block-size: 480px; }
+.stage[data-focus] { grid-template-columns: minmax(0, 1fr); }
+.stage[data-focus] > :first-child { display: none; }
+.stage[data-focus] .pane { min-block-size: calc(100dvh - 240px); }
+.pill[data-state="booting"] { border: 1px dashed #c7802e; color: var(--color-attention); background: var(--color-panel); }
+.pill[data-kind="agent"][data-state="online"] { background: #1b7f6c; }
+
+.manualHead { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 6px 12px; }
+.manualIdentity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; min-inline-size: 0; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+.manualIdentity h2 { margin: 0; font-size: var(--font-size-body); color: var(--color-text); }
+.manualActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.stage[data-viewport-fit] { flex: 1; min-block-size: 0; }
+.stage[data-viewport-fit] > :first-child { display: flex; flex-direction: column; min-block-size: 0; }
+.stage[data-viewport-fit] .flow { height: auto; flex: 1; min-block-size: 0; }
+.stage[data-viewport-fit] .pane, .stage[data-viewport-fit] .terminal, .stage[data-viewport-fit] .terminal > :global([data-interactive-terminal]) { min-block-size: 0; }
+.stage[data-focus] > :first-child { display: none; }
+
+.loginCommand { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; margin: 6px 0; }
+
+.loginChoices { padding: 0; gap: 8px; font-size: 12px; }
+.loginChoices label { display: inline-flex; align-items: center; gap: 4px; }
+.loginChoices input { margin: 0; }
+
+.diagnosticDetails { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 11px; }

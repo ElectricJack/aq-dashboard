@@ -58,7 +58,7 @@ describe("buildSwarmGraph", () => {
     const v = view(); v.machines[0]!.nodes = [worker("local-1", null, 1, null, [agent(1, "claude", "fast")])];
     const g = build(v);
     expect(g.nodes.some(n => n.id.startsWith("free:local-1"))).toBe(false);
-    expect(byId(g, "node:local-1")!.data.sub!.endsWith("1/? slots")).toBe(true);
+    expect(byId(g, "node:local-1")!.data.sub!.endsWith("capacity not reported")).toBe(true);
   });
   it("free pill overflow", () => {
     const v = view(); v.machines[0]!.nodes = [worker("local-1", 12, 0, 12)];

@@ -8,7 +8,7 @@ const VIEWPORTS = [{ name: "1440", width: 1440, height: 900 }, { name: "390", wi
 for (const vp of VIEWPORTS) for (const [name, scenario] of Object.entries(STATES)) {
   test(`availability ${name} at ${vp.name}`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height });
-    await page.goto(`/agents?scenario=${scenario}`);
+    await page.goto(`/agents/swarm?scenario=${scenario}`);
     await page.getByRole("button", { name: /^AQ server/ }).click();
     await expect(page.getByText("Owner availability", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: name === "on" ? "Turn off availability" : "Keep available" })).toBeVisible();

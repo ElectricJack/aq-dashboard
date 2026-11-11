@@ -36,7 +36,7 @@ export function PinnedSessions() {
    <details className={styles.observationDetails}><summary>Choose sessions</summary>
     {available.length===0?<p className={styles.meta}>No session records in this scope.</p>:<div className={styles.sessionChoice}><label htmlFor="overview-session-choice">Session snapshot</label><select id="overview-session-choice" value={choice} onChange={event=>setChoice(event.target.value)}><option value="">Choose a session</option>{available.filter(s=>!pins.includes(s.id)).map(s=><option key={s.id} value={s.id}>{sessionLabel(s)}</option>)}</select><button className={styles.pinButton} disabled={!choice||pins.includes(choice)} onClick={()=>{setPins([...pins,choice]);setChoice('');}}>Pin session</button><span className={styles.meta}>Showing up to four session records. Pins last for this visit.</span></div>}
    </details>
-   <Link to={{pathname:'/agents/sessions',search:scopeSearch(scope)}}>All sessions →</Link>
+   <Link to={{pathname:'/agents/history',search:scopeSearch(scope)}}>All sessions →</Link>
   </>}
  </section>;
 }

@@ -35,10 +35,10 @@ test("rail lists destinations in the specified order with Supervisor below Overv
   expect(links.map((l) => l.querySelector("span")?.textContent)).toEqual([
     "Overview",
     "Supervisor",
+    "Agents",
     "Work",
     "Results",
     "Decisions",
-    "Agents",
     "Playbooks",
     "Knowledge",
     "Settings",

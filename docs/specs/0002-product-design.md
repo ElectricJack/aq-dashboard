@@ -6,7 +6,7 @@ Implementation status, November 1, 2026: the [current availability matrix](../pl
 
 The populated current-catalog, parent/child run and decision-action proofs remain separately labelled disposable evidence. No authored definitions, configured pipeline automation, dashboard run mutations, live Supervisor replies, provider quota or live terminal control are claimed. The canonical media owner remains unconfigured and uploads disabled; the supplemental PNG upload proof belongs only to isolated 4206. PostgreSQL is now a promoted canonical dependency protected from proof cleanup, with original data retained and a write-aware rollback boundary. Complete requirements/routes below remain the target, not blanket implementation claims.
 
-Read with the [architecture baseline](0001-dashboard.md), [API contract proposal](0003-dashboard-api.md), [implementation plan](../plans/0001-dashboard-implementation.md), and [contract audit](../research/2026-10-31-contract-audit.md). Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.
+Read with the [architecture baseline](0001-dashboard.md), [API contract proposal](0003-dashboard-api.md), [implementation plan](../plans/0001-dashboard-implementation.md), and [contract audit](../research/2026-10-31-contract-audit.md). Where a PNG conflicts with this text, this text governs behavior. The owner-approved Agents roster and grid in [spec 0009](0009-agents-terminal-workspace.md) supersede the earlier focused-only layout.
 
 ## 1. Product outcome and boundaries
 
@@ -48,7 +48,9 @@ Prefer dense, legible rows and deliberate empty space over a grid of decorative 
 
 ## 3. Application shell and information hierarchy
 
-Navigation order is **Overview, Supervisor, Work, Results, Decisions, Agents, Playbooks, Knowledge**, with Settings and identity at the bottom. Supervisor is directly below Overview. The desktop rail stays visible in full-page chat. Explicit terminal Expand may collapse it.
+Navigation order is **Overview, Supervisor, Agents, Work, Results, Decisions, Playbooks, Knowledge**, with Settings and identity at the bottom. Supervisor is directly below Overview. The desktop rail stays visible in full-page chat. Explicit terminal Expand may collapse it.
+
+**Owner update, November 10, 2026:** All eight destinations use the compact Agents header: one title/action row, shared spacing, and the supervisor launcher in that row. Keep touch controls usable at 390px and 320px. Remove introductory subtitle rows; secondary summaries stay inline on desktop.
 
 The persistent top area contains scope, provider quota, search and connection/freshness affordances. The quota strip remains above every destination, including full chat and terminal focus. Quota is account-scoped and labelled accordingly; selecting a project must not imply that an account-wide percentage became project usage.
 
@@ -65,7 +67,7 @@ Routes:
 | `/work`, `/work/:taskId` | Scope, list/graph, filters, sort, selected task/revision |
 | `/results`, `/results/:resultId/revisions/:revision` | Feed mode, filters; immutable result deep link |
 | `/decisions`, `/decisions/:decisionId` | Kind/status filter and exact subject revision |
-| `/agents` (Swarm), `/agents/sessions`, `/agents/:sessionId` | Swarm tree and properties pane (spec aq-server 0007 §5); roster filters or focus |
+| `/agents`, `/agents/swarm`, `/agents/history`, `/agents/:sessionId` | Terminal workspace, Swarm, History and legacy session detail; `/agents/sessions` redirects to History |
 | `/playbooks`, `/playbooks/runs/:runId` | Runs/definitions/activations and selection |
 | `/knowledge`, `/knowledge/:nodeId` | Scope/search/category; optional pinned revision |
 | `/settings` | Identity, display/accessibility preferences, authorized configuration links |
@@ -82,13 +84,19 @@ The graph initially renders a bounded neighborhood around the selected task, wit
 
 **Decisions.** One inbox can discover reviews, questions and failure interventions, but each retains its domain-specific form and permission. Show exact source/task/result revision, requested judgment, evidence availability, previous responses and downstream effect. Approve/reject/answer binds that revision. A newer subject shows a superseded warning; no automatic retargeting. The mobile action bar must not hide evidence or keyboard focus. Submission remains pending until the server confirms; a conflict retains the draft and presents a deliberate refresh/review path.
 
+**Owner update, November 10, 2026:** Work offers Delete task with only “Are you sure?” confirmation. Deletion has no workflow gate or dependency refusal: incident links are removed and other tasks survive. Cancel task needs no entered reason and immediately records canceled task lifecycle; the server and worker complete native stop/disposition automatically.
+
 Cancellation is an intent, not proof the process stopped. Source retained, result submitted, result accepted, task complete, candidate published and change merged/deployed are distinct facts wherever shown.
 
 ## 5. Supervisor: docked and full-page conversation
 
+**Owner update, November 10, 2026:** support both a global supervisor and separate project supervisors. An explicit Supervisor selector chooses the recipient. Each conversation retains its own history, draft and unresolved operation identity across dock/full-page views. Saved intelligence profiles and Start/Stop controls operate on that supervisor. Verified task receipt links carry their project into Work.
+
+**Implementation choice (my call):** keep controls inline on desktop and in a compact disclosure on phones. A fresh enabled controller reports Ready between real turns and Working during a turn. Confirmed enqueue releases the composer for the next message; uncertain requests retain exact-body retry and lookup. This delivered slice is text chat and verified task receipts; context/attachment composition and richer result/media cards below remain separate requirements.
+
 The docked panel and full-page view share one conversation state, message collection, attachments, draft and reading position. Full page fills the area beside the rail and below the provider strip; message text has a comfortable maximum reading width. The phone always uses a full-page conversation. No duplicate conversation or new supervisor session is created by changing presentation.
 
-The header explicitly says Global supervisor. Project scope can attach context but never silently changes recipient. A context chip identifies the exact task/result/document revision and can be removed before send. Result cards link to retained evidence. Message history is paginated; auto-scroll only when the reader is already at the bottom. Otherwise show a new-message marker.
+The header names the selected supervisor. Global remains the default; changing the application project filter never silently changes the conversation recipient. A context chip identifies the exact task/result/document revision and can be removed before send. Result cards link to retained evidence. Message history is paginated; auto-scroll only when the reader is already at the bottom. Otherwise show a new-message marker.
 
 The composer supports plain text and authorized artifact/context references. Enter sends on desktop; Shift+Enter adds a newline; mobile provides a labelled Send button. IME composition must not send prematurely. A local pending message remains identifiable through send retries. Show admitted/queued, delivery evidence, unknown and failure separately; an acknowledgement is not proof that the requested work was performed.
 
@@ -98,11 +106,13 @@ The supervisor can propose a feedback task. Display its editable draft and the e
 
 The roster shows current sessions with task, project, chosen provider/model/harness, observed state/freshness, wait reason and controller presence. Session detail distinguishes profile/configuration revisions, effective permissions, actual execution authority and last observed process activity. Secrets and unscoped prompts are excluded.
 
-Opening a session uses **one large terminal** by default. Compact session tabs/switcher replace a permanent roster. Details, transcript and durable Message are on-demand drawers. Split is explicit, at most two visible panes initially, available only when each pane fits at least 80 columns at the selected readable font size. Never shrink font to force a split. On smaller widths offer tabs; preserve selected session and local view state through layout changes.
+**Owner update, 2026-11-10:** Agents opens a searchable, narrow roster and up to four independently connected terminals. One fills the workspace, two are side by side, and three or four use a two-by-two grid. Below 1000px, a drawer and quick switcher show one selected terminal. Expand temporarily shows one pane; restoring preserves selections. Terminal text stays readable and uses internal horizontal panning. Closing disconnects the pane without stopping the agent. See [spec 0009](0009-agents-terminal-workspace.md) for lifecycle, scope and history behavior. This grid and roster intentionally supersede the focused desktop reference's two-pane and permanent-roster restrictions.
 
-Watch is read-only. Taking control requires a distinct action and confirmed exclusive server lease/fence; display controller identity, lease state and expiry. Other viewers do not resize the shared tmux pane. Only confirmed control enables keystrokes, paste and resize. On mobile, use internal horizontal terminal panning and a minimum 14px monospace default; provide text-size controls. The plain-text transcript is an alternative reading mode with provenance/gaps, not a fake editable terminal.
+**Owner update, 2026-11-10:** opening a terminal automatically connects for interactive input. There is no watch/edit mode selector or Take/Release control workflow. The transport still obtains and renews the confirmed server controller lease/fence before enabling keystrokes, paste or resize. Display connection readiness and controller conflicts without offering a mode switch. On mobile, use internal horizontal terminal panning and a minimum 14px monospace default; provide text-size controls. The transcript remains an alternative output view.
 
-Connection loss freezes input and labels the last observation. Reconnect requests authorized replay/snapshot for the same identity and epoch; it never relaunches a process or acquires control automatically. Unknown input delivery blocks later input until the specified fresh-capture resolution. Do not replay buffered keystrokes after reconnect. Follow the exact negotiated finite/epoch input mode and published limits; ordinary mutation retries are not a terminal-input recovery algorithm.
+Connection loss freezes input and retains the last observation. Reconnect requests authorized output for the same identity and epoch, then automatically restores interactive control; it never relaunches the process or replays buffered keystrokes. Unknown input delivery pauses typing until a fresh-capture resolution. Keep finite/epoch identity checks and published input limits. Manual agents stay running across dashboard disconnects and turns, until explicitly stopped. Manual launch chooses a project without an assignment or popup, and immediately shows a graph node with pending/preparing/ready progress. Selected-worker slot controls show and change that project's capacity; removing busy capacity drains it without killing an agent.
+
+**Owner layout update, 2026-11-10:** keep the Agents heading and launcher on a compact row. Selected-agent identity, model, status and actions use a compact header; the terminal takes most of the properties pane and fills the remaining viewport height. On-screen keyboard controls appear only on phones.
 
 On phones, Back returns to the roster. Hide normal bottom navigation in focused terminal mode. Use visible viewport height and safe-area insets when the keyboard opens; keep quota, terminal status and essential input controls visible while collapsing secondary chrome. Offer Esc, Tab, Ctrl and arrows with clear active modifier state. Rotation must not acquire control or restart; a controller resize is debounced and sequenced, never sent from a viewer. Test real IME, paste, selection, alternate-screen programs and wide Unicode.
 
@@ -143,7 +153,7 @@ Capture only the intended application/test scenario. AQ enforces authorized uplo
 | Shell | Rail, quota header, optional inspector | Compact rail; one optional overlay | Menu + persistent compact quota; bottom destinations |
 | Overview / Work | List and selected inspector | List then detail | Single list then full detail |
 | Supervisor | Docked or full workspace | Full page by default | Full page, keyboard-aware composer |
-| Agents | Focus; optional measured two-pane split | One terminal | One terminal; bottom nav hidden |
+| Agents | Roster and up to four terminal panes | One terminal with switcher and roster drawer below 1000px | One terminal with switcher and roster drawer |
 | Results | Centered feed + selected comment panel | Feed, comments overlay | One feed, full-width comments |
 | Decisions | Evidence + decision form | Stacked evidence/form | Evidence first, safe sticky actions |
 | Playbooks / Knowledge | List + detail | One detail pane | Timeline/document page |

@@ -13,10 +13,11 @@ import { FACT_LABEL, subjectPath } from "../../app/subjects";
 import { useRead } from "../../app/useRead";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import styles from "./Overview.module.css";
+import { SelectedProjectControl } from "./SelectedProjectControl";
 import { RecordedTasks } from "./RecordedTasks";
 import { Infrastructure } from "./Infrastructure";
 import { useSession } from "../../app/session";
-import { PageTitle } from "../../app/DestinationPage";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { CreateTaskAction } from "../work/CreateTask";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
@@ -206,19 +207,12 @@ export function motionSentence(inMotion: OverviewView["inMotion"], complete: boo
 /** Title and summary on the left, the primary Create task action on the right (reference 01). */
 function OverviewHeader({ children, action = true }: { children: ReactNode; action?: boolean }) {
   const { bootstrap } = useSession();
-  return (
-    <div className={styles.header}>
-      <div className={styles.titleBlock}>
-        <PageTitle>Overview</PageTitle>
-        <p className={styles.summary} data-testid="overview-summary">{children}</p>
-      </div>
-      {action && bootstrap.capability("tasks.create").enabled && (
-        <div className={styles.headerAction}>
-          <CreateTaskAction />
-        </div>
-      )}
-    </div>
-  );
+  return (<>
+    <PageHeader title="Overview" actions={action && bootstrap.capability("tasks.create").enabled ? <CreateTaskAction /> : undefined}>
+      <span data-testid="overview-summary">{children}</span>
+    </PageHeader>
+    {action && <SelectedProjectControl />}
+  </>);
 }
 
 function Attention({ view, attention, total, serverTime, complete, search }: {
@@ -348,8 +342,12 @@ export function Overview() {
           </li>
         ))}
       </ul>
-      {coverage.reason && view.sources.length === 0 && <details className={styles.coverageDisclosure}><summary>Partial overview</summary><p>{coverage.reason}</p></details>}
-      {view.sources.length > 0 && <details className={styles.coverageDisclosure}><summary>Source coverage</summary><ul className={styles.sourceList}>{view.sources.map((source,index)=><li key={`${source.source}:${source.project?.id??index}`}><strong>{source.source.replaceAll('_',' ')}</strong> · {source.coverage.state} · <CountLabel total={source.total} /> records · {source.observation ? formatAge(serverTime,source.observation.observed_at) : 'Observation unavailable'}{source.project && ` · ${source.project.label}`}{source.coverage.reason && <span>{source.coverage.reason.replaceAll('_',' ')}</span>}</li>)}</ul></details>}
+      {(coverage.state !== "complete" || view.sources.some(source => source.coverage.state !== "complete")) && (
+        <p className={styles.warning} role="status">
+          Some overview information is unavailable or incomplete. Counts and lists may be incomplete.{" "}
+          <Link to={{ pathname: "/settings", search, hash: "#overview-diagnostics" }}>View diagnostics</Link>
+        </p>
+      )}
       <div className={styles.columns}><div className={styles.primary}>
       <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">

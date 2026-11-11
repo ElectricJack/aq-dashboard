@@ -1,10 +1,10 @@
 import { ContractError, isRecord } from "./contract";
-/** human-supervisor-conversation-1, pinned to aq-server schema digest sha256:2056d6fe1cdff14eca53784a93981c8a943fcdbc3033c7dee8cb80d79220ef3b. */
+/** human-supervisor-conversation-1, pinned to aq-server schema digest sha256:0ad1658448757bdbca81ee6edb87de9a0269e38d256883a8c1b2033ae97ea9b9. */
 export const SUPERVISOR_CONTRACT = "human-supervisor-conversation-1";
-export type Conversation = { id: string; revision: string; label: "Global supervisor" };
+export type Conversation = { id: string; revision: string; label: string };
 type UnavailableRuntime = { state: "unavailable"; binding: null; reason: "central_runtime_not_connected" };
 /** Discovery and History report a live binding while a central session serves the conversation; receipts keep the admission-time unavailable runtime. */
-export type Runtime = UnavailableRuntime | { state: "available"; binding: { actor_id: string; generation: number; session_id: string }; reason: "central_session_active" };
+export type Runtime = UnavailableRuntime | {state:"idle";binding:null;reason:"central_service_ready"} | { state: "available"; binding: { actor_id: string; generation: number; session_id: string }; reason: "central_session_active" };
 /** Server-advertised bounds; each is at most the published schema value (a server may disable context refs or attachments with 0). */
 export type SupervisorLimits = { body_bytes: number; context_refs: number; attachments: number; history_page: number };
 export type Discovery = { contract: typeof SUPERVISOR_CONTRACT; conversation: Conversation; runtime: Runtime; limits: SupervisorLimits };
@@ -69,6 +69,7 @@ function validRuntime(v: unknown, liveAllowed: boolean): boolean {
   if (!isRecord(v)) return false;
   shape(v, "state binding reason");
   if (v.state === "unavailable") return v.binding === null && v.reason === "central_runtime_not_connected";
+  if (liveAllowed && v.state === "idle") return v.binding === null && v.reason === "central_service_ready";
   if (!liveAllowed || v.state !== "available" || v.reason !== "central_session_active") return false;
   shape(v.binding, "actor_id generation session_id");
   return supervisorId(v.binding.actor_id) && integer(v.binding.generation, 1) && supervisorId(v.binding.session_id);
@@ -77,7 +78,7 @@ function common(v: Record<string, unknown>, expected?: Conversation | string, li
   check(v.contract === SUPERVISOR_CONTRACT);
   shape(v.conversation, "id revision label");
   const c = v.conversation;
-  check(supervisorId(c.id) && decimal(c.revision) && c.label === "Global supervisor");
+  check(supervisorId(c.id) && decimal(c.revision) && text(c.label,1,256));
   if (expected) check(c.id === (typeof expected === "string" ? expected : expected.id));
   if (expected && typeof expected !== "string") check(c.revision === expected.revision);
   check(validRuntime(v.runtime, liveRuntime));

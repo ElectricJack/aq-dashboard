@@ -76,7 +76,7 @@ test("keeps one global history and draft across project changes without scoped r
 test("sends one frozen text-only intent and renders actual queued history without inventing a reply", async () => {
   const app = setup(); await ready(); await userEvent.type(await composer(), "Inspect the retained boundary");
   await userEvent.dblClick(screen.getByRole("button", { name: "Send" }));
-  await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
+  await screen.findByText(/^Message queued\./);
   expect(app.posts).toHaveLength(1); const body = JSON.parse(app.posts[0]!).payload;
   expect(body.context).toEqual([]); expect(body.attachments).toEqual([]); expect(body.expected_conversation_revision).toBe("1"); expect(body.message_id).not.toBe(body.operation_id);
   expect(new URLSearchParams(app.router.state.location.search).get("operation")).toBe(body.operation_id);
@@ -93,7 +93,7 @@ test("lost response and missing lookup receipt keep exact intent; retry preserve
   expect(await composer()).toHaveValue("Only the original request"); expect(await composer()).toHaveAttribute("readonly");
   await userEvent.click(screen.getByRole("button", { name: "Check message status" })); await screen.findByText(/No receipt is available yet/);
   expect(writes).toBe(1); expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: "Retry exact message" })); await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.");
+  await userEvent.click(screen.getByRole("button", { name: "Retry exact message" })); await screen.findByText(/^Message queued\./);
   expect(bytes).toHaveLength(2); expect(bytes[0]).toBe(bytes[1]); expect(app.posts).toHaveLength(0);
 });
 test("401 after send clears private draft/history and fences later writes", async () => {
@@ -140,7 +140,7 @@ test("IME composition and Shift+Enter never enqueue prematurely", async () => {
   fireEvent.compositionStart(input); fireEvent.keyDown(input, { key: "Enter" }); fireEvent.compositionEnd(input);
   fireEvent.keyDown(input, { key: "Enter", shiftKey: true }); fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
   expect(app.posts).toHaveLength(0); fireEvent.keyDown(input, { key: "Enter" });
-  await screen.findByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work."); expect(app.posts).toHaveLength(1);
+  await screen.findByText(/^Message queued\./); expect(app.posts).toHaveLength(1);
 });
 test("history-only authority preserves a usable draft and cannot enqueue", async () => {
   const app = setup({ write: false }); await ready(); await userEvent.type(await composer(), "Draft without enqueue permission");
@@ -155,7 +155,7 @@ test("changing operation reference fences a late response from the original inte
   await act(() => app.router.navigate(`/supervisor?operation=${supervisorId(80)}&message=${supervisorId(81)}`));
   await screen.findByText(/No receipt is available yet/);
   await act(async () => { release(); await gate; });
-  expect(screen.queryByText("Queued in the global mailbox. This acknowledgement does not confirm delivery or completed work.")).toBeNull();
+  expect(screen.queryByText(/^Message queued\./)).toBeNull();
   expect(await composer()).toHaveValue(""); expect(screen.queryByRole("button", { name: "Retry exact message" })).toBeNull();
 });
 test("new history does not scroll a reader who moved up and offers an explicit latest marker", async () => {
@@ -274,4 +274,43 @@ test("SO-14/ISSUE-007: opening the dock moves focus into it and closing returns 
   await waitFor(() => expect(input).toHaveFocus());
   await userEvent.click(screen.getByRole("button", { name: "Close chat" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Open supervisor" })).toHaveFocus());
+});
+
+
+test("global and project supervisors keep separate drafts, and Start works before a controller is online",async()=>{
+ const app=setup();
+ const project='a22afccc-d61a-5f77-aef8-9fd73311c68a',conversation='e0000000-0000-4000-8000-000000000099';
+ const profile={profile_id:'standard-medium',profile_version:1,candidate_id:'codex',name:'Standard',provider:'openai',model:'gpt-test',reasoning:'medium',harness:'codex'};
+ const scope=(id:string,project_id:string|null,label:string)=>({id,actor_id:supervisorActor,project_id,label,enabled:false,revision:0,profile:null,phase:'unavailable',stage:'Controller not started',observed_at_ms:null,generation:null,session_id:null,last_error:null});
+ const global=scope(discovery.conversation.id,null,'Global supervisor'),local=scope(conversation,project,'AQ server supervisor');
+ const controls:unknown[]=[];
+ server.use(http.get('/api/supervisors',()=>HttpResponse.json({supervisors:[global,local],profiles:[profile],server_time_ms:1})),
+ http.get(`/api/human/conversations/projects/${project}`,()=>HttpResponse.json({...discovery,conversation:{id:conversation,revision:'1',label:local.label}})),
+ http.get(`/api/human/conversations/${conversation}/messages`,()=>HttpResponse.json({...supervisorHistory([]),conversation:{id:conversation,revision:'1',label:local.label}})),
+ http.post(`/api/supervisors/${conversation}/control`,async({request})=>{const body=await request.json() as Record<string,unknown>;controls.push(body);return HttpResponse.json({...body,conversation_id:conversation,revision:1});}));
+ await ready();await userEvent.type(await composer(),'Global draft');
+ await userEvent.selectOptions(await screen.findByRole('combobox',{name:'Supervisor'}),`project:${project}`);
+ const input=await screen.findByRole('textbox',{name:'Message the project supervisor'});expect(input).toHaveValue('');await userEvent.type(input,'Project draft');
+ await userEvent.click(screen.getByRole('button',{name:'Start supervisor'}));await waitFor(()=>expect(controls).toHaveLength(1));expect(controls[0]).toMatchObject({enabled:true,expected_revision:0,intelligence_profile:{profile_id:'standard-medium',candidate_id:'codex'}});
+ await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),'global');expect(await composer()).toHaveValue('Global draft');
+ await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),`project:${project}`);expect(await screen.findByRole('textbox',{name:'Message the project supervisor'})).toHaveValue('Project draft');
+ app.unmount();
+});
+
+test("live history refresh is not starved by faster supervisor status updates",async()=>{
+ const app=setup();
+ server.use(http.get('/api/supervisors',()=>HttpResponse.json({supervisors:[],profiles:[],server_time_ms:Date.now()})));
+ await ready();const initial=app.reads.length;
+ await waitFor(()=>expect(app.reads.length).toBeGreaterThan(initial),{timeout:6000});
+ app.unmount();
+});
+
+
+test("typing after a confirmed message starts the next message without a separate reset",async()=>{
+ const app=setup();await ready();await send('First request');
+ await screen.findByRole('button',{name:'Compose another message'});
+ await userEvent.type(await composer(),'Second request');await userEvent.click(screen.getByRole('button',{name:'Send'}));
+ await waitFor(()=>expect(app.posts).toHaveLength(2));
+ const first=JSON.parse(app.posts[0]!),second=JSON.parse(app.posts[1]!);expect(second.operation_id).not.toBe(first.operation_id);expect(second.payload.body).toBe('Second request');
+ app.unmount();
 });

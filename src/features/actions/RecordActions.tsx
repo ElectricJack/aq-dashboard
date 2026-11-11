@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Ellipsis } from "lucide-react";
 import { useSession } from "../../app/session";
 import { scopeSearch } from "../../app/scope";
@@ -55,7 +55,7 @@ export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean
 /** AQ's own preconditions for the execution actions (aq-server task_execution.rs): cancel needs an attempt
  * holding the task, retry needs an active task. They are stated, never guessed beyond what the reads show. */
 function executionReason(k:ActionKind,state:string|null|undefined,execution?:TaskExecutionFacts):string|undefined{
-  if(k==="task.cancel"){if(state&&state!=="active")return `No agent attempt can hold a ${state} task`;if(execution&&!execution.holding)return "No agent attempt holds this task";}
+  if(k==="task.cancel"&&state==="canceled")return "Task is already canceled";
   if(k==="task.retry"&&state&&state!=="active")return "AQ retries attempts of active tasks only";
   // Retry replaces the task's last attempt (B4); with none recorded AQ always refuses it (WD-11).
   if(k==="task.retry"&&execution?.attempts===0)return "This task has never had an agent attempt to retry";
@@ -68,8 +68,8 @@ export function RecordActions(props:{record:ActionContext;author?:boolean;pinned
   return <Actions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${props.record.project.id}:${props.author?"author":props.record.data?.id}`} {...props}/>;
 }
 function Actions({record,author=false,pinned,kinds:only,variant="default",execution}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
-  const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient();
-  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize","task.cancel","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
+  const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient(), navigate=useNavigate();
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize","task.cancel","task.delete","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
@@ -100,6 +100,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       const next=await actionRequest(value,lookup,abort.signal);if(!current.current)return;
       if(operation?.request_digest&&operation.operation_id===next.operation_id&&operation.request_digest!==next.request_digest)throw new ContractError("Operation identity changed");
       setOperation(next);setUnknown(false);setError(null);
+      if(next.disposition==="confirmed"&&value.kind==="task.delete"){setOpen(false);void navigate({pathname:"/work",search:scopeSearch({kind:"project",project_id:record.project.id})});}
       if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-history","human-graph-task-summary","overview-task-contributions"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
       if(reason instanceof ApiError&&reason.status===401){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
@@ -135,7 +136,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     }
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
-    if(k==="task.retry")return {payload:{}};
+    if(["task.retry","task.cancel","task.delete"].includes(k))return {payload:{}};
     if(k==="task.reprioritize"){const v=draft.priority.trim();if(!PRIORITY.test(v)||Math.abs(Number(v))>PRIORITY_MAX)throw new Error("Enter a whole-number priority from -1000000 to 1000000.");return {payload:{priority:Number(v)}};}
     if(k==="knowledge.restore"){
       if(!restoreValid)throw new Error("Enter the content revision to restore.");
@@ -183,28 +184,28 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   return <div ref={root} className={variant==="default"?styles.actions:variant==="menu"?`${styles.compact} ${styles.menuOnly}`:styles.compact}>
     {variant!=="default"?<CompactActions kinds={kinds} reasonFor={reasonFor} taskState={record.data?.kind==="task"?record.data.task_state:undefined} pending={unsettled?kind:null} launch={launch} menuOnly={variant==="menu"}/>:
     kinds.map(k=>{const reason=reasonFor(k)??(unsettled&&kind!==k?"Settle the current operation first":undefined),hint=`${titleId}-${k}-reason`;return <div className={styles.action} key={k}><ActionButton disabled={!!reason} title={reason} aria-describedby={reason?hint:undefined} onClick={()=>launch(k)}>{actionLabels[k]}{unsettled&&kind===k?" · operation":""}</ActionButton>{reason&&<span id={hint} className={styles.meta}>{reason}</span>}</div>;})}
-    <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}>
-      <header className={styles.header}><h2 id={titleId}>{kind?actionLabels[kind]:"Action"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close action">Close</ActionButton></header>
-      <p className={styles.meta}>{record.project.name} · {author?"Project version":"Record version"} {author?baseline.project.revision:baseline.data?.version}</p>
+    <dialog className={styles.dialog} data-kind={kind} ref={dialog} aria-labelledby={titleId} onCancel={e=>{e.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}>
+      <header className={styles.header}><h2 id={titleId}>{kind==="task.delete"?"Are you sure?":kind?actionLabels[kind]:"Action"}</h2><ActionButton onClick={()=>setOpen(false)} aria-label="Close action">Close</ActionButton></header>
+      {kind!=="task.delete"&&<p className={styles.meta}>{record.project.name} · {author?"Project version":"Record version"} {author?baseline.project.revision:baseline.data?.version}</p>}
       {error&&<p role="alert">{error}</p>}
       {rebased&&!intent&&editing&&<RebaseNotice rebased={rebased} draft={draft} onUseCurrent={(field,value)=>{setDraft(v=>({...v,[field]:value,...(field==="labels"?{labelsEdited:true}:{})}));setRebased(r=>r&&{...r,overlapping:r.overlapping.filter(o=>o.field!==field)});}}/>}
       {kind&&<form onSubmit={e=>void submit(e)}><fieldset className={styles.fields} disabled={busy||!!intent||accessLost}>
         {editing&&<><label>Title<input value={draft.title} required maxLength={512} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{(CATEGORIES.includes(draft.category)?CATEGORIES:[...CATEGORIES,draft.category]).map(v=><option key={v} value={v}>{knowledgeCategoryLabel(v)}</option>)}</select></label>}</>}
         {kind==="task.dependency.add"&&<BlockerPicker query={draft.blockerQuery} blocker={draft.blocker} self={record.data?.id} existing={blockerIds} search={blockerSearch} candidates={candidates} onQuery={v=>update("blockerQuery",v)} onPick={id=>update("blocker",id)}/>}
         {kind==="task.dependency.remove"&&<><label>Dependency<select required value={draft.edge} onChange={e=>update("edge",e.target.value)}><option value="">Choose a blocker</option>{dependency.data?.data.edges.filter(e=>e.target===record.data?.id&&e.edge_type==="blocks").map(e=><option key={e.id} value={e.id}>{dependency.data?.data.nodes.find(n=>n.id===e.source)?.title??e.source} · edge version {e.version}</option>)}</select></label>{dependency.isError&&<p role="alert">Dependencies unavailable. Close and reopen to check again.</p>}</>}
-        {["task.cancel","knowledge.verify","knowledge.retire"].includes(kind)&&<label>Reason<textarea required rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label>}
+        {["knowledge.verify","knowledge.retire"].includes(kind)&&<label>Reason<textarea required rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label>}
         {kind==="knowledge.verify"&&<><label>Verification<select value={draft.verdict} onChange={e=>update("verdict",e.target.value)}><option value="verified">Verified</option><option value="disputed">Disputed</option></select></label><label>Evidence URL<input type="url" required value={draft.url} onChange={e=>update("url",e.target.value)}/></label><p className={styles.meta}>This records an assertion about this revision; it does not prove task completion.</p></>}
         {kind==="knowledge.retire"&&<label>Successor record ID (optional)<input value={draft.successor} onChange={e=>update("successor",e.target.value)}/></label>}
         {kind==="knowledge.restore"&&<><p>Restores the content and active lifecycle of an earlier content revision as a new revision. The retirement stays in the record's history.</p>
           <label>Content revision to restore<input required inputMode="numeric" maxLength={16} value={draft.restoreRevision} onChange={e=>update("restoreRevision",e.target.value)}/></label>
           <p className={styles.meta} aria-live="polite">{restorePreview}</p>
           <label>Reason (optional)<textarea rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label></>}
-        {["task.cancel","knowledge.retire","knowledge.restore"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="task.cancel"?"Confirm cancellation request. This does not prove the process stopped.":kind==="knowledge.restore"?"Confirm restore. Verification resets to unverified on the new revision.":"Confirm retirement. Historical revisions remain available."}</label>}
-        {kind==="task.cancel"&&<p className={styles.meta}>Cancels the agent attempt holding this task. The task itself stays {record.data?.task_state??"in its current state"}; AQ refuses the request when no attempt holds it.</p>}
+        {["knowledge.retire","knowledge.restore"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="knowledge.restore"?"Confirm restore. Verification resets to unverified on the new revision.":"Confirm retirement. Historical revisions remain available."}</label>}
+
         {kind==="task.reprioritize"&&<><label>Priority<input required inputMode="numeric" pattern="-?[0-9]*" maxLength={8} value={draft.priority} onChange={e=>update("priority",e.target.value)}/></label><p className={styles.meta}>A whole number from -1000000 to 1000000. AQ starts higher-priority tasks first. This dashboard can't read the current priority yet.</p></>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
-      </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>Submit</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Cancellation requested":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":"Submit"}</ActionButton>}</form>}
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Task canceled":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -218,7 +219,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
 const NOT_OFFERED="Not offered by this AQ server";
 /** The dashboard actions contract carries no rejection reason (WD-08); restate the server's preconditions instead. */
 const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
-  "task.cancel":"It cancels only an agent attempt that holds this task.",
+
   "task.retry":"It retries only an active task whose last attempt can be replaced.",
   // AQ accepts a repeated dependency as a no-op; a cycle (or another Graph rule) is what it refuses (WDR-05).
   "task.dependency.add":"AQ refuses a dependency that would create a cycle, for example when this task already blocks the chosen one.",
@@ -265,7 +266,8 @@ function CompactActions({kinds,reasonFor,taskState,pending,launch,menuOnly=false
   const reasons=new Map(kinds.map(k=>[k,reasonFor(k)]));
   const available=kinds.filter(k=>!reasons.get(k));
   const primary=menuOnly?undefined:pending&&kinds.includes(pending)?pending:preferredFor(kinds,taskState).find(k=>available.includes(k));
-  const rest=kinds.filter(k=>k!==primary);
+  const deleteButton=!menuOnly&&primary!=="task.delete"&&available.includes("task.delete");
+  const rest=kinds.filter(k=>k!==primary&&!(deleteButton&&k==="task.delete"));
   const items=()=>[...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]")??[])];
   useEffect(()=>{if(!open)return;items()[0]?.focus({preventScroll:true});menu.current?.scrollIntoView?.({block:"nearest"});},[open]);
   if(!available.length&&!pending){
@@ -278,6 +280,7 @@ function CompactActions({kinds,reasonFor,taskState,pending,launch,menuOnly=false
   const label=(k:ActionKind)=>`${actionLabels[k]}${pending===k?" · operation":""}`;
   return <>
     {primary&&<ActionButton className={styles.primary} disabled={!!reasons.get(primary)} onClick={()=>launch(primary)}>{label(primary)}</ActionButton>}
+    {deleteButton&&<ActionButton disabled={!!pending&&pending!=="task.delete"} onClick={()=>launch("task.delete")}>Delete task</ActionButton>}
     {rest.length>0&&<div ref={container} className={styles.more} onBlur={e=>{if(open&&!e.currentTarget.contains(e.relatedTarget as Node|null))setOpen(false);}} onKeyDown={e=>{
       if(!open)return;
       if(e.key==="Escape"){e.preventDefault();e.stopPropagation();close();return;}

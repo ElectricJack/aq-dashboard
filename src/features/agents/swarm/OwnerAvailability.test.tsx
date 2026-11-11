@@ -16,7 +16,7 @@ afterAll(() => { server.close(); restore(); });
 
 const fact = (label: string) => screen.getByText(label, { selector: "dt" }).nextElementSibling as HTMLElement;
 const withAvailability = (owner_availability: unknown) => server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, server: { ...SWARM_MOCKUP.server, owner_availability } }))));
-async function openServerPane() { renderApp("/agents"); fireEvent.click(await screen.findByRole("button", { name: /^AQ server/ })); await screen.findByText("Owner availability", { selector: "dt" }); }
+async function openServerPane() { renderApp("/agents/swarm"); fireEvent.click(await screen.findByRole("button", { name: /^AQ server/ })); await screen.findByText("Owner availability", { selector: "dt" }); }
 function capture() {
   const bodies: Record<string, unknown>[] = [];
   server.use(http.post("/api/v1/actions", async ({ request }) => { bodies.push(await request.clone().json() as Record<string, unknown>); return undefined; }));

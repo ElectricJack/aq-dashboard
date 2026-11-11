@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { handlersFor } from "../../../mocks/handlers";
@@ -15,25 +15,25 @@ beforeEach(() => sessionStorage.clear());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-test("agents landing is the swarm tab", async () => {
-  renderApp("/agents");
+test("swarm route selects the swarm tab", async () => {
+  renderApp("/agents/swarm");
   const swarm = await screen.findByRole("link", { name: "Swarm" });
   expect(swarm).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", { name: "Sessions" })).toHaveAttribute("href", "/agents/sessions");
+  expect(screen.getByRole("link", { name: "History" })).toHaveAttribute("href", "/agents/history");
 });
 
-test("sessions tab keeps the roster", async () => {
-  renderApp("/agents/sessions");
-  expect(await screen.findByRole("list", { name: "Sessions" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Sessions" })).toHaveAttribute("aria-current", "page");
+test("legacy sessions route redirects to history preserving scope", async () => {
+  const { router } = renderApp("/agents/sessions?scope=project:example");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/agents/history"));
+  expect(router.state.location.search).toBe("?scope=project:example");
 });
 
-test("swarm without capability degrades to a note and keeps the Sessions tab", async () => {
+test("swarm without capability degrades to a note and keeps the History tab", async () => {
   const { default: bootstrap } = await import("../../../../contracts/proposed/bootstrap.json");
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, capabilities: bootstrap.data.capabilities.filter(c => c.name !== "swarm.read") } })));
-  renderApp("/agents");
+  renderApp("/agents/swarm");
   expect(await screen.findByText(/Swarm is not available on this server\./)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Sessions" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
 });
 
 describe("swarm tree", () => {

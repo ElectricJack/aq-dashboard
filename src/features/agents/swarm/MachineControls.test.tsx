@@ -15,7 +15,7 @@ afterEach(() => { server.resetHandlers(); server.events.removeAllListeners(); })
 afterAll(() => { server.close(); restore(); });
 
 const swarm = (data: unknown) => server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope(data))));
-async function openMachine(name: RegExp = /^desktop/) { renderApp("/agents"); fireEvent.click(await screen.findByRole("button", { name })); }
+async function openMachine(name: RegExp = /^desktop/) { renderApp("/agents/swarm"); fireEvent.click(await screen.findByRole("button", { name })); }
 const button = (name: string) => screen.findByRole("button", { name });
 async function confirmAndSubmit(title: string, checkbox: RegExp) {
   const dialog = await screen.findByRole("dialog", { name: title });
@@ -97,13 +97,13 @@ test("shows the server's capability reason when worker control is not advertised
   expect(screen.getByText("Worker control requires an owner account")).toBeInTheDocument();
 });
 
-test("an unrecognised worker state is not 'not installed' and keeps Revoke", async () => {
+test("an unrecognised worker state allows removal", async () => {
   swarm({ ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => m.id !== "desktop" ? m : { ...m, control: { desired: "hibernating", generation: "1", since: null, pending_handoffs: 0 } }) });
   await openMachine();
   expect(await screen.findByText(/reported an unrecognised state/)).toBeInTheDocument();
   expect(screen.queryByText(/not installed as a service/)).toBeNull();
   expect(screen.getByRole("button", { name: "Start worker" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Revoke machine" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Remove machine" })).toBeEnabled();
 });
 
 test("an unsettled operation does not follow the selection to another machine", async () => {
@@ -147,30 +147,6 @@ test("confirmation is required", async () => {
   await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
   expect(await within(dialog).findByRole("alert")).toHaveTextContent("Confirm this action before submitting.");
   expect(posts).toHaveLength(0);
-});
-
-test("revoke posts worker.revoke after confirmation", async () => {
-  let body: Record<string, unknown> | null = null;
-  server.use(http.post("/api/v1/actions", async ({ request }) => { body = await request.clone().json() as Record<string, unknown>; return undefined; }));
-  await openMachine();
-  await userEvent.click(await button("Revoke machine"));
-  const dialog = await screen.findByRole("dialog", { name: "Revoke machine" });
-  expect(dialog).toHaveTextContent("Revoking removes the credentials of every worker node on desktop.");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
-  expect(body).toBeNull();
-  await confirmAndSubmit("Revoke machine", /Revoke desktop/);
-  await waitFor(() => expect(body).not.toBeNull());
-  expect(body).toMatchObject({ kind: "worker.revoke", subject: { type: "machine", id: "desktop" }, payload: { machine: "desktop" } });
-  expect((body!.payload as Record<string, unknown>).expected_generation).toBeUndefined();
-});
-
-test("shows the server's refusal when a revoke is refused for a service-machine node", async () => {
-  server.use(http.post("/api/v1/actions", () => HttpResponse.json({ request_id: "r", code: "machine_node", message: "This node belongs to a service machine; revoke the machine", retryable: false }, { status: 409 })));
-  await openMachine();
-  await userEvent.click(await button("Revoke machine"));
-  const dialog = await confirmAndSubmit("Revoke machine", /Revoke desktop/);
-  expect(await within(dialog).findByRole("alert")).toHaveTextContent("This node belongs to a service machine; revoke the machine");
-  expect(within(dialog).getByRole("status")).toHaveTextContent("Rejected");
 });
 
 test("a confirmed action refetches the swarm", async () => {

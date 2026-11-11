@@ -1,0 +1,76 @@
+import {webcrypto} from 'node:crypto';
+import {screen,waitFor,fireEvent} from '@testing-library/react';
+import {http,HttpResponse} from 'msw';
+import {setupServer} from 'msw/node';
+import {vi} from 'vitest';
+import bootstrap from '../../../../contracts/proposed/bootstrap.json';
+import {handlersFor} from '../../../mocks/handlers';
+import {renderApp} from '../../../test/renderApp';
+import {stubReactFlowDom} from '../../../test/reactFlow';
+import {SWARM_MOCKUP} from '../../../mocks/swarm';
+import {graphProject,graphId} from '../../../test/humanGraph';
+import type {ManualAgent,ManualFleet} from './manualAgents';
+import {adaptManualFleet,capacity,mergeManual} from './manualAgents';
+import {adaptSwarm} from '../../../api/adapters/swarm';
+const server=setupServer(...handlersFor('default',{fixtures:true}));let restore:()=>void;
+const node=SWARM_MOCKUP.machines[0]!.nodes[0]!,repo=graphId(101);
+let fleet:ManualFleet;
+beforeAll(()=>{restore=stubReactFlowDom();server.listen({onUnhandledFrame:'error'});});
+beforeEach(()=>{sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);fleet={launch_profiles:[{profile_id:"manual-model",profile_version:1,candidate_id:"claude",name:"Standard",provider:"anthropic",model:"fixture-model",reasoning:"medium",harness:"claude"},{profile_id:"manual-model",profile_version:1,candidate_id:"codex",name:"Standard",provider:"openai",model:"gpt-test",reasoning:"high",harness:"codex"}],sessions:[],workers:[{node_id:node.node.id,max_slots:4,providers:["anthropic","openai"],repositories:[repo],observed_at_ms:Date.now()}],slots:[],projects:[{id:graphProject,name:'Project example',repository_id:repo}],server_time_ms:Date.now()};
+ server.use(http.get('/api/v1/bootstrap',()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c=>!['tasks.create','swarm.read'].includes(c.name)),{name:'tasks.create',version:'1',enabled:true},{name:'swarm.read',version:'1',enabled:true}]}})),http.get('/api/manual-agents',()=>HttpResponse.json(fleet)));
+});
+afterEach(()=>{server.resetHandlers();vi.unstubAllGlobals();});afterAll(()=>{server.close();restore();});
+const pending=(id:string):ManualAgent=>({id,node_id:node.node.id,project_id:graphProject,spec:{project_name:'Project example',repository_id:repo,provider:'anthropic',model:'fixture-model'},status:'pending',stage:'Waiting for a slot',desired_running:true,created_at_ms:Date.now(),updated_at_ms:Date.now(),worker_seen_at_ms:null});
+test('launch needs no assignment or modal and immediately selects a graph placeholder',async()=>{
+ let posts=0,release:()=>void=()=>{};const delayed=new Promise<void>(r=>release=r);
+ server.use(http.post(`/api/manual-agents/workers/${node.node.id}/projects/${graphProject}`,async({request})=>{posts++;const body=await request.json() as {operation_id:string};expect(body).toMatchObject({intelligence_profile:{profile_id:'manual-model',profile_version:1,candidate_id:'claude'}});await delayed;const agent=pending(body.operation_id);fleet.sessions=[agent];return HttpResponse.json(agent);}));
+ renderApp(`/agents?select=node:${node.node.id}`);
+ const launch=await screen.findByRole('button',{name:'Launch agent'});await waitFor(()=>expect(launch).toBeEnabled());fireEvent.click(launch);
+ expect(screen.queryByRole('dialog',{name:'Launch agent'})).not.toBeInTheDocument();expect(screen.queryByRole('textbox',{name:'What should the agent do?'})).not.toBeInTheDocument();
+ expect(await screen.findByText('Requesting agent startup')).toBeInTheDocument();expect(posts).toBe(1);release();
+ expect(await screen.findByText('Waiting for a slot')).toBeInTheDocument();expect(await screen.findByRole('button',{name:'Stop agent'})).toBeInTheDocument();
+});
+test('lost launch response keeps one stable graph intent for exact retry',async()=>{
+ const sent:string[]=[];
+ server.use(http.post(`/api/manual-agents/workers/${node.node.id}/projects/${graphProject}`,async({request})=>{const text=await request.text();sent.push(text);if(sent.length===1)return HttpResponse.error();const a=pending(JSON.parse(text).operation_id);fleet.sessions=[a];return HttpResponse.json(a);}));
+ renderApp(`/agents?select=node:${node.node.id}`);const launch=await screen.findByRole('button',{name:'Launch agent'});await waitFor(()=>expect(launch).toBeEnabled());fireEvent.click(launch);
+ fireEvent.click(await screen.findByRole('button',{name:'Retry same launch'}));await screen.findByText('Waiting for a slot');expect(sent).toHaveLength(2);expect(sent[0]).toBe(sent[1]);
+});
+test('project slots update independently and pending agents change into ready graph nodes',()=>{
+ const other=graphId(102);fleet.projects.push({id:other,name:'Other',repository_id:repo});fleet.slots.push({node_id:node.node.id,project_id:graphProject,slots:3,revision:1});
+ expect(capacity(fleet,node.node.id,graphProject)).toBe(3);expect(capacity(fleet,node.node.id,other)).toBe(1);
+ const a=pending(graphId(103));fleet.sessions=[a];const view=adaptSwarm(SWARM_MOCKUP,new Date().toISOString());
+ const merged=mergeManual(view,fleet,graphProject,`agent:${a.id}`);const worker=merged.machines[0]!.nodes[0]!;expect(worker.slots.total).toBe(3);expect(worker.agents.find(v=>v.manual)?.terminalId).toBeNull();
+ a.status='running';a.worker_seen_at_ms=Date.now();expect(mergeManual(view,fleet,graphProject,`agent:${a.id}`).machines[0]!.nodes[0]!.agents.find(v=>v.manual)?.terminalId).toBe(a.id);
+ expect(()=>adaptManualFleet({...fleet,slots:[{node_id:node.node.id,project_id:graphProject,slots:999,revision:1}]})).toThrow();
+});
+
+test('fresh original-worker reports keep manual capacity online while native execution is paused',()=>{
+ const view=adaptSwarm(SWARM_MOCKUP,new Date().toISOString());const machine=view.machines[0]!,worker=machine.nodes[0]!;machine.state='offline';worker.health='offline';worker.lastSeenAt='2020-01-01T00:00:00Z';
+ const online=mergeManual(view,fleet,graphProject,null);expect(online.machines[0]!.state).toBe('online');expect(online.machines[0]!.nodes[0]!.health).toBe('online');expect(online.machines[0]!.nodes[0]!.lastSeenAt).toBe(new Date(fleet.workers[0]!.observed_at_ms).toISOString());
+ fleet.workers[0]!.observed_at_ms-=16000;expect(mergeManual(view,fleet,graphProject,null).machines[0]!.nodes[0]!.health).toBe('offline');
+ fleet.workers[0]!.observed_at_ms=fleet.server_time_ms;worker.health='revoked';expect(mergeManual(view,fleet,graphProject,null).machines[0]!.nodes[0]!.health).toBe('revoked');
+ machine.state='stopped';expect(mergeManual(view,fleet,graphProject,null).machines[0]!.state).toBe('stopped');
+});
+
+test('Codex provider resolves the saved profile and retains it for uncertain exact retry',async()=>{
+ const sent:string[]=[];
+ server.use(http.post(`/api/manual-agents/workers/${node.node.id}/projects/${graphProject}`,async({request})=>{const text=await request.text();sent.push(text);if(sent.length===1)return HttpResponse.error();const a=pending(JSON.parse(text).operation_id);a.spec={...a.spec,provider:'openai',model:'gpt-test',reasoning:'high',harness:'codex'};fleet.sessions=[a];return HttpResponse.json(a);}));
+ renderApp(`/agents?select=node:${node.node.id}`);const launch=await screen.findByRole('button',{name:'Launch agent'});await waitFor(()=>expect(launch).toBeEnabled());
+ fireEvent.change(screen.getByRole('combobox',{name:'Agent provider'}),{target:{value:'openai'}});
+ expect(screen.getByRole('combobox',{name:'Agent intelligence profile'})).toHaveTextContent('Standard · gpt-test · high');fireEvent.click(launch);
+ await screen.findByRole('button',{name:'Retry same launch'});expect(JSON.parse(sent[0]!)).toMatchObject({intelligence_profile:{profile_id:'manual-model',profile_version:1,candidate_id:'codex'}});
+ fireEvent.click(screen.getByRole('button',{name:'Retry same launch'}));await screen.findByText('Waiting for a slot');expect(sent[1]).toBe(sent[0]);
+});
+test('worker with only Claude installed does not advertise Codex launch',async()=>{
+ fleet.workers[0]!.providers=['anthropic'];renderApp(`/agents?select=node:${node.node.id}`);await screen.findByRole('combobox',{name:'Agent provider'});expect(screen.queryByRole('option',{name:'Codex'})).not.toBeInTheDocument();
+});
+
+test('two project slots and one default scratch slot keep their scope explicit',()=>{
+ const other=graphId(102);fleet.projects.push({id:other,name:'Scratch',repository_id:repo});fleet.slots=[{node_id:node.node.id,project_id:graphProject,slots:2,revision:1}];
+ const view=adaptSwarm(SWARM_MOCKUP,new Date().toISOString());for(const machine of view.machines)for(const worker of machine.nodes)worker.agents=[];
+ const scoped=mergeManual(view,fleet,graphProject,null).machines[0]!.nodes[0]!;
+ const aggregate=mergeManual(view,fleet,null,null).machines[0]!.nodes[0]!;
+ expect(scoped.slots).toMatchObject({total:2,idle:2,scope:'Project example'});
+ expect(aggregate.slots).toMatchObject({total:3,idle:3,scope:'All projects'});
+});

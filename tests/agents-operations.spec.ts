@@ -44,12 +44,12 @@ for (const vp of VIEWPORTS) {
       await page.keyboard.press("Escape");
       await expect(details).toBeHidden();
 
-      if (vp.phone) { await terminal.getByRole("button", { name: "More terminal actions" }).click(); await terminal.getByRole("button", { name: "Disconnect" }).click(); }
+      if (vp.phone) { await terminal.getByRole("button", { name: "More terminal actions" }).click(); await terminal.getByRole("group", {name:"More terminal actions"}).getByRole("button", { name: "Disconnect" }).click(); }
       else await terminal.getByRole("button", { name: "Disconnect" }).click();
       const frozen = terminal.getByRole("figure", { name: "Last observation" });
       await expect(frozen).toContainText("Fixture output for Worker 07");
-      await expect(frozen).toContainText("never relaunches the agent or takes control");
-      await expect(terminal.getByRole("button", { name: "Take control" })).toBeDisabled();
+      await expect(frozen).toContainText("never relaunches the agent");
+      await expect(terminal).not.toHaveAttribute("data-controlling");
       await check(page, `disconnected-${vp.name}`);
       if (vp.phone) { await terminal.getByRole("button", { name: "More terminal actions" }).click(); }
       await terminal.getByRole("button", { name: "Reconnect" }).click();

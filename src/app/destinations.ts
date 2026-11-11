@@ -23,10 +23,10 @@ export type Destination = {
 export const DESTINATIONS: readonly Destination[] = [
   { id: "overview", label: "Overview", capability: "dashboard.overview", workPackage: "D04", phone: "primary" },
   { id: "supervisor", label: "Supervisor", capability: "supervisor.history.read", workPackage: "D06", phone: "primary" },
+  { id: "agents", label: "Agents", capability: "sessions.read", workPackage: "D04/D07", phone: "primary" },
   { id: "work", label: "Work", capability: "tasks.read", workPackage: "D04", phone: "more" },
   { id: "results", label: "Results", capability: "results.read", workPackage: "D10", phone: "primary" },
   { id: "decisions", label: "Decisions", capability: "decisions.read", workPackage: "D05", phone: "more" },
-  { id: "agents", label: "Agents", capability: "sessions.read", workPackage: "D04/D07", phone: "primary" },
   { id: "playbooks", label: "Playbooks", capability: "playbooks.inspect", workPackage: "D11", phone: "more" },
   { id: "knowledge", label: "Knowledge", capability: "knowledge.read", workPackage: "D11", phone: "more" },
   { id: "settings", label: "Settings", capability: null, workPackage: "D03", phone: "more" },

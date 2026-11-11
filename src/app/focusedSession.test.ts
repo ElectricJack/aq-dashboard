@@ -6,5 +6,7 @@ test("only a session page is focused; the roster is not", () => {
   expect(isFocusedSessionPath("/agents/sessions")).toBe(false);
   expect(isFocusedSessionPath("/agents/sessions/")).toBe(false);
   expect(isFocusedSessionPath("/agents")).toBe(false);
+  expect(isFocusedSessionPath("/agents/swarm")).toBe(false);
+  expect(isFocusedSessionPath("/agents/history")).toBe(false);
   expect(isFocusedSessionPath("/agents/sessionsx")).toBe(true);
 });

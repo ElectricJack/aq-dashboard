@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-11",
+  "qualification": "Production dashboard bundle with labelled deterministic HTTP/WebSocket peers; actual xterm/browser. Separate worker/server integration uses actual Docker, recorder, TCP router and SQL.",
+  "dashboard_source": "43552accac3a72004db5bb75994c2e5da2f5157a",
+  "server_source": "a17106c5",
+  "worker_source": "29415877b764e49fc30ec1a13219240b88c255eb",
+  "browser_tests": 5,
+  "all_browser_tests_passed": true,
+  "viewports": [
+    1440,
+    900,
+    390,
+    320
+  ],
+  "reviewer": "root",
+  "captured_bytes": 114828,
+  "captured_lines": 1402,
+  "raw_spool_limit_bytes": 134217728,
+  "files": {
+    "history-1440.png": "a7b647ce9387e02bdda00abc3bc9b088d31955cfa5bc8d1c21e1f9068021a946",
+    "history-390.png": "974020fa8b670ed91b688a10b3c90a39d3fef5ed8506ebd06ad56f358ab0789c",
+    "served-bundle.json": "9a586edf2d00c9ab1408e3eefadd2f594ea9560978da2767f602a02d09b9476e",
+    "terminals-1440.png": "e51e48b3f5ab60b980ee52d90289d6ed6533b23da27bb229d1a3a223f2ce32c2",
+    "terminals-320.png": "cc28eac7c1cc507b2936fe3fb15d4bf06c10831064047ceea421db793587b758",
+    "terminals-390.png": "96c3f2507987c63c65cda7f825877f7633a58e7b06fd188f7fc52780704bfe1d",
+    "terminals-900.png": "d5b89b5651af0ba598b8432ceffcfdcf39bf5dbcfd1487175d9e2c280720cd61"
+  }
+}

@@ -177,7 +177,8 @@ function ConnectionStatus({ state, className }: { state: ConnectionState; classN
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
-  const focusedSession = isFocusedSessionPath(useLocation().pathname);
+  const location = useLocation();
+  const focusedSession = isFocusedSessionPath(location.pathname) || (location.pathname === "/agents/swarm" && new URLSearchParams(location.search).get("focus") === "terminal" && new URLSearchParams(location.search).get("select")?.startsWith("agent:"));
   const [scope, setScope] = useScope();
   const usage = useProviderUsage();
   const projects = useProjects();

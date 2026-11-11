@@ -2,6 +2,7 @@ import { ContractError, isRecord } from "./contract";
 export const PROJECT_PAGE_SIZE = 25;
 export type ProjectBindingView = {
   id: string; name: string; revision: number; enabled: boolean;
+  binding: Record<string,unknown>; workerPolicy: "enabled" | "disabled" | "missing" | "unknown";
   repositoryId: string; repositoryGeneration: number; workspaceId: string; catalogDigest: string;
   agents: string[]; intelligence: string[]; execution: string[]; environments: string[]; workerGroups: string[]; nodeIds: string[]; enrolledNodes: boolean;
   validation: { repository: string; graph: string; recordedAt: string; observedAt: string; expiresAt: string };
@@ -33,7 +34,10 @@ export function adaptProjectBindings(raw: unknown, after: string | null) {
     const enrolledNodes = b.allow_enrolled_nodes !== false;
     ensure(workerGroups.length > 0 || b.allowed_node_ids.length > 0 || enrolledNodes);
     previous = b.project_id;
-    return { id: b.project_id, name: b.name, revision: row.revision, enabled: b.enabled, repositoryId: b.repository_id, repositoryGeneration: b.repository_binding_generation,
+    ensure(raw.execution === undefined || isRecord(raw.execution));
+    const workerPolicy = raw.execution === undefined ? "unknown" : raw.execution[b.project_id] === undefined ? "missing" : raw.execution[b.project_id] === true ? "enabled" : "disabled";
+    ensure(raw.execution === undefined || raw.execution[b.project_id] === undefined || typeof raw.execution[b.project_id] === "boolean");
+    return { binding: b, workerPolicy, id: b.project_id, name: b.name, revision: row.revision, enabled: b.enabled, repositoryId: b.repository_id, repositoryGeneration: b.repository_binding_generation,
       workspaceId: b.graph_workspace_id, catalogDigest: b.catalog_digest,
       workerGroups, nodeIds: b.allowed_node_ids, enrolledNodes,
       agents: labels(b.allowed_agent_profiles), intelligence: labels(b.allowed_intelligence_profiles), execution: labels(b.allowed_execution_profiles), environments: labels(b.allowed_environments),

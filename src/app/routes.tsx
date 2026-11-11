@@ -8,6 +8,16 @@ function IndexRedirect() {
   return <Navigate to={{ pathname: "/overview", search }} replace />;
 }
 
+function HistoryRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/agents/history", search }} replace />;
+}
+function IntelligenceSettingsRedirect() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search); params.set("tab", "intelligence");
+  return <Navigate to={{ pathname: "/settings", search: `?${params}` }} replace />;
+}
+
 /** Routes from docs/specs/0002-product-design.md section 3; feature modules load lazily. */
 export const appRoutes: RouteObject[] = [
   {
@@ -26,13 +36,17 @@ export const appRoutes: RouteObject[] = [
           { path: "results", lazy: () => import("../features/results") },
           { path: "results/:resultId/revisions/:revision", lazy: () => import("../features/results") },
           { path: "decisions/:decisionId?", lazy: () => import("../features/decisions") },
-          { path: "agents", lazy: () => import("../features/agents/swarm") },
-          { path: "agents/sessions", lazy: () => import("../features/agents") },
+          { path: "agents", lazy: () => import("../features/agents/terminals") },
+          { path: "agents/worker/:nodeId", lazy: () => import("../features/agents/host") },
+          { path: "agents/swarm", lazy: () => import("../features/agents/swarm") },
+          { path: "agents/history", lazy: () => import("../features/agents/history") },
+          { path: "agents/sessions", Component: HistoryRedirect },
           { path: "agents/:sessionId", lazy: () => import("../features/agents") },
           { path: "playbooks", lazy: () => import("../features/playbooks") },
           { path: "playbooks/runs/:runId", lazy: () => import("../features/playbooks") },
           { path: "knowledge/:nodeId?", lazy: () => import("../features/knowledge") },
           { path: "settings", lazy: () => import("../features/settings") },
+          { path: "settings/intelligence", Component: IntelligenceSettingsRedirect },
         { path: "*", Component: NotFoundPage },
         ],
       },

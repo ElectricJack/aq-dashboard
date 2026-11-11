@@ -57,7 +57,6 @@ export function Results(){
  // The toolbar lives outside the per-filter feed, so changing a tab or filter never remounts it and focus stays put (RA-06);
  // it also stays through loading and errors, so a filter can be corrected and a detail view keeps Back to results (RA-20).
  return <div className={styles.layout}>
-  <p className={styles.subtitle}>See what changed. Give feedback where it matters.</p>
   <FeedToolbar exact={exact} scope={scope} {...f} checking={checking} projects={projects.data?.view??[]} onScope={setScope} onCheck={()=>check.current()} onChange={changes=>setParams(old=>{const next=new URLSearchParams(old);for(const [name,value] of Object.entries(changes)){if(value)next.set(name,value);else next.delete(name);}return next;})}/>
   <Feed key={JSON.stringify([queryContext,scope,resultId,revision,f.mode,f.task,f.media,f.range,f.since,f.until])} scope={scope} checking={checking} onChecking={setChecking} checkRef={check}/>
  </div>;
