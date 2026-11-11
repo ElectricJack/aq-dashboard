@@ -20,7 +20,7 @@ export function workerUrlProblem(value: string): string | null {
 }
 
 /** The operator pins the installer served by AQ's private worker endpoint. */
-export function hostedWorkerCommand(origin: unknown, digest: unknown): string | null {
+export function hostedWorkerCommand(origin: unknown, digest: unknown, controlsOnly = false): string | null {
   if (typeof origin !== "string" || !/^https:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]*(?::[0-9]{1,5})?$/.test(origin)
     || typeof digest !== "string" || !/^[a-f0-9]{64}$/.test(digest) || workerUrlProblem(origin)) return null;
   const script = [
@@ -29,7 +29,7 @@ export function hostedWorkerCommand(origin: unknown, digest: unknown): string | 
     `trap 'rm -f -- "$f"' EXIT`,
     'curl --proto "=https" --fail --silent --show-error --max-filesize 262144 --max-time 45 "$1/install/$2.sh" -o "$f"',
     'printf "%s  %s\\n" "$2" "$f" | sha256sum --check --status || { echo "Installer changed. Copy a fresh command from Add machine." >&2; exit 4; }',
-    'bash "$f" "$1"',
+    controlsOnly ? 'bash "$f" "$1" --controls-only' : 'bash "$f" "$1"',
   ].join("; ");
   return `bash -c ${shellQuote(script)} _ ${shellQuote(origin)} ${shellQuote(digest)}`;
 }
