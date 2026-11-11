@@ -22,10 +22,12 @@ export async function history(params: Record<string,string|number|undefined>, si
  if (!isRecord(v) || !Array.isArray(v.sessions) || v.sessions.length > 100 || !v.sessions.every(session) || !(v.next_cursor === null || typeof v.next_cursor === 'string') || !integer(v.server_time_ms)) throw new ContractError('Invalid history page');
  return v as {sessions: HistorySession[]; next_cursor: string|null; server_time_ms: number};
 }
-export async function transcript(id: string, params: {after?: number; through?: number; limit?: number} = {}, signal?: AbortSignal): Promise<Transcript> {
+export async function transcript(id: string, params: {after?: number; through?: number; limit?: number} = {}, signal?: AbortSignal, expectedProject?: string): Promise<Transcript> {
  const v = await apiGet<unknown>(url(`/api/manual-agents/${encodeURIComponent(id)}/transcript`,params),signal);
  if (!isRecord(v) || !session(v.session) || !Array.isArray(v.chunks) || v.chunks.length > 64 || !v.chunks.every(c => isRecord(c) && integer(c.sequence) && typeof c.text === 'string') || !integer(v.next_after) || typeof v.has_more !== 'boolean' || !integer(v.through_sequence) || !integer(v.server_time_ms)) throw new ContractError('Invalid transcript page');
  const page = v as Transcript;
+ if (page.session.id !== id) throw new ContractError('Transcript session does not match request');
+ if (expectedProject && page.session.project_id !== expectedProject) throw new ContractError('Transcript project does not match scope');
  if ((params.through !== undefined && page.through_sequence !== params.through) || page.chunks.some((c,i) => c.sequence <= (i ? page.chunks[i-1]!.sequence : (params.after ?? 0)) || c.sequence > page.through_sequence) || page.next_after !== (page.chunks.at(-1)?.sequence ?? (params.after ?? 0)) || (page.has_more && page.next_after <= (params.after ?? 0))) throw new ContractError('Transcript cursor did not advance');
  return page;
 }
@@ -39,8 +41,8 @@ export async function searchTranscript(id: string, params: {q: string; after?: n
 /** Byte positions are measured in UTF-8, not JavaScript UTF-16 code units. */
 export function byteIndex(text: string, offset: number): number { return new TextDecoder().decode(new TextEncoder().encode(text).slice(0,offset)).length; }
 /** Download a frozen snapshot; reject incomplete or non-progressing pagination. */
-export async function downloadTranscript(id: string, signal: AbortSignal, progress: (bytes: number) => void): Promise<string> {
+export async function downloadTranscript(id: string, signal: AbortSignal, progress: (bytes: number) => void, expectedProject?: string): Promise<string> {
  let after = 0, through: number|undefined, bytes = 0; const parts: string[] = [];
- do { const p = await transcript(id,{after,through,limit:64},signal); through ??= p.through_sequence; if (p.through_sequence !== through) throw new ContractError('Transcript snapshot changed'); for (const c of p.chunks) { parts.push(c.text); bytes += new TextEncoder().encode(c.text).length; } progress(bytes); if (!p.has_more) { if (p.next_after !== through) throw new ContractError('Transcript ended before its snapshot'); break; } after = p.next_after; } while (true);
+ do { const p = await transcript(id,{after,through,limit:64},signal,expectedProject); through ??= p.through_sequence; if (p.through_sequence !== through) throw new ContractError('Transcript snapshot changed'); for (const c of p.chunks) { parts.push(c.text); bytes += new TextEncoder().encode(c.text).length; } progress(bytes); if (!p.has_more) { if (p.next_after !== through) throw new ContractError('Transcript ended before its snapshot'); break; } after = p.next_after; } while (true);
  return parts.join('');
 }
