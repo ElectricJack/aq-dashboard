@@ -1,7 +1,10 @@
 import { useId, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { adaptConfiguredProviders } from "../../../api/adapters/configuredProviders";
+import { queryKey } from "../../../api/queryKeys";
 import { Link } from "react-router";
 import { useSwarmSettings, useUpdateSwarmLimits, type UpdateSwarmLimits } from "../../../api/swarmSettings";
-import { ApiError, isProtectedReadFailure } from "../../../api/client";
+import { apiGet, ApiError, isProtectedReadFailure } from "../../../api/client";
 import { ContractError } from "../../../api/adapters/contract";
 import { useSession } from "../../../app/session";
 import { ProviderBurn } from "./ProviderBurn";
@@ -19,11 +22,17 @@ function integer(value: string): number | null {
 }
 
 export function SwarmStatusHeader() {
-  const { queryContext } = useSession();
-  return <StatusHeader key={queryContext.principalId} principal={queryContext.principalId} />;
+  const { queryContext, bootstrap } = useSession();
+  const configured = useQuery({
+    queryKey: queryKey(queryContext, "configured-provider-accounts", { contract: "human-provider-accounts-1" }),
+    queryFn: async ({ signal }) => adaptConfiguredProviders(await apiGet<unknown>("/api/human/provider-accounts", AbortSignal.any([signal, AbortSignal.timeout(15_000)]))),
+    enabled: bootstrap.capability("providers.configured.read").enabled, retry: false, refetchInterval: 60_000,
+  });
+  const configuredProviders = configured.isError ? undefined : configured.data?.accounts.filter(account => account.enabled).map(account => account.provider);
+  return <StatusHeader key={queryContext.principalId} principal={queryContext.principalId} configuredProviders={configuredProviders} />;
 }
 
-function StatusHeader({ principal }: { principal: string }) {
+function StatusHeader({ principal, configuredProviders }: { principal: string; configuredProviders?: string[] }) {
   const [open, setOpen] = useState(() => stored(principal));
   const id = useId();
   const settings = useSwarmSettings();
@@ -32,7 +41,12 @@ function StatusHeader({ principal }: { principal: string }) {
   const unclassified = config?.unclassified ?? [];
   const total = (field: "running" | "waiting") => cells.length && cells.every(cell => cell[field] !== null)
     ? cells.reduce((sum, cell) => sum + cell[field]!, 0) + unclassified.reduce((sum, item) => sum + item[field], 0) : null;
-  const providers = [...new Set([...(config?.provider_limits ?? []).map(item => item.provider), ...cells.map(cell => cell.provider)])];
+  const providers = [...new Set([...(config?.provider_limits ?? []).map(item => item.provider), ...cells.map(cell => cell.provider), ...unclassified.map(item => item.provider), ...(configuredProviders ?? [])])].filter(provider =>
+    configuredProviders === undefined || configuredProviders.includes(provider) ||
+    config?.provider_limits?.some(item => item.provider === provider && item.limit !== null) ||
+    cells.some(cell => cell.provider === provider && ((cell.running ?? 0) > 0 || (cell.waiting ?? 0) > 0)) ||
+    unclassified.some(item => item.provider === provider && (item.running > 0 || item.waiting > 0))
+  );
   const toggle = () => setOpen(previous => {
     const next = !previous;
     try { localStorage.setItem(storageKey(principal), String(next)); } catch { /* session-only preference */ }
@@ -44,12 +58,12 @@ function StatusHeader({ principal }: { principal: string }) {
       <span className={styles.counts}><strong>{total("running") == null ? "Active unknown" : `${total("running")} active`}</strong> · {total("waiting") == null ? "waiting unknown" : `${total("waiting")} waiting`}</span>
     </div>
     <div id={id} hidden={!open} className={styles.details}>
-      <div className={styles.intro}><div><strong>Provider allocation</strong><p className={styles.note}>Maximum concurrent agents across all projects and machines. Zero pauses new starts; running agents finish.</p></div><Link to="/settings?tab=intelligence">Intelligence settings</Link></div>
+      <div className={styles.intro}><div><strong>Provider allocation</strong><p className={styles.note}>Maximum concurrent agents across all projects and machines. Zero pauses new starts; running agents finish. Burn estimates require at least five minutes of fresh usage history.</p></div><Link to="/settings?tab=intelligence">Intelligence settings</Link></div>
       {settings.isError && <p role="alert">Provider limits could not be refreshed. Reload before applying changes.</p>}
       {!config && settings.isPending && <p role="status">Loading provider limits…</p>}
       {config && config.provider_limits === undefined && <p role="alert">Provider limits are unavailable on this server.</p>}
       {config && config.provider_limits !== undefined && providers.length === 0 && <p className={styles.note}>No providers configured.</p>}
-      {config && config.provider_limits !== undefined && <div className={styles.providerGrid}>{providers.map(provider => <ProviderAllocation key={provider} provider={provider} limit={config.provider_limits?.find(item => item.provider === provider)?.limit ?? null} revision={config.revision} catalogRevision={config.catalog_revision} active={settings.isError ? null : (() => { const matches = cells.filter(cell => cell.provider === provider); return matches.length && matches.every(cell => cell.running !== null) ? matches.reduce((sum, cell) => sum + cell.running!, 0) + unclassified.filter(item => item.provider === provider).reduce((sum, item) => sum + item.running, 0) : null; })()} readFailed={settings.isError} reload={async () => { const result = await settings.refetch(); if (result.isError || !result.data) throw result.error; return result.data; }} />)}</div>}
+      {config && config.provider_limits !== undefined && <div className={styles.providerGrid}>{providers.map(provider => <ProviderAllocation key={provider} provider={provider} limit={config.provider_limits?.find(item => item.provider === provider)?.limit ?? null} revision={config.revision} catalogRevision={config.catalog_revision} active={settings.isError ? null : (() => { const matches = cells.filter(cell => cell.provider === provider); return matches.length && matches.every(cell => cell.running !== null) ? matches.reduce((sum, cell) => sum + cell.running!, 0) + unclassified.filter(item => item.provider === provider).reduce((sum, item) => sum + item.running, 0) : null; })()} readFailed={settings.isError || !cells.some(cell => cell.provider === provider)} reload={async () => { const result = await settings.refetch(); if (result.isError || !result.data) throw result.error; return result.data; }} />)}</div>}
     </div>
   </section>;
 }
