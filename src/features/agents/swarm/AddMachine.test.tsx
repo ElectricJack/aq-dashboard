@@ -42,6 +42,27 @@ test("creates a code and shows it apart from the command", async () => {
   expect(screen.getByText("packaging/service/aq-install.sh --server 'https://aq.example' --bundle ~/aq-bundle --slots 2")).toBeInTheDocument();
 });
 
+test("offers one HTTPS command with a pinned installer and a separate code", async () => {
+  const digest = "a".repeat(64);
+  vi.stubEnv("VITE_AQ_WORKER_INSTALL_URL", "https://aq.tail.example:8443");
+  vi.stubEnv("VITE_AQ_WORKER_INSTALL_SHA256", digest);
+  try {
+    enroll();
+    await openServerPane();
+    await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+    expect(await screen.findByRole("textbox", { name: "Enrollment code" })).toHaveValue(CODE);
+    const command = screen.getByText(/^bash -c /).textContent ?? "";
+    expect(command).toContain("https://aq.tail.example:8443");
+    expect(command).toContain(digest);
+    expect(command).toContain("sha256sum --check --status");
+    expect(command).not.toMatch(/\r|\n/);
+    expect(command).not.toContain(CODE);
+    expect(screen.queryByRole("textbox", { name: "Worker URL" })).toBeNull();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
 test("command never contains the code", async () => {
   enroll();
   const log = vi.spyOn(console, "log"), info = vi.spyOn(console, "info"), warn = vi.spyOn(console, "warn"), error = vi.spyOn(console, "error");
