@@ -6,6 +6,7 @@ import { useSession } from "../../app/session";
 import { Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { AddMachine } from "../agents/swarm/AddMachine";
+import { useWorkerSettings } from "../agents/swarm/WorkerManagement";
 import { Timestamp } from "./Timestamp";
 import { OverviewDiagnostics } from "./OverviewDiagnostics";
 import styles from "./Settings.module.css";
@@ -28,6 +29,7 @@ function workers(raw: unknown): Worker[] {
 const HEALTHY = new Set(["ok", "healthy"]);
 
 export function FrameworkStatus() {
+  const management = useWorkerSettings();
   const { bootstrap, queryContext } = useSession();
   const workerCapability = bootstrap.capability("workers.read");
   const statusCapability = bootstrap.capability("status.read");
@@ -47,7 +49,7 @@ export function FrameworkStatus() {
     refetchInterval: 15_000,
     queryFn: async ({ signal }) => workers(await apiGet<unknown>("/api/workers", signal)),
   });
-  const currentWorkers = roster.data?.filter(worker => worker.status !== "revoked");
+  const currentWorkers = roster.data?.filter(worker => worker.status !== "revoked" && !management.data?.settings.some(s => s.kind === "node" && s.id === worker.id && s.removed));
   const daemon = !statusCapability.enabled
     ? { state: "unknown", text: statusCapability.reason }
     : status.isError ? { state: "unavailable", text: "Status unavailable" }

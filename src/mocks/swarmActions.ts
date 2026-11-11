@@ -15,6 +15,7 @@ export function swarmActionHandlers() {
       receipt_refs: disposition === "confirmed" ? [{ type: "swarm_operation", id }] : [], affected_entities: [],
       recovery: disposition === "confirmed" ? "none" : "lookup_original" } }, { status: disposition === "pending" ? 202 : 200 });
   return [
+    http.get("/api/worker-management", () => HttpResponse.json({ settings: [] })),
     http.post("/api/v1/actions", async ({ request }) => {
       const body = (await request.clone().json().catch(() => null)) as { operation_id?: string; kind?: string; subject?: unknown } | null;
       if (!body?.kind || !KINDS.includes(body.kind) || !body.operation_id) return undefined;

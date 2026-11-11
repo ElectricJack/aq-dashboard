@@ -15,6 +15,7 @@ import { buildSwarmGraph, selectionId, type Selection } from "./graph";
 import {ManualAgentsProvider,useManualAgents,mergeManual} from "./manualAgents";
 import { SwarmPane } from "./SwarmPane";
 import { SwarmTree } from "./SwarmTree";
+import { useWorkerSettings, applyWorkerSettings } from "./WorkerManagement";
 import styles from "./Swarm.module.css";
 
 /** Polls an object may be missing from the swarm before the pane lets go of its last known state. */
@@ -32,7 +33,8 @@ function SwarmPageBody() {
   const overviewCap = bootstrap.capability("dashboard.overview");
   const overview = useRead<OverviewWire, OverviewView>({ resource: "overview", path: "/api/v1/overview", scope: { kind: "all_authorized" }, adapt: adaptOverview, pollMs: 10_000, enabled: overviewCap.enabled });
   const manual=useManualAgents();
-  const view = swarm.data?.view ? mergeManual(swarm.data.view,manual?.fleet,manual?.project??null,params.get("select")) : undefined;
+  const settings = useWorkerSettings();
+  const view = swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view,manual?.fleet,manual?.project??null,params.get("select")), settings.data) : undefined;
   const ready = overview.data?.view.counts.ready.value ?? null;
   const selectParam = params.get("select");
   // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.

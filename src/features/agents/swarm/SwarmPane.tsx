@@ -10,6 +10,7 @@ import { AgentPane, scopeOnly } from "./AgentPane";
 import { AddMachine } from "./AddMachine";
 import { OwnerAvailability } from "./OwnerAvailability";
 import { MachineControls } from "./MachineControls";
+import { WorkerManagement } from "./WorkerManagement";
 import { showWaiting, type Selection } from "./graph";
 import styles from "./Swarm.module.css";
 
@@ -81,13 +82,13 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
   const offline = m.nodes.filter(n => n.health !== "online").length;
   return <>
     <Head kicker={m.kind === "cloud" ? "Cloud machine (boat VM)" : m.kind === "local" ? "Local machine" : "Machine"} title={m.label} />
+    <WorkerManagement kind="machine" id={m.id} name={m.label} maximum={m.agentMax} />
     <DetailList className={styles.facts}>
       <dt>State</dt><dd>{stateText(m)}</dd>
       <dt>Load now</dt><dd>{l ? `CPU ${l.cpuPercent}% · RAM ${l.memoryPercent}%${l.fresh ? "" : ` (as of ${formatAge(serverTime, l.observedAt)})`}` : "—"}</dd>
       <dt>Load avg</dt><dd>{l ? l.cpuAvgPercent === null && l.memoryAvgPercent === null ? "—" : `CPU ${l.cpuAvgPercent === null ? "—" : `${l.cpuAvgPercent}%`} · RAM ${l.memoryAvgPercent === null ? "—" : `${l.memoryAvgPercent}%`} (last 15 min)` : "—"}</dd>
       <dt>Load source</dt><dd>{l ? (l.source === "windows_host" ? "Windows host (WSL2)" : l.source === "linux" ? (l.hostProbe === "missing" ? "WSL VM" : "Linux") : "unknown") : "unknown"}</dd>
       {l && l.hostProbe === "stale" && <><dt>Note</dt><dd>Windows host probe stale: showing WSL VM load</dd></>}
-      <dt>Max agents</dt><dd>{m.agentMax ?? "unknown"} <Settings label="Edit in Settings" /></dd>
       <dt>Cores / RAM</dt><dd>{m.hardware ? `${m.hardware.logicalCpus ?? "—"} / ${gb(m.hardware.memoryTotalBytes, 2 ** 30)} GB` : "unknown"}</dd>
       <dt>Disk free</dt><dd>{m.hardware?.diskFreeBytes != null ? `${gb(m.hardware.diskFreeBytes, 1e9)} GB` : "unknown"}</dd>
       <dt>Worker nodes</dt><dd>{m.nodes.length}{offline > 0 ? ` (${offline} offline)` : ""}</dd>
@@ -101,6 +102,7 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
 function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
   return <>
     <Head kicker="Worker node" title={n.name} />
+    <WorkerManagement kind="node" id={n.id} name={n.name} maximum={n.slots.total} />
     <DetailList className={styles.facts}>
       <dt>Backend</dt><dd>{n.backendKind ?? "unknown"}</dd>
       <dt>Slots</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
