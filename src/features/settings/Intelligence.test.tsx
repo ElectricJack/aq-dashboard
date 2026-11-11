@@ -15,6 +15,7 @@ function snapshot() { return { revision: "12", active_digest: "a".repeat(64), pr
   { ...openai, harness: "codex", reasoning: "medium", reasoning_configuration_reference: "medium@1" },
 ] }; }
 const server = setupServer(...handlersFor("default"));
+beforeEach(() => server.use(http.get("/api/settings/swarm", () => HttpResponse.json(limitsSnapshot()))));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" })); afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 function read(data = snapshot()) { server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(data))); }
 async function open() { renderApp("/settings?tab=intelligence"); return screen.findByRole("row", { name: "Standard" }); }
@@ -160,4 +161,54 @@ test("deleting an assigned row succeeds and reports automatic routing", async ()
   await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard" }));
   expect(await screen.findByText(/Deleted “Standard”. Affected work will use the router/)).toBeVisible();
   expect(screen.queryByRole("row", { name: "Standard" })).not.toBeInTheDocument();
+});
+
+function limitsSnapshot(limit: number | null = 2) {
+  return { revision: "12", catalog_revision: "2", active_mode: "normal", normal: [], reduced: null, unclassified: [], provider_limits: [],
+    cell_limits: [{ provider: "anthropic", intelligence_class: "standard", limit }],
+    cells: [{ provider: "anthropic", intelligence_class: "standard", display_name: "Standard", normal_limit: null, reduced_limit: null, effective_limit: limit, running: 1, waiting: 0 }] };
+}
+
+test.each(["0", ""])("the added max agents column applies %j separately while preserving profile drafts", async value => {
+  read(); let data = limitsSnapshot(); let submitted: Record<string, unknown> | undefined; let profilePosts = 0;
+  server.use(http.get("/api/settings/swarm", () => HttpResponse.json(data)), http.post("/api/settings/swarm/limits", async ({ request }) => {
+    submitted = await request.json() as Record<string, unknown>; data = { ...limitsSnapshot(value === "" ? null : Number(value)), revision: "13" }; return HttpResponse.json(data);
+  }), http.post("/api/settings/intelligence", () => { profilePosts++; return HttpResponse.error(); }));
+  const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
+  await waitFor(() => expect(input).toHaveValue(2));
+  await userEvent.type(within(row).getByLabelText("Description"), " draft");
+  await userEvent.clear(input); if (value) await userEvent.type(input, value);
+  await userEvent.click(within(row).getByRole("button", { name: "Apply max agents for Standard" }));
+  await within(row).findByText("Limit saved.");
+  expect(submitted).toMatchObject({ expected_revision: "12", expected_catalog_revision: "2", cell: { provider: "anthropic", intelligence_class: "standard", limit: value === "" ? null : 0 } });
+  expect(profilePosts).toBe(0); expect(within(row).getByLabelText("Description")).toHaveValue("Everyday work draft");
+  expect(within(row).getByRole("button", { name: "Save Standard" })).toBeEnabled();
+  expect(screen.getAllByRole("columnheader")).toHaveLength(6);
+});
+
+test("an interrupted max agents save checks its operation before unlocking the provider", async () => {
+  read(); let data = limitsSnapshot(); let posts = 0;
+  server.use(http.get("/api/settings/swarm", () => HttpResponse.json(data)), http.post("/api/settings/swarm/limits", () => { posts++; return HttpResponse.error(); }),
+    http.get("/api/settings/swarm/operations/:id", () => { data = { ...limitsSnapshot(0), revision: "13" }; return HttpResponse.json(data); }));
+  const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
+  await waitFor(() => expect(input).toHaveValue(2)); await userEvent.clear(input); await userEvent.type(input, "0");
+  await userEvent.click(within(row).getByRole("button", { name: "Apply max agents for Standard" }));
+  const check = await within(row).findByRole("button", { name: "Check limit status" }); expect(screen.getByLabelText("Provider")).toBeDisabled();
+  await userEvent.click(check); await within(row).findByText("Limit saved.");
+  expect(screen.getByLabelText("Provider")).toBeEnabled(); expect(input).toHaveValue(0); expect(posts).toBe(1);
+});
+
+test("a conflicting cap update preserves the cap draft and profile editing", async () => {
+  read(); server.use(http.post("/api/settings/swarm/limits", () => HttpResponse.json({ error: "conflict", message: "Limits changed. Try again after refresh." }, { status: 409 })));
+  const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
+  await waitFor(() => expect(input).toHaveValue(2)); await userEvent.clear(input); await userEvent.type(input, "3");
+  await userEvent.click(within(row).getByRole("button", { name: "Apply max agents for Standard" }));
+  expect(await within(row).findByRole("alert")).toHaveTextContent("Limits changed"); expect(input).toHaveValue(3);
+  expect(screen.getByLabelText("Provider")).toBeEnabled(); expect(within(row).getByLabelText("Description")).toBeEnabled();
+});
+
+test("the selected provider cannot edit an absent class catalog pair", async () => {
+  read(); const row = await open(); await userEvent.selectOptions(screen.getByLabelText("Provider"), "openai");
+  expect(within(row).getByRole("spinbutton", { name: "Max agents for Standard" })).toBeDisabled();
+  expect(within(row).getByText("Unavailable")).toBeVisible();
 });

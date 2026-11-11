@@ -1,56 +1,38 @@
 import { useId, useState } from "react";
 import { Link } from "react-router";
-import { useSetSwarmMode, useSwarmSettings, type SetSwarmMode } from "../../../api/swarmSettings";
+import { useSwarmSettings, useUpdateSwarmLimits, type UpdateSwarmLimits } from "../../../api/swarmSettings";
 import { ApiError, isProtectedReadFailure } from "../../../api/client";
 import { ContractError } from "../../../api/adapters/contract";
-import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
-import { ProviderUsageStrip, ProviderUsageSummary } from "../../../components/ProviderUsageStrip/ProviderUsageStrip";
+import { ProviderBurn } from "./ProviderBurn";
 import styles from "./SwarmStatusHeader.module.css";
 
 function storageKey(principal: string) { return `aq.swarm.status.expanded:${principal}`; }
 function stored(principal: string) {
   try { return localStorage.getItem(storageKey(principal)) === "true"; } catch { return false; }
 }
+const MAX_LIMIT = 4_294_967_295;
+function integer(value: string): number | null {
+  if (!/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed <= MAX_LIMIT ? parsed : null;
+}
 
 export function SwarmStatusHeader() {
   const { queryContext } = useSession();
-  const principal = queryContext.principalId;
-  // Key the preference by principal so a shared device does not disclose another viewer's choice.
-  return <StatusHeader key={principal} principal={principal} />;
+  return <StatusHeader key={queryContext.principalId} principal={queryContext.principalId} />;
 }
 
 function StatusHeader({ principal }: { principal: string }) {
   const [open, setOpen] = useState(() => stored(principal));
   const id = useId();
-  const usage = useProviderUsage();
   const settings = useSwarmSettings();
-  const mode = useSetSwarmMode();
   const config = settings.isError && isProtectedReadFailure(settings.error) ? undefined : settings.data;
-  const [uncertain, setUncertain] = useState<SetSwarmMode | null>(null);
-  const submit = (request: SetSwarmMode) => {
-    mode.mutate(request, { onSuccess: () => setUncertain(null), onError: error => {
-      if ((error instanceof ApiError && (error.effectUnknown || error.kind === "contract" || (error.status !== undefined && error.status >= 500))) || error instanceof ContractError) setUncertain(request);
-      else setUncertain(null);
-    } });
-  };
   const cells = config?.cells ?? [];
   const unclassified = config?.unclassified ?? [];
   const total = (field: "running" | "waiting") => cells.length && cells.every(cell => cell[field] !== null)
     ? cells.reduce((sum, cell) => sum + cell[field]!, 0) + unclassified.reduce((sum, item) => sum + item[field], 0) : null;
-  const counts = new Map<string, { running: number | null; waiting: number | null }>();
-  for (const cell of cells) {
-    const entry = counts.get(cell.provider) ?? { running: 0, waiting: 0 };
-    entry.running = entry.running === null || cell.running === null ? null : entry.running + cell.running;
-    entry.waiting = entry.waiting === null || cell.waiting === null ? null : entry.waiting + cell.waiting;
-    counts.set(cell.provider, entry);
-  }
-  for (const item of unclassified) {
-    const entry = counts.get(item.provider) ?? { running: 0, waiting: 0 };
-    entry.running = entry.running === null ? null : entry.running + item.running;
-    entry.waiting = entry.waiting === null ? null : entry.waiting + item.waiting;
-    counts.set(item.provider, entry);
-  }
+  const providers = [...new Set([...(config?.provider_limits ?? []).map(item => item.provider), ...cells.map(cell => cell.provider)])];
   const toggle = () => setOpen(previous => {
     const next = !previous;
     try { localStorage.setItem(storageKey(principal), String(next)); } catch { /* session-only preference */ }
@@ -60,21 +42,63 @@ function StatusHeader({ principal }: { principal: string }) {
     <div className={styles.summary}>
       <button type="button" aria-expanded={open} aria-controls={id} onClick={toggle}>{open ? "Hide details ▴" : "Show details ▾"}</button>
       <span className={styles.counts}><strong>{total("running") == null ? "Active unknown" : `${total("running")} active`}</strong> · {total("waiting") == null ? "waiting unknown" : `${total("waiting")} waiting`}</span>
-      <span className={styles.usage}><ProviderUsageSummary state={usage.state} /></span>
-      <span className={styles.mode}>{config ? (config.active_mode === "reduced" ? "Reduced limits active" : "Normal limits") : settings.isPending ? "Loading mode…" : "Mode unavailable"}{settings.isError && config && " · stale"}</span>
-      <label className={styles.switch}><input type="checkbox" role="switch" checked={config?.active_mode === "reduced"} disabled={!config || settings.isError || mode.isPending || !!uncertain || (config.reduced === null && config.active_mode !== "reduced")} onChange={event => { if (config) submit({ operation_id: crypto.randomUUID(), expected_revision: config.revision, active_mode: event.currentTarget.checked ? "reduced" : "normal" }); }} />Reduced usage</label>
-      <Link to="/settings#swarm">{config && config.reduced === null ? "Configure reduced usage" : "Adjust limits"}</Link>
-      {mode.isPending && <span role="status">Updating mode…</span>}
-      {mode.isError && <span role="alert">{uncertain ? "Mode update outcome unknown. Retry the same operation to confirm." : "Mode update failed. Check settings before trying again."}</span>}
-      {uncertain && <button type="button" disabled={mode.isPending} onClick={() => submit(uncertain)}>Retry mode update</button>}
     </div>
     <div id={id} hidden={!open} className={styles.details}>
-      <p className={styles.note}>Active includes running and starting agents. Waiting shows recently observed work awaiting slots.</p>
-      {unclassified.length > 0 && <p className={styles.note}>Totals include agents and waiting tasks in historical or unclassified provider classes.</p>}
-      {counts.size > 0 && <div className={styles.breakdown} aria-label="Agents by provider">
-        {[...counts].map(([provider, count]) => <div key={provider}><strong>{provider}</strong> · {count.running === null ? "active unknown" : `${count.running} active`} · {count.waiting === null ? "waiting unknown" : `${count.waiting} waiting`}</div>)}
-      </div>}
-      <ProviderUsageStrip state={usage.state} />
+      <div className={styles.intro}><div><strong>Provider allocation</strong><p className={styles.note}>Maximum concurrent agents across all projects and machines. Zero pauses new starts; running agents finish.</p></div><Link to="/settings?tab=intelligence">Intelligence settings</Link></div>
+      {settings.isError && <p role="alert">Provider limits could not be refreshed. Reload before applying changes.</p>}
+      {!config && settings.isPending && <p role="status">Loading provider limits…</p>}
+      {config && config.provider_limits === undefined && <p role="alert">Provider limits are unavailable on this server.</p>}
+      {config && config.provider_limits !== undefined && providers.length === 0 && <p className={styles.note}>No providers configured.</p>}
+      {config && config.provider_limits !== undefined && <div className={styles.providerGrid}>{providers.map(provider => <ProviderAllocation key={provider} provider={provider} limit={config.provider_limits?.find(item => item.provider === provider)?.limit ?? null} revision={config.revision} catalogRevision={config.catalog_revision} active={settings.isError ? null : (() => { const matches = cells.filter(cell => cell.provider === provider); return matches.length && matches.every(cell => cell.running !== null) ? matches.reduce((sum, cell) => sum + cell.running!, 0) + unclassified.filter(item => item.provider === provider).reduce((sum, item) => sum + item.running, 0) : null; })()} readFailed={settings.isError} reload={async () => { const result = await settings.refetch(); if (result.isError || !result.data) throw result.error; return result.data; }} />)}</div>}
     </div>
   </section>;
+}
+
+function ProviderAllocation({ provider, limit, revision, catalogRevision, active, readFailed, reload }: { provider: string; limit: number | null; revision: string; catalogRevision: string; active: number | null; readFailed: boolean; reload(): Promise<{ revision: string; catalog_revision: string; provider_limits?: { provider: string; limit: number | null }[] }> }) {
+  const mutation = useUpdateSwarmLimits();
+  const [draft, setDraft] = useState<string | null>(limit === null ? null : String(limit));
+  const [base, setBase] = useState({ limit, revision, catalogRevision });
+  const [uncertain, setUncertain] = useState<UpdateSwarmLimits | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  // Polls update clean controls, but never overwrite an edit in progress.
+  const dirty = draft === null ? base.limit !== null : integer(draft) !== base.limit;
+  if (!dirty && !uncertain && (base.revision !== revision || base.catalogRevision !== catalogRevision || base.limit !== limit)) {
+    setBase({ limit, revision, catalogRevision });
+    setDraft(limit === null ? null : String(limit));
+    setConflict(false);
+  }
+  const stale = dirty && (base.revision !== revision || base.catalogRevision !== catalogRevision);
+  const number = draft === null ? null : integer(draft);
+  const invalid = draft !== null && number === null;
+  const busy = mutation.isPending;
+  function submit(request: UpdateSwarmLimits) {
+    setError(null);
+    mutation.mutate(request, { onSuccess: result => {
+      const saved = result.provider_limits?.find(item => item.provider === provider)?.limit ?? null;
+      setBase({ limit: saved, revision: result.revision, catalogRevision: result.catalog_revision });
+      setDraft(saved === null ? null : String(saved)); setUncertain(null); setConflict(false);
+    }, onError: cause => {
+      if ((cause instanceof ApiError && (cause.effectUnknown || cause.kind === "contract" || (cause.status !== undefined && cause.status >= 500))) || cause instanceof ContractError) {
+        setUncertain(request); setError("Update outcome unknown. Retry the same operation to confirm.");
+      } else if (cause instanceof ApiError && cause.status === 409) {
+        setUncertain(null); setConflict(true); setError("Limits changed. Reload and review before applying.");
+      } else { setUncertain(null); setError("Update failed. Your draft is preserved."); }
+    } });
+  }
+  const blocked = busy || !!uncertain || conflict || stale || readFailed;
+  const max = Math.max(32, limit ?? 0, number ?? 0);
+  return <div className={styles.provider}>
+    <div className={styles.providerHeading}><strong>{provider}</strong><span>{draft === null ? "Unlimited" : invalid ? "Invalid limit" : `${number} concurrent${number === 0 ? " · paused" : ""}`}{dirty && " · draft"}</span></div>
+    <div className={styles.controls}>
+      <input type="range" aria-label={`${provider} concurrent agents`} min="0" max={max} step="1" value={number ?? 0} aria-valuetext={draft === null ? "Unlimited" : undefined} disabled={blocked} onChange={event => setDraft(event.currentTarget.value)} />
+      <input type="number" aria-label={`${provider} limit`} min="0" max={MAX_LIMIT} step="1" value={draft ?? ""} placeholder="Unlimited" disabled={blocked || draft === null} onChange={event => setDraft(event.currentTarget.value)} />
+      <label><input type="checkbox" aria-label={`${provider} unlimited`} checked={draft === null} disabled={blocked} onChange={event => setDraft(event.currentTarget.checked ? null : "0")} /> Unlimited</label>
+      <button type="button" disabled={blocked || !dirty || invalid} onClick={() => submit({ operation_id: crypto.randomUUID(), expected_revision: base.revision, expected_catalog_revision: base.catalogRevision, provider: { provider, limit: number } })}>{busy ? "Applying…" : "Apply"}</button>
+    </div>
+    <ProviderBurn provider={provider} proposedLimit={invalid ? null : number} active={active} />
+    {(stale || conflict) && <p role="alert">Limits changed while editing. Reload to review current values. <button type="button" disabled={busy || !!uncertain} onClick={() => { void reload().then(result => { const current = result.provider_limits?.find(item => item.provider === provider)?.limit ?? null; setBase({ limit: current, revision: result.revision, catalogRevision: result.catalog_revision }); setDraft(current === null ? null : String(current)); setConflict(false); setError(null); }).catch(() => setError("Could not reload limits. Your draft is preserved.")); }}>Reload limits</button></p>}
+    {invalid && <p role="alert">Enter a whole number from 0 to {MAX_LIMIT.toLocaleString()}.</p>}
+    {error && <p role="alert">{error} {uncertain && <button type="button" disabled={busy} onClick={() => submit(uncertain)}>Retry same update</button>}</p>}
+  </div>;
 }

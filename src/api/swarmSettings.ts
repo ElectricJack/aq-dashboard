@@ -5,11 +5,14 @@ import { apiGet, apiSend, ApiError } from "./client";
 import { queryKey } from "./queryKeys";
 import { pollUnlessSettled } from "./retry";
 
+export type SwarmProviderLimit = { provider: string; limit: number | null };
+export type SwarmLimitOverride = { provider: string; intelligence_class: string; limit: number | null };
+export type UpdateSwarmLimits = { operation_id: string; expected_revision: string; expected_catalog_revision: string; provider?: SwarmProviderLimit; cell?: SwarmLimitOverride };
 export type SwarmMode = "normal" | "reduced";
 export type SwarmCellLimit = { provider: string; intelligence_class: string; limit: number };
 export type SwarmCell = { provider: string; intelligence_class: string; display_name: string; normal_limit: number | null; reduced_limit: number | null; effective_limit: number | null; running: number | null; waiting: number | null };
 export type SwarmUnclassified = { provider: string; running: number; waiting: number };
-export type SwarmSettings = { unclassified: SwarmUnclassified[]; revision: string; catalog_revision: string; active_mode: SwarmMode; normal: SwarmCellLimit[] | null; reduced: SwarmCellLimit[] | null; cells: SwarmCell[] };
+export type SwarmSettings = { provider_limits?: SwarmProviderLimit[]; cell_limits?: SwarmLimitOverride[]; unclassified: SwarmUnclassified[]; revision: string; catalog_revision: string; active_mode: SwarmMode; normal: SwarmCellLimit[] | null; reduced: SwarmCellLimit[] | null; cells: SwarmCell[] };
 export type SaveSwarmSettings = { operation_id: string; expected_revision: string; expected_catalog_revision: string; normal: SwarmCellLimit[]; reduced: SwarmCellLimit[] | null };
 export type SetSwarmMode = { operation_id: string; expected_revision: string; active_mode: SwarmMode };
 const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 512;
@@ -31,6 +34,21 @@ function limits(v: unknown): SwarmCellLimit[] | null {
 export function adaptSwarmSettings(v: unknown): SwarmSettings {
   ensure(isRecord(v) && revision(v.revision) && revision(v.catalog_revision) && mode(v.active_mode) && Array.isArray(v.cells) && v.cells.length <= 4096 && Array.isArray(v.unclassified) && v.unclassified.length <= 4096);
   const normal = limits(v.normal), reduced = limits(v.reduced);
+  function overrides(value: unknown, cell: boolean) {
+    if (value === undefined) return undefined; // Compatible with older server snapshots and receipts.
+    ensure(Array.isArray(value) && value.length <= 4096);
+    const keys = new Set<string>();
+    return value.map((item: unknown) => {
+      ensure(isRecord(item) && text(item.provider) && nullableUint(item.limit) && (item.limit === null || item.limit <= 4294967295));
+      if (cell) ensure(text(item.intelligence_class));
+      const key = JSON.stringify(cell ? [item.provider, item.intelligence_class] : [item.provider]);
+      ensure(!keys.has(key)); keys.add(key);
+      return cell ? { provider: item.provider, intelligence_class: item.intelligence_class as string, limit: item.limit } : { provider: item.provider, limit: item.limit };
+    });
+  }
+  const providerLimits = overrides(v.provider_limits, false) as SwarmProviderLimit[] | undefined;
+  const cellLimits = overrides(v.cell_limits, true) as SwarmLimitOverride[] | undefined;
+  const cellOverrides = new Map(cellLimits?.map(item => [JSON.stringify([item.provider, item.intelligence_class]), item.limit]));
   const seen = new Set<string>();
   const cells = v.cells.map((x: unknown): SwarmCell => {
     ensure(isRecord(x) && text(x.provider) && text(x.intelligence_class) && text(x.display_name) && nullableUint(x.normal_limit) && nullableUint(x.reduced_limit) && nullableUint(x.effective_limit) && nullableUint(x.running) && nullableUint(x.waiting));
@@ -55,12 +73,13 @@ export function adaptSwarmSettings(v: unknown): SwarmSettings {
   for (const cell of cells) {
     const key = JSON.stringify([cell.provider, cell.intelligence_class]);
     const normalLimit = normalByCell.get(key) ?? null, reducedLimit = reducedByCell.get(key) ?? null;
-    ensure(cell.normal_limit === normalLimit && cell.reduced_limit === reducedLimit && cell.effective_limit === (v.active_mode === "normal" ? normalLimit : reducedLimit));
+    ensure(cell.normal_limit === normalLimit && cell.reduced_limit === reducedLimit && cell.effective_limit === (cellOverrides.has(key) ? cellOverrides.get(key) : v.active_mode === "normal" ? normalLimit : reducedLimit));
   }
-  return { revision: v.revision, catalog_revision: v.catalog_revision, active_mode: v.active_mode, normal, reduced, cells, unclassified };
+  return { revision: v.revision, catalog_revision: v.catalog_revision, active_mode: v.active_mode, normal, reduced, cells, unclassified, ...(providerLimits === undefined ? {} : { provider_limits: providerLimits }), ...(cellLimits === undefined ? {} : { cell_limits: cellLimits }) };
 }
 export async function readSwarmSettings(signal?: AbortSignal) { return adaptSwarmSettings(await apiGet<unknown>("/api/settings/swarm", signal)); }
 export async function saveSwarmSettings(request: SaveSwarmSettings) { return adaptSwarmSettings(await apiSend<unknown>("POST", "/api/settings/swarm", request)); }
+export async function updateSwarmLimits(request: UpdateSwarmLimits) { return adaptSwarmSettings(await apiSend<unknown>("POST", "/api/settings/swarm/limits", request)); }
 export async function setSwarmMode(request: SetSwarmMode) { return adaptSwarmSettings(await apiSend<unknown>("POST", "/api/settings/swarm/mode", request)); }
 export async function inspectSwarmOperation(id: string) { return adaptSwarmSettings(await apiGet<unknown>(`/api/settings/swarm/operations/${encodeURIComponent(id)}`)); }
 export function useSwarmSettings(enabled = true) {
@@ -82,3 +101,5 @@ function useSwarmMutation<T>(mutationFn: (request: T) => Promise<SwarmSettings>)
 }
 export function useSaveSwarmSettings() { return useSwarmMutation(saveSwarmSettings); }
 export function useSetSwarmMode() { return useSwarmMutation(setSwarmMode); }
+
+export function useUpdateSwarmLimits() { return useSwarmMutation(updateSwarmLimits); }
