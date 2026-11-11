@@ -8,6 +8,7 @@ import { queryKey } from "../../../api/queryKeys";
 import { useSession, PANEL_READ } from "../../../app/session";
 import { ActionButton } from "../../../components/layout/Workspace";
 import styles from "./Swarm.module.css";
+import {WorkerDiagnostics} from "./WorkerDiagnostics";
 import {WorkerLogins} from "./WorkerLogins";
 
 type Setting = {
@@ -69,7 +70,7 @@ export function WorkerManagement(props: Props) {
     {query.isError ? "Worker settings could not be loaded." : "Loading worker settings…"}
   </p>;
   const current = query.data.settings.find(s => s.kind === props.kind && s.id === props.id);
-  return <><ManagementForm key={`${props.kind}:${props.id}:${current?.revision ?? 0}`} {...props} current={current} />{props.kind === "node" && <WorkerLogins key={props.id} nodeId={props.id}/>}</>;
+  return <><ManagementForm key={`${props.kind}:${props.id}:${current?.revision ?? 0}`} {...props} current={current} />{props.kind === "node" && <><WorkerLogins key={props.id} nodeId={props.id}/><WorkerDiagnostics key={props.id} nodeId={props.id}/></>}</>;
 }
 
 type Change = { operation_id: string; expected_revision: number; label: string; max_agents: number | null; remove: boolean };

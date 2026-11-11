@@ -93,3 +93,5 @@
 .loginChoices { padding: 0; gap: 8px; font-size: 12px; }
 .loginChoices label { display: inline-flex; align-items: center; gap: 4px; }
 .loginChoices input { margin: 0; }
+
+.diagnosticDetails { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 11px; }
