@@ -35,6 +35,7 @@ export type NodeSlots = { total: number | null; occupied: number; idle: number |
 export type SwarmAgent = {
   session_id: string; attempt_id: string; task: TitledRef | null; project: ProjectRef;
   provider: string | null; model: string | null; harness: string | null; intelligence_class: IntelligenceClass | null;
+  routing_profile?: { id: string; display_name: string } | null;
   terminal: EntityRef | null; started_at: Timestamp | null;
 };
 export type SwarmNode = {

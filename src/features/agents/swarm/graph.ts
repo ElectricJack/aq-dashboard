@@ -1,6 +1,6 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
-import type { MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
+import { agentClassLabel, type MachineView, type NodeView, type SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
 
 export type Selection =
@@ -106,7 +106,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     link(machineId, id);
     for (const a of w.agents) {
       const s: Selection = { kind: "agent", sessionId: a.sessionId };
-      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:a.manual.stage}: {}) }));
+      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${agentClassLabel(a)}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:`${agentClassLabel(a)} · ${a.manual.stage}`}: {}) }));
       link(id, selectionId(s));
     }
     const idle = w.slots.idle ?? 0;

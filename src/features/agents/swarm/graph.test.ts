@@ -112,3 +112,11 @@ describe("buildSwarmGraph", () => {
     expect(labels).toEqual(["claude · standard", "anthropic · fast"]);
   });
 });
+
+it("shows the routing profile while retaining the legacy palette", () => {
+  const v = view();
+  v.machines[0]!.nodes[0]!.agents[0]!.routingProfile = { id: "complex", displayName: "Complex" };
+  const card = byId(build(v), "agent:s1")!;
+  expect(card.data.label).toBe("claude · Complex");
+  expect(card.data.intelligenceClass).toBe("standard");
+});

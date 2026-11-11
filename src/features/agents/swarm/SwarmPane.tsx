@@ -1,3 +1,4 @@
+import { agentClassLabel } from "../../../api/adapters/swarm";
 import { Link, useLocation } from "react-router";
 import type { HoldReasonView, MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
@@ -189,7 +190,7 @@ function Body({ view, selection, ready }: { view: SwarmView; selection: Selectio
   if (selection.kind === "agent" && hit.a) {
     if(hit.a.manual) return <AgentPane agent={hit.a} serverTime={view.serverTime} />;
     return <>
-      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${hit.a.intelligenceClass ?? "unclassified"}`} title={hit.a.task?.title ?? "No task"} />
+      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${agentClassLabel(hit.a)}`} title={hit.a.task?.title ?? "No task"} />
       <AgentPane agent={hit.a} serverTime={view.serverTime} />
     </>;
   }

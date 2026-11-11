@@ -57,7 +57,7 @@
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
     "dashboard-actions/v1/schema.json": "502cd9ead7bc90255f0a46a044c9c6a81b4a2bb94da28669407a673244bf81d2",
-    "dashboard-read/v1/README.md": "50c6be5d6403179b0bb4703474ae9e99451d91c44688f2e42ab4d2a0be618bcb",
+    "dashboard-read/v1/README.md": "2964a61966efc93c3d2900402753e2de4b3daea316cf175fb678e1ec56a070fb",
     "dashboard-read/v1/check.py": "e9b92a35253223bed0089a6975141f86cadaeaf0e2bc4c2163e2ee6ae07cb9a7",
     "dashboard-read/v1/fixtures/bootstrap.json": "e0b3f940b963c0180f24bcaf673af30fb06ea53375c790bdbf570a91877267d0",
     "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
@@ -83,7 +83,7 @@
     "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
     "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
     "dashboard-read/v1/fixtures/swarm.json": "0c513d2d2b82aa460b188f9f58e6b28f042134850196274a50c11b335cb5a7b8",
-    "dashboard-read/v1/schema.json": "ea232b563a5c54972d947cea27f195c318f270386129647abaca3233bc36266a",
+    "dashboard-read/v1/schema.json": "bf54757857b9ccfc50d10e359b1fa6402a3d3dbd4f8fdf70674a00cfec7eb5b2",
     "results-feedback/v1/README.md": "c2592b78662f98c71bb736784fd0fe15d416cf073e797f798ed486f017d7ea8e",
     "results-feedback/v1/check.py": "3ad8537c7974f812689761e28c7522569b3e6386d669074db84aa227f9be3959",
     "results-feedback/v1/fixtures/compatibility.json": "b5c8d86ab4b9392be0dfaeecbc979041cde89ad8142e5659eac1903e9a2aac6f",
@@ -99,6 +99,6 @@
   "contract_commits": {
     "results-feedback": "52cd05ef63126aeb2e8dae068ac835edb5de2b91",
     "dashboard-actions": "21a77e9b1c67e4485d522d3227c2a84b7b8f54b6",
-    "dashboard-read": "b88c51f8c1129dadd796f1657c68e14c0b141f8f"
+    "dashboard-read": "939ee9a4f6683fc7298703357d328aa55c46f0ad"
   }
 }

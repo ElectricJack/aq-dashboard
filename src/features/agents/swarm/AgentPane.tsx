@@ -1,6 +1,6 @@
 import {ManualAgentPane} from "./ManualAgentPane";
 import { Link, useLocation } from "react-router";
-import type { AgentView } from "../../../api/adapters/swarm";
+import { agentClassLabel, type AgentView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
 import { ActionButton, DetailList } from "../../../components/layout/Workspace";
 import { useSession } from "../../../app/session";
@@ -16,7 +16,7 @@ function NativeAgentPane({agent,serverTime}:{agent:AgentView;serverTime:string})
   const { search } = useLocation();
   const tokens = useAgentTokens(agent.sessionId);
   const terminal = bootstrap.capability("terminal.watch");
-  const label = `${agent.provider ?? "agent"} · ${agent.intelligenceClass ?? "unclassified"}`;
+  const label = `${agent.provider ?? "agent"} · ${agentClassLabel(agent)}`;
   return (
     <>
       <DetailList className={styles.facts}>

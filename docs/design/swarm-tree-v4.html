@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swarm controls — revised design</title>
+<link rel="stylesheet" href="https://esm.sh/@xyflow/react@12.3.6/dist/style.css">
+<style>
+  :root{--bg:#fff;--fg:#1d2330;--mut:#6b7280;--bd:#d6dae1;--card:#f6f7f9}
+  @media (prefers-color-scheme:dark){:root{--bg:#14171c;--fg:#e6e8ec;--mut:#9aa3af;--bd:#333a44;--card:#1c2027}}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+  header{padding:10px 16px 0}
+  h2{margin:0 0 2px;font-size:17px}
+  .sub{color:var(--mut);margin:0 0 10px}
+  .ctl{margin:0 16px 10px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 20px;background:var(--card)}
+  .grp h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  .row{display:grid;grid-template-columns:70px 1fr 38px;align-items:center;gap:8px;margin-bottom:4px}
+  .row input{width:100%}
+  .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .gbar{height:12px;border-radius:6px;background:rgba(127,127,127,.2);overflow:hidden;margin:2px 0 6px}
+  .gfill{height:100%;background:linear-gradient(90deg,#3a9,#db4,#d55);transition:width .2s}
+  .note{color:var(--mut);font-size:12px}
+  .warn{color:#c7802e;font-weight:600}
+  .stage{display:grid;grid-template-columns:1fr 360px;gap:10px;margin:0 16px 16px}
+  #flow{height:540px;border:1px solid var(--bd);border-radius:8px}
+  #pane{border:1px solid var(--bd);border-radius:8px;height:540px;display:flex;flex-direction:column;overflow:hidden}
+  #pane .ph{padding:10px 12px;border-bottom:1px solid var(--bd);background:var(--card)}
+  #pane .ph .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  #pane .ph .ttl{font-weight:700;font-size:15px}
+  #pane dl{margin:0;padding:10px 12px;display:grid;grid-template-columns:110px 1fr;gap:5px 10px;font-size:12px}
+  #pane dt{color:var(--mut)}
+  #pane .acts{padding:0 12px 10px;display:flex;gap:6px;flex-wrap:wrap}
+  #pane button{border:1px solid var(--bd);background:var(--bg);color:var(--fg);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
+  .term{flex:1;background:#0d1117;color:#c9d1d9;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;padding:10px 12px;overflow:auto;white-space:pre-wrap}
+  .term .p{color:#7ee787}.term .d{color:#8b949e}
+  .tin{display:flex;border-top:1px solid #30363d;background:#0d1117}
+  .tin input{flex:1;background:transparent;border:0;color:#c9d1d9;font:12px ui-monospace,monospace;padding:8px 12px;outline:none}
+  .meters{margin-top:4px;display:grid;grid-template-columns:30px 1fr 30px;gap:2px 5px;align-items:center;font-size:10px;color:var(--mut);text-align:left}
+  .mb{height:5px;border-radius:3px;background:rgba(127,127,127,.2);overflow:hidden}
+  .mb i{display:block;height:100%}
+  .react-flow__node{cursor:pointer}
+  .react-flow__node.selected .n{outline:2px solid #57c;outline-offset:2px}
+  .legend{margin:0 16px 6px;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  /* node cards */
+  .n{border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);padding:6px 10px;font-size:12px;min-width:120px;text-align:center}
+  .n .t{font-weight:700}
+  .n .s{color:var(--mut);font-size:11px}
+  .n.server{border:2px solid #57c;background:rgba(85,119,204,.12)}
+  .n.machine.local{border-left:4px solid #6a8}
+  .n.machine.cloud{border-left:4px solid #59c}
+  .n.off{opacity:.55;border-style:dashed}
+  .n.boot{border-style:dashed;border-color:#c7802e}
+  .n.node{background:var(--card)}
+  .n.agent{min-width:0;border-radius:14px;padding:3px 9px;font-size:11px;color:#fff;border:none}
+  .n.agent.codex{box-shadow:0 0 0 2px #111 inset}
+  .n.agent.free{background:transparent!important;color:var(--mut);border:1px dashed var(--mut)}
+  .n.agent.pending{background:transparent!important;color:#c7802e;border:1px dashed #c7802e}
+  .opts{display:flex;gap:10px;margin:0 16px 16px}
+  .opt{border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer}
+  .opt.selected{border-color:#57c;background:rgba(85,119,204,.12)}
+
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{font-size:14px}
+  button,.link{font:inherit;border:1px solid var(--bd);border-radius:6px;padding:7px 10px;background:var(--bg);color:var(--fg);cursor:pointer;text-decoration:none}
+  button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #57c;outline-offset:3px}
+  nav{display:flex;gap:8px;padding:12px 16px 0}
+  nav a[aria-current="page"]{background:var(--card);font-weight:600}
+  header .sub{font-size:12px;margin:5px 0 12px}
+  .status{margin:0 16px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+  .summary{display:flex;gap:10px 16px;align-items:center;flex-wrap:wrap;padding:9px 12px}
+  .summary .counts{flex:1;min-width:150px}
+  .summary .usage{color:var(--mut);font-size:12px}
+  .summary label{display:flex;gap:7px;align-items:center;white-space:nowrap}
+  .summary button{padding:5px 8px;font-size:12px}
+  .summary .link{font-size:12px;padding:5px 8px}
+  #status-details{border-top:1px solid var(--bd);padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+  #status-details h3{font-size:14px;margin:0 0 6px}
+  #status-details p{margin:4px 0;font-size:12px}
+  progress{width:100%;accent-color:#57c;height:10px}
+  .mode{font-size:12px;font-weight:600}
+  .mode[data-reduced="true"]{color:#c7802e}
+  #flow,#pane{height:max(380px,calc(100dvh - var(--top-space,230px) - 44px))}
+  .stage{grid-template-columns:minmax(0,1fr) 360px}
+  .meters,.n .s,.n.agent,.grp h4{font-size:12px}
+  .settings{margin:16px;max-width:950px}
+  .settings h1{font-size:22px;margin:0 0 8px}
+  .settings h2{font-size:17px;margin:0 0 6px}
+  .settings .panel{border:1px solid var(--bd);border-radius:8px;padding:16px;margin:16px 0;background:var(--card)}
+  .settings table{border-collapse:collapse;width:100%;margin-top:12px;table-layout:fixed}
+  .settings th,.settings td{padding:10px 6px;text-align:left;border-top:1px solid var(--bd);vertical-align:top}
+  .settings th{font-size:12px}
+  .settings input[type="number"]{width:68px;max-width:100%;padding:7px 5px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--fg);font:inherit}
+  .cell-state{display:block;color:var(--mut);font-size:12px;margin-top:6px}
+  .savebar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  #save-status{font-size:13px}
+  @media(max-width:850px){.stage{grid-template-columns:minmax(0,1fr)}#pane{height:420px}#flow{height:max(380px,calc(100dvh - var(--top-space,240px) - 44px))}}
+  @media(max-width:480px){.summary{gap:9px}.summary .counts{flex-basis:100%}.settings{margin:12px}.settings .panel{padding:10px}.settings th,.settings td{padding:10px 3px}.settings input[type="number"]{width:55px}.cell-state{font-size:12px}.stage{margin:0 12px 12px}.status{margin:0 12px 12px}}
+  @media(max-width:480px){.summary{display:grid;grid-template-columns:minmax(0,1fr) auto}.summary .counts{min-width:0;grid-column:1/-1;grid-row:1}.summary button{grid-column:2;grid-row:2}.summary .mode{grid-column:1;grid-row:2}.summary label{grid-column:1;grid-row:3}.summary .link{grid-column:2;grid-row:3}}
+</style>
+<script type="importmap">
+{"imports":{
+  "react":"https://esm.sh/react@18.3.1",
+  "react-dom/client":"https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1",
+  "@xyflow/react":"https://esm.sh/@xyflow/react@12.3.6?deps=react@18.3.1,react-dom@18.3.1",
+  "@dagrejs/dagre":"https://esm.sh/@dagrejs/dagre@1.1.4"
+}}
+</script>
+</head>
+<body>
+<nav aria-label="Prototype pages"><a class="link" href="#swarm" id="swarm-link">Swarm</a><a class="link" href="#settings-swarm" id="settings-link">Settings › Swarm</a></nav>
+<header>
+  <h2>Swarm</h2>
+  <p class="sub">Design prototype · Sample data · Changes are saved only in this browser and do not affect live agents.</p>
+</header>
+<main id="swarm-page">
+<section class="status" aria-label="Swarm status">
+  <div class="summary">
+    <button id="disclosure" type="button" aria-expanded="false" aria-controls="status-details">Show details ▾</button>
+    <span class="counts"><b>6 running</b> · 7 waiting <span class="usage">· Claude 78% · Codex 41%</span></span>
+    <span class="mode" id="mode-status">Normal limits</span>
+    <label><input id="reduced-mode" type="checkbox" role="switch">Reduced usage</label>
+    <a class="link" href="#settings-swarm">Adjust limits</a>
+  </div>
+  <div id="status-details" hidden>
+    <div><h3>Claude</h3><progress value="78" max="100" aria-label="Claude weekly usage"></progress><p>78% of weekly window · resets in 2 days</p><p>4 running · 5 waiting</p></div>
+    <div><h3>Codex</h3><progress value="41" max="100" aria-label="Codex usage window"></progress><p>41% of usage window · resets in 3 hours</p><p>2 running · 2 waiting</p></div>
+    <div><h3>Capacity</h3><p>Cloud ceiling: 2 VMs · 1 running</p><p>Each cloud VM runs one agent attempt.</p><p>Projected burn: unavailable</p></div>
+  </div>
+</section>
+<div class="legend">
+  <span><i style="background:#3a9"></i>fast</span><span><i style="background:#57c"></i>standard</span><span><i style="background:#a5c"></i>deep</span>
+  <span><i style="box-shadow:0 0 0 2px #111 inset;background:#888"></i>Codex (dark ring)</span>
+  <span><i style="border:1px dashed #888"></i>free slot</span><span><i style="border:1px dashed #c7802e"></i>waiting for a slot</span>
+</div>
+<div class="stage"><div id="flow"></div><div id="pane"><div class="ph"><div class="k">Properties</div><div class="ttl">Click anything in the tree</div></div><dl><dt>Server</dt><dd>health, version, queue depth</dd><dt>Machine</dt><dd>cores, memory, disk, cost/hr</dd><dt>Worker node</dt><dd>slots, heartbeat, backend</dd><dt>Agent</dt><dd>opens its live terminal</dd></dl></div></div>
+
+</main>
+<section id="settings-page" class="settings" hidden aria-labelledby="settings-title">
+  <h1 id="settings-title" tabindex="-1">Settings › Swarm</h1>
+  <p>Set how many agents may run at once for each provider and intelligence class. Tasks keep the class they require and wait for a matching slot.</p>
+  <p class="note">Changes affect new starts. Running agents finish. Zero pauses new starts. Counts below are a fixed sample snapshot.</p>
+  <form id="limits-form">
+    <div class="panel"><h2>Normal limits</h2><p class="note">Maximum concurrent agents shared across all projects and machines.</p><div id="normal-matrix"></div></div>
+    <div class="panel"><h2>Reduced usage limits</h2><p class="note">The header switch applies these saved limits. Each value must be at or below its Normal limit.</p><div id="reduced-matrix"></div></div>
+    <div class="savebar"><button type="submit">Save limits</button><a class="link" href="#swarm">Back to Swarm</a><span id="save-status" role="status"></span></div>
+  </form>
+</section>
+<script>
+const CLASSES = ["fast","standard","deep"], PROVIDERS = ["claude","codex"];
+const LABELS = {claude:"Claude",codex:"Codex"};
+const RUNNING = {claude:{fast:2,standard:1,deep:1},codex:{fast:1,standard:1,deep:0}};
+const QUEUED = {claude:{fast:0,standard:2,deep:3},codex:{fast:0,standard:0,deep:2}};
+const defaults = {normal:{claude:[2,1,1],codex:[1,1,0]},reduced:{claude:[1,1,0],codex:[1,0,0]},active:"normal"};
+const storageKey = "aq-swarm-v4-prototype";
+function load(){
+  try {
+    const v=JSON.parse(localStorage.getItem(storageKey));
+    if(!v || !["normal","reduced"].includes(v.active)) return structuredClone(defaults);
+    for(const p of PROVIDERS) for(let i=0;i<3;i++) {
+      const n=v.normal?.[p]?.[i], r=v.reduced?.[p]?.[i];
+      if(!Number.isInteger(n)||!Number.isInteger(r)||r<0||n<r||n>99) return structuredClone(defaults);
+    }
+    return v;
+  } catch {return structuredClone(defaults);}
+}
+window.swarmConfig=load();
+function save(){try{localStorage.setItem(storageKey,JSON.stringify(window.swarmConfig));return true;}catch{return false;}}
+function matrices(){for(const profile of ["normal","reduced"]){
+  const rows=PROVIDERS.map(p=>'<tr><th scope="row">'+LABELS[p]+'</th>'+CLASSES.map((c,i)=>'<td><input type="number" min="0" max="99" step="1" required id="'+profile+'-'+p+'-'+c+'" aria-label="'+profile+' '+LABELS[p]+' '+c+' slots" value="'+window.swarmConfig[profile][p][i]+'"><span class="cell-state">'+RUNNING[p][c]+' running<br>'+QUEUED[p][c]+' waiting</span></td>').join('')+'</tr>').join('');
+  document.getElementById(profile+'-matrix').innerHTML='<table><caption class="note">'+(profile==='normal'?'Normal':'Reduced usage')+' concurrency limits</caption><thead><tr><th scope="col">Provider</th>'+CLASSES.map(c=>'<th scope="col">'+c[0].toUpperCase()+c.slice(1)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table>';
+}}
+matrices();
+function refreshMode(){
+ const reduced=window.swarmConfig.active==='reduced';
+ document.getElementById('reduced-mode').checked=reduced;
+ const mode=document.getElementById('mode-status');mode.textContent=reduced?'Reduced limits active':'Normal limits';mode.dataset.reduced=String(reduced);
+ window.dispatchEvent(new Event('swarm-config'));
+}
+refreshMode();
+document.getElementById('reduced-mode').addEventListener('change',e=>{window.swarmConfig.active=e.target.checked?'reduced':'normal';const saved=save();refreshMode();if(!saved)document.getElementById('mode-status').textContent+=' · session only';});
+document.getElementById('limits-form').addEventListener('input',()=>{document.querySelectorAll('#limits-form input').forEach(el=>el.setCustomValidity(''));document.getElementById('save-status').textContent='Unsaved changes';});
+document.getElementById('limits-form').addEventListener('submit',e=>{
+ e.preventDefault();const next={normal:{},reduced:{},active:window.swarmConfig.active};
+ for(const p of PROVIDERS){next.normal[p]=[];next.reduced[p]=[];for(const c of CLASSES){
+  const n=document.getElementById('normal-'+p+'-'+c),r=document.getElementById('reduced-'+p+'-'+c);
+  if(+r.value>+n.value){r.setCustomValidity('Reduced limit must not exceed the Normal limit.');r.reportValidity();return;}
+  next.normal[p].push(+n.value);next.reduced[p].push(+r.value);
+ }}
+ window.swarmConfig=next;const saved=save();refreshMode();document.getElementById('save-status').textContent=saved?'Saved in this browser. Running agents continue.':'Applied for this session; browser storage is unavailable.';
+});
+const disclosure=document.getElementById('disclosure'),details=document.getElementById('status-details');
+function expanded(open){disclosure.setAttribute('aria-expanded',String(open));disclosure.textContent=open?'Hide details ▴':'Show details ▾';details.hidden=!open;}
+try{expanded(localStorage.getItem('aq-swarm-v4-header')==='expanded');}catch{}
+disclosure.addEventListener('click',()=>{const open=disclosure.getAttribute('aria-expanded')!=='true';expanded(open);try{localStorage.setItem('aq-swarm-v4-header',open?'expanded':'collapsed');}catch{}});
+function route(){const settings=location.hash==='#settings-swarm';document.querySelector('header h2').hidden=settings;document.getElementById('settings-page').hidden=!settings;document.getElementById('swarm-page').hidden=settings;document.getElementById('settings-link').setAttribute('aria-current',settings?'page':'false');document.getElementById('swarm-link').setAttribute('aria-current',settings?'false':'page');if(settings)document.getElementById('settings-title').focus();else window.scrollTo(0,0);}
+window.addEventListener('hashchange',route);route();
+new ResizeObserver(()=>{const box=document.getElementById('flow').getBoundingClientRect();if(box.width)document.documentElement.style.setProperty('--top-space',box.top+'px');}).observe(document.querySelector('.status'));
+</script>
+
+<script type="module">
+import React from "react";
+import {createRoot} from "react-dom/client";
+import {ReactFlow, Background, Controls, Handle, Position} from "@xyflow/react";
+import dagre from "@dagrejs/dagre";
+const h = React.createElement;
+const COL = {fast:"#3a9", standard:"#57c", deep:"#a5c"};
+
+// Fixed machines. Local nodes have fixed slots; boat VMs appear as the cap and demand allow.
+const LOCAL = [
+  {id:"desktop", label:"desktop", sub:"local · 24 cores", nodes:[{id:"local-1",slots:3},{id:"local-2",slots:2}]},
+  {id:"laptop", label:"laptop", sub:"local · offline 2h", off:true, nodes:[]},
+];
+const VM_SLOTS = 1;
+
+function Card({data}){
+  const dir = window.__dir || "TB";
+  const tgt = dir==="TB"?Position.Top:Position.Left, src = dir==="TB"?Position.Bottom:Position.Right;
+  return h("div",{className:"n "+data.cls, style:data.style},
+    data.kind!=="server" && h(Handle,{type:"target",position:tgt,style:{opacity:0}}),
+    h("div",{className:"t"},data.label),
+    data.sub && h("div",{className:"s"},data.sub),
+    data.meters && h("div",{className:"meters"}, ...data.meters.flatMap(([k,v])=>[
+      h("span",{key:k+"l"},k),
+      h("div",{key:k+"b",className:"mb"},h("i",{style:{width:v+"%",background:v>85?"#d55":v>65?"#db4":"#3a9"}})),
+      h("span",{key:k+"v"},v+"%")])),
+    data.kind!=="agent" && h(Handle,{type:"source",position:src,style:{opacity:0}}));
+}
+const nodeTypes = {card:Card};
+
+function build(st){
+  // Fixed running snapshot. Changing ceilings never removes running agents.
+  const want=[];
+  for(const p of PROVIDERS) for(const c of CLASSES) for(let i=0;i<RUNNING[p][c];i++) want.push({prov:p,cls:c});
+  // Keep host-native Codex agents local; Claude may occupy the cloud slot.
+  want.sort((a,b)=>(a.prov==='codex'?0:1)-(b.prov==='codex'?0:1));
+  // Machines: local first, then as many boat VMs as needed, up to the cap.
+  const localSlots = LOCAL.flatMap(m=>m.nodes).reduce((a,n)=>a+n.slots,0);
+  const vmNeeded = Math.max(0, Math.ceil((want.length-localSlots)/VM_SLOTS));
+  const vms = Math.min(st.b, vmNeeded);
+  const machines = [...LOCAL];
+  for(let i=0;i<vms;i++) machines.push({id:"vm-"+(i+1), label:"boat vm-"+String.fromCharCode(97+i), sub:"cloud · 8 cores", cloud:true, nodes:[{id:"boat-"+(i+1), slots:VM_SLOTS}]});
+  if(st.b>vms && vms<st.b) {} // cap not reached: no idle VMs are kept running
+
+  const nodes=[], edges=[];
+  const add=(id,data)=>nodes.push({id,type:"card",data,position:{x:0,y:0}});
+  add("server",{kind:"server",cls:"server",label:"AQ server",sub:"127.0.0.1:28080"});
+  let q=[...want], n=0;
+  for(const m of machines){
+    const cap = m.nodes.reduce((a,x)=>a+x.slots,0);
+    const busy = Math.min(cap, q.length);
+    const cpu = m.off?0:Math.min(98, 12 + Math.round(busy/Math.max(1,cap)*78));
+    const mem = m.off?0:Math.min(95, 30 + busy*9);
+    add(m.id,{kind:"machine",cls:"machine "+(m.cloud?"cloud":"local")+(m.off?" off":""),label:m.label,sub:m.sub+(m.off?"":" · max "+cap+" agents"),meters:m.off?null:[["CPU",cpu],["RAM",mem]]});
+    edges.push({id:"e-s-"+m.id,source:"server",target:m.id,animated:!m.off && !!m.nodes.length,style:m.off?{strokeDasharray:"5 4"}:undefined});
+    for(const nd of m.nodes){
+      const used = Math.min(nd.slots, q.length);
+      add(nd.id,{kind:"node",cls:"node",label:nd.id,sub:(m.cloud?"boat":"docker-local")+" · "+used+"/"+nd.slots+" slots"});
+      edges.push({id:"e-"+m.id+"-"+nd.id,source:m.id,target:nd.id});
+      for(let k=0;k<nd.slots;k++){
+        const a = q.shift(); const id="a"+(n++);
+        if(a) add(id,{kind:"agent",cls:"agent"+(a.prov==="codex"?" codex":""),label:a.prov+" · "+a.cls,style:{background:COL[a.cls]}});
+        else add(id,{kind:"agent",cls:"agent free",label:"free"});
+        edges.push({id:"e-"+nd.id+"-"+id,source:nd.id,target:id});
+      }
+    }
+  }
+  for(const p of PROVIDERS) for(const c of CLASSES) for(let i=0;i<QUEUED[p][c];i++) q.push({prov:p,cls:c});
+  if(q.length){
+    add("pending",{kind:"node",cls:"node boot",label:"waiting",sub:q.length+" tasks · intelligence slots"});
+    edges.push({id:"e-s-pending",source:"server",target:"pending",style:{strokeDasharray:"4 4",stroke:"#c7802e"}});
+    q.forEach((a,i)=>{const id="p"+i; add(id,{kind:"agent",cls:"agent pending",label:a.prov+" · "+a.cls,prov:a.prov,intelligence:a.cls}); edges.push({id:"e-p-"+id,source:"pending",target:id,style:{strokeDasharray:"3 3"}});});
+  }
+
+  // dagre layout
+  const g = new dagre.graphlib.Graph(); g.setDefaultEdgeLabel(()=>({}));
+  g.setGraph({rankdir:window.__dir||"TB", nodesep:14, ranksep:46});
+  nodes.forEach(nd=>g.setNode(nd.id,{width:nd.data.kind==="agent"?104:(nd.data.kind==="machine"?190:150),height:nd.data.kind==="agent"?24:(nd.data.meters?78:44)}));
+  edges.forEach(e=>g.setEdge(e.source,e.target));
+  dagre.layout(g);
+  nodes.forEach(nd=>{const p=g.node(nd.id); nd.position={x:p.x-p.width/2,y:p.y-p.height/2};});
+
+  return {nodes,edges,placed:want.length,waiting:q.length,vms};
+}
+
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function showPane(nd){
+  const p=document.getElementById("pane"), d=nd.data;
+  const head=(k,t)=>'<div class="ph"><div class="k">'+k+'</div><div class="ttl">'+esc(t)+'</div></div>';
+  const dl=rows=>'<dl>'+rows.map(([a,b])=>'<dt>'+a+'</dt><dd>'+b+'</dd>').join("")+'</dl>';
+  const acts=b=>'<div class="acts">'+b.map(x=>'<button>'+x+'</button>').join("")+'</div>';
+  if(window.brainstorm&&window.brainstorm.send) window.brainstorm.send({type:"click",choice:"inspect-"+d.kind,text:d.label});
+  if(d.kind==="server"){p.innerHTML=head("AQ server",d.label)+dl([["Health","ok · v0.1 · main 85070006"],["Waiting tasks","7 waiting for intelligence slots"],["Running agents","6"],["Usage window","Claude 78% weekly · Codex 41%"],["Projects","aq-platform, aq-worker, aq-dashboard"]])+acts(["Open settings","Pause all"]);return;}
+  if(d.kind==="machine"){const cloud=d.cls.includes("cloud"),off=d.cls.includes("off");
+    const mt=(d.meters||[]).map(([k,v])=>k+" "+v+"%").join(" · ")||"—";
+    p.innerHTML=head(cloud?"Cloud machine (boat VM)":"Local machine",d.label)+dl([["State",off?"offline since 10:12":"online"],["Load now",mt],["Load avg","CPU 61% · RAM 58% (last 15 min)"],["Max agents",(cloud?"1":"5")+' <button>Edit in Settings</button>'],["Where",cloud?"Boat · fra1":"this network"],["Cores / RAM",cloud?"8 / 16 GB":"24 / 64 GB"],["Disk free",cloud?"61 GB":"294 GB"],["Worker nodes",off?"0":"1–2"],["Cost",cloud?"$0.21 / h · up 47 min":"—"],["Lifecycle",cloud?"destroyed when the attempt ends":"always-on service"]])+acts(cloud?["Drain & stop VM","SSH-free logs"]:["Drain","Add worker node"]);return;}
+  if(nd.id==="pending"){p.innerHTML=head("Queued tasks","Waiting for intelligence slots")+dl([["Claude standard","2 waiting"],["Claude deep","3 waiting"],["Codex deep","2 waiting"],["Next step","Finish running work or adjust limits in Settings."]]);return;}
+  if(d.kind==="node"){p.innerHTML=head("Worker node",d.label)+dl([["Backend",d.sub.split(" · ")[0]],["Slots",d.sub.split(" · ")[1]||""],["Heartbeat","3 s ago"],["Version","aq-worker cd95777c"],["Sandbox image","aq-template@sha256:057a…"],["Channel","agent channel ready"]])+acts(["Drain node","Restart","View logs"]);return;}
+  if(d.kind==="agent"){
+    if(d.cls.includes("free")){p.innerHTML=head("Free slot","waiting for ready work")+dl([["Node","—"],["Takes","any provider / class allowed here"]]);return;}
+    if(d.cls.includes("pending")){
+      const lim=window.swarmConfig[window.swarmConfig.active][d.prov][CLASSES.indexOf(d.intelligence)];
+      p.innerHTML=head("Waiting task",d.label)+dl([["Required class",d.intelligence],["Running / limit",RUNNING[d.prov][d.intelligence]+" / "+lim],["Why",lim===0?"New starts paused for this provider and class":"Matching intelligence slots are occupied in this sample snapshot"],["Next step","Wait for a matching slot or adjust limits in Settings. The required class stays the same."]]);return;
+    }
+    const [prov,klass]=d.label.split(" · ");
+    p.innerHTML=head("Agent · "+prov+" · "+klass,"T-1"+(40+nd.id.length)+" Fix flaky host-cancel test")
+      +dl([["Task","aq-platform / T-147"],["Attempt","03606b35 · 12 min"],["Model",prov==="claude"?(klass==="deep"?"Opus 5.5":"Sonnet 5.5"):"GPT-5 Codex"],["Tokens","41k in / 6k out"]])
+      +acts(["Cancel attempt","Open task","Pop out terminal"])
+      +'<div class="term"><span class="d">— connected · you have control —</span>\n<span class="p">●</span> Reading crates/aq-server/src/playbooks/host_adapters.rs\n<span class="p">●</span> Bash(timeout 900 cargo nextest run -p aq-server --test it_playbook)\n  ⎿ 110 passed, 0 failed\n<span class="p">●</span> Bash(aq task comment add --body "Root cause: second pool connection…")\n  ⎿ comment 7f2c recorded\n<span class="p">●</span> Thinking…</div>'
+      +'<div class="tin"><input placeholder="Type to the agent…" autofocus></div>';
+  }
+}
+function App(){
+  const [tick,setTick]=React.useState(0);
+  React.useEffect(()=>{const on=()=>setTick(x=>x+1);window.addEventListener('swarm-config',on);return()=>window.removeEventListener('swarm-config',on);},[]);
+  const r = React.useMemo(()=>build({b:2}),[]);
+  return h(ReactFlow,{nodes:r.nodes,edges:r.edges,nodeTypes,fitView:true,nodesDraggable:false,proOptions:{hideAttribution:true},onNodeClick:(e,nd)=>showPane(nd)},
+    h(Background,{gap:18,size:1}), h(Controls,{showInteractive:false}));
+}
+createRoot(document.getElementById("flow")).render(h(App));
+</script>
+</body>
+</html>

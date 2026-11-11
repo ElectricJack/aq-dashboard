@@ -1,0 +1,35 @@
+# Swarm concurrency controls: browser validation
+
+Reference: `docs/design/14-swarm-tree-v3.png` for the tree and properties composition and `docs/design/swarm-tree-v4.html` for the revised status and Settings controls. The reviewed subset is the compact Swarm status, disclosure, Reduced usage switch, Settings link and Normal/Reduced matrices. Fixture provider names and unknown counts are not live observations.
+
+Chromium Playwright against `vite --mode mock` passed all 11 `tests/swarm-controls.spec.ts` cases: 320/390/1440 document reflow, disclosure state and persistence, tree and selected-machine retention, profile save, server-confirmed mode change, pending state, conflicts, errors and limit validation. Phone matrices scroll within labelled regions and have a visible hint. Desktop and phone fixture captures were inspected in `evidence/swarm-controls/fixture/`.
+
+The compiled `vite preview` bundle was also opened at 1440 and 390 with read-only GET responses replayed through Playwright from the mock server. The proposed fixture envelope version was changed to `dashboard-read-1` and bootstrap product/contract metadata supplied for the production compatibility gate; the fixture's incomplete capability catalog causes the visible compatibility notice. This is production bundle plus adapted fixture HTTP, not a live-server qualification. Keyboard disclosure, Settings navigation and document-width checks passed; desktop and phone captures, including the phone matrix, were inspected in `evidence/swarm-controls/compiled-fixture/`. `pnpm build` passed and reported no mock code or fixtures in `dist`; the served `dashboard-manifest.json` SHA-256 was `794f0f2c210b6664de17a48540da898701893694085255a322f0f15bd9ab1c42`, source revision `930ace511f764134bf0943e9870a8733574d69fa` with local changes.
+
+At initial fit, some leftmost nodes are outside the desktop tree viewport. `SwarmTree.tsx` retains its existing minimum-zoom 0.5 fallback, centering the server root when the full graph cannot fit; the tree remains pannable. The changed available viewport can trigger that fallback. Full live visual acceptance and production phase 3 remain open.
+
+Reviewer: Codex browser validation agent, 2026-11-11.
+
+## Server and admission behavior
+
+The owner API persists a Normal provider/class matrix, an optional Reduced matrix and the shared active mode. Classes are stable intelligence profile IDs with their configured display names; Automatic routing is its own named bucket. Unsupported pairs are unavailable. An installation without a saved Normal matrix preserves its previous behavior until the owner explicitly configures limits.
+
+`GET /api/settings/swarm` returns the current catalog, revision, profiles and occupancy. Matrix writes use `POST /api/settings/swarm`; mode changes use `POST /api/settings/swarm/mode`. Both require an operation UUID and expected settings revision; matrix saves also fence the catalog revision. `GET /api/settings/swarm/operations/{id}` reconciles uncertain writes. Receipts are immutable, actor-scoped and replayable with the exact original request. Owner authentication and existing same-origin mutation checks apply.
+
+Native offered attempts, preparing manual agents and prepared supervisor generations reserve the same provider/class capacity before launch. The shared settings-row lock prevents simultaneous admissions exceeding a ceiling. Reservations remain occupied until authoritative failure/stop evidence releases them. Lowering a ceiling preserves already admitted work. Zero pauses new starts. Saturated native tasks remain queued and polling proceeds to other tasks; routing never substitutes a cheaper class to fill capacity.
+
+Active counts include running processes and reserved starts. Waiting counts cover pending manual sessions and recent native slot-refusal observations; they are not an exhaustive count of all unclassified work in the external task graph. Expired observations are indexed and reclaimed in bounded batches. Historical occupancy without a provable class is shown separately and conservatively blocks new starts for the affected provider. Agent pills and panes use the attempt's pinned routing profile name when available; the legacy fast/standard/deep field remains only a palette hint.
+
+Migration 0115 adds settings, operation receipts, waiting observations and supervisor admission identities. Deploy the server, dashboard and supervisor-host changes together. Existing generations can finish; a database guard prevents an older supervisor host starting an unreserved generation after controls are configured. Host-terminal shells and the deterministic test-only execution harness do not launch provider models and are outside these ceilings.
+
+This increment implements concurrency profiles and their dashboard controls. Automatic cloud expansion, cloud sizing and additional machine-resource controls remain separate Swarm phases.
+
+## Build budget
+
+To keep the server library below its existing size ratchet, release-manifest validation now lives in `aq-dashboard-contract` and the unchanged bounded human-read gate lives in `aq-human-http`. Existing server imports remain compatible. No integration-test binary or build budget was added.
+
+## Final validation
+
+The complete dashboard unit run passed 128 files / 1290 tests. Subsequent final adapter, Settings, header and graph changes passed 54 focused tests. All 11 focused Chromium browser cases passed, including 320/390/1440 reflow, persistence, mode confirmation and conflict/error handling. Typecheck, script lint and production build/no-mock checks passed. The companion server's 33 focused Rust tests, Clippy, schema, migration and budget checks passed; see its implementation report. The dashboard-read contract is pinned to server commit `939ee9a4f6683fc7298703357d328aa55c46f0ad`.
+
+These changes are prepared on paired feature branches. Production rollout and live-server acceptance have not been performed.

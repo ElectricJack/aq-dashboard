@@ -15,6 +15,7 @@ import { buildSwarmGraph, selectionId, type Selection } from "./graph";
 import {ManualAgentsProvider,useManualAgents,mergeManual} from "./manualAgents";
 import { SwarmPane } from "./SwarmPane";
 import { SwarmTree } from "./SwarmTree";
+import { SwarmStatusHeader } from "./SwarmStatusHeader";
 import { useWorkerSettings, applyWorkerSettings } from "./WorkerManagement";
 import styles from "./Swarm.module.css";
 
@@ -84,7 +85,8 @@ function SwarmPageBody() {
     <AgentsTabs current="swarm" />
     {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
-    <div className={styles.stage} data-viewport-fit={shown.selection?.kind==="agent"&&(desktop||params.get("focus")==="terminal")||undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    <SwarmStatusHeader />
+    <div className={styles.stage} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}

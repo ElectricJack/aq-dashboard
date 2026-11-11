@@ -73,3 +73,69 @@ describe("swarm tree", () => {
     expect(onSelect).toHaveBeenCalledWith({ kind: "machine", machineId: "desktop" });
   });
 });
+
+test("status details start collapsed, persist per viewer, and do not remount the tree", async () => {
+  localStorage.clear();
+  const restore = stubReactFlowDom();
+  const app = renderApp("/agents/swarm");
+  const button = await screen.findByRole("button", { name: /show details/i });
+  expect(button).toHaveAttribute("aria-expanded", "false");
+  const details = document.getElementById(button.getAttribute("aria-controls")!);
+  expect(details).toHaveAttribute("hidden");
+  const tree = await screen.findByRole("region", { name: "Swarm tree" });
+  fireEvent.click(button);
+  expect(button).toHaveAttribute("aria-expanded", "true");
+  expect(details).not.toHaveAttribute("hidden");
+  expect(screen.getByRole("region", { name: "Swarm tree" })).toBe(tree);
+  app.unmount();
+  renderApp("/agents/swarm");
+  expect(await screen.findByRole("button", { name: /hide details/i })).toHaveAttribute("aria-expanded", "true");
+  localStorage.clear();
+  restore();
+});
+
+test("mode remains server-confirmed through pending and failed updates", async () => {
+  const config = { revision: "1", catalog_revision: "1", active_mode: "normal", normal: [], reduced: [], cells: [], unclassified: [] };
+  const requests: unknown[] = [];
+  let finish!: () => void;
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  server.use(
+    http.get("/api/settings/swarm", () => HttpResponse.json(config)),
+    http.post("/api/settings/swarm/mode", async ({ request }) => { requests.push(await request.json()); await gate; return new HttpResponse(null, { status: 500 }); }),
+  );
+  renderApp("/agents/swarm");
+  const toggle = await screen.findByRole("switch", { name: "Reduced usage" });
+  await waitFor(() => expect(toggle).toBeEnabled());
+  fireEvent.click(toggle);
+  expect(toggle).not.toBeChecked();
+  await waitFor(() => expect(toggle).toBeDisabled());
+  expect(screen.getByText("Updating mode…")).toBeInTheDocument();
+  finish();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Mode update outcome unknown");
+  expect(toggle).not.toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "Retry mode update" }));
+  await waitFor(() => expect(requests).toHaveLength(2));
+  expect(requests[1]).toEqual(requests[0]);
+});
+
+test("unconfigured reduced mode offers settings rather than invented defaults", async () => {
+  server.use(http.get("/api/settings/swarm", () => HttpResponse.json({ revision: "1", catalog_revision: "1", active_mode: "normal", normal: [], reduced: null, cells: [], unclassified: [] })));
+  renderApp("/agents/swarm");
+  const link = await screen.findByRole("link", { name: "Configure reduced usage" });
+  expect(link).toHaveAttribute("href", "/settings#swarm");
+  expect(screen.getByRole("switch", { name: "Reduced usage" })).toBeDisabled();
+  expect(screen.getByText(/waiting unknown/)).toBeInTheDocument();
+});
+
+test("active totals include unclassified occupancy and explain their meaning", async () => {
+  server.use(http.get("/api/settings/swarm", () => HttpResponse.json({
+    revision: "1", catalog_revision: "1", active_mode: "normal", normal: [{ provider: "codex", intelligence_class: "fast", limit: 2 }], reduced: [{ provider: "codex", intelligence_class: "fast", limit: 1 }],
+    cells: [{ provider: "codex", intelligence_class: "fast", display_name: "Fast", normal_limit: 2, reduced_limit: 1, effective_limit: 2, running: 2, waiting: 3 }],
+    unclassified: [{ provider: "codex", running: 1, waiting: 4 }],
+  })));
+  renderApp("/agents/swarm");
+  expect((await screen.findByText("3 active")).parentElement).toHaveTextContent("7 waiting");
+  fireEvent.click(screen.getByRole("button", { name: /show details/i }));
+  expect(screen.getByText(/Active includes running and starting agents/)).toBeInTheDocument();
+  expect(screen.getByText(/historical or unclassified/)).toBeInTheDocument();
+});
