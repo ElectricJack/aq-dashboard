@@ -131,3 +131,33 @@ test("narrow machine properties scroll to their bottom controls", async ({ page 
   const [controlBox, visiblePane] = [await bottomControl.boundingBox(), await pane.boundingBox()];
   expect(controlBox!.y + controlBox!.height).toBeLessThanOrEqual(visiblePane!.y + visiblePane!.height + 1);
 });
+
+test("supervisor dock preserves swarm height and selected pane", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/agents/swarm?select=machine:desktop");
+  const tree = page.getByRole("region", { name: "Swarm tree" });
+  const pane = page.getByRole("complementary", { name: "Properties" });
+  const stage = page.getByRole("separator", { name: "Resize swarm tree and properties" }).locator("xpath=..");
+  await expect(pane).toContainText("desktop");
+  await tree.evaluate(el => { (el as HTMLElement & { marker?: string }).marker = "tree"; });
+  await pane.evaluate(el => { (el as HTMLElement & { marker?: string }).marker = "pane"; });
+  const before = (await stage.boundingBox())!;
+  await page.getByRole("button", { name: "Open supervisor" }).click();
+  const dock = page.getByRole("region", { name: "Global supervisor conversation" });
+  await expect(dock).toBeVisible();
+  await expect(pane).toContainText("desktop");
+  const open = (await stage.boundingBox())!;
+  expect(open.height).toBeGreaterThan(450);
+  expect(Math.abs(open.height - before.height)).toBeLessThan(80);
+  expect(open.y + open.height).toBeGreaterThan(880);
+  expect(await tree.evaluate(el => (el as HTMLElement & { marker?: string }).marker)).toBe("tree");
+  expect(await pane.evaluate(el => (el as HTMLElement & { marker?: string }).marker)).toBe("pane");
+  await page.screenshot({ path: "test-results/swarm-supervisor-dock-1440.png" });
+  await dock.getByRole("button", { name: "Close chat" }).click();
+  await expect(dock).toBeHidden();
+  const closed = (await stage.boundingBox())!;
+  expect(Math.abs(closed.height - before.height)).toBeLessThan(2);
+  await expect(pane).toContainText("desktop");
+  expect(await tree.evaluate(el => (el as HTMLElement & { marker?: string }).marker)).toBe("tree");
+  expect(await pane.evaluate(el => (el as HTMLElement & { marker?: string }).marker)).toBe("pane");
+});
