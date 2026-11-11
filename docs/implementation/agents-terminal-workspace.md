@@ -119,3 +119,24 @@ The laptop's main runtime is still previous; no SSH was available. A separate
 worker host terminal is the requested follow-up (server spec 0010).
 Live screenshots and receipts remain private/local under
 `/home/jkern/dev/aq-platform/qa/2026-11-11/agents-workspace-rollout/`.
+
+
+## Worker host terminals deployed
+
+Swarm's worker properties now offer **Open terminal**. This opens the worker's
+Linux/WSL host shell as its service user. Closing the view detaches; **End shell**
+ends the host shell without stopping any agent. No SSH connection is required.
+Offline/older nodes need **Update controls** first. Host shells use the existing
+terminal renderer, phone keys and fenced byte stream, with their own server
+runtime and no agent archive or quota entry.
+
+Final live dashboard `46f5eba8`, server `dc7750f3` (schema 114), companion/installer
+`08698003`. Real desktop and laptop checks passed input, same-shell reconnect and
+end at desktop/390px/320px widths; all disposable shells were ended. The exact
+served official manifest and all 64 assets match. Both owner agents and all
+original worker PIDs were preserved. The laptop main-runtime restart remains
+pending while its manual agent is active; the independent host companion is live.
+
+Validation: 8 focused unit tests and 6 browser tests passed; typecheck, lint,
+production build passed. Live screenshots/results are local at
+`/home/jkern/dev/aq-platform/qa/2026-11-11/worker-host-terminal/`.
