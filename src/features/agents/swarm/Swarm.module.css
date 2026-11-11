@@ -87,3 +87,5 @@
 .stage[data-viewport-fit] .flow { height: auto; flex: 1; min-block-size: 0; }
 .stage[data-viewport-fit] .pane, .stage[data-viewport-fit] .terminal, .stage[data-viewport-fit] .terminal > :global([data-interactive-terminal]) { min-block-size: 0; }
 .stage[data-focus] > :first-child { display: none; }
+
+.loginCommand { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; margin: 6px 0; }

@@ -37,8 +37,8 @@ export function WorkerLaunch({node}:{node:NodeView}){
   <div className={styles.actions}><ActionButton onClick={()=>void launch()} disabled={busy||!available||!chosen||!intelligence}>{busy?'Starting…':'Launch agent'}</ActionButton></div>
   <p className={styles.actionNote}>Starts an interactive agent. Connect in the graph and work with it until you stop it.</p>
   {chosen&&<><div className={styles.actions} aria-label="Project worker slots"><ActionButton aria-label="Remove project slot" onClick={()=>void change(-1)} disabled={busy||!available||slots===0}>−</ActionButton><span>{slots} project slot{slots===1?'':'s'}</span><ActionButton aria-label="Add project slot" onClick={()=>void change(1)} disabled={busy||!available||slots>=(worker?.max_slots??0)}>+</ActionButton></div><p className={styles.actionNote}>Removing a busy slot lets its agent continue until stopped.</p></>}
-  {!available&&<p role="status" className={styles.actionNote}>Waiting for this worker's interactive capacity report.</p>}
-  {!chosen&&fleet&&<p className={styles.actionNote}>No started project is configured on this worker. <Link to="/settings?tab=projects">Manage projects</Link></p>}
+  {!available&&<p role="status" className={styles.actionNote}>This worker has not reported agent support yet. Use Push logins above to finish provider setup.</p>}
+  {!chosen&&fleet&&worker&&<p className={styles.actionNote}>No started project is configured on this worker. <Link to="/settings?tab=projects">Manage projects</Link></p>}
   {error&&<p role="alert">{error}</p>}
  </section>;
 }
