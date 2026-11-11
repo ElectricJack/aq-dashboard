@@ -89,3 +89,7 @@
 .stage[data-focus] > :first-child { display: none; }
 
 .loginCommand { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; margin: 6px 0; }
+
+.loginChoices { padding: 0; gap: 8px; font-size: 12px; }
+.loginChoices label { display: inline-flex; align-items: center; gap: 4px; }
+.loginChoices input { margin: 0; }
