@@ -102,7 +102,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
   function addWorker(w: NodeView, machineId: string) {
     const selection: Selection = { kind: "node", nodeId: w.id };
     const id = selectionId(selection);
-    nodes.push(node({ ...base("node", selection, w.name), sub: w.slots.total===null?`${w.backendKind ?? "worker"} · capacity not reported`:`${w.backendKind ?? "worker"} · ${w.slots.occupied}/${w.slots.total} slots` }));
+    nodes.push(node({ ...base("node", selection, w.name), sub: w.slots.total===null?`${w.backendKind ?? "worker"} · capacity not reported`:`${w.slots.scope ?? w.backendKind ?? "worker"} · ${w.slots.occupied}/${w.slots.total} slots` }));
     link(machineId, id);
     for (const a of w.agents) {
       const s: Selection = { kind: "agent", sessionId: a.sessionId };

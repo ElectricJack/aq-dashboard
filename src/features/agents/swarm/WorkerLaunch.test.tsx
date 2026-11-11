@@ -65,3 +65,12 @@ test('Codex provider resolves the saved profile and retains it for uncertain exa
 test('worker with only Claude installed does not advertise Codex launch',async()=>{
  fleet.workers[0]!.providers=['anthropic'];renderApp(`/agents?select=node:${node.node.id}`);await screen.findByRole('combobox',{name:'Agent provider'});expect(screen.queryByRole('option',{name:'Codex'})).not.toBeInTheDocument();
 });
+
+test('two project slots and one default scratch slot keep their scope explicit',()=>{
+ const other=graphId(102);fleet.projects.push({id:other,name:'Scratch',repository_id:repo});fleet.slots=[{node_id:node.node.id,project_id:graphProject,slots:2,revision:1}];
+ const view=adaptSwarm(SWARM_MOCKUP,new Date().toISOString());for(const machine of view.machines)for(const worker of machine.nodes)worker.agents=[];
+ const scoped=mergeManual(view,fleet,graphProject,null).machines[0]!.nodes[0]!;
+ const aggregate=mergeManual(view,fleet,null,null).machines[0]!.nodes[0]!;
+ expect(scoped.slots).toMatchObject({total:2,idle:2,scope:'Project example'});
+ expect(aggregate.slots).toMatchObject({total:3,idle:3,scope:'All projects'});
+});

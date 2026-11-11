@@ -12,7 +12,7 @@ export type AgentView = { manual?: import("../../features/agents/swarm/manualAge
 export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
-  slots: { total: number | null; occupied: number; idle: number | null; target?:number }; holding: HoldReasonView[]; agents: AgentView[] };
+  slots: { total: number | null; occupied: number; idle: number | null; scope?: string; target?:number }; holding: HoldReasonView[]; agents: AgentView[] };
 export type MachineControlView = { desired: "running" | "draining" | "stopped"; generation: string; since: string | null; pendingHandoffs: number };
 export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation: string; since: string | null; note: string | null };
 export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";

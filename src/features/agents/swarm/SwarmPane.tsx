@@ -103,9 +103,10 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
   return <>
     <Head kicker="Worker node" title={n.name} />
     <WorkerManagement kind="node" id={n.id} name={n.name} maximum={n.slots.total} />
+    {n.slots.scope === "All projects" && <p className={styles.actionNote}>Slots across projects. Select a project above to see its limit.</p>}
     <DetailList className={styles.facts}>
       <dt>Backend</dt><dd>{n.backendKind ?? "unknown"}</dd>
-      <dt>Slots</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
+      <dt>{n.slots.scope === "All projects" ? "Slots across projects" : n.slots.scope ? `${n.slots.scope} slots` : "Slots"}</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
       {n.slots.idle!==null&&<><dt>Available</dt><dd>{n.slots.idle}</dd></>}
       {n.slots.target!==undefined&&<><dt>Draining to</dt><dd>{n.slots.target} project slots</dd></>}
       <dt>Heartbeat</dt><dd>{n.lastSeenAt ? formatAge(serverTime, n.lastSeenAt) : "never"}</dd>
