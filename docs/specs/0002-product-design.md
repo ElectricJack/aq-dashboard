@@ -6,7 +6,7 @@ Implementation status, November 1, 2026: the [current availability matrix](../pl
 
 The populated current-catalog, parent/child run and decision-action proofs remain separately labelled disposable evidence. No authored definitions, configured pipeline automation, dashboard run mutations, live Supervisor replies, provider quota or live terminal control are claimed. The canonical media owner remains unconfigured and uploads disabled; the supplemental PNG upload proof belongs only to isolated 4206. PostgreSQL is now a promoted canonical dependency protected from proof cleanup, with original data retained and a write-aware rollback boundary. Complete requirements/routes below remain the target, not blanket implementation claims.
 
-Read with the [architecture baseline](0001-dashboard.md), [API contract proposal](0003-dashboard-api.md), [implementation plan](../plans/0001-dashboard-implementation.md), and [contract audit](../research/2026-10-31-contract-audit.md). Where a PNG conflicts with this text, this text governs behavior. The focused Agents design supersedes the earlier tiled-terminal default.
+Read with the [architecture baseline](0001-dashboard.md), [API contract proposal](0003-dashboard-api.md), [implementation plan](../plans/0001-dashboard-implementation.md), and [contract audit](../research/2026-10-31-contract-audit.md). Where a PNG conflicts with this text, this text governs behavior. The owner-approved Agents roster and grid in [spec 0009](0009-agents-terminal-workspace.md) supersede the earlier focused-only layout.
 
 ## 1. Product outcome and boundaries
 
@@ -48,7 +48,7 @@ Prefer dense, legible rows and deliberate empty space over a grid of decorative 
 
 ## 3. Application shell and information hierarchy
 
-Navigation order is **Overview, Supervisor, Work, Results, Decisions, Agents, Playbooks, Knowledge**, with Settings and identity at the bottom. Supervisor is directly below Overview. The desktop rail stays visible in full-page chat. Explicit terminal Expand may collapse it.
+Navigation order is **Overview, Supervisor, Agents, Work, Results, Decisions, Playbooks, Knowledge**, with Settings and identity at the bottom. Supervisor is directly below Overview. The desktop rail stays visible in full-page chat. Explicit terminal Expand may collapse it.
 
 **Owner update, November 10, 2026:** All eight destinations use the compact Agents header: one title/action row, shared spacing, and the supervisor launcher in that row. Keep touch controls usable at 390px and 320px. Remove introductory subtitle rows; secondary summaries stay inline on desktop.
 
@@ -67,7 +67,7 @@ Routes:
 | `/work`, `/work/:taskId` | Scope, list/graph, filters, sort, selected task/revision |
 | `/results`, `/results/:resultId/revisions/:revision` | Feed mode, filters; immutable result deep link |
 | `/decisions`, `/decisions/:decisionId` | Kind/status filter and exact subject revision |
-| `/agents` (Swarm), `/agents/sessions`, `/agents/:sessionId` | Swarm tree and properties pane (spec aq-server 0007 §5); roster filters or focus |
+| `/agents`, `/agents/swarm`, `/agents/history`, `/agents/:sessionId` | Terminal workspace, Swarm, History and legacy session detail; `/agents/sessions` redirects to History |
 | `/playbooks`, `/playbooks/runs/:runId` | Runs/definitions/activations and selection |
 | `/knowledge`, `/knowledge/:nodeId` | Scope/search/category; optional pinned revision |
 | `/settings` | Identity, display/accessibility preferences, authorized configuration links |
@@ -106,7 +106,7 @@ The supervisor can propose a feedback task. Display its editable draft and the e
 
 The roster shows current sessions with task, project, chosen provider/model/harness, observed state/freshness, wait reason and controller presence. Session detail distinguishes profile/configuration revisions, effective permissions, actual execution authority and last observed process activity. Secrets and unscoped prompts are excluded.
 
-Opening a session uses **one large terminal** by default. Compact session tabs/switcher replace a permanent roster. Details, transcript and durable Message are on-demand drawers. Split is explicit, at most two visible panes initially, available only when each pane fits at least 80 columns at the selected readable font size. Never shrink font to force a split. On smaller widths offer tabs; preserve selected session and local view state through layout changes.
+**Owner update, 2026-11-10:** Agents opens a searchable, narrow roster and up to four independently connected terminals. One fills the workspace, two are side by side, and three or four use a two-by-two grid. Below 1000px, a drawer and quick switcher show one selected terminal. Expand temporarily shows one pane; restoring preserves selections. Terminal text stays readable and uses internal horizontal panning. Closing disconnects the pane without stopping the agent. See [spec 0009](0009-agents-terminal-workspace.md) for lifecycle, scope and history behavior. This grid and roster intentionally supersede the focused desktop reference's two-pane and permanent-roster restrictions.
 
 **Owner update, 2026-11-10:** opening a terminal automatically connects for interactive input. There is no watch/edit mode selector or Take/Release control workflow. The transport still obtains and renews the confirmed server controller lease/fence before enabling keystrokes, paste or resize. Display connection readiness and controller conflicts without offering a mode switch. On mobile, use internal horizontal terminal panning and a minimum 14px monospace default; provide text-size controls. The transcript remains an alternative output view.
 
@@ -153,7 +153,7 @@ Capture only the intended application/test scenario. AQ enforces authorized uplo
 | Shell | Rail, quota header, optional inspector | Compact rail; one optional overlay | Menu + persistent compact quota; bottom destinations |
 | Overview / Work | List and selected inspector | List then detail | Single list then full detail |
 | Supervisor | Docked or full workspace | Full page by default | Full page, keyboard-aware composer |
-| Agents | Focus; optional measured two-pane split | One terminal | One terminal; bottom nav hidden |
+| Agents | Roster and up to four terminal panes | One terminal with switcher and roster drawer below 1000px | One terminal with switcher and roster drawer |
 | Results | Centered feed + selected comment panel | Feed, comments overlay | One feed, full-width comments |
 | Decisions | Evidence + decision form | Stacked evidence/form | Evidence first, safe sticky actions |
 | Playbooks / Knowledge | List + detail | One detail pane | Timeline/document page |

@@ -65,13 +65,16 @@ export interface TerminalPaneProps {
   label?: string;
   /** Persistent manual session transport. */
   manual?: boolean;
+  /** Freeze input after lifecycle completion without remounting the observed screen. */
+  inputEnabled?: boolean;
+  compact?: boolean;
 }
 export function InteractiveTerminal(props: TerminalPaneProps) {
   const { queryContext: c } = useSession();
   return <TerminalPane key={`${props.terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} {...props} />;
 }
 /** The pane reports `data-cols` (rendered) and `data-fit-cols` (what its width fits, before the 80-column floor). */
-function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', manual = false }: TerminalPaneProps) {
+function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', manual = false, inputEnabled = true, compact = false }: TerminalPaneProps) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
   const controlCapability = bootstrap.capability('terminal.control'), allowControl = manual || controlCapability.enabled;
@@ -81,6 +84,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const [moreOpen, setMoreOpen] = useState(false);
   const host = useRef<HTMLDivElement>(null), frame = useRef<HTMLDivElement>(null), pane = useRef<HTMLElement>(null), typeButton = useRef<HTMLButtonElement>(null);
   const terminal = useRef<Terminal | null>(null);
+  const inputAllowed = useRef(inputEnabled); inputAllowed.current = inputEnabled;
   const uncertain = useRef(false);
   const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
   const [state, setState] = useState<TerminalState>({ message: 'Connecting…', connected: false, controlling: false, canControl: false, paused: false });
@@ -121,9 +125,9 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     const data = term.onData(value => {
       if (isObservedFocusReport(value)) return;
       if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
-      transport.sendInput(new TextEncoder().encode(value));
+      if (inputAllowed.current) transport.sendInput(new TextEncoder().encode(value));
     });
-    const binary = term.onBinary(value => transport.sendInput(Uint8Array.from(value, c => c.charCodeAt(0) & 255)));
+    const binary = term.onBinary(value => inputAllowed.current && transport.sendInput(Uint8Array.from(value, c => c.charCodeAt(0) & 255)));
     const resize = term.onResize(size => transport.resize(size.cols, size.rows));
     let animation = 0, force = false;
     const measurePan = () => {
@@ -133,7 +137,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     const layout = (forceResize = false) => {
       force ||= forceResize;
       cancelAnimationFrame(animation); animation = requestAnimationFrame(() => {
-        if (!host.current || !frame.current) return;
+        if (!host.current || !frame.current || host.current.getBoundingClientRect().width === 0 || host.current.getBoundingClientRect().height === 0) return;
         const viewport = window.visualViewport;
         // Phone: fit the frame above the pane's footer, key bar and action bar (all below it in the pane).
         // Measure the rows after the frame, not the pane: a stretched (expanded) pane's spare space is not "below".
@@ -200,7 +204,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   function focusTerminal() { if (canFocusTerminal()) terminal.current?.focus(); }
   function send(value: string) {
     if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
-    connection.current?.sendInput(new TextEncoder().encode(value)); focusTerminal();
+    if (inputAllowed.current) connection.current?.sendInput(new TextEncoder().encode(value)); focusTerminal();
   }
   const controlBlocked = !state.controlling && (!state.canControl || state.paused);
   // Why typing is temporarily unavailable (N-07), from what this pane knows: capability, delivery pause, connection, policy.
@@ -271,7 +275,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       </div>}
       <p id={helpId} className={phone?styles.help:'visually-hidden'}>{phone?'Type to interact. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.':'Type to interact. Ctrl+M moves focus outside the terminal. Ctrl+C sends an interrupt.'}</p>
     </>
-    {phone && <div className={styles.dock} ref={actions} data-terminal-actions>
+    {phone && (!compact || phase === 'disconnected' || state.paused) && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}
       {controlReason && <p id={controlReasonId} className={styles.controlReason}>{controlReason}</p>}
       <div className={styles.actionBar}>

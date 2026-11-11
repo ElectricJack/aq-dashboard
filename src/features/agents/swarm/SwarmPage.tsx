@@ -77,7 +77,7 @@ function SwarmPageBody() {
   if (!cap.enabled) {
     return <>
       <AgentsTabs current="swarm" />
-      <p role="note">Swarm is not available on this server. <Link to={{ pathname: "/agents/sessions", search }}>Open Sessions</Link></p>
+      <p role="note">Swarm is not available on this server. <Link to={{ pathname: "/agents/history", search }}>Open History</Link></p>
     </>;
   }
   return <>

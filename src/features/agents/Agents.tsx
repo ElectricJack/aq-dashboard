@@ -199,7 +199,7 @@ function SessionSwitcher({ selected, search, id, hidden, inline, onDismiss }: Sw
     setOpenIds(next);
     if (id !== selected.id) pendingFocus.current = neighbour?.id ?? selected.id;
     else if (neighbour) go(neighbour.id, { focusTab: neighbour.id });
-    else navigate({ pathname: "/agents/sessions", search });
+    else navigate({ pathname: "/agents/history", search });
   }
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -455,7 +455,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   if (!query.data) {
     return (
       <div className={styles.detail}>
-        <Link to={{ pathname: "/agents/sessions", search }} className={styles.back}>All sessions</Link>
+        <Link to={{ pathname: "/agents/history", search }} className={styles.back}>All sessions</Link>
         <QueryStatus
           status={query.isError ? "error" : "pending"}
           error={query.error}
@@ -482,7 +482,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   return (
     <section ref={workspace} className={styles.detail} aria-labelledby={headingId} data-viewport-fit="" data-expanded={expanded || undefined}>
       <div className={styles.focusHeader}>
-        <Link to={{ pathname: "/agents/sessions", search }} className={styles.crumb} aria-label="Back to Agents">
+        <Link to={{ pathname: "/agents/history", search }} className={styles.crumb} aria-label="Back to Agents">
           <ChevronLeft className={styles.backIcon} size={20} aria-hidden="true" />Agents
         </Link>
         <span className={styles.crumbSeparator} aria-hidden="true">/</span>
