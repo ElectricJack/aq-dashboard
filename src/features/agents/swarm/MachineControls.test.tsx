@@ -15,7 +15,7 @@ afterEach(() => { server.resetHandlers(); server.events.removeAllListeners(); })
 afterAll(() => { server.close(); restore(); });
 
 const swarm = (data: unknown) => server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope(data))));
-async function openMachine(name: RegExp = /^desktop/) { renderApp("/agents"); fireEvent.click(await screen.findByRole("button", { name })); }
+async function openMachine(name: RegExp = /^desktop/) { renderApp("/agents/swarm"); fireEvent.click(await screen.findByRole("button", { name })); }
 const button = (name: string) => screen.findByRole("button", { name });
 async function confirmAndSubmit(title: string, checkbox: RegExp) {
   const dialog = await screen.findByRole("dialog", { name: title });

@@ -14,7 +14,7 @@ beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 afterEach(() => { server.resetHandlers(); server.events.removeAllListeners(); vi.restoreAllMocks(); });
 afterAll(() => { server.close(); restore(); });
 
-async function openServerPane() { renderApp("/agents"); fireEvent.click(await screen.findByRole("button", { name: /^AQ server/ })); }
+async function openServerPane() { renderApp("/agents/swarm"); fireEvent.click(await screen.findByRole("button", { name: /^AQ server/ })); }
 function enroll(status = 201, ttlMs = 15 * 60_000) {
   const seen: { method: string; headers: Headers; body: string }[] = [];
   server.use(http.post("/api/enrollments", async ({ request }) => {

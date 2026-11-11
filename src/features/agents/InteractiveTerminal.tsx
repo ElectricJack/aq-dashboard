@@ -170,6 +170,13 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
   }, [terminalId, name, manual, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
+  // Ending a process fences input and stops reconnect/lease work without disposing its screen.
+  useEffect(() => {
+    if (inputEnabled) return;
+    connection.current?.close();
+    connection.current = null;
+    setState({ message: 'Ended', connected: false, controlling: false, canControl: false, paused: false });
+  }, [inputEnabled]);
   useEffect(() => {
     if (state.controlling && terminal.current) connection.current?.resize(terminal.current.cols, terminal.current.rows);
     if (!state.controlling) setCtrl(false);
@@ -214,7 +221,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     : !state.connected ? 'Connecting to the terminal for input.'
     : 'This terminal does not accept input: its AQ terminal policy has input turned off.';
   const controlReasonId = `${ids}-control-reason`;
-  const reconnect = () => { if(manual) uncertain.current=false; setWatching(true); setAttempt(n => n + 1); };
+  const reconnect = () => { if (!inputAllowed.current) return; if(manual) uncertain.current=false; setWatching(true); setAttempt(n => n + 1); };
   const disconnect = () => { void connection.current?.release(); setWatching(false); setState({ message: 'Disconnected', controlling: false, connected: false, canControl: false, paused: state.paused }); };
   const phase = state.connected ? 'connected' : watching && state.message === 'Connecting…' ? 'connecting' : 'disconnected';
   const lease = state.lease && now !== null ? state.lease : null;
@@ -228,7 +235,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
   return <section ref={pane} className={styles.pane} tabIndex={-1} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
-    <div className={styles.toolbar}>
+    {(!compact || phone || (inputEnabled && (phase === 'disconnected' || state.paused))) && <div className={styles.toolbar}>
       {state.notice && <p role="status" className={styles.notice}>{state.notice}</p>}
       <div className={styles.controls} data-lease={leaseText ? true : undefined} data-disconnected={phase === 'disconnected' || undefined}>
         <span className={styles.state}>
@@ -245,7 +252,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         {!phone && phase === 'connected' && !state.paused && <ActionButton onClick={disconnect}>Disconnect</ActionButton>}
         {!phone && controlReason && <span id={controlReasonId} className={styles.controlReason}>{controlReason}</span>}
       </div>
-    </div>
+    </div>}
     <>
       <div className={styles.frame} ref={frame}>
         <div className={styles.host} ref={host} hidden={frozen} />
@@ -255,16 +262,16 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
           <figcaption>Last observation · output after this point was not observed. Reconnect reads this same terminal{binding.current ? ` (epoch ${binding.current.terminal.epoch})` : ''} again and replays what it retained; it never relaunches the agent.</figcaption>
         </figure>}
       </div>
-      {!phone && panHint && <div className={styles.view}>{panHint}</div>}
+      {!compact && !phone && panHint && <div className={styles.view}>{panHint}</div>}
       <footer className={styles.footer}>
         {/* Reference 08 order: Output · Progress · ● Connected. */}
-        <span>{state.outputObservedAtMs && now !== null ? `Output ${formatAge(new Date(now).toISOString(), new Date(state.outputObservedAtMs).toISOString())}` : 'Output unavailable'}</span>
-        {!manual&&<span>Progress unavailable</span>}
-        <span className={styles.connection} data-phase={phase}><span className={styles.dot} aria-hidden="true" />{phase === 'connected' ? 'Connected' : phase === 'connecting' ? 'Connecting' : 'Disconnected'}</span>
+        {!compact && <span>{state.outputObservedAtMs && now !== null ? `Output ${formatAge(new Date(now).toISOString(), new Date(state.outputObservedAtMs).toISOString())}` : 'Output unavailable'}</span>}
+        {!compact && !manual&&<span>Progress unavailable</span>}
+        <span className={styles.connection} data-phase={phase}><span className={styles.dot} aria-hidden="true" />{!inputEnabled ? 'Ended' : phase === 'connected' ? 'Connected' : phase === 'connecting' ? 'Connecting' : 'Disconnected'}</span>
         {/* Phone: the pan hint joins the footer's second line so the terminal keeps its rows. */}
-        {phone && panHint}
+        {(phone || compact) && panHint}
         {facts && <span className={styles.facts}>{facts}</span>}
-        <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">{manual?'Live tmux session':'Resident output · incomplete'}</span>
+        {!compact && <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">{manual?'Live tmux session':'Resident output · incomplete'}</span>}
       </footer>
       {keyBar && <div className={styles.keys} ref={keys} role="group" aria-label="Terminal keyboard" data-fade-start={keyFade.start || undefined} data-fade-end={keyFade.end || undefined} onScroll={updateKeyFade}>
         <button type="button" ref={typeButton} disabled={!state.controlling} onClick={() => terminal.current?.focus()}>Type</button>
@@ -275,7 +282,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       </div>}
       <p id={helpId} className={phone?styles.help:'visually-hidden'}>{phone?'Type to interact. Ctrl+M returns focus to the controls. The Ctrl key applies to the next key only; Ctrl then C sends an interrupt, which does not cancel the task.':'Type to interact. Ctrl+M moves focus outside the terminal. Ctrl+C sends an interrupt.'}</p>
     </>
-    {phone && (!compact || phase === 'disconnected' || state.paused) && <div className={styles.dock} ref={actions} data-terminal-actions>
+    {phone && (!compact || (inputEnabled && (phase === 'disconnected' || state.paused))) && <div className={styles.dock} ref={actions} data-terminal-actions>
       {viewSwitch}
       {controlReason && <p id={controlReasonId} className={styles.controlReason}>{controlReason}</p>}
       <div className={styles.actionBar}>
