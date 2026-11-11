@@ -1,7 +1,7 @@
 import {createContext,useContext,useEffect,useRef,type ReactNode} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useSearchParams} from 'react-router';
-import {apiGet,apiSend,ApiError} from '../../../api/client';
+import {apiGet,apiSend,ApiError,isProtectedReadFailure} from '../../../api/client';
 import {isRecord,ContractError} from '../../../api/adapters/contract';
 import {validGraphId} from '../../../api/adapters/humanGraph';
 import type {SwarmView} from '../../../api/adapters/swarm';
@@ -31,7 +31,7 @@ export function ManualAgentsProvider({children}:{children:ReactNode}){
  const draftRef=useRef(drafts);draftRef.current=drafts;
  const save=(v:ManualAgent[])=>{draftRef.current=v;setDrafts(v);};
  useEffect(()=>{if(query.data&&drafts.some(d=>query.data.sessions.some(s=>s.id===d.id)))setDrafts(drafts.filter(d=>!query.data.sessions.some(s=>s.id===d.id)));},[query.data,drafts,setDrafts]);
- const fleet=query.data?{...query.data,sessions:[...query.data.sessions,...drafts.filter(d=>(!project||d.project_id===project)&&!query.data.sessions.some(s=>s.id===d.id))]}:undefined;
+ const fleet=query.data && !isProtectedReadFailure(query.error)?{...query.data,sessions:[...query.data.sessions,...drafts.filter(d=>(!project||d.project_id===project)&&!query.data.sessions.some(s=>s.id===d.id))]}:undefined;
  async function launch(node:string,p:string,id:string=crypto.randomUUID(),intelligence?:IntelligenceSelection){
   const item=query.data?.projects.find(v=>v.id===p);if(!item)throw Error('Select a started project');
   const choice=query.data?.launch_profiles.find(c=>c.profile_id===intelligence?.profile_id&&c.profile_version===intelligence.profile_version&&c.candidate_id===intelligence.candidate_id);

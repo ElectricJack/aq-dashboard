@@ -61,6 +61,9 @@
   .controls[data-lease], .controls[data-disconnected] { flex-wrap: wrap; row-gap: var(--space-1); }
   .controls[data-lease] .state, .controls[data-disconnected] .state { flex-basis: 100%; }
   .frame { min-block-size: 220px; padding: var(--space-1); }
+  /* A tiled phone pane still fits eight readable rows at 320px, leaving the
+     footer and touch keyboard inside its border when the header wraps. */
+  .pane[data-compact] .frame { min-block-size:144px; }
   .footer { padding: var(--space-1) var(--space-2); gap: 0 var(--space-3); }
   /* One line on phone: observation, central state and last activity stay in Session details. */
   .provenance, .facts { display: none; }

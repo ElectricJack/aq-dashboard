@@ -618,6 +618,17 @@
 
 .main:has([data-agents-compact]) { padding-block: var(--space-3); gap: var(--space-2); }
 
+/* An open phone terminal keeps the quota and a visible roster/close exit while
+   giving its touch keyboard the space normally used by page navigation. */
+@media (max-width:767px) {
+ .shell:has([data-terminal-workspace][data-has-panes]) .phoneNav { display:none; }
+ .shell:has([data-terminal-workspace][data-has-panes]) .scopeRow,
+ .shell:has([data-terminal-workspace][data-has-panes]) .search { display:none; }
+ .shell:has([data-terminal-workspace][data-has-panes]) .top { display:flex; flex-wrap:wrap; min-block-size:62px; justify-content:space-between; padding-block:var(--space-2); }
+ .shell:has([data-terminal-workspace][data-has-panes]) .compactUsage { flex:1; }
+ .shell:has([data-terminal-workspace][data-has-panes]) .main { padding-block-end:max(var(--space-3),env(safe-area-inset-bottom)); }
+}
+
 /* Every destination gives the workspace the same space as Agents. */
 .main { padding-block:var(--space-3); gap:var(--space-2); }
 @media(max-width:767px) { .main { padding-block-end:calc(var(--touch-target) + var(--space-6) + env(safe-area-inset-bottom)); } }

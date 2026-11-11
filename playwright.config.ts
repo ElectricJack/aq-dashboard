@@ -5,7 +5,7 @@ const PORT = Number(process.env.PW_PORT ?? 4178);
 
 export default defineConfig({
   testDir: "tests",
-  testIgnore: ["**/live/**", "**/visual/**"],
+  testIgnore: ["**/live/**", "**/visual/**", "**/workspace/**"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   reporter: [["list"]],

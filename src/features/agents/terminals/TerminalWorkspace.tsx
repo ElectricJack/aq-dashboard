@@ -5,7 +5,7 @@ import { transcript } from "../../../api/sessionHistory";
 import { adaptSessionDetail, type SessionDetailView } from "../../../api/adapters/inspection";
 import type { SessionDetail } from "../../../api/wire/proposed";
 import { ContractError } from "../../../api/adapters/contract";
-import { ApiError } from "../../../api/client";
+import { ApiError, isProtectedReadFailure } from "../../../api/client";
 import { adaptSwarm, SWARM_POLL_MS, type SwarmView } from "../../../api/adapters/swarm";
 import type { Swarm } from "../../../api/wire/swarm";
 import { PANEL_READ, useSession } from "../../../app/session";
@@ -41,7 +41,8 @@ function Workspace() {
   const manualRows: Row[] = manual?.fleet?.sessions.map(a => ({ key: `manual:${a.id}`, id: a.id, project: a.spec.project_name, projectId: a.project_id, worker: workerNames[a.node_id] ?? "Worker unavailable", model: [a.spec.provider, a.spec.model].filter(Boolean).join(" · "), status: a.status, terminal: a.id, manual: true })) ?? [];
   const rows = [...manualRows, ...native];
   for (const row of rows) known.current[row.key] = row;
-  const active = ids.map(key => known.current[key] ?? { key, id: key.slice(key.indexOf(":") + 1), project: "Saved agent", projectId: "", worker: "", model: "", status: "Loading", terminal: null, manual: key.startsWith("manual:") });
+  const manualRefused = isProtectedReadFailure(manual?.error);
+  const active = ids.map(key => (manualRefused && key.startsWith("manual:") ? undefined : known.current[key]) ?? { key, id: key.slice(key.indexOf(":") + 1), project: manualRefused && key.startsWith("manual:") ? "Unavailable agent" : "Saved agent", projectId: "", worker: "", model: "", status: "Loading", terminal: null, manual: key.startsWith("manual:") });
   const selected = focused && ids.includes(focused) ? focused : ids[0] ?? null;
   function open(row: Row) {
     if (!ids.includes(row.key)) {
@@ -52,29 +53,32 @@ function Workspace() {
     setFocused(row.key); setError(null); setDrawer(false);
   }
   function close(id: string) { setIds(ids.filter(x => x !== id)); if (expanded === id) setExpanded(null); }
-  const shownRows = [...rows.filter(r => !["stopped", "failed"].includes(r.status)), ...active.filter(r => ["stopped", "failed"].includes(r.status) && !rows.some(x => x.key === r.key && !["stopped", "failed"].includes(x.status)))];
+  function selectPane(id: string) { setFocused(id); if (expanded) setExpanded(id); }
+  const shownRows = [...rows.filter(r => !["stopped", "failed"].includes(r.status)), ...active.filter(r => !rows.some(x => x.key === r.key && !["stopped", "failed"].includes(x.status)))];
   return <>
     <AgentsTabs current="terminals" />
-    <div className={styles.workspace}>
+    <div className={styles.workspace} data-viewport-fit data-terminal-workspace data-has-panes={active.length > 0 || undefined}>
       <button className={styles.rosterToggle} onClick={() => setDrawer(!drawer)} aria-expanded={drawer}>Agents {drawer ? "×" : "☰"}</button>
       <aside className={styles.roster} data-open={drawer || undefined} aria-label="Agent roster">
         <div className={styles.rosterHead}><strong>Agents</strong><button disabled={!launching && ids.length >= 4} title={ids.length >= 4 ? "Close a pane before launching another agent" : undefined} onClick={() => setLaunching(!launching)}>{launching ? "Cancel" : "Launch agent"}</button></div>
         {launching && <Launch workerNames={workerNames} onLaunch={row => { open(row); setLaunching(false); }} onError={setError} />}
         <label className={styles.search}>Search agents<input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search" /></label>
+        {!!manual?.error && <p role="alert">Interactive agents could not be loaded.</p>}
+        {swarm.isError && <p role="alert">The worker roster is unavailable.</p>}
         {shownRows.filter(r => `${r.project} ${r.worker} ${r.model}`.toLowerCase().includes(filter.toLowerCase())).map(row => <div className={styles.row} key={row.key} data-selected={selected === row.key || undefined}>
           <button className={styles.rowMain} onClick={() => open(row)}><strong>{row.project}</strong><span>{row.status} · {row.worker}</span><small>{row.model || "Model unavailable"}</small></button>
           <button aria-label={`${ids.includes(row.key) ? "Remove" : "Add"} ${row.project} ${ids.includes(row.key) ? "from" : "to"} workspace`} onClick={() => ids.includes(row.key) ? close(row.key) : open(row)}>{ids.includes(row.key) ? "−" : "+"}</button>
         </div>)}
-        {!shownRows.length && <p>No agents in this scope. Launch an agent to get started.</p>}
+        {!shownRows.length && !manual?.error && !swarm.isError && <p>{!manual?.fleet && swarm.isPending ? "Loading agents…" : "No agents in this scope. Launch an agent to get started."}</p>}
       </aside>
-      <main className={styles.output}>
+      <div className={styles.output}>
         {error && <p role="alert">{error}</p>}
-        {active.length > 1 && <nav className={styles.switcher} aria-label="Open terminals">{active.map(r => <button key={r.key} aria-pressed={selected === r.key} onClick={() => setFocused(r.key)}>{r.project}</button>)}</nav>}
+        {active.length > 1 && <nav className={styles.switcher} aria-label="Open terminals">{active.map(r => <button key={r.key} aria-pressed={selected === r.key} onClick={() => selectPane(r.key)}>{r.project}</button>)}</nav>}
         {!active.length && <div className={styles.empty}>Select an agent to open its terminal.</div>}
         <div className={styles.grid} data-count={active.length} data-expanded={!!expanded}>
           {active.map(row => <Pane key={row.key} row={row} selected={selected === row.key} hidden={!!expanded && expanded !== row.key} narrowHidden={selected !== row.key} expanded={expanded === row.key} project={project} present={rows.some(r => r.key === row.key)} onFocus={() => setFocused(row.key)} onExpand={() => setExpanded(expanded === row.key ? null : row.key)} onClose={() => close(row.key)} search={search} />)}
         </div>
-      </main>
+      </div>
     </div>
   </>;
 }
@@ -87,15 +91,15 @@ function Pane({ row, selected, hidden, narrowHidden, expanded, project, present,
   const archive = useQuery({ queryKey: ["pane-transcript", queryContext.principalId, queryContext.authorizationRevision, row.id], queryFn: ({signal}) => transcript(row.id, {limit: 32}, signal), enabled: row.manual && (manualEnded || row.status === "Loading" || !present), retry: false, refetchInterval: q => q.state.data && ["recording", "finalizing"].includes(q.state.data.session.archive.state) ? 3000 : false, meta: PANEL_READ });
   const manualSession = archive.data?.session;
   const nativeSession = detail.data?.view;
-  const refusal = (e: unknown) => e instanceof ApiError && [401, 403, 404].includes(e.status ?? 0);
-  const rejected = row.manual ? refusal(archive.error) : refusal(detail.error);
+  const refusal = (e: unknown) => isProtectedReadFailure(e) || (e instanceof ApiError && [404, 410].includes(e.status ?? 0));
+  const rejected = row.manual ? refusal(archive.error) || isProtectedReadFailure(manual?.error) : refusal(detail.error);
   const resolvedProject = row.manual ? manualSession?.project_id ?? row.projectId : nativeSession?.project.id ?? row.projectId;
   const outsideScope = !!project && !!resolvedProject && project !== resolvedProject;
   const permitted = !rejected && !outsideScope;
   const status = row.manual ? !present || row.status === "Loading" ? manualSession?.status ?? (row.status === "Loading" ? archive.isError ? "Unavailable" : "Loading" : row.status) : row.status : nativeSession ? nativeSession.lifecycle?.stoppedAt || nativeSession.observation.state === "reported_stopped" ? "stopped" : nativeSession.observation.state === "reported_running" ? `Running${nativeSession.observation.freshness === "stale" ? " (stale)" : ""}` : "State unknown" : row.status === "Loading" ? (detail.isError ? "Unavailable" : "Loading") : "State unknown";
   const ended = status === "stopped" || status === "failed";
   const terminalId = row.manual ? manualSession?.id ?? row.terminal : nativeSession?.terminal?.id ?? row.terminal;
-  const title = row.manual ? manualSession?.spec.project_name ?? row.project : nativeSession?.task?.title ?? nativeSession?.label ?? row.project;
+  const title = !permitted ? "Unavailable agent" : row.manual ? manualSession?.spec.project_name ?? row.project : nativeSession?.task?.title ?? nativeSession?.label ?? row.project;
   const [started, setStarted] = useState(row.status === "running" || (!row.manual && !!row.terminal));
   useEffect(() => { if (terminalId && !ended && permitted && (row.manual ? status === "running" : status !== "Loading" && status !== "Unavailable")) setStarted(true); }, [terminalId, ended, permitted, status, row.manual]);
   const saved = ended && permitted && archive.data && archive.data.session.archive.state === "complete" && !archive.data.has_more && archive.data.chunks.length > 0 ? archive.data.chunks.map(c => c.text).join("") : null;

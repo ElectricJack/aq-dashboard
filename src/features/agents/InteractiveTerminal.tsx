@@ -173,6 +173,8 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   // Ending a process fences input and stops reconnect/lease work without disposing its screen.
   useEffect(() => {
     if (inputEnabled) return;
+    const term = terminal.current;
+    if (term) setSnapshot(snapshotLines(term.buffer.active, term.rows));
     connection.current?.close();
     connection.current = null;
     setState({ message: 'Ended', connected: false, controlling: false, canControl: false, paused: false });
@@ -234,7 +236,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const moreButton = () => actions.current?.querySelector<HTMLButtonElement>('[aria-label="More terminal actions"]') ?? undefined;
   const closeMore = () => { setMoreOpen(false); moreButton()?.focus(); };
   const panHint = panColumns !== null && <span className={styles.pan}>{panColumns} columns · pan to view <span aria-hidden="true">→</span></span>;
-  return <section ref={pane} className={styles.pane} tabIndex={-1} aria-label={label} data-interactive-terminal data-controlling={state.controlling || undefined}>
+  return <section ref={pane} className={styles.pane} tabIndex={-1} aria-label={label} data-interactive-terminal data-compact={compact || undefined} data-controlling={state.controlling || undefined}>
     {(!compact || phone || (inputEnabled && (phase === 'disconnected' || state.paused))) && <div className={styles.toolbar}>
       {state.notice && <p role="status" className={styles.notice}>{state.notice}</p>}
       <div className={styles.controls} data-lease={leaseText ? true : undefined} data-disconnected={phase === 'disconnected' || undefined}>

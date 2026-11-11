@@ -92,3 +92,23 @@ test('a native pane follows session detail into ended state without remounting',
   expect(mounts.counts.get(first.terminal!.id)).toBe(count);
   expect(screen.getByText(/Native transcript availability/)).toBeInTheDocument();
 });
+
+test('refused manual roster refresh disconnects an open pane and clears its stale roster row', async () => {
+  let refused = false;
+  const node = SWARM_MOCKUP.machines[0]!.nodes[0]!.node.id, repo = graphId(101), id = graphId(995);
+  const agent = {id,node_id:node,project_id:graphProject,spec:{project_name:'Fixture private agent',repository_id:repo,provider:'anthropic',model:'fixture'},status:'running',stage:'Running',desired_running:true,created_at_ms:1,updated_at_ms:2,worker_seen_at_ms:2};
+  server.use(
+    http.get('/api/v1/bootstrap', () => HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c => !['swarm.read','tasks.create'].includes(c.name)),{name:'swarm.read',version:'1',enabled:true},{name:'tasks.create',version:'1',enabled:true}]}})),
+    http.get('/api/manual-agents', () => refused ? new HttpResponse(null,{status:403}) : HttpResponse.json({sessions:[agent],workers:[],slots:[],projects:[],server_time_ms:2})),
+    http.get(`/api/manual-agents/${id}/transcript`, () => new HttpResponse(null,{status:403})),
+  );
+  const {queryClient} = renderApp('/agents');
+  fireEvent.click(await screen.findByRole('button',{name:'Add Fixture private agent to workspace'}));
+  await screen.findByTestId(`terminal-${id}`);
+  refused = true;
+  await queryClient.invalidateQueries({queryKey:['manual-agents']});
+  expect(await screen.findByText('Interactive agents could not be loaded.')).toBeInTheDocument();
+  expect(screen.queryByTestId(`terminal-${id}`)).not.toBeInTheDocument();
+  expect(screen.queryByText('Fixture private agent')).not.toBeInTheDocument();
+  expect(screen.getByText(/unavailable in this scope/)).toBeInTheDocument();
+});

@@ -14,6 +14,7 @@
     "typecheck": "tsc -b",
     "test": "node scripts/test.mjs",
     "test:e2e": "playwright test",
+    "test:workspace": "pnpm build && playwright test --config playwright.workspace.config.ts",
     "preview": "vite preview",
     "test:live": "playwright test --config playwright.live.config.ts",
     "test:visual": "playwright test --config playwright.visual.config.ts",
