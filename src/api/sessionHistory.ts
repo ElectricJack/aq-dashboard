@@ -26,14 +26,14 @@ export async function transcript(id: string, params: {after?: number; through?: 
  const v = await apiGet<unknown>(url(`/api/manual-agents/${encodeURIComponent(id)}/transcript`,params),signal);
  if (!isRecord(v) || !session(v.session) || !Array.isArray(v.chunks) || v.chunks.length > 64 || !v.chunks.every(c => isRecord(c) && integer(c.sequence) && typeof c.text === 'string') || !integer(v.next_after) || typeof v.has_more !== 'boolean' || !integer(v.through_sequence) || !integer(v.server_time_ms)) throw new ContractError('Invalid transcript page');
  const page = v as Transcript;
- if (page.chunks.some((c,i) => c.sequence <= (i ? page.chunks[i-1]!.sequence : (params.after ?? 0))) || (page.has_more && page.next_after <= (params.after ?? 0))) throw new ContractError('Transcript cursor did not advance');
+ if ((params.through !== undefined && page.through_sequence !== params.through) || page.chunks.some((c,i) => c.sequence <= (i ? page.chunks[i-1]!.sequence : (params.after ?? 0)) || c.sequence > page.through_sequence) || page.next_after !== (page.chunks.at(-1)?.sequence ?? (params.after ?? 0)) || (page.has_more && page.next_after <= (params.after ?? 0))) throw new ContractError('Transcript cursor did not advance');
  return page;
 }
 export async function searchTranscript(id: string, params: {q: string; after?: number; through?: number; limit?: number}, signal?: AbortSignal): Promise<SearchPage> {
  const v = await apiGet<unknown>(url(`/api/manual-agents/${encodeURIComponent(id)}/transcript/search`,params),signal);
  if (!isRecord(v) || !Array.isArray(v.matches) || v.matches.length > 100 || !v.matches.every(m => isRecord(m) && integer(m.offset) && integer(m.length) && integer(m.sequence) && typeof m.excerpt === 'string') || !(v.next_after === null || integer(v.next_after)) || typeof v.has_more !== 'boolean' || !integer(v.through_sequence) || !integer(v.server_time_ms)) throw new ContractError('Invalid search page');
  const page = v as SearchPage;
- if (page.matches.some((m,i) => i ? m.offset <= page.matches[i-1]!.offset : params.after !== undefined && m.offset <= params.after) || (page.has_more && (page.next_after === null || (params.after !== undefined && page.next_after <= params.after)))) throw new ContractError('Search cursor did not advance');
+ if ((params.through !== undefined && page.through_sequence !== params.through) || page.matches.some((m,i) => i ? m.offset <= page.matches[i-1]!.offset : params.after !== undefined && m.offset <= params.after) || (page.has_more && (page.next_after === null || (params.after !== undefined && page.next_after <= params.after)))) throw new ContractError('Search cursor did not advance');
  return page;
 }
 /** Byte positions are measured in UTF-8, not JavaScript UTF-16 code units. */

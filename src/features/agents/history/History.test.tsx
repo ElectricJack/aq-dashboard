@@ -61,3 +61,12 @@ test('loading earlier chunks preserves the reader position while retaining a bou
  await user.click(screen.getByRole('button',{name:'Earlier output'}));await waitFor(()=>expect(output).toHaveTextContent('éhello🐈'));await waitFor(()=>expect(output.scrollTop).toBe(125));expect(output).toHaveTextContent('line 40');expect(requests).toContain('?after=0&through=40&limit=32');
  }finally{view.dispose();}
 });
+test('changing the find text cancels an in-flight search without showing stale matches',async()=>{
+ handlers();let release!:()=>void;let started!:()=>void;const waiting=new Promise<void>(r=>{release=r;});const requested=new Promise<void>(r=>{started=r;});
+ server.use(http.get('/api/manual-agents/:id/transcript/search',async()=>{started();await waiting;return HttpResponse.json({matches:[{offset:firstOffset,length:5,sequence:32,excerpt:'hello'}],next_after:firstOffset,has_more:false,through_sequence:40,server_time_ms:2000});}));
+ const view=setup();const user=userEvent.setup();try{const output=await screen.findByLabelText('Terminal transcript');await user.type(screen.getByLabelText('Find'),'hello');await user.click(screen.getByRole('button',{name:'Find'}));await requested;await user.clear(screen.getByLabelText('Find'));await user.type(screen.getByLabelText('Find'),'other');release();await waitFor(()=>expect(screen.getByRole('button',{name:'Find'})).toBeEnabled());expect(output.querySelector('mark')).toBeNull();expect(screen.queryByText(/Match 1/)).not.toBeInTheDocument();}finally{release();view.dispose();}
+});
+test('a protected refusal while paging removes previously visible transcript text',async()=>{
+ handlers();server.use(http.get('/api/manual-agents/:id/transcript',({request})=>{const after=new URL(request.url).searchParams.get('after');if(after)return new HttpResponse(null,{status:403});return HttpResponse.json({session,chunks:chunks.slice(0,32),next_after:32,has_more:true,through_sequence:40,server_time_ms:2000});}));
+ const view=setup();const user=userEvent.setup();try{await screen.findByText('line 1',{exact:false});await user.click(screen.getByRole('button',{name:'Next output page'}));expect(await screen.findByRole('alert')).toHaveTextContent('access was refused');expect(screen.queryByLabelText('Terminal transcript')).not.toBeInTheDocument();}finally{view.dispose();}
+});
