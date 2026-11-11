@@ -169,20 +169,20 @@ function limitsSnapshot(limit: number | null = 2) {
     cells: [{ provider: "anthropic", intelligence_class: "standard", display_name: "Standard", normal_limit: null, reduced_limit: null, effective_limit: limit, running: 1, waiting: 0 }] };
 }
 
-test.each(["0", ""])("the added max agents column applies %j separately while preserving profile drafts", async value => {
+test.each(["0", ""])("the added max agents column saves %j using the existing row Save without writing an unchanged profile", async value => {
   read(); let data = limitsSnapshot(); let submitted: Record<string, unknown> | undefined; let profilePosts = 0;
   server.use(http.get("/api/settings/swarm", () => HttpResponse.json(data)), http.post("/api/settings/swarm/limits", async ({ request }) => {
     submitted = await request.json() as Record<string, unknown>; data = { ...limitsSnapshot(value === "" ? null : Number(value)), revision: "13" }; return HttpResponse.json(data);
   }), http.post("/api/settings/intelligence", () => { profilePosts++; return HttpResponse.error(); }));
   const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
   await waitFor(() => expect(input).toHaveValue(2));
-  await userEvent.type(within(row).getByLabelText("Description"), " draft");
   await userEvent.clear(input); if (value) await userEvent.type(input, value);
-  await userEvent.click(within(row).getByRole("button", { name: "Apply max agents for Standard" }));
-  await within(row).findByText("Limit saved.");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  await within(row).findByText("Saved.");
   expect(submitted).toMatchObject({ expected_revision: "12", expected_catalog_revision: "2", cell: { provider: "anthropic", intelligence_class: "standard", limit: value === "" ? null : 0 } });
-  expect(profilePosts).toBe(0); expect(within(row).getByLabelText("Description")).toHaveValue("Everyday work draft");
-  expect(within(row).getByRole("button", { name: "Save Standard" })).toBeEnabled();
+  expect(profilePosts).toBe(0); expect(within(row).getByLabelText("Description")).toHaveValue("Everyday work");
+  expect(within(row).getByRole("button", { name: "Save Standard" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: /Apply/ })).not.toBeInTheDocument();
   expect(screen.getAllByRole("columnheader")).toHaveLength(6);
 });
 
@@ -192,9 +192,9 @@ test("an interrupted max agents save checks its operation before unlocking the p
     http.get("/api/settings/swarm/operations/:id", () => { data = { ...limitsSnapshot(0), revision: "13" }; return HttpResponse.json(data); }));
   const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
   await waitFor(() => expect(input).toHaveValue(2)); await userEvent.clear(input); await userEvent.type(input, "0");
-  await userEvent.click(within(row).getByRole("button", { name: "Apply max agents for Standard" }));
-  const check = await within(row).findByRole("button", { name: "Check limit status" }); expect(screen.getByLabelText("Provider")).toBeDisabled();
-  await userEvent.click(check); await within(row).findByText("Limit saved.");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  const check = await screen.findByRole("button", { name: "Check save status" }); expect(screen.getByLabelText("Provider")).toBeDisabled();
+  await userEvent.click(check); await within(row).findByText("Saved.");
   expect(screen.getByLabelText("Provider")).toBeEnabled(); expect(input).toHaveValue(0); expect(posts).toBe(1);
 });
 
@@ -202,8 +202,8 @@ test("a conflicting cap update preserves the cap draft and profile editing", asy
   read(); server.use(http.post("/api/settings/swarm/limits", () => HttpResponse.json({ error: "conflict", message: "Limits changed. Try again after refresh." }, { status: 409 })));
   const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
   await waitFor(() => expect(input).toHaveValue(2)); await userEvent.clear(input); await userEvent.type(input, "3");
-  await userEvent.click(within(row).getByRole("button", { name: "Apply max agents for Standard" }));
-  expect(await within(row).findByRole("alert")).toHaveTextContent("Limits changed"); expect(input).toHaveValue(3);
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Limits changed"); expect(input).toHaveValue(3);
   expect(screen.getByLabelText("Provider")).toBeEnabled(); expect(within(row).getByLabelText("Description")).toBeEnabled();
 });
 
@@ -211,4 +211,109 @@ test("the selected provider cannot edit an absent class catalog pair", async () 
   read(); const row = await open(); await userEvent.selectOptions(screen.getByLabelText("Provider"), "openai");
   expect(within(row).getByRole("spinbutton", { name: "Max agents for Standard" })).toBeDisabled();
   expect(within(row).getByText("Unavailable")).toBeVisible();
+});
+
+async function editProfileAndCap() {
+  const row = await open(); const input = within(row).getByRole("spinbutton", { name: "Max agents for Standard" });
+  await waitFor(() => expect(input).toHaveValue(2));
+  await userEvent.type(within(row).getByLabelText("Description"), " revised");
+  await userEvent.clear(input); await userEvent.type(input, "3");
+  return { row, input };
+}
+
+test("one Save confirms profile first and then cap with the refreshed catalog and original limits revision", async () => {
+  let profiles = snapshot(); let limits = limitsSnapshot(); const order: string[] = []; let cap: Record<string, unknown> | undefined;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/swarm", () => HttpResponse.json(limits)),
+    http.post("/api/settings/intelligence", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; description: string }; order.push("profile");
+      profiles = { ...profiles, revision: "13", profiles: [{ ...profile, description: body.description, version: 2 }] };
+      limits = { ...limits, catalog_revision: "3" }; return HttpResponse.json(saved(body.operation_id, { description: body.description }));
+    }), http.post("/api/settings/swarm/limits", async ({ request }) => { order.push("cap"); cap = await request.json() as Record<string, unknown>;
+      limits = { ...limitsSnapshot(3), revision: "13", catalog_revision: "3" }; return HttpResponse.json(limits); }));
+  const { row, input } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  await within(row).findByText("Saved."); await waitFor(() => expect(within(row).getByRole("button", { name: "Save Standard" })).toBeDisabled());
+  expect(order).toEqual(["profile", "cap"]); expect(cap).toMatchObject({ expected_revision: "12", expected_catalog_revision: "3", cell: { provider: "anthropic", intelligence_class: "standard", limit: 3 } });
+  expect(input).toHaveValue(3); expect(within(row).getByLabelText("Description")).toHaveValue("Everyday work revised");
+});
+
+test("a failed profile save preserves both drafts and never writes the cap", async () => {
+  read(); let capPosts = 0;
+  server.use(http.post("/api/settings/intelligence", () => HttpResponse.json({ error: "conflict", message: "Profile changed." }, { status: 409 })),
+    http.post("/api/settings/swarm/limits", () => { capPosts++; return HttpResponse.error(); }));
+  const { row, input } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Profile changed"); expect(capPosts).toBe(0);
+  expect(input).toHaveValue(3); expect(within(row).getByLabelText("Description")).toHaveValue("Everyday work revised");
+});
+
+test("partial cap failure reports the confirmed profile and retries only the unsaved cap", async () => {
+  let profiles = snapshot(); let limits = limitsSnapshot(); let profilePosts = 0; let capPosts = 0;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/swarm", () => HttpResponse.json(limits)),
+    http.post("/api/settings/intelligence", async ({ request }) => { const body = await request.json() as { operation_id: string; description: string }; profilePosts++;
+      profiles = { ...profiles, revision: "13", profiles: [{ ...profile, description: body.description, version: 2 }] };
+      limits = { ...limits, catalog_revision: "3" }; return HttpResponse.json(saved(body.operation_id, { description: body.description })); }),
+    http.post("/api/settings/swarm/limits", () => { capPosts++; if (capPosts === 1) return HttpResponse.json({ error: "invalid", message: "Limit rejected." }, { status: 422 });
+      limits = { ...limitsSnapshot(3), revision: "13", catalog_revision: "3" }; return HttpResponse.json(limits); }));
+  const { row, input } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Profile saved. Max agents were not saved. Limit rejected."); expect(input).toHaveValue(3);
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard" })); await within(row).findByText("Saved.");
+  expect(profilePosts).toBe(1); expect(capPosts).toBe(2); expect(input).toHaveValue(3);
+});
+
+test("an uncertain combined profile phase is reconciled before sending its captured cap", async () => {
+  let profiles = snapshot(); let limits = limitsSnapshot(); let profilePosts = 0; let capPosts = 0;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/swarm", () => HttpResponse.json(limits)),
+    http.post("/api/settings/intelligence", () => { profilePosts++; return HttpResponse.error(); }),
+    http.get("/api/settings/intelligence/operations/:id", ({ params }) => {
+      profiles = { ...profiles, revision: "13", profiles: [{ ...profile, description: "Everyday work revised", version: 2 }] };
+      limits = { ...limits, catalog_revision: "3" }; return HttpResponse.json(saved(String(params.id), { description: "Everyday work revised" })); }),
+    http.post("/api/settings/swarm/limits", () => { capPosts++; limits = { ...limitsSnapshot(3), revision: "13", catalog_revision: "3" }; return HttpResponse.json(limits); }));
+  const { row } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  const check = await screen.findByRole("button", { name: "Check save status" }); expect(capPosts).toBe(0); expect(screen.getByLabelText("Provider")).toBeDisabled();
+  await userEvent.click(check); await within(row).findByText("Saved."); await waitFor(() => expect(capPosts).toBe(1)); expect(profilePosts).toBe(1);
+});
+
+test("an uncertain cap phase retries its exact request without resaving the confirmed profile", async () => {
+  let profiles = snapshot(); let limits = limitsSnapshot(); let profilePosts = 0; const caps: Record<string, unknown>[] = [];
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/swarm", () => HttpResponse.json(limits)),
+    http.post("/api/settings/intelligence", async ({ request }) => { const body = await request.json() as { operation_id: string }; profilePosts++;
+      profiles = { ...profiles, revision: "13", profiles: [{ ...profile, description: "Everyday work revised", version: 2 }] }; return HttpResponse.json(saved(body.operation_id, { description: "Everyday work revised" })); }),
+    http.post("/api/settings/swarm/limits", async ({ request }) => { caps.push(await request.json() as Record<string, unknown>); if (caps.length === 1) return HttpResponse.error();
+      limits = { ...limitsSnapshot(3), revision: "13" }; return HttpResponse.json(limits); }),
+    http.get("/api/settings/swarm/operations/:id", () => HttpResponse.json({}, { status: 404 })));
+  const { row } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Profile saved. Max agents save unconfirmed");
+  await userEvent.click(screen.getByRole("button", { name: "Check save status" })); await userEvent.click(await screen.findByRole("button", { name: "Retry same save" }));
+  await within(row).findByText("Saved."); expect(caps).toHaveLength(2); expect(caps[0]).toEqual(caps[1]); expect(profilePosts).toBe(1);
+});
+
+test("a new row can create its configured profile and cap with one Save", async () => {
+  let profiles = snapshot(); let limits: ReturnType<typeof limitsSnapshot> = limitsSnapshot(); let cap: Record<string, unknown> | undefined; let createdId = "";
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/swarm", () => HttpResponse.json(limits)),
+    http.post("/api/settings/intelligence", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; profile_id: string; name: string; candidates: Candidate[] }; createdId = body.profile_id;
+      const created = { ...profile, id: createdId, name: body.name, candidates: body.candidates };
+      profiles = { ...profiles, revision: "13", profiles: [...profiles.profiles, created] };
+      limits = { ...limits, catalog_revision: "3", cells: [...limits.cells, { ...limits.cells[0]!, intelligence_class: createdId, display_name: body.name, effective_limit: null }] };
+      return HttpResponse.json(saved(body.operation_id, created));
+    }), http.post("/api/settings/swarm/limits", async ({ request }) => { cap = await request.json() as Record<string, unknown>;
+      limits = { ...limits, revision: "13", cell_limits: [...limits.cell_limits, { provider: "anthropic", intelligence_class: createdId, limit: 4 }], cells: limits.cells.map(c => c.intelligence_class === createdId ? { ...c, effective_limit: 4 } : c) }; return HttpResponse.json(limits); }));
+  await open(); await userEvent.click(screen.getByRole("button", { name: "Add row" })); const row = screen.getByRole("row", { name: "new profile" });
+  await userEvent.type(within(row).getByLabelText("Profile name"), "Research");
+  await userEvent.selectOptions(within(row).getByLabelText("Model"), "anthropic:configured-model");
+  const input = within(row).getByRole("spinbutton"); expect(input).toBeEnabled(); await userEvent.type(input, "4");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Research" })); await within(row).findByText("Saved.");
+  expect(cap).toMatchObject({ expected_revision: "12", expected_catalog_revision: "3", cell: { provider: "anthropic", intelligence_class: createdId, limit: 4 } });
+});
+
+test("a concurrent cap revision after profile confirmation is rejected without replacing its expected revision", async () => {
+  let profiles = snapshot(); let limits = limitsSnapshot(); let cap: Record<string, unknown> | undefined;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/swarm", () => HttpResponse.json(limits)),
+    http.post("/api/settings/intelligence", async ({ request }) => { const body = await request.json() as { operation_id: string };
+      profiles = { ...profiles, revision: "13", profiles: [{ ...profile, version: 2, description: "Everyday work revised" }] };
+      limits = { ...limitsSnapshot(1), revision: "13", catalog_revision: "3" }; return HttpResponse.json(saved(body.operation_id, { description: "Everyday work revised" })); }),
+    http.post("/api/settings/swarm/limits", async ({ request }) => { cap = await request.json() as Record<string, unknown>;
+      return HttpResponse.json({ error: "conflict", message: "Limits changed." }, { status: 409 }); }));
+  const { row, input } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Profile saved. Max agents were not saved. Limits changed.");
+  expect(cap).toMatchObject({ expected_revision: "12", expected_catalog_revision: "3" }); expect(input).toHaveValue(3);
 });

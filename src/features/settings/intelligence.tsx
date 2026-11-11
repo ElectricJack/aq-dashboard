@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { inspectIntelligenceSave, readIntelligence, saveIntelligence, type Candidate, type IntelligenceProfile, type IntelligenceSettings, type ModelChoice, type SaveIntelligence, type IntelligenceSaved } from "../../api/intelligenceSettings";
-import { inspectSwarmOperation, useSwarmSettings, useUpdateSwarmLimits, type SwarmSettings, type UpdateSwarmLimits } from "../../api/swarmSettings";
+import { inspectSwarmOperation, readSwarmSettings, useSwarmSettings, useUpdateSwarmLimits, type SwarmSettings, type UpdateSwarmLimits } from "../../api/swarmSettings";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -20,50 +20,8 @@ function choiceFor(candidate: Candidate | undefined, choices: ModelChoice[]) {
 function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.serverMessage ?? "The save could not be confirmed." : "The save could not be confirmed.";
 }
-function MaxAgentsCell({ profile, provider, snapshot, busy, locked, onBusy }: {
-  profile: IntelligenceProfile; provider: string; snapshot: SwarmSettings | undefined; busy: boolean; locked: boolean; onBusy(value: boolean): void;
-}) {
-  const mutation = useUpdateSwarmLimits();
-  const { queryContext } = useSession();
-  const queryClient = useQueryClient();
-  const cell = snapshot?.cells.find(c => c.provider === provider && c.intelligence_class === profile.id);
-  const current = cell?.effective_limit == null ? "" : String(cell.effective_limit);
-  const [draft, setDraft] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const [unconfirmed, setUnconfirmed] = useState<UpdateSwarmLimits | null>(null);
-  const [retrySame, setRetrySame] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const value = draft ?? current;
-  const valid = value === "" || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) <= 4294967295);
-  async function send(request: UpdateSwarmLimits) {
-    setPending(true); onBusy(true); setError(null); setNotice(null);
-    try { await mutation.mutateAsync(request); setDraft(null); setUnconfirmed(null); setNotice("Limit saved."); onBusy(false); }
-    catch (e) {
-      if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) { setError(errorMessage(e)); setUnconfirmed(null); onBusy(false); }
-      else { setUnconfirmed(request); setRetrySame(false); setError("Limit save unconfirmed. Check status before continuing."); }
-    } finally { setPending(false); }
-  }
-  async function check() {
-    if (!unconfirmed) return;
-    setPending(true);
-    try { const confirmed = await inspectSwarmOperation(unconfirmed.operation_id); queryClient.setQueryData<SwarmSettings>(queryKey(queryContext, "swarm-settings", {}), old => !old || BigInt(confirmed.revision) >= BigInt(old.revision) ? confirmed : old); void queryClient.invalidateQueries({ queryKey: queryKey(queryContext, "swarm-settings", {}) }); setUnconfirmed(null); setDraft(null); setNotice("Limit saved."); setError(null); onBusy(false); }
-    catch (e) { setRetrySame(e instanceof ApiError && e.status === 404); setError(e instanceof ApiError && e.status === 404 ? "Limit save not recorded. Retry the same request safely." : "Limit status unavailable. Your entry is preserved."); }
-    finally { setPending(false); }
-  }
-  return <div className={styles.limitCell}>
-    <input type="number" min="0" max="4294967295" step="1" aria-label={`Max agents for ${profile.name ?? profile.id}`} placeholder="Unlimited" value={value}
-      disabled={busy || locked || !cell || profile.version === 0 || !!unconfirmed} onChange={e => { setDraft(e.target.value); setNotice(null); setError(null); }} />
-    <ActionButton aria-label={`Apply max agents for ${profile.name ?? profile.id}`} disabled={busy || locked || !cell || !snapshot || profile.version === 0 || !valid || draft === null || value === current}
-      onClick={() => { if (snapshot) void send({ operation_id: crypto.randomUUID(), expected_revision: snapshot.revision, expected_catalog_revision: snapshot.catalog_revision,
-        cell: { provider, intelligence_class: profile.id, limit: value === "" ? null : Number(value) } }); }}>{pending ? "Applying…" : "Apply"}</ActionButton>
-    {notice && <span role="status" className={styles.success}>{notice}</span>}
-    {error && <span role="alert" className={styles.warning}>{error}</span>}
-    {unconfirmed && <><ActionButton disabled={pending} onClick={() => void check()}>Check limit status</ActionButton>
-      {retrySame && <ActionButton disabled={pending} onClick={() => void send(unconfirmed)}>Retry same limit</ActionButton>}</>}
-    {!cell && <span className={styles.meta}>{profile.version === 0 ? "Save profile first" : "Unavailable"}</span>}
-  </div>;
-}
+type RowOperation = { kind: "profile"; request: SaveIntelligence; cap?: UpdateSwarmLimits } | { kind: "cap"; request: UpdateSwarmLimits; profileSaved: boolean; refreshCatalog?: boolean };
+type LimitDraft = { value: string; revision: string; catalogRevision: string };
 function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved, onRemove, onReload }: {
   profile: IntelligenceProfile; settings: IntelligenceSettings; provider: string; limits: SwarmSettings | undefined; busy: boolean;
   onBusy(value: boolean): void; onSaved(result: IntelligenceSaved): Promise<void>; onRemove(): void; onReload(): Promise<void>;
@@ -76,7 +34,12 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [unconfirmed, setUnconfirmed] = useState<SaveIntelligence | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState<RowOperation | null>(null);
+  const [partialProviders, setPartialProviders] = useState<Record<string, boolean>>({});
+  const [limitDrafts, setLimitDrafts] = useState<Record<string, LimitDraft>>({});
+  const capMutation = useUpdateSwarmLimits();
+  const { queryContext } = useSession();
+  const queryClient = useQueryClient();
   const [retrySame, setRetrySame] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -106,32 +69,73 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
     setCandidates(choice ? [...otherProviders, { id: candidate?.id ?? `choice-${crypto.randomUUID()}`, provider: choice.provider,
       model: choice.model, reasoning_configuration_reference: choice.reasoning_configuration_reference, harnesses: [choice.harness] }] : otherProviders);
   }
-  async function complete(result: IntelligenceSaved) {
+  async function complete(result: IntelligenceSaved, continuing = false) {
     setName(result.profile.name ?? result.profile.id); setDescription(result.profile.description ?? "");
     setCandidates(structuredClone(result.profile.candidates)); setVersion(result.profile.version);
     await onSaved(result); setDirty(false); setUnconfirmed(null); setError(null); setConflict(false);
-    setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
+    setNotice(continuing ? null : result.disposition === "unchanged" ? "No changes to save." : "Saved.");
   }
-  async function send(request: SaveIntelligence) {
+  const cell = limits?.cells.find(c => c.provider === provider && c.intelligence_class === profile.id);
+  const canSetLimit = !!limits && (!!cell || (dirty && !!configured));
+  const currentLimit = cell?.effective_limit == null ? "" : String(cell.effective_limit);
+  const limitDraft = limitDrafts[provider];
+  const limitValue = limitDraft?.value ?? currentLimit;
+  const limitDirty = !!limitDraft && limitValue !== currentLimit;
+  const limitValid = limitValue === "" || (/^\d+$/.test(limitValue) && Number.isSafeInteger(Number(limitValue)) && Number(limitValue) <= 4294967295);
+  function completeCap(result: SwarmSettings, request: UpdateSwarmLimits) {
+    queryClient.setQueryData<SwarmSettings>(queryKey(queryContext, "swarm-settings", {}), old => !old || BigInt(result.revision) >= BigInt(old.revision) ? result : old);
+    void queryClient.invalidateQueries({ queryKey: queryKey(queryContext, "swarm-settings", {}) });
+    const savedProvider = request.cell!.provider;
+    setLimitDrafts(old => { const next = { ...old }; delete next[savedProvider]; return next; });
+    setPartialProviders(old => { const next = { ...old }; delete next[savedProvider]; return next; });
+    setUnconfirmed(null); setError(null); setConflict(false); setNotice("Saved.");
+  }
+  async function run(operation: RowOperation, inspect = false) {
     if (pending) return;
-    setPending(true); setPendingDelete(request.delete === true); setConfirmDelete(false); onBusy(true); setError(null); setNotice(null); setConflict(false);
-    try { await complete(await saveIntelligence(request)); }
-    catch (e) {
-      if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) {
-        setError(errorMessage(e)); setConflict(e.status === 409 && !request.delete); setUnconfirmed(null);
-      } else {
-        setUnconfirmed(request); setRetrySame(false); setError(`${request.delete ? "Delete" : "Save"} unconfirmed. Check its status before editing this row again.`);
+    let phase = operation;
+    let uncertain = false;
+    setPending(true); setPendingDelete(phase.kind === "profile" && phase.request.delete === true); setConfirmDelete(false); onBusy(true); setError(null); setNotice(null); setConflict(false);
+    try {
+      if (phase.kind === "profile") {
+        await complete(await (inspect ? inspectIntelligenceSave(phase.request.operation_id) : saveIntelligence(phase.request)), !!phase.cap);
+        if (!phase.cap) return;
+        const cap = phase.cap;
+        setPartialProviders(old => ({ ...old, [cap.cell!.provider]: true }));
+        phase = { kind: "cap", request: cap, profileSaved: true, refreshCatalog: true };
+        inspect = false;
       }
-    } finally { setPending(false); setPendingDelete(false); onBusy(false); }
+      if (phase.refreshCatalog) {
+        // Profile edits may change the catalog. Preserve the original limits
+        // revision so concurrent limits edits still conflict.
+        let catalog: SwarmSettings;
+        try { catalog = await readSwarmSettings(); }
+        catch { setNotice(null); setError("Profile saved. Max agents were not saved because the limits catalog is unavailable. Your limit entry is preserved; retry Save."); return; }
+        phase = { ...phase, request: { ...phase.request, expected_catalog_revision: catalog.catalog_revision }, refreshCatalog: false };
+      }
+      completeCap(await (inspect ? inspectSwarmOperation(phase.request.operation_id) : capMutation.mutateAsync(phase.request)), phase.request);
+    } catch (e) {
+      const prefix = phase.kind === "cap" && phase.profileSaved ? "Profile saved. " : "";
+      setNotice(null);
+      if (inspect) {
+        setUnconfirmed(phase); uncertain = true;
+        setRetrySame(e instanceof ApiError && e.status === 404);
+        setError(prefix + (e instanceof ApiError && e.status === 404 ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. This row is preserved."));
+      } else if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) {
+        setError(prefix + (phase.kind === "cap" ? "Max agents were not saved. " : "") + errorMessage(e));
+        setConflict(phase.kind === "profile" && e.status === 409 && !phase.request.delete); setUnconfirmed(null);
+      } else {
+        setUnconfirmed(phase); uncertain = true; setRetrySame(false);
+        setError(prefix + `${phase.kind === "profile" && phase.request.delete ? "Delete" : phase.kind === "cap" ? "Max agents save" : "Save"} unconfirmed. Check its status before editing this row again.`);
+      }
+    } finally { setPending(false); setPendingDelete(false); onBusy(uncertain); }
   }
-  async function check() {
-    if (!unconfirmed || pending) return;
-    setPending(true); onBusy(true);
-    try { await complete(await inspectIntelligenceSave(unconfirmed.operation_id)); }
-    catch (e) {
-      setRetrySame(e instanceof ApiError && e.status === 404);
-      setError(e instanceof ApiError && e.status === 404 ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. This row is preserved.");
-    } finally { setPending(false); onBusy(false); }
+  function send(request: SaveIntelligence) { return run({ kind: "profile", request }); }
+  function saveRow() {
+    const cap: UpdateSwarmLimits | undefined = limitDirty && limitDraft ? { operation_id: crypto.randomUUID(), expected_revision: limitDraft.revision,
+      expected_catalog_revision: limitDraft.catalogRevision, cell: { provider, intelligence_class: profile.id, limit: limitValue === "" ? null : Number(limitValue) } } : undefined;
+    if (dirty) return run({ kind: "profile", request: { operation_id: crypto.randomUUID(), expected_revision: settings.revision,
+      profile_id: profile.id, profile_version: shownVersion, name: shownName.trim(), description: shownDescription, candidates: shownCandidates }, cap });
+    if (cap) return run({ kind: "cap", request: cap, profileSaved: !!partialProviders[provider], refreshCatalog: !!partialProviders[provider] });
   }
   const label = shownName.trim() || "new profile";
   return <Fragment>
@@ -149,14 +153,16 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
         {!configured && <option value="">{candidate ? "Not configured" : "—"}</option>}
         {reasoning.map(c => <option key={`${c.reasoning_configuration_reference}:${c.harness}`} value={`${c.reasoning_configuration_reference}:${c.harness}`}>{c.reasoning}</option>)}
       </select></td>
-      <td><MaxAgentsCell key={provider} profile={profile} provider={provider} snapshot={limits} busy={busy} locked={locked} onBusy={onBusy} /></td>
+      <td><div className={styles.limitCell}><input type="number" min="0" max="4294967295" step="1" aria-label={`Max agents for ${profile.name ?? profile.id}`} placeholder="Unlimited" value={limitValue}
+        disabled={busy || locked || !canSetLimit} onChange={e => { if (limits) setLimitDrafts(old => ({ ...old, [provider]: { value: e.target.value, revision: old[provider]?.revision ?? limits.revision, catalogRevision: old[provider]?.catalogRevision ?? limits.catalog_revision } })); setNotice(null); setError(null); }} />
+        {!canSetLimit && <span className={styles.meta}>{profile.version === 0 ? "Save profile first" : "Unavailable"}</span>}
+      </div></td>
       <td><div className={styles.rowActions}>
-        <ActionButton aria-label={`Save ${label}`} disabled={busy || locked || conflict || !dirty || !shownName.trim()} onClick={() => void send({ operation_id: crypto.randomUUID(), expected_revision: settings.revision,
-          profile_id: profile.id, profile_version: shownVersion, name: shownName.trim(), description: shownDescription, candidates: shownCandidates })}>{pending && !pendingDelete ? "Saving…" : "Save"}</ActionButton>
+        <ActionButton aria-label={`Save ${label}`} disabled={busy || locked || conflict || (!dirty && !limitDirty) || !limitValid || !shownName.trim()} onClick={() => void saveRow()}>{pending && !pendingDelete ? "Saving…" : "Save"}</ActionButton>
         {profile.version === 0 ? <ActionButton disabled={busy || locked} aria-label={`Delete ${label}`} onClick={onRemove}>Delete</ActionButton> :
           <ActionButton ref={deleteButton} disabled={busy || locked} aria-label={`Delete ${label}`} onClick={() => setConfirmDelete(true)}>{pendingDelete ? "Deleting…" : "Delete"}</ActionButton>}
-        {profile.version !== 0 && (dirty || error) && !unconfirmed && <ActionButton disabled={locked} aria-label={`Reset ${label}`} onClick={() => {
-          setPending(true); void onReload().finally(() => { setDirty(false); setError(null); setConflict(false); setNotice(null); setPending(false); });
+        {profile.version !== 0 && (dirty || Object.keys(limitDrafts).length > 0 || error) && !unconfirmed && <ActionButton disabled={locked} aria-label={`Reset ${label}`} onClick={() => {
+          setPending(true); void onReload().finally(() => { setDirty(false); setLimitDrafts({}); setPartialProviders({}); setError(null); setConflict(false); setNotice(null); setPending(false); });
         }}>Reset</ActionButton>}
     {confirmDelete && <div className={styles.confirmDelete} role="group" aria-label={`Confirm delete ${label}`}>
       <span>Delete “{label}” for all providers?</span>
@@ -169,8 +175,8 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
       </div></td>
     </tr>
     {error && <tr><td colSpan={6}><div role="alert" className={styles.warning}>{label}: {error}{conflict && " Your edits are preserved. Reset this row to load the latest settings."}</div>
-      {unconfirmed && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void check()}>{unconfirmed.delete ? "Check delete status" : "Check save status"}</ActionButton>
-        {retrySame && <ActionButton disabled={pending} onClick={() => void send(unconfirmed)}>{unconfirmed.delete ? "Retry same delete" : "Retry same save"}</ActionButton>}</div>}
+      {unconfirmed && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void run(unconfirmed, true)}>{unconfirmed.kind === "profile" && unconfirmed.request.delete ? "Check delete status" : "Check save status"}</ActionButton>
+        {retrySame && <ActionButton disabled={pending} onClick={() => void run(unconfirmed)}>{unconfirmed.kind === "profile" && unconfirmed.request.delete ? "Retry same delete" : "Retry same save"}</ActionButton>}</div>}
     </td></tr>}
   </Fragment>;
 }
@@ -226,11 +232,11 @@ export function IntelligenceSettings() {
         <table className={styles.table} aria-label="Intelligence profiles">
           <thead><tr><th scope="col">Profile</th><th scope="col">Description</th><th scope="col">Model</th><th scope="col">Reasoning effort</th><th scope="col">Max agents</th><th scope="col">Actions</th></tr></thead>
           <tbody>{profiles.map(profile => <ProfileRow key={profile.id} profile={profile} settings={query.data!} provider={provider} limits={limits.isError ? undefined : limits.data} busy={busy} onBusy={setBusy} onSaved={saved}
-            onRemove={() => { setAdded(old => old.filter(p => p.id !== profile.id)); addButton.current?.focus(); }} onReload={async () => { await query.refetch(); }} />)}</tbody>
+            onRemove={() => { setAdded(old => old.filter(p => p.id !== profile.id)); addButton.current?.focus(); }} onReload={async () => { await Promise.all([query.refetch(), limits.refetch()]); }} />)}</tbody>
         </table>
       </div>
       {profiles.length === 0 && <p className={styles.meta}>No profiles yet. Add a row to get started.</p>}
-      <p className={styles.meta}>Save each profile row when ready. Apply max agents separately; blank means unlimited and 0 pauses new launches. Running agents finish.</p>
+      <p className={styles.meta}>Save each row when ready. Blank max agents means unlimited; 0 pauses new launches. Running agents finish.</p>
     </>}
   </div>;
 }

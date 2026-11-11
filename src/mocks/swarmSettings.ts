@@ -7,6 +7,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
     { provider: "fixture-provider", intelligence_class: "fixture-standard", display_name: "Fixture standard" },
     { provider: "fixture-provider", intelligence_class: "fixture-advanced", display_name: "Fixture advanced" },
   ];
+  if (scenario === "swarm-two-providers") catalog.push({ provider: "fixture-provider-two", intelligence_class: "fixture-standard-two", display_name: "Fixture second standard" });
   const operations = new Map<string, { request: string; response: SwarmSettings }>();
   let revision = 1;
   let activeMode: SwarmMode = "normal";

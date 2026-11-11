@@ -74,36 +74,13 @@ describe("swarm tree", () => {
   });
 });
 
-test("status details start collapsed, persist per viewer, and do not remount the tree", async () => {
-  localStorage.clear();
-  const restore = stubReactFlowDom();
-  const app = renderApp("/agents/swarm");
-  const button = await screen.findByRole("button", { name: /show details/i });
-  expect(button).toHaveAttribute("aria-expanded", "false");
-  const details = document.getElementById(button.getAttribute("aria-controls")!);
-  expect(details).toHaveAttribute("hidden");
-  const tree = await screen.findByRole("region", { name: "Swarm tree" });
-  fireEvent.click(button);
-  expect(button).toHaveAttribute("aria-expanded", "true");
-  expect(details).not.toHaveAttribute("hidden");
-  expect(screen.getByRole("region", { name: "Swarm tree" })).toBe(tree);
-  app.unmount();
-  renderApp("/agents/swarm");
-  expect(await screen.findByRole("button", { name: /hide details/i })).toHaveAttribute("aria-expanded", "true");
-  localStorage.clear();
-  restore();
-});
-
-test("active totals include unclassified occupancy and show provider controls", async () => {
+test("swarm status shows provider controls", async () => {
   server.use(http.get("/api/settings/swarm", () => HttpResponse.json({
     revision: "1", catalog_revision: "1", active_mode: "normal", normal: [{ provider: "codex", intelligence_class: "fast", limit: 2 }], reduced: [{ provider: "codex", intelligence_class: "fast", limit: 1 }],
     cells: [{ provider: "codex", intelligence_class: "fast", display_name: "Fast", normal_limit: 2, reduced_limit: 1, effective_limit: 2, running: 2, waiting: 3 }],
     unclassified: [{ provider: "codex", running: 1, waiting: 4 }], provider_limits: [], cell_limits: [],
   })));
   renderApp("/agents/swarm");
-  expect((await screen.findByText("3 active")).parentElement).toHaveTextContent("7 waiting");
-  fireEvent.click(screen.getByRole("button", { name: /show details/i }));
   expect(await screen.findByRole("slider", { name: "codex concurrent agents" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Intelligence settings" })).toHaveAttribute("href", "/settings?tab=intelligence");
   expect(screen.queryByRole("switch", { name: "Reduced usage" })).not.toBeInTheDocument();
 });
