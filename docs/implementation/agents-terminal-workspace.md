@@ -62,7 +62,7 @@ The archive implementation is `a17106c5` on `feat/session-transcript-archive` in
 - Ten worker recorder tests pass, including actual tmux fast exit/backlog,
   upload resumption after a local HTTP listener restart, uncertain acknowledgements,
   persisted boundaries and corrupt-state recovery. Formatting and build budgets
-  pass. Scoped server Clippy passed.
+  pass. Scoped server, worker-binary and node-service Clippy passed with warnings denied.
 - Two opt-in cross-repository tests use the actual worker recorder and ServerLink
   against a private SQL-backed server over TCP. The Docker production runner
   captured 114,828 bytes / 1,402 lines with no inference or browser attached; a
