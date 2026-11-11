@@ -6,19 +6,19 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900, phone: false }, {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("N-07: a disabled Take control explains why and is not styled as the primary action", async ({ page }) => {
+    test("N-07: read-only terminal explains its policy and never offers control", async ({ page }) => {
       await page.goto("/agents/sessions");
-      const last = page.getByRole("list", { name: "Sessions" }).getByRole("listitem").last().getByRole("link").first();
-      await last.click();
+      await expect(page).toHaveURL(/\/agents\/history$/);
+      await page.getByRole("list", { name: "Session history" }).getByRole("button").last().click();
+      await page.getByRole("link", { name: "Open session inspection" }).click();
       const pane = page.getByRole("region", { name: "Interactive agent terminal" });
-      await expect(pane.getByRole("status").filter({ hasText: "Watch only" })).toBeAttached();
-      const take = pane.getByRole("button", { name: /take control/i });
-      await expect(take).toBeDisabled();
-      await expect(take).toHaveAccessibleDescription("This terminal does not accept input: its AQ terminal policy has input turned off.");
-      await expect(pane.getByText("This terminal does not accept input: its AQ terminal policy has input turned off.")).toBeVisible();
-      const fill = await take.evaluate((b) => getComputedStyle(b).backgroundColor);
-      const accent = await page.evaluate(() => { const probe = document.createElement("span"); probe.style.color = "var(--color-accent)"; document.body.append(probe); const c = getComputedStyle(probe).color; probe.remove(); return c; });
-      expect(fill).not.toBe(accent);
+      await expect(pane.getByText("This terminal does not accept input: its AQ terminal policy has input turned off.", {exact:true})).toBeVisible();
+      await expect(pane).not.toHaveAttribute("data-controlling");
+      // Control now connects automatically when allowed; a read-only terminal
+      // exposes its policy reason and never offers an input/control action.
+      await expect(pane.getByRole("button", {name:/take control/i})).toHaveCount(0);
+      await expect(pane.getByRole("button", {name:"Type",exact:true})).toHaveCount(0);
+      await expect(pane.getByRole("textbox", {name:/terminal input/})).toBeAttached();
     });
   });
 }

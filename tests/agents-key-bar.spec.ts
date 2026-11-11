@@ -18,7 +18,7 @@ async function takeControl(page: Page) {
   await page.goto("/agents/sess-07");
   const pane = page.getByRole("region", { name: "Interactive agent terminal" });
   await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
-  await pane.getByRole("button", { name: "Take control" }).click();
+  await expect(pane).toHaveAttribute("data-controlling");
   await expect(pane.getByRole("status").filter({ hasText: "You have control" })).toBeVisible();
   return pane;
 }
@@ -95,18 +95,17 @@ test.describe("phone-390", () => {
 test.describe("desktop-1440", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("key bar keeps Ctrl and the keys; no pan hint or phone text size when the grid fits", async ({ page }) => {
+  test("desktop uses physical keys without a phone key bar when the grid fits", async ({ page }) => {
     const pane = await takeControl(page);
-    const bar = pane.getByRole("group", { name: "Terminal keyboard" });
-    for (const name of ["Esc", "Tab", "Ctrl", "Left arrow", "Up arrow", "Down arrow", "Right arrow", "Enter"]) await expect(bar.getByRole("button", { name, exact: true })).toBeVisible();
+    await expect(pane.getByRole("group", { name: "Terminal keyboard" })).toHaveCount(0);
     expect(await pane.locator(".xterm-screen").evaluate((el) => el.scrollWidth > el.closest("[class*=host]")!.clientWidth)).toBe(false);
     await expect(pane.getByText(/columns · pan to view/)).toBeHidden();
     await expect(pane.getByRole("group", { name: "Text size" })).toBeHidden();
+    const sent=page.waitForRequest(mutation("input"));
+    await pane.locator(".xterm-helper-textarea").focus();
+    await page.keyboard.press("Escape");
+    expect((await sent).postDataJSON().body.bytes).toEqual([27]);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-key-bar-desktop-1440.png` });
-    const ctrl = bar.getByRole("button", { name: "Ctrl", exact: true });
-    await ctrl.click();
-    await expect(ctrl).toHaveAttribute("aria-pressed", "true");
-    if (SHOTS) await bar.screenshot({ path: `${SHOTS}/agents-key-bar-ctrl-desktop-1440.png` });
     await axe(page);
   });
 });

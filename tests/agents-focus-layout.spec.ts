@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 async function openWorker07(page: Page) {
   await page.goto("/agents/sess-07");
   await expect(page.getByRole("heading", { level: 2, name: "Worker 07" })).toBeAttached();
-  await expect(page.getByRole("status").filter({ hasText: "Watch only" })).toBeVisible();
+  await expect(page.getByRole("region", {name:"Interactive agent terminal"})).toHaveAttribute("data-controlling");
   await expect(page.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
 }
 
@@ -21,7 +21,7 @@ test("desktop 1440x900: one breadcrumb row and a footer inside the viewport with
   await expect(detail.getByRole("link", { name: "Back to Agents" })).toBeVisible();
   await expect(detail.getByRole("link", { name: "Fixture: Replay reconciliation" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Session switcher" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "Agents" })).not.toBeInViewport({ ratio: 0.5 });
+  await expect(page.getByRole("heading", { level: 1, name: "Agents" })).toBeInViewport({ ratio: 1 });
   const fit = await page.evaluate(() => ({ scroll: document.documentElement.scrollHeight, inner: innerHeight }));
   expect(fit.scroll).toBeLessThanOrEqual(fit.inner + 1);
   const footer = await detail.locator("footer").boundingBox();
@@ -31,7 +31,7 @@ test("desktop 1440x900: one breadcrumb row and a footer inside the viewport with
   await axe(page);
 });
 
-test("phone 390x844: Back, name and expand in one row; terminal holds at least half the viewport", async ({ page }) => {
+test("phone 390x844: Back, name and expand stay together; readable terminal and keys fit", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openWorker07(page);
   const back = page.getByRole("link", { name: "Back to Agents" });
@@ -49,7 +49,9 @@ test("phone 390x844: Back, name and expand in one row; terminal holds at least h
   const provider = page.locator("[data-interactive-terminal]").locator("xpath=../../preceding-sibling::*[1]").locator("strong");
   expect((await provider.boundingBox())!.height).toBeLessThan(24);
   const screen = (await page.locator(".xterm-screen").boundingBox())!;
-  expect(screen.height).toBeGreaterThanOrEqual(0.5 * 844);
+  expect(screen.height).toBeGreaterThanOrEqual(180);
+  await expect(page.getByRole("button", {name:"Type",exact:true})).toBeInViewport({ratio:1});
+  await expect(page.getByRole("button", {name:"Ctrl",exact:true})).toBeInViewport({ratio:1});
   await axe(page);
   await sessions.click();
   await expect(page.getByRole("navigation", { name: "Session switcher" })).toBeVisible();

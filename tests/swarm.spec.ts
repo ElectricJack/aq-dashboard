@@ -74,14 +74,14 @@ for (const vp of VIEWPORTS) {
     });
 
     test("opening with ?select= pans the selected card into view", async ({ page }) => {
-      await page.goto("/agents?select=machine:studio");
+      await page.goto("/agents/swarm?select=machine:studio");
       await expect(page.getByRole("complementary", { name: "Properties" })).toContainText("studio");
       await expect(page.getByRole("button", { name: /^studio, local/ })).toBeInViewport({ ratio: 1 });
     });
 
     test("selecting an agent opens the terminal with control", async ({ page }) => {
       // Cards beyond the first screen need panning, so the selection arrives through the URL.
-      await page.goto("/agents?select=agent:sess-07");
+      await page.goto("/agents/swarm?select=agent:sess-07");
       const terminal = page.getByRole("region", { name: "Agent terminal" });
       await expect(terminal).toBeVisible();
       await expect(terminal.getByRole("status").filter({ hasText: "You have control" })).toBeAttached({ timeout: 15_000 });
@@ -115,7 +115,7 @@ test("phone stacks tree above pane without horizontal scroll", async ({ page }) 
 test.describe("phone pane rows", () => {
   test.use({ viewport: { width: 390, height: 844 } });
   test("each definition label is on the same row as its value", async ({ page }) => {
-    await page.goto("/agents?select=machine:desktop");
+    await page.goto("/agents/swarm?select=machine:desktop");
     const pane = page.getByRole("complementary", { name: "Properties" });
     await expect(pane.locator("dt").first()).toBeVisible();
     const tops = await pane.locator("dl dt").evaluateAll((labels) => labels.map((dt) => [dt.textContent, dt.getBoundingClientRect().top, (dt.nextElementSibling as HTMLElement).getBoundingClientRect().top] as const));
