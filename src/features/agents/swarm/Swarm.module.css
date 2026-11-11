@@ -95,3 +95,18 @@
 .loginChoices input { margin: 0; }
 
 .diagnosticDetails { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 11px; }
+
+/* The handle occupies the existing ten-pixel gutter. Both content nodes stay mounted while resizing. */
+@media (min-width: 1024px) {
+  .stage, .stage[data-wide] { grid-template-columns: minmax(0, calc((100% - 10px) * var(--swarm-tree-width, .64))) 10px minmax(0, 1fr); gap: 0; }
+  .stage[data-focus] { grid-template-columns: minmax(0, 1fr); }
+}
+.divider { display: none; }
+@media (min-width: 1024px) {
+  .divider { display: flex; justify-content: center; align-items: center; cursor: col-resize; touch-action: none; border-radius: 3px; }
+  .divider::before { content: ""; width: 2px; height: 36px; border-radius: 2px; background: var(--color-border); }
+  .divider:hover::before, .divider:focus-visible::before, .stage[data-resizing] .divider::before { background: var(--color-focus); }
+  .divider:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+}
+.stage[data-focus] > .divider { display: none; }
+.pane { min-inline-size: 0; }

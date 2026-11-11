@@ -64,6 +64,31 @@ export const SWARM_MOCKUP: Swarm = {
   },
 };
 
+// Explicitly synthetic stress fixture; no sessions or terminal links refer to real agents.
+export const SWARM_LARGE_FLEET: Swarm = {
+  ...SWARM_MOCKUP,
+  server: { ...SWARM_MOCKUP.server, running_agents: 200 },
+  machines: [{
+    ...SWARM_MOCKUP.machines[0]!, id: "fixture-fleet", label: "Fixture fleet", agent_max: 204,
+    nodes: [0, 1].map((workerIndex) => worker(100 + workerIndex, `fixture-worker-${workerIndex + 1}`, "fixture", workerIndex === 0 ? 152 : 52,
+      Array.from({ length: workerIndex === 0 ? 150 : 50 }, (_, index): SwarmAgent => {
+        const n = (workerIndex === 0 ? 0 : 150) + index;
+        return {
+          session_id: uuid(1000 + n), attempt_id: uuid(2000 + n),
+          task: { id: uuid(3000 + n), title: `Fixture task ${n + 1}` },
+          project: { id: uuid(4000), label: "Fixture project" },
+          provider: "fixture", model: "fixture", harness: "fixture", intelligence_class: "standard",
+          terminal: null, started_at: ago(12 * 60_000),
+        };
+      }))),
+  }],
+  waiting: { reasons: [NO_FREE_SLOT], agents: Array.from({ length: 20 }, (_, n) => ({
+    task: { id: uuid(5000 + n), title: `Fixture waiting task ${n + 1}` },
+    project: { id: uuid(4000), label: "Fixture project" }, provider: "fixture", intelligence_class: "standard" as const,
+    reasons: [NO_FREE_SLOT], since: ago(2 * 60_000),
+  })) },
+};
+
 const stoppedService = { state: "stopped", since: ago(60_000) } as const;
 /** The desktop machine after the owner stopped its worker; one handoff is still pending. */
 export const SWARM_STOPPED: Swarm = {
@@ -90,7 +115,7 @@ const AVAILABILITY_SCENARIOS: Record<string, OwnerAvailability> = {
 
 export function swarmHandlers(reads: "ok" | "partial" | "empty" | "failed", scenarioName?: string | null) {
   const availability = AVAILABILITY_SCENARIOS[scenarioName ?? ""];
-  const swarm = availability ? { ...SWARM_MOCKUP, server: { ...SWARM_MOCKUP.server, owner_availability: availability } } : SWARM_MOCKUP;
+  const swarm = scenarioName === "swarm-large-fleet" ? SWARM_LARGE_FLEET : availability ? { ...SWARM_MOCKUP, server: { ...SWARM_MOCKUP.server, owner_availability: availability } } : SWARM_MOCKUP;
   return [
     http.get("/api/v1/swarm", () => {
       if (reads === "failed") return HttpResponse.json({ request_id: "mock", code: "read_model_unavailable", message: "The read model is temporarily unavailable.", retryable: true }, { status: 503 });

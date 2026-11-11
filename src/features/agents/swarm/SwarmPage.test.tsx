@@ -84,3 +84,71 @@ test("swarm status shows provider controls", async () => {
   expect(await screen.findByRole("slider", { name: "codex concurrent agents" })).toBeInTheDocument();
   expect(screen.queryByRole("switch", { name: "Reduced usage" })).not.toBeInTheDocument();
 });
+
+describe("desktop swarm split", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(min-width: 1024px)", media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  test("keyboard clamps the split, persists it and retains the tree and properties", async () => {
+    const app = renderApp("/agents/swarm");
+    const handle = await screen.findByRole("separator", { name: "Resize swarm tree and properties" });
+    const pane = screen.getByRole("complementary", { name: "Properties" });
+    const stage = handle.parentElement!;
+    await screen.findByRole("region", { name: "Swarm tree" });
+    const tree = stage.firstElementChild;
+    fireEvent.keyDown(handle, { key: "Home" });
+    expect(handle.getAttribute("aria-valuenow")).toBe(handle.getAttribute("aria-valuemin"));
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(handle.getAttribute("aria-valuenow")).toBe(handle.getAttribute("aria-valuemin"));
+    fireEvent.keyDown(handle, { key: "End" });
+    expect(handle.getAttribute("aria-valuenow")).toBe(handle.getAttribute("aria-valuemax"));
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    expect(handle.getAttribute("aria-valuenow")).toBe(handle.getAttribute("aria-valuemax"));
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    const saved = handle.getAttribute("aria-valuenow");
+    expect(stage.firstElementChild).toBe(tree);
+    expect(screen.getByRole("complementary", { name: "Properties" })).toBe(pane);
+    expect(Object.keys(localStorage).some(key => key.startsWith("aq.swarm.tree-width:"))).toBe(true);
+    app.unmount();
+    renderApp("/agents/swarm");
+    await waitFor(() => expect(screen.getByRole("separator")).toHaveAttribute("aria-valuenow", saved));
+  });
+
+  test("ignores another principal's preference and invalid stored values", async () => {
+    const { default: bootstrap } = await import("../../../../contracts/proposed/bootstrap.json");
+    localStorage.setItem("aq.swarm.tree-width:another-principal", "40");
+    localStorage.setItem(`aq.swarm.tree-width:${bootstrap.data.principal.id}`, "not-a-width");
+    renderApp("/agents/swarm");
+    const handle = await screen.findByRole("separator");
+    expect(handle).toHaveAttribute("aria-valuenow", "64");
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(localStorage.getItem("aq.swarm.tree-width:another-principal")).toBe("40");
+    expect(Number(localStorage.getItem(`aq.swarm.tree-width:${bootstrap.data.principal.id}`))).toBeGreaterThan(50);
+  });
+
+  test("pointer capture resizes in either direction and cancellation clears drag styles", async () => {
+    renderApp("/agents/swarm");
+    const handle = await screen.findByRole("separator");
+    const stage = handle.parentElement!;
+    vi.spyOn(stage, "getBoundingClientRect").mockReturnValue({ left: 0, width: 1000 } as DOMRect);
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+    // jsdom needs a pointer event constructor to retain pointerId and clientX.
+    vi.stubGlobal("PointerEvent", MouseEvent);
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 7, clientX: 500 });
+    expect(handle.setPointerCapture).toHaveBeenCalled();
+    expect(document.body.style.userSelect).toBe("none");
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 900 });
+    expect(handle.getAttribute("aria-valuenow")).toBe(handle.getAttribute("aria-valuemax"));
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 10 });
+    expect(handle.getAttribute("aria-valuenow")).toBe(handle.getAttribute("aria-valuemin"));
+    fireEvent.pointerCancel(handle, { pointerId: 7 });
+    expect(document.body.style.userSelect).toBe("");
+    const cancelled = handle.getAttribute("aria-valuenow");
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 700 });
+    expect(handle).toHaveAttribute("aria-valuenow", cancelled);
+  });
+});

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { adaptOverview, type OverviewView } from "../../../api/adapters/inspection";
 import { adaptSwarm, SWARM_POLL_MS, type SwarmView } from "../../../api/adapters/swarm";
@@ -24,7 +24,7 @@ export const HOLD_POLLS = 3;
 
 export function SwarmPage() { return <ManualAgentsProvider><SwarmPageBody /></ManualAgentsProvider>; }
 function SwarmPageBody() {
-  const { bootstrap } = useSession();
+  const { bootstrap, queryContext } = useSession();
   const cap = bootstrap.capability("swarm.read");
   const desktop=useMediaQuery("(min-width: 1024px)");
   const { search } = useLocation();
@@ -35,9 +35,10 @@ function SwarmPageBody() {
   const overview = useRead<OverviewWire, OverviewView>({ resource: "overview", path: "/api/v1/overview", scope: { kind: "all_authorized" }, adapt: adaptOverview, pollMs: 10_000, enabled: overviewCap.enabled });
   const manual=useManualAgents();
   const settings = useWorkerSettings();
-  const view = swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view,manual?.fleet,manual?.project??null,params.get("select")), settings.data) : undefined;
-  const ready = overview.data?.view.counts.ready.value ?? null;
   const selectParam = params.get("select");
+  const view = useMemo(() => swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view, manual?.fleet, manual?.project ?? null, selectParam), settings.data) : undefined,
+    [swarm.data?.view, manual?.fleet, manual?.project, selectParam, settings.data]);
+  const ready = overview.data?.view.counts.ready.value ?? null;
   // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.
   const pane = useRef<HTMLElement>(null);
   const focusPane = useRef(false);
@@ -69,6 +70,50 @@ function SwarmPageBody() {
       pane.current?.querySelector<HTMLElement>("h2")?.focus();
     }
   });
+  const stage = useRef<HTMLDivElement>(null);
+  const [stageWidth, setStageWidth] = useState(1000);
+  const storageKey = `aq.swarm.tree-width:${queryContext.principalId}`;
+  const [preference, setPreference] = useState<{ key: string; percent: number } | null>(null);
+  const drag = useRef<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const focused = shown.selection?.kind === "agent" && params.get("focus") === "terminal";
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      const percent = stored === null ? NaN : Number(stored);
+      setPreference(Number.isFinite(percent) && percent >= 0 && percent <= 100 ? { key: storageKey, percent } : null);
+    } catch { setPreference(null); }
+  }, [storageKey]);
+  useEffect(() => {
+    const element = stage.current;
+    if (!element) return;
+    const measure = () => { const width = element.getBoundingClientRect().width; if (width > 0) setStageWidth(width); };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [cap.enabled]);
+  useEffect(() => {
+    if (!dragging) return;
+    const previous = document.body.style.userSelect;
+    const cursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    return () => { document.body.style.userSelect = previous; document.body.style.cursor = cursor; };
+  }, [dragging]);
+  useEffect(() => { if (!desktop || focused) { drag.current = null; setDragging(false); } }, [desktop, focused]);
+  const available = Math.max(1, stageWidth - 10);
+  const minimum = Math.min(320, available / 2);
+  const minPercent = minimum / available * 100;
+  const maxPercent = 100 - minPercent;
+  const defaultPercent = (available - (shown.selection?.kind === "agent" ? Math.min(720, available * .55) : 360)) / available * 100;
+  const treePercent = Math.max(minPercent, Math.min(maxPercent, preference?.key === storageKey ? preference.percent : defaultPercent));
+  const resize = (percent: number) => {
+    const next = Math.max(minPercent, Math.min(maxPercent, percent));
+    setPreference({ key: storageKey, percent: next });
+    try { localStorage.setItem(storageKey, String(next)); } catch { /* The split still works when storage is unavailable. */ }
+  };
+  const finishDrag = () => { drag.current = null; setDragging(false); };
   const coverage = swarm.data?.coverage;
   const resolvedCapacity=coverage?.reason==='Some online workers advertise no slot total'&&view?.machines.every(m=>m.nodes.every(n=>n.health!=='online'||n.slots.total!==null));
   const stale = swarm.isError && !!view;
@@ -86,10 +131,30 @@ function SwarmPageBody() {
     {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
     <SwarmStatusHeader />
-    <div className={styles.stage} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    <div ref={stage} className={styles.stage} style={desktop && !focused ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}
+      <div className={styles.divider} role="separator" aria-label="Resize swarm tree and properties" aria-orientation="vertical"
+        aria-valuemin={Math.round(minPercent)} aria-valuemax={Math.round(maxPercent)} aria-valuenow={Math.round(treePercent)} aria-valuetext={`${Math.round(treePercent)}% tree width`}
+        tabIndex={desktop && !focused ? 0 : -1} aria-hidden={!desktop || focused || undefined}
+        onPointerDown={event => {
+          if (!desktop || focused || event.button !== 0) return;
+          event.preventDefault(); event.currentTarget.focus();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          drag.current = event.pointerId; setDragging(true);
+        }}
+        onPointerMove={event => {
+          if (drag.current !== event.pointerId) return;
+          const bounds = stage.current?.getBoundingClientRect();
+          if (bounds && bounds.width > 10) resize((event.clientX - bounds.left - 5) / (bounds.width - 10) * 100);
+        }}
+        onPointerUp={event => { if (drag.current === event.pointerId) { finishDrag(); event.currentTarget.releasePointerCapture(event.pointerId); } }}
+        onPointerCancel={finishDrag} onLostPointerCapture={finishDrag}
+        onKeyDown={event => {
+          const next = event.key === "Home" ? minPercent : event.key === "End" ? maxPercent : event.key === "ArrowLeft" ? treePercent - (event.shiftKey ? 10 : 2) : event.key === "ArrowRight" ? treePercent + (event.shiftKey ? 10 : 2) : null;
+          if (next !== null) { event.preventDefault(); resize(next); }
+        }} />
       <aside ref={pane} className={styles.pane} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} />}</aside>
     </div>
   </>;
