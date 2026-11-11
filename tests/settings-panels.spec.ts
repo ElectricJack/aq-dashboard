@@ -7,7 +7,7 @@ for (const width of [1440, 390, 320]) {
     test("sections are tabs, show one section at a time, and preserve keyboard navigation", async ({ page }) => {
       await page.goto("/settings");
       const tabs = page.getByRole("tablist", { name: "Settings sections" });
-      await expect(tabs).toBeVisible(); await expect(tabs.getByRole("tab")).toHaveCount(6);
+      await expect(tabs).toBeVisible(); await expect(tabs.getByRole("tab")).toHaveCount(7);
       await expect(page.getByRole("tabpanel", { name: "Identity" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Framework connection" })).toHaveCount(0);
       await page.getByRole("tab", { name: "Display", exact: true }).click();

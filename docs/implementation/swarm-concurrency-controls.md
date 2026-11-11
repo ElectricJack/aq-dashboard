@@ -32,4 +32,13 @@ To keep the server library below its existing size ratchet, release-manifest val
 
 The complete dashboard unit run passed 128 files / 1290 tests. Subsequent final adapter, Settings, header and graph changes passed 54 focused tests. All 11 focused Chromium browser cases passed, including 320/390/1440 reflow, persistence, mode confirmation and conflict/error handling. Typecheck, script lint and production build/no-mock checks passed. The companion server's 33 focused Rust tests, Clippy, schema, migration and budget checks passed; see its implementation report. The dashboard-read contract is pinned to server commit `939ee9a4f6683fc7298703357d328aa55c46f0ad`.
 
-These changes are prepared on paired feature branches. Production rollout and live-server acceptance have not been performed.
+The owner preview rollout is complete; the source pins and live evidence are recorded below. Broader cloud/per-machine work remains outside this increment.
+
+
+## Owner preview deployment, 2026-11-11
+
+The live dashboard serves official clean source `6568e6eb` with manifest SHA-256 `1dfb8c41d0a91fb87f907537c876ae677fa2e9f4889deeded665fc337fd47b05`; all 64 served assets were verified. Server `939ee9a4` runs schema 115 with compatible supervisor controllers. Normal and Reduced limits remain unset for the owner to configure.
+
+Live checks at 1440px and 390px passed: collapsed header, persistent disclosure, Settings navigation, routing labels, no whole-page overflow, and no WCAG 2 A/AA or 2.1 A/AA axe violations. A transient resource 503 on the first desktop load did not recur on recheck. No limits, modes or agent requests were changed during browser verification. Two existing owner agent records and all four worker/terminal service PIDs were preserved. Evidence is local at `/home/jkern/dev/aq-platform/qa/2026-11-11/swarm-controls-rollout`.
+
+The Settings tab-count fixture was updated for the seventh tab; all three focused Settings viewport/accessibility cases pass. Full browser CI still has unrelated page-fixture failures, so live acceptance of this delivered increment does not claim the complete repository suite is green.
