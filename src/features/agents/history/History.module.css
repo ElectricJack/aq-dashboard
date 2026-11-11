@@ -1,0 +1,26 @@
+.layout { display:grid; grid-template-columns:minmax(220px,280px) minmax(0,1fr); gap:12px; min-height: 65vh; }
+.roster,.workspace { border:1px solid var(--border, #29394b); border-radius:8px; min-width:0; background:var(--surface, #101b26); }
+.roster { padding:10px; overflow:auto; max-height:calc(100vh - 180px); }
+.filters { display:grid; gap:7px; }
+.filters label,.toolbar label { display:grid; gap:3px; font-size:12px; }
+.filters input,.filters select,.toolbar input { box-sizing:border-box; width:100%; min-width:0; color:inherit; background:#101923; border:1px solid #34465b; border-radius:5px; padding:6px; }
+.pair { display:grid; grid-template-columns:1fr 1fr; gap:6px; min-width:0; }
+.rows { list-style:none; padding:0; margin:10px 0; }
+.row { display:grid; gap:3px; width:100%; text-align:left; padding:9px 7px; color:inherit; background:transparent; border:0; border-bottom:1px solid #283849; cursor:pointer; overflow-wrap:anywhere; }
+.row span { color:#aabbd2; font-size:12px; }
+.row[data-selected=true] { background:#202e4b; border-left:3px solid #879cff; }
+.workspace { display:flex; flex-direction:column; padding:8px; min-height:65vh; }
+.header,.toolbar,.footer { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:6px; }
+.header span,.notice,.footer { color:#aabbd2; font-size:13px; }
+.header details { margin-left:auto; }
+.header details p { overflow-wrap:anywhere; }
+.toolbar button,.footer button,.roster button:not(.row) { color:inherit; background:#152332; border:1px solid #34465b; border-radius:5px; padding:6px 9px; cursor:pointer; }
+.toolbar button:disabled,.footer button:disabled { opacity:.5; }
+.notice { padding:4px 6px; margin:0; }
+.output { flex:1; min-height:320px; max-height:calc(100vh - 320px); overflow:auto; background:#0b121a; border:1px solid #233447; border-radius:5px; }
+.output pre { margin:0; padding:14px; font:14px/1.5 ui-monospace,monospace; color:#d7e3f8; white-space:pre-wrap; overflow-wrap:anywhere; }
+.output mark { background:#f6c85b; color:#111; }
+.footer { justify-content:space-between; }
+.back { display:none; }
+.empty { margin:auto; color:#aabbd2; }
+@media(max-width:700px) { .layout[data-focused=true] .roster { display:none; } .layout:not([data-focused=true]) .workspace { display:none; } .back { display:block; align-self:flex-start; color:inherit; background:transparent; border:0; padding:8px; cursor:pointer; } .layout { display:flex; flex-direction:column; } .roster { max-height:40vh; } .workspace { min-height:55vh; } .output { max-height:55vh; } .header details { margin-left:0; } }
