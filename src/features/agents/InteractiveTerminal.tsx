@@ -65,6 +65,8 @@ export interface TerminalPaneProps {
   label?: string;
   /** Persistent manual session transport. */
   manual?: boolean;
+  /** Service-user host shell, separate from an agent. */
+  hostShell?: boolean;
   /** Freeze input after lifecycle completion without remounting the observed screen. */
   inputEnabled?: boolean;
   compact?: boolean;
@@ -74,10 +76,10 @@ export function InteractiveTerminal(props: TerminalPaneProps) {
   return <TerminalPane key={`${props.terminalId}:${c.principalId}:${c.authorizationRevision}:${c.contractVersion}`} {...props} />;
 }
 /** The pane reports `data-cols` (rendered) and `data-fit-cols` (what its width fits, before the 80-column floor). */
-function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', manual = false, inputEnabled = true, compact = false }: TerminalPaneProps) {
+function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTranscript, onDetails, messageReason = 'Session messages are not offered here', onMessage, facts, label = 'Interactive agent terminal', manual = false, hostShell = false, inputEnabled = true, compact = false }: TerminalPaneProps) {
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
-  const controlCapability = bootstrap.capability('terminal.control'), allowControl = manual || controlCapability.enabled;
+  const controlCapability = bootstrap.capability('terminal.control'), allowControl = manual || hostShell || controlCapability.enabled;
   const phone = useMediaQuery('(max-width: 767px)');
   const ids = useId(), helpId = `${ids}-help`, menuId = `${ids}-more`, messageNoteId = `${ids}-message-note`;
   const actions = useRef<HTMLDivElement>(null);
@@ -106,7 +108,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
     // Below 80 columns the frame scrolls instead of the font shrinking; size the floor in terminal cells, not page `ch`.
     if (term.element) term.element.style.minInlineSize = `${Math.ceil(MIN_PANE_COLUMNS * terminalCellWidth(fontSizeRef.current)) + SCROLLBAR_PX}px`;
-    const guarded = [...guardUntrustedOutput(term), ...(manual?[]:guardObservedTerminalQueries(term))];
+    const guarded = [...guardUntrustedOutput(term), ...((manual||hostShell)?[]:guardObservedTerminalQueries(term))];
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
     term.textarea?.setAttribute('aria-describedby', helpId);
     term.attachCustomKeyEventHandler(event => {
@@ -116,7 +118,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     });
     const job = crypto.randomUUID();
     const freeze = () => { const lines = snapshotLines(term.buffer.active, term.rows); if (lines.length) setSnapshot(lines); };
-    const transport = (manual ? connectManualTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
+    const transport = (hostShell ? (options: Parameters<typeof connectManualTerminal>[0]) => connectManualTerminal(options, `/api/worker-terminals/shells/${terminalId}/terminal`) : manual ? connectManualTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
       write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
       reset: () => { freeze(); feed?.restart(); term.reset(); },
@@ -169,7 +171,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
       data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
-  }, [terminalId, name, manual, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
+  }, [terminalId, name, manual, hostShell, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
   // Ending a process fences input and stops reconnect/lease work without disposing its screen.
   useEffect(() => {
     if (inputEnabled) return;
@@ -268,12 +270,12 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       <footer className={styles.footer}>
         {/* Reference 08 order: Output · Progress · ● Connected. */}
         {!compact && <span>{state.outputObservedAtMs && now !== null ? `Output ${formatAge(new Date(now).toISOString(), new Date(state.outputObservedAtMs).toISOString())}` : 'Output unavailable'}</span>}
-        {!compact && !manual&&<span>Progress unavailable</span>}
+        {!compact && !manual&&!hostShell&&<span>Progress unavailable</span>}
         <span className={styles.connection} data-phase={phase}><span className={styles.dot} aria-hidden="true" />{!inputEnabled ? 'Ended' : phase === 'connected' ? 'Connected' : phase === 'connecting' ? 'Connecting' : 'Disconnected'}</span>
         {/* Phone: the pan hint joins the footer's second line so the terminal keeps its rows. */}
         {(phone || compact) && panHint}
         {facts && <span className={styles.facts}>{facts}</span>}
-        {!compact && <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">{manual?'Live tmux session':'Resident output · incomplete'}</span>}
+        {!compact && <span className={styles.provenance} title="This is a rendering of the available byte stream. Earlier output may be missing.">{hostShell?'Host shell':manual?'Live tmux session':'Resident output · incomplete'}</span>}
       </footer>
       {keyBar && <div className={styles.keys} ref={keys} role="group" aria-label="Terminal keyboard" data-fade-start={keyFade.start || undefined} data-fade-end={keyFade.end || undefined} onScroll={updateKeyFade}>
         <button type="button" ref={typeButton} disabled={!state.controlling} onClick={() => terminal.current?.focus()}>Type</button>
@@ -289,7 +291,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       {controlReason && <p id={controlReasonId} className={styles.controlReason}>{controlReason}</p>}
       <div className={styles.actionBar}>
         {/* Message slot (AG-C): the session's durable mailbox message, when offered. */}
-        <ActionButton disabled={!!messageReason || !onMessage} aria-describedby={messageReason ? messageNoteId : undefined} aria-haspopup="dialog" onClick={event => onMessage?.(event.currentTarget)}>Message</ActionButton>
+        {!hostShell&&<ActionButton disabled={!!messageReason || !onMessage} aria-describedby={messageReason ? messageNoteId : undefined} aria-haspopup="dialog" onClick={event => onMessage?.(event.currentTarget)}>Message</ActionButton>}
         {messageReason && <span id={messageNoteId} className="visually-hidden">{messageReason}</span>}
         <ActionButton aria-label="More terminal actions" aria-haspopup="true" aria-expanded={moreOpen} aria-controls={menuId} onClick={() => setMoreOpen(v => !v)}>…</ActionButton>
         {moreOpen && <div id={menuId} className={styles.more} role="group" aria-label="More terminal actions" onKeyDown={event => { if (event.key === 'Escape') closeMore(); }}>

@@ -107,3 +107,15 @@ and interrupted/restarted upload-listener tests are narrower evidence.
 
 No production rollout, installer/runtime pin change, main-branch merge or live
 agent takeover was performed. Those remain a separate reviewed delivery step.
+
+
+## Owner rollout, November 11
+
+Activated on aq-ms1: dashboard `ab4c6bc4`, server `7ce7ed7e` (schema 113),
+desktop worker `a61d2ad8`. Actual browser and xterm input, phone controls, retained
+search/download and capture without a browser passed. Finalized bytes survived
+server-container recreation. Active owner desktop/laptop agents were preserved.
+The laptop's main runtime is still previous; no SSH was available. A separate
+worker host terminal is the requested follow-up (server spec 0010).
+Live screenshots and receipts remain private/local under
+`/home/jkern/dev/aq-platform/qa/2026-11-11/agents-workspace-rollout/`.

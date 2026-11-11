@@ -1,0 +1,7 @@
+.workspace { display:flex; flex-direction:column; min-inline-size:0; gap:var(--space-3); }
+.header { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-3); }
+.header h1 { font-size:var(--font-size-h2); margin:0; flex:1; min-inline-size:0; overflow-wrap:anywhere; }
+.header a { color:var(--color-accent); min-block-size:44px; display:flex; align-items:center; }
+.note { margin:0; color:var(--color-text-secondary); font-size:var(--font-size-meta); }
+
+@media(max-width:600px) { .header h1 { order:3; flex-basis:100%; } .header button { margin-inline-start:auto; } }

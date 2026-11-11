@@ -37,6 +37,7 @@ export const appRoutes: RouteObject[] = [
           { path: "results/:resultId/revisions/:revision", lazy: () => import("../features/results") },
           { path: "decisions/:decisionId?", lazy: () => import("../features/decisions") },
           { path: "agents", lazy: () => import("../features/agents/terminals") },
+          { path: "agents/worker/:nodeId", lazy: () => import("../features/agents/host") },
           { path: "agents/swarm", lazy: () => import("../features/agents/swarm") },
           { path: "agents/history", lazy: () => import("../features/agents/history") },
           { path: "agents/sessions", Component: HistoryRedirect },

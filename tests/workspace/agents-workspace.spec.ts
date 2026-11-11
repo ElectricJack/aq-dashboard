@@ -18,7 +18,9 @@ const sessions = () => Array.from({ length: 5 }, (_, i) => ({
   created_at_ms: now() - 86_400_000 * 3, updated_at_ms: now(), worker_seen_at_ms: now(),
 }));
 
-async function fixture(page: Page) {
+async function fixture(page: Page, hostEnabled = false) {
+  let hostShell: null | {id:string;status:string;desired_running:boolean} = null;
+  const hostInputs: string[] = [], hostStops: string[] = [];
   const agents = sessions(), connects = new Map<string, number>(), inputs = new Map<string, string>();
   const sockets = new Map<string, WebSocketRoute>(), stops: string[] = [], sizes: number[][] = [];
   const chunks = Array.from({ length: 40 }, (_, i) => ({ sequence: i + 1,
@@ -34,9 +36,14 @@ async function fixture(page: Page) {
     if (path === "/api/v1/bootstrap") json = { ...envelope, data: { ...bootstrap.data,
       principal: { ...bootstrap.data.principal, display_name: "Fixture owner" },
       contracts: [{name:"dashboard-read",version:"dashboard-read-1",digest:`sha256:${"0".repeat(64)}`}],
-      capabilities: [...new Set([...requirements.required_capabilities,"swarm.read"])].map(name => ({ name, version: "1", enabled: ["sessions.read", "swarm.read", "tasks.create", "projects.read"].includes(name), reason:"Disabled in this fixture" })) } };
+      capabilities: [...new Set([...requirements.required_capabilities,"swarm.read",...(hostEnabled?["swarm.worker.control"]:[])])].map(name => ({ name, version: "1", enabled: ["sessions.read", "swarm.read", "tasks.create", "projects.read", ...(hostEnabled?["swarm.worker.control"]:[])].includes(name), reason:"Disabled in this fixture" })) } };
     else if (path === "/api/v1/swarm") json = { ...envelope, data: { ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: [] })) })) } };
     else if (path === "/api/v1/projects" || path === "/api/v1/sessions") json = { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: path.endsWith("projects") ? 1 : 0, accuracy: "exact" } } };
+    else if (path.startsWith("/api/worker-terminals/") && !path.includes("/terminal/")) {
+      if (path.endsWith("/stop")) { hostStops.push(hostShell!.id); hostShell!.desired_running=false; hostShell!.status="ended"; }
+      else if (request.method()==="POST" && !hostShell?.desired_running) hostShell={id:uuid(99),status:"running",desired_running:true};
+      json={ready:true,node_name:"Fixture WSL worker",shell:hostShell};
+    }
     else if (path === "/api/manual-agents") json = { sessions: agents, workers: [], slots: [], projects: [], server_time_ms: now() };
     else if (path === "/api/manual-agents/history") json = { sessions: [archive()], next_cursor: null, server_time_ms: now() };
     else if (path.endsWith("/transcript/search")) {
@@ -63,7 +70,11 @@ async function fixture(page: Page) {
     ws.send(JSON.stringify({ kind: "ready", server_time_ms: now() }));
     ws.send(Buffer.from(`\x1b[2J\x1b[HFixture live terminal ${id.slice(-2)}\r\n$ `));
   });
-  return { agents, connects, inputs, sockets, stops, sizes, chunks };
+  await page.routeWebSocket(/\/api\/worker-terminals\/shells\/.*\/terminal\/live/, ws=>{
+    ws.onMessage(message=>{if(typeof message!=="string"){hostInputs.push(message.toString());ws.send(message);}});
+    ws.send(JSON.stringify({kind:"ready",server_time_ms:now()}));ws.send(Buffer.from("\r\nFixture host shell\r\n$ "));
+  });
+  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, chunks };
 }
 
 async function noOverflow(page: Page) {
@@ -194,4 +205,26 @@ test("preview serves every asset recorded in its production manifest", async ({ 
     expect(createHash("sha256").update(await asset.body()).digest("hex")).toBe(entry.sha256);
   }
   await test.info().attach("served-bundle", { body: JSON.stringify(manifest, null, 2), contentType: "application/json" });
+});
+
+
+test("worker host shell has phone keys, detaches on leaving and ends independently of agents",async({page})=>{
+ const f=await fixture(page,true);const route=`/agents/worker/${uuid(500)}`;
+ await page.goto(route);await page.getByRole('button',{name:'Open terminal',exact:true}).click();
+ await expect(page.getByRole('region',{name:'Worker host terminal',exact:true})).toBeVisible();
+ await expect(page.locator('[data-interactive-terminal][data-controlling]')).toHaveCount(1);
+ const terminal=page.getByRole('region',{name:'Worker host terminal',exact:true});
+ await terminal.locator('.xterm-helper-textarea').focus();await page.keyboard.insertText('host-only');
+ await expect.poll(()=>f.hostInputs.join('')).toBe('host-only');expect([...f.inputs.values()]).toEqual([]);
+ await page.screenshot({path:test.info().outputPath('host-terminal-1440.png')});
+ for(const width of [390,320]){
+  await page.setViewportSize({width,height:844});await expect(terminal.getByRole('button',{name:'Type',exact:true})).toBeVisible();
+  await expect(terminal.getByRole('button',{name:'Ctrl',exact:true})).toBeVisible();await noOverflow(page);
+  await page.screenshot({path:test.info().outputPath(`host-terminal-${width}.png`)});
+ }
+ await page.getByRole('link',{name:'← Swarm',exact:true}).click();expect(f.hostStops).toEqual([]);
+ await page.goto(route);await expect(page.locator('[data-interactive-terminal][data-controlling]')).toHaveCount(1);
+ await page.getByRole('button',{name:'End shell',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Open terminal',exact:true})).toBeVisible();
+ expect(f.hostStops).toHaveLength(1);expect(f.stops).toEqual([]);
 });

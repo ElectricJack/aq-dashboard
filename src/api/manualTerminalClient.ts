@@ -4,8 +4,8 @@ import {isRecord} from './adapters/contract';
 import type {connectInteractiveTerminal,TerminalState} from './interactiveTerminalClient';
 type Options=Parameters<typeof connectInteractiveTerminal>[0];
 const OUTPUT_BOUND=1024*1024,INPUT_BOUND=65536;
-export function connectManualTerminal(options:Options){
- const abort=new AbortController(),client=crypto.randomUUID(),path=`/api/manual-agents/${options.terminalId}/terminal`;
+export function connectManualTerminal(options:Options,basePath=`/api/manual-agents/${options.terminalId}/terminal`){
+ const abort=new AbortController(),client=crypto.randomUUID(),path=basePath;
  let socket:WebSocket|null=null,closed=false,connected=false,paused=options.initiallyPaused??false,generation=0,columns=80,rows=24,pending=0,observed:number|null=null,clock:{serverMs:number;at:number}|undefined;
  let writing=Promise.resolve(),failure:string|null=null,didConnect=false,tries=0,retry:ReturnType<typeof setTimeout>|undefined;
  const emit=(message:string)=>{const state:TerminalState={message,connected,controlling:connected&&!paused,canControl:connected,paused,outputObservedAtMs:observed,clock};options.state(state);};

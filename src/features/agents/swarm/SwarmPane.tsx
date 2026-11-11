@@ -5,6 +5,7 @@ import { ActionButton, DetailList } from "../../../components/layout/Workspace";
 import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
 import { useSession } from "../../../app/session";
+import { HostTerminalAction } from "../host/HostTerminalAction";
 import { WorkerLaunch } from "./WorkerLaunch";
 import { AgentPane, scopeOnly } from "./AgentPane";
 import { AddMachine } from "./AddMachine";
@@ -32,7 +33,7 @@ function NodeControls({node}: {node: NodeView}) {
   const { bootstrap, queryContext } = useSession();
   const enabled = bootstrap.capability("swarm.worker.control").enabled;
   return <>
-    <div className={styles.actions}><WorkerLaunch key={`${node.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} node={node}/>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
+    <div className={styles.actions}><HostTerminalAction nodeId={node.id}/><WorkerLaunch key={`${node.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} node={node}/>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
     <p className={styles.actionNote}>{enabled ? "Drain node, restart and logs are not available yet. Use the machine's controls." : "Worker start, stop and drain are not available on this server yet."}</p>
   </>;
 }
