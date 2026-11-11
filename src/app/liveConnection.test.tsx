@@ -135,7 +135,7 @@ test.each(["version", "scope"])("paged read rejects a mismatched %s before cachi
     scope: mismatch === "scope" ? { kind: "project", project_id: "other-project" } : fixture.scope,
     data: { items: [], has_more: false, next_cursor: null, snapshot_id: "unexpected", total: { value: 0, accuracy: "exact" } },
   })));
-  const { queryClient } = renderApp("/agents/sessions");
+  const { queryClient } = renderApp("/agents/sess-07");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
 });
@@ -209,7 +209,7 @@ test("fresh bootstrap sign-out takes priority over an older resource denial", as
 
 test("missing envelope data is a compatibility failure, not an ordinary stale refresh", async () => {
   server.use(http.get("/api/v1/sessions", () => HttpResponse.json({ ...fixture, data: undefined })));
-  const { queryClient } = renderApp("/agents/sessions");
+  const { queryClient } = renderApp("/agents/sess-07");
   expect(await screen.findByRole("heading", { name: "Dashboard update required" })).toBeInTheDocument();
   expect(queryClient.getQueryCache().findAll({ queryKey: ["aq"] })).toHaveLength(0);
 });
