@@ -109,3 +109,25 @@ test("resizing keeps the selected fixture terminal mounted and refits it", async
   expect(await terminal.evaluate(el => (el as HTMLElement & { marker?: string }).marker)).toBe("same terminal");
   await expect(terminal.getByRole("status").filter({ hasText: "You have control" })).toBeAttached();
 });
+
+test("narrow machine properties scroll to their bottom controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await page.goto("/agents/swarm?select=machine:desktop");
+  const pane = page.getByRole("complementary", { name: "Properties" });
+  await expect(pane).toContainText("desktop");
+  const divider = page.getByRole("separator", { name: "Resize swarm tree and properties" });
+  const box = (await divider.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 500, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  const metrics = await pane.evaluate(el => ({ height: el.clientHeight, content: el.scrollHeight, top: el.scrollTop }));
+  expect(metrics.content).toBeGreaterThan(metrics.height);
+  const paneBox = (await pane.boundingBox())!;
+  await page.mouse.move(paneBox.x + paneBox.width / 2, paneBox.y + paneBox.height / 2);
+  await page.mouse.wheel(0, 1500);
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBeGreaterThan(metrics.top);
+  const bottomControl = pane.getByRole("button", { name: "Drain" });
+  const [controlBox, visiblePane] = [await bottomControl.boundingBox(), await pane.boundingBox()];
+  expect(controlBox!.y + controlBox!.height).toBeLessThanOrEqual(visiblePane!.y + visiblePane!.height + 1);
+});

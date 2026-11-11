@@ -110,3 +110,9 @@
 }
 .stage[data-focus] > .divider { display: none; }
 .pane { min-inline-size: 0; }
+
+@media (min-width: 1024px) {
+  /* Narrow inspectors can exceed the workspace height; retain access to their final controls. */
+  .stage:not([data-wide]) .pane { overflow-y: auto; }
+  .stage:not([data-wide]) .pane > * { flex-shrink: 0; }
+}
