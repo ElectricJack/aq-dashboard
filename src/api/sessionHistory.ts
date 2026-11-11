@@ -1,9 +1,10 @@
 import { apiGet } from './client';
 import { ContractError, isRecord } from './adapters/contract';
-import { manualAgent, type ManualAgent } from '../features/agents/swarm/manualAgents';
+import { validGraphId } from './adapters/humanGraph';
+import type { ManualAgent } from '../features/agents/swarm/manualAgents';
 
 export type Archive = { state: 'not_recorded'|'recording'|'finalizing'|'complete'; coverage: 'unknown'|'complete'|'partial'; reason: string|null; first_sequence: number|null; last_sequence: number|null; bytes: number; updated_at_ms: number|null };
-export type HistorySession = ManualAgent & { archive: Archive };
+export type HistorySession = Omit<ManualAgent, 'spec'> & { spec: Omit<ManualAgent['spec'], 'project_name' | 'repository_id'> & { project_name?: string; repository_id?: string }; archive: Archive };
 export type Chunk = { sequence: number; text: string };
 export type Match = { offset: number; length: number; sequence: number; excerpt: string };
 export type Transcript = { session: HistorySession; chunks: Chunk[]; next_after: number; has_more: boolean; through_sequence: number; server_time_ms: number };
@@ -11,8 +12,8 @@ export type SearchPage = { matches: Match[]; next_after: number|null; has_more: 
 const integer = (v: unknown): v is number => Number.isSafeInteger(v) && Number(v) >= 0;
 const nullableInteger = (v: unknown) => v === null || integer(v);
 function session(v: unknown): v is HistorySession {
- if (!isRecord(v) || !isRecord(v.archive) || !manualAgent(v)) return false;
- const a = (v as unknown as {archive: Record<string, unknown>}).archive;
+ if (!isRecord(v) || !isRecord(v.archive) || !isRecord(v.spec) || !validGraphId(v.id) || !validGraphId(v.node_id) || !validGraphId(v.project_id) || typeof v.spec.provider !== 'string' || typeof v.spec.model !== 'string' || !(v.spec.project_name === undefined || typeof v.spec.project_name === 'string') || !['pending','preparing','running','stopping','stopped','failed'].includes(String(v.status)) || typeof v.stage !== 'string' || typeof v.desired_running !== 'boolean' || !integer(v.created_at_ms) || !integer(v.updated_at_ms) || !nullableInteger(v.worker_seen_at_ms)) return false;
+ const a = v.archive;
  return ['not_recorded','recording','finalizing','complete'].includes(String(a.state)) && ['unknown','complete','partial'].includes(String(a.coverage)) && (a.reason === null || typeof a.reason === 'string') && nullableInteger(a.first_sequence) && nullableInteger(a.last_sequence) && integer(a.bytes) && nullableInteger(a.updated_at_ms);
 }
 function url(path: string, params: Record<string,string|number|undefined>) { const q = new URLSearchParams(); for (const [k,v] of Object.entries(params)) if (v !== undefined && v !== '') q.set(k,String(v)); return `${path}${q.size ? `?${q}` : ''}`; }
