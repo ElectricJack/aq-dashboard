@@ -6,7 +6,7 @@ import type { SessionSummary } from '../../../api/wire/proposed';
 import { useScope, scopeSearch } from '../../../app/scope';
 import { PANEL_READ, useSession } from '../../../app/session';
 import { usePagedRead } from '../../../app/usePagedRead';
-import { ApiError } from '../../../api/client';
+import { ApiError, isProtectedReadFailure } from '../../../api/client';
 import { byteIndex, downloadTranscript, history, searchTranscript, transcript, type Chunk, type HistorySession, type Match } from '../../../api/sessionHistory';
 import { AgentsTabs } from '../AgentsTabs';
 import styles from './History.module.css';
@@ -23,8 +23,8 @@ export function History() {
  const listing = useInfiniteQuery({queryKey:['history',queryContext.principalId,queryContext.authorizationRevision,filters],initialPageParam:undefined as string|undefined,queryFn:({pageParam,signal})=>history({...filters,cursor:pageParam},signal),getNextPageParam:p=>p.next_cursor ?? undefined,retry:false,meta:PANEL_READ});
  const native = usePagedRead<SessionSummary,SessionView>({resource:'history-native',path:'/api/v1/sessions',scope,params:{limit:25},adapt:adaptSession,stable:true});
  const selected = params.get('session'); const choose=(value:string)=>setParams(p=>{const n=new URLSearchParams(p); n.set('session',value);return n;});
- const manual = listing.data?.pages.flatMap(p=>p.sessions) ?? [];
- const nativeRows = (native.data?.pages.flatMap(p=>p.page.items) ?? []).filter(s=>{const text=`${s.label} ${s.task?.title ?? ''} ${s.project.label}`.toLowerCase(); return (!q || text.includes(q.toLowerCase())) && (!provider || s.profile.provider?.toLowerCase().includes(provider.toLowerCase())) && (!model || (s.profile.model ?? '').toLowerCase().includes(model.toLowerCase())) && (!status || (status==='ended' ? s.observation.state==='reported_stopped' : s.observation.state==='reported_running'));});
+ const manual = listing.isError && isProtectedReadFailure(listing.error) ? [] : listing.data?.pages.flatMap(p=>p.sessions) ?? [];
+ const nativeRows = (native.isError && isProtectedReadFailure(native.error) ? [] : native.data?.pages.flatMap(p=>p.page.items) ?? []).filter(s=>{const text=`${s.label} ${s.task?.title ?? ''} ${s.project.label}`.toLowerCase(); return (!q || text.includes(q.toLowerCase())) && (!provider || s.profile.provider?.toLowerCase().includes(provider.toLowerCase())) && (!model || (s.profile.model ?? '').toLowerCase().includes(model.toLowerCase())) && (!status || (status==='ended' ? s.observation.state==='reported_stopped' : s.observation.state==='reported_running'));});
  const activeNative = selected?.startsWith('native:') ? nativeRows.find(s=>`native:${s.id}`===selected) : undefined;
  const manualId = selected?.startsWith('manual:') ? selected.slice(7) : null;
  return <><AgentsTabs current={"history" as "sessions"} /><div className={styles.layout} data-focused={!!selected}><aside className={styles.roster}><div className={styles.filters}><label>Search sessions<input value={q} maxLength={200} onChange={e=>setQ(e.target.value)} placeholder="Name or project" /></label><div className={styles.pair}><label>Provider<input value={provider} onChange={e=>setProvider(e.target.value)} /></label><label>Model<input value={model} onChange={e=>setModel(e.target.value)} /></label></div><div className={styles.pair}><label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)} /></label><label>Through<input type="date" value={until} onChange={e=>setUntil(e.target.value)} /></label></div><label>State<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All states</option><option value="active">Active</option><option value="ended">Ended</option></select></label></div>
