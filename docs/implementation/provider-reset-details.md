@@ -1,5 +1,7 @@
 # Provider reset details
 
+Current deployment: [restored alongside Providers settings](provider-reset-restored-2026-11-12.md).
+
 Implemented in `feat/provider-reset-details` using a GPT-6.1 Terra dashboard
 sub-agent, alongside Terra producer/server agents. Root independently reviewed
 the changes, corrected findings, and verified the result. The matching server
