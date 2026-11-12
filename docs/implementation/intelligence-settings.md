@@ -6,6 +6,8 @@ The Markdown routing policy editor preserves exact source, counts UTF-8 bytes ag
 
 Validation for this increment: 42 focused component/API tests and 16 browser checks pass, including saved descriptions and Markdown after reload, independent child limits, provider candidate ordering, deletion/re-addition, assignment recovery, keyboard access and narrow-screen overflow. Typecheck, lint, production build and mock exclusion pass. The official preview at `/settings?tab=intelligence` serves dashboard source `119c4475b0c1cf06a55afb93793cc115a6f188e4`; all 64 assets were verified. Deployment preserved existing profiles, caps and worker processes. Mock and live desktop/phone evidence is stored under `/home/jkern/dev/aq-platform/qa/2026-11-11/intelligence-hierarchy/`. The delivered visual subset is the grouped Intelligence editor and policy source; policy execution remains deferred.
 
+Read-only live browser qualification passed at 1440, 390 and 320 pixels. All four parent groups, child controls, Other profiles and source editor were inspected in screenshots; axe reported zero WCAG A/AA violations and the document had zero horizontal overflow. Variation tables retain their labelled horizontal scroll region on phones. No live settings were saved during qualification.
+
 The following records describe the preceding spreadsheet iterations.
 
 Settings has six accessible tabs: Identity, Display, Intelligence, Connection, Projects and Notifications. The selected section is restorable with `/settings?tab=…`. The old `/settings/intelligence` link redirects to the Intelligence tab; Overview diagnostics selects Connection.
