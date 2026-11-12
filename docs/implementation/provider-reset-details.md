@@ -17,9 +17,10 @@ observation shows Expired even if its earlier usable flag was true. A failed
 refresh marks retained reset information stale without changing its observation
 time. The compact usage header retains its existing composition.
 
-The canonical dashboard-read contract is pinned from actual server commit
-`4aa15a249e4d0380b29cde81c0baea758e90fc67`, with regenerated schema and verified
-hashes. Old responses that omit reset metadata remain supported. This is a local
+The canonical dashboard-read contract was initially pinned from server commit
+`4aa15a249e4d0380b29cde81c0baea758e90fc67`. For local deployment preparation,
+it is re-pinned from integrated server commit `9f0efa681e12e7b0b66b8a8d567f955c6eb8ca98`,
+with generated schema and verified hashes. Old responses that omit reset metadata remain supported. This is a local
 implementation pin, not a claim that the server commit has been published.
 
 Codex's existing app-server read supplies the available count. Claude's current
