@@ -7,7 +7,7 @@ import { ActionButton } from "../../components/layout/Workspace";
 export type IntelligenceDraft = { id: string; label: string; dirty: boolean; locked: boolean; save(): Promise<boolean>; order?: number };
 type DraftContext = {
   register(id: string, read: () => IntelligenceDraft): () => void; notify(): void;
-  saving: boolean; dirty: boolean; locked: boolean; message: string | null; saveAll(): Promise<boolean>;
+  saving: boolean; dirty: boolean; locked: boolean; message: string | null; saveAll(): Promise<boolean>; dismissMessage(): void;
   hasConfirmedChanges(domain: string): boolean; resolveRevision(domain: string, revision: string): string; confirmRevision(domain: string, from: string, to: string): void;
 };
 const Context = createContext<DraftContext | null>(null);
@@ -30,6 +30,7 @@ export function IntelligenceDraftProvider({ children }: { children: ReactNode })
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
+  const dismissMessage = useCallback(() => setMessage(null), []);
   const notify = useCallback(() => setVersion(old => old + 1), []);
   const register = useCallback((id: string, read: () => IntelligenceDraft) => {
     entries.current.set(id, read); notify();
@@ -65,7 +66,7 @@ export function IntelligenceDraftProvider({ children }: { children: ReactNode })
   const values = [...entries.current.values()].map(read => read());
   const dirty = values.some(entry => entry.dirty);
   const locked = values.some(entry => entry.dirty && entry.locked);
-  const context = useMemo(() => ({ register, notify, saving, dirty, locked, message, saveAll, resolveRevision, confirmRevision, hasConfirmedChanges }), [register, notify, saving, dirty, locked, message, saveAll, resolveRevision, confirmRevision, hasConfirmedChanges, version]);
+  const context = useMemo(() => ({ register, notify, saving, dirty, locked, message, saveAll, dismissMessage, resolveRevision, confirmRevision, hasConfirmedChanges }), [register, notify, saving, dirty, locked, message, saveAll, dismissMessage, resolveRevision, confirmRevision, hasConfirmedChanges, version]);
   return <Context.Provider value={context}>{children}<UnsavedSettingsWarning /></Context.Provider>;
 }
 function UnsavedSettingsWarning() {
@@ -89,7 +90,7 @@ function UnsavedSettingsWarning() {
   if (blocker.state !== "blocked") return null;
   return createPortal(<dialog ref={dialog} role="alertdialog" className={styles.unsavedDialog} aria-labelledby="unsaved-intelligence-title" onCancel={event => { event.preventDefault(); blocker.reset(); }}>
     <h3 id="unsaved-intelligence-title">Leave Settings with unsaved changes?</h3>
-    <p>Your unsaved Intelligence changes will be lost.</p>
+    <p>Your unsaved Settings changes will be lost.</p>
     <div className={styles.rowActions}>
       <ActionButton autoFocus onClick={() => blocker.reset()}>Stay in Settings</ActionButton>
       <ActionButton disabled={drafts.saving} onClick={() => blocker.proceed()}>Leave without saving</ActionButton>

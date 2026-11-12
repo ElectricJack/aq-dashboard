@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useProviderSettings } from "../../../api/providerSettings";
 import { useQuery } from "@tanstack/react-query";
 import { adaptConfiguredProviders } from "../../../api/adapters/configuredProviders";
 import { queryKey } from "../../../api/queryKeys";
@@ -12,16 +13,17 @@ import styles from "./SwarmStatusHeader.module.css";
 type Drafts = Record<string, number | null>;
 export function SwarmStatusHeader() {
   const { queryContext, bootstrap } = useSession();
+  const membership = useProviderSettings(bootstrap.capability("providers.configured.read").enabled);
   const configured = useQuery({
     queryKey: queryKey(queryContext, "configured-provider-accounts", { contract: "human-provider-accounts-1" }),
     queryFn: async ({ signal }) => adaptConfiguredProviders(await apiGet<unknown>("/api/human/provider-accounts", AbortSignal.any([signal, AbortSignal.timeout(15_000)]))),
     enabled: bootstrap.capability("providers.configured.read").enabled, retry: false, refetchInterval: 60_000,
   });
   const providers = configured.isError ? undefined : configured.data?.accounts.filter(account => account.enabled).map(account => account.provider);
-  return <StatusHeader key={queryContext.principalId} configuredProviders={providers} />;
+  return <StatusHeader key={queryContext.principalId} configuredProviders={providers} addedProviders={membership.isError ? undefined : membership.data?.providers} />;
 }
 
-function StatusHeader({ configuredProviders }: { configuredProviders?: string[] }) {
+function StatusHeader({ configuredProviders, addedProviders }: { configuredProviders?: string[]; addedProviders?: string[] }) {
   const settings = useSwarmSettings();
   const mutation = useUpdateSwarmLimits();
   const config = settings.isError && isProtectedReadFailure(settings.error) ? undefined : settings.data;
@@ -79,25 +81,27 @@ function StatusHeader({ configuredProviders }: { configuredProviders?: string[] 
   const providers = [...new Set([...(config?.provider_limits ?? []).map(item => item.provider), ...cells.map(cell => cell.provider), ...unclassified.map(item => item.provider), ...(configuredProviders ?? [])])].filter(provider =>
     configuredProviders === undefined || configuredProviders.includes(provider) || config?.provider_limits?.some(item => item.provider === provider && item.limit !== null) ||
     cells.some(cell => cell.provider === provider && ((cell.running ?? 0) > 0 || (cell.waiting ?? 0) > 0)) || unclassified.some(item => item.provider === provider && (item.running > 0 || item.waiting > 0))
-  );
+  ).filter(provider => addedProviders === undefined || addedProviders.includes(provider) || cells.some(cell => cell.provider === provider && (cell.running ?? 0) > 0) || unclassified.some(item => item.provider === provider && item.running > 0));
   return <section className={styles.status} aria-label="Swarm status">
     {!config && settings.isPending && <span role="status">Loading provider limits…</span>}
     {settings.isError && <span role="alert">Provider limits unavailable.</span>}
     {config && config.provider_limits === undefined && <span role="alert">Provider limits are unavailable on this server.</span>}
     {config?.provider_limits && <div className={styles.providerGrid}>
       {providers.map(provider => {
+        const removed = addedProviders !== undefined && !addedProviders.includes(provider);
         const saved = config.provider_limits?.find(item => item.provider === provider)?.limit ?? null;
         const limit = Object.hasOwn(drafts, provider) ? drafts[provider]! : saved;
         const sliderMax = Math.max(32, saved ?? 0, limit ?? 0) + 1;
         const matches = cells.filter(cell => cell.provider === provider);
         const active = !settings.isError && matches.length && matches.every(cell => cell.running !== null) ? matches.reduce((sum, cell) => sum + cell.running!, 0) + unclassified.filter(item => item.provider === provider).reduce((sum, item) => sum + item.running, 0) : null;
         return <div className={styles.provider} key={provider}>
-          <div className={styles.heading}><strong>{provider}</strong><span>{limit === null ? "No limit" : `${limit} concurrent${limit === 0 ? " · paused" : ""}`}</span></div>
-          <input type="range" aria-label={`${provider} concurrent agents`} aria-valuetext={limit === null ? "No limit" : undefined} min="0" max={sliderMax} step="1" value={limit ?? sliderMax} disabled={settings.isError || !matches.length} onChange={event => { const value = Number(event.currentTarget.value); change(provider, value === sliderMax ? null : value); }} onPointerUp={() => { clearTimeout(timer.current); flush(); }} onKeyUp={() => { clearTimeout(timer.current); flush(); }} />
+          <div className={styles.heading}><strong>{provider}{removed ? " · removed" : ""}</strong><span>{limit === null ? "No limit" : `${limit} concurrent${limit === 0 ? " · paused" : ""}`}</span></div>
+          <input type="range" aria-label={`${provider} concurrent agents`} aria-valuetext={limit === null ? "No limit" : undefined} min="0" max={sliderMax} step="1" value={limit ?? sliderMax} disabled={removed || settings.isError || !matches.length} onChange={event => { const value = Number(event.currentTarget.value); change(provider, value === sliderMax ? null : value); }} onPointerUp={() => { clearTimeout(timer.current); flush(); }} onKeyUp={() => { clearTimeout(timer.current); flush(); }} />
           <div className={styles.burn}><ProviderBurn provider={provider} proposedLimit={limit} active={active} /></div>
         </div>;
       })}
     </div>}
+    {addedProviders?.length === 0 && <span>No providers added. Add a provider in Settings to allow new agents.</span>}
     {pending && <span className={styles.notice} role="status">Updating limits…</span>}
     {error && <div className={styles.notice} role="alert">{error === "unknown" ? "Update outcome unknown." : error === "conflict" ? "Limits changed elsewhere. Reload to review your changes." : error === "review" ? "Current limits reloaded. Review your slider values before retrying." : "Update failed. Your changes are retained."}{" "}
       {error === "unknown" && <button type="button" onClick={() => { if (uncertain.current) void send(uncertain.current); }}>Retry same update</button>}

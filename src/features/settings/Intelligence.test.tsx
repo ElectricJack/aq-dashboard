@@ -99,7 +99,7 @@ test("settings sections are keyboard-accessible tabs and profile drafts survive 
 });
 
 test("an unconfigured provider still permits adding empty profile rows", async () => {
-  read(); await open(); await userEvent.selectOptions(screen.getByLabelText("Provider"), "google");
+  read(); renderApp("/settings?tab=intelligence&provider=google"); await screen.findByRole("row", { name: "Standard" });
   expect(await screen.findByText(/No Google models are configured yet/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Add row" })); const row = screen.getByRole("row", { name: "new profile" });
   expect(within(row).getByLabelText("Model")).toBeDisabled(); expect(within(row).getByLabelText("Profile name")).toBeEnabled();

@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { inspectIntelligenceSave, readIntelligence, saveIntelligence, type Candidate, type IntelligenceProfile, type IntelligenceSettings, type ModelChoice, type SaveIntelligence, type IntelligenceSaved } from "../../api/intelligenceSettings";
 import { inspectSwarmOperation, readSwarmSettings, useSwarmSettings, useUpdateSwarmLimits, type SwarmSettings, type UpdateSwarmLimits } from "../../api/swarmSettings";
+import { useProviderSettings } from "../../api/providerSettings";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -13,7 +14,7 @@ import { readIntelligenceStructure, type IntelligenceStructure, type Intelligenc
 import { IntelligenceGroups, PARENT_NAMES, variationName, type ParentId, type ProfileAssignment } from "./IntelligenceGroups";
 import { ParentDescriptionEditor, StructureDraftProvider, useStructureSave } from "./IntelligenceStructureControls";
 import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
-import { IntelligenceDraftProvider, useIntelligenceDraft, useIntelligenceDrafts } from "./IntelligenceDrafts";
+import { useIntelligenceDraft, useIntelligenceDrafts } from "./IntelligenceDrafts";
 import styles from "./Intelligence.module.css";
 
 const PROVIDERS: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", google: "Google", ollama: "Ollama", opencode: "OpenCode", longcat: "LongCat", nemotron: "Nemotron" };
@@ -257,13 +258,14 @@ function NewVariationRow({ variation, onStructureSaved, onCancel, ...props }: Pa
   </>;
 }
 
-export function IntelligenceSettings() { return <IntelligenceDraftProvider><StructureDraftProvider><IntelligenceSettingsContent /></StructureDraftProvider></IntelligenceDraftProvider>; }
+export function IntelligenceSettings() { return <StructureDraftProvider><IntelligenceSettingsContent /></StructureDraftProvider>; }
 
 function IntelligenceSettingsContent() {
   const drafts = useIntelligenceDrafts();
   const { queryContext } = useSession(); const queryClient = useQueryClient(); const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: queryKey(queryContext, "intelligence-settings", {}), queryFn: ({ signal }) => readIntelligence(signal), retry: false });
   const limits = useSwarmSettings();
+  const providerSettings = useProviderSettings();
   const structure = useQuery({ queryKey: queryKey(queryContext, "intelligence-structure", {}), queryFn: ({ signal }) => readIntelligenceStructure(signal), retry: false });
   const [pendingVariations, setPendingVariations] = useState<Record<string, PendingVariation>>({});
   const [added, setAdded] = useState<IntelligenceProfile[]>([]); const [busy, setBusy] = useState(false);
@@ -271,7 +273,7 @@ function IntelligenceSettingsContent() {
   const focusAfterDelete = useRef(false);
   useEffect(() => { if (!busy && focusAfterDelete.current) { focusAfterDelete.current = false; addButton.current?.focus(); } }, [busy]);
   const provider = params.get("provider") ?? query.data?.model_choices[0]?.provider ?? "anthropic";
-  const providers = Array.from(new Set([...Object.keys(PROVIDERS), ...(query.data?.model_choices.map(c => c.provider) ?? []),
+  const providers = Array.from(new Set([...(providerSettings.data?.providers ?? Object.keys(PROVIDERS)), ...(providerSettings.data ? [] : query.data?.model_choices.map(c => c.provider) ?? []),
     ...(query.data?.profiles.flatMap(p => p.candidates.map(c => c.provider).filter(p => p !== "configuration-required")) ?? []), provider]));
   const profiles = [...(query.data?.profiles ?? []), ...added.filter(p => !query.data?.profiles.some(existing => existing.id === p.id))];
   const localAssignments = Object.entries(pendingVariations).map(([id, item]) => ({ profile_id: id, parent_id: item.parent, effort: item.effort }));
@@ -310,12 +312,12 @@ function IntelligenceSettingsContent() {
   return <div className={styles.sheet}>
     <div className={styles.toolbar}>
       <label className={styles.provider}>Provider<select aria-label="Provider" value={provider} disabled={busy || drafts.saving} onChange={e => setParams(old => { const next = new URLSearchParams(old); next.set("provider", e.target.value); return next; })}>
-        {providers.map(id => <option key={id} value={id}>{PROVIDERS[id] ?? id}</option>)}
+        {providers.map(id => <option key={id} value={id}>{providerSettings.data?.available.find(item => item.id === id)?.name ?? PROVIDERS[id] ?? id}{providerSettings.data && !providerSettings.data.providers.includes(id) ? " (removed)" : ""}</option>)}
       </select></label>
-      <div className={styles.rowActions}><ActionButton disabled={!drafts.dirty || drafts.saving || drafts.locked || busy} onClick={() => void drafts.saveAll()}>{drafts.saving ? "Saving…" : "Save"}</ActionButton><ActionButton disabled={query.isFetching || busy || drafts.saving} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
+      <div className={styles.rowActions}><ActionButton disabled={query.isFetching || busy || drafts.saving} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
       <ActionButton ref={addButton} disabled={!query.data || structure.isPending || busy || drafts.saving || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
     </div>
-    {drafts.message && (drafts.message !== "Saved." || !drafts.dirty) && <p role="status" aria-label="Intelligence save status" className={styles.meta}>{drafts.message}</p>}
+    {providerSettings.data && !providerSettings.data.providers.includes(provider) && <p className={styles.meta}>This provider is removed. <Link to="/settings?tab=providers">Add it in Providers</Link> to allow new agents.</p>}
     <p className={styles.meta}>Choose a model and effort for each variation. Other providers’ settings are preserved.</p>
     {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
     {(sources.length > 0 || choices.some(c => c.preference_only)) && <details className={`${styles.meta} ${styles.catalog}`}>
