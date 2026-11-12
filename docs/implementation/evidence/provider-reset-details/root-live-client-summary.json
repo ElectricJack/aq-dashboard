@@ -1,0 +1,14 @@
+[
+  {
+    "provider": "anthropic",
+    "windows": 1,
+    "reset_state": "unknown",
+    "available_count": null
+  },
+  {
+    "provider": "openai",
+    "windows": 1,
+    "reset_state": "known",
+    "available_count": 0
+  }
+]

@@ -57,8 +57,8 @@
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
     "dashboard-actions/v1/schema.json": "502cd9ead7bc90255f0a46a044c9c6a81b4a2bb94da28669407a673244bf81d2",
-    "dashboard-read/v1/README.md": "2964a61966efc93c3d2900402753e2de4b3daea316cf175fb678e1ec56a070fb",
-    "dashboard-read/v1/check.py": "e9b92a35253223bed0089a6975141f86cadaeaf0e2bc4c2163e2ee6ae07cb9a7",
+    "dashboard-read/v1/README.md": "0985eccff916f52675067dbba97ca873235c32dd407ea03bf8b0a947301ea28f",
+    "dashboard-read/v1/check.py": "c427107e3c148749d3ac25f15c1a47de005a69c3ba0c2ee461ebb3f5db09aa0b",
     "dashboard-read/v1/fixtures/bootstrap.json": "e0b3f940b963c0180f24bcaf673af30fb06ea53375c790bdbf570a91877267d0",
     "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
     "dashboard-read/v1/fixtures/overview-empty.json": "e31e0e8321a1269b73a06d6dfeadaf9598ed7d165e1c06da040af58521104409",
@@ -68,7 +68,7 @@
     "dashboard-read/v1/fixtures/overview.json": "ecf68ff0b67e47169ed22b1fd716729d47f935b3493d0a9231212040b7b90bb9",
     "dashboard-read/v1/fixtures/projects.json": "730b0236aa495c5098e716ef458dd8868853792798f28c0780e84beb1f008b80",
     "dashboard-read/v1/fixtures/provider-usage-empty.json": "0ba28f14d7c4ca656528e9f937dd8cab4929dcd1013d77c7bb10de6cf9f42775",
-    "dashboard-read/v1/fixtures/provider-usage-nonempty.json": "f9073f9036c5c7d2bca0efac18f25fb8bb81d73df23b9641618791a1ad04229f",
+    "dashboard-read/v1/fixtures/provider-usage-nonempty.json": "42b474c886de8bfbf71259599c26dc33896598b6d2696a5cedf332dc9d41ad2f",
     "dashboard-read/v1/fixtures/provider-usage-partial.json": "9c8c394d0a1a4723f1e9939fc1de9c71cf4b255e12eb11245354debc873c1ef0",
     "dashboard-read/v1/fixtures/provider-usage-stale.json": "3e313faa8570fe574b1761fefcff3944c6f8f492308708eea372d0d5d33a7c07",
     "dashboard-read/v1/fixtures/provider-usage-unknown.json": "3374f417c3905802279a4e2734f61dc184c36bb60de1628ca07765527d760e11",
@@ -83,7 +83,7 @@
     "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
     "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
     "dashboard-read/v1/fixtures/swarm.json": "0c513d2d2b82aa460b188f9f58e6b28f042134850196274a50c11b335cb5a7b8",
-    "dashboard-read/v1/schema.json": "bf54757857b9ccfc50d10e359b1fa6402a3d3dbd4f8fdf70674a00cfec7eb5b2",
+    "dashboard-read/v1/schema.json": "d5bdbd7e85ba02cc51b55e83b7acf80f8ada3c34a0d4a4ccaf6ea04d8efae651",
     "results-feedback/v1/README.md": "c2592b78662f98c71bb736784fd0fe15d416cf073e797f798ed486f017d7ea8e",
     "results-feedback/v1/check.py": "3ad8537c7974f812689761e28c7522569b3e6386d669074db84aa227f9be3959",
     "results-feedback/v1/fixtures/compatibility.json": "b5c8d86ab4b9392be0dfaeecbc979041cde89ad8142e5659eac1903e9a2aac6f",
@@ -99,6 +99,6 @@
   "contract_commits": {
     "results-feedback": "52cd05ef63126aeb2e8dae068ac835edb5de2b91",
     "dashboard-actions": "21a77e9b1c67e4485d522d3227c2a84b7b8f54b6",
-    "dashboard-read": "939ee9a4f6683fc7298703357d328aa55c46f0ad"
+    "dashboard-read": "4aa15a249e4d0380b29cde81c0baea758e90fc67"
   }
 }
