@@ -1,7 +1,7 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "4aa15a249e4d0380b29cde81c0baea758e90fc67",
-  "status": "Local implementation on feat/provider-reset-details; not published",
+  "commit": "7ac18941d3ed3923dffdd0b3d5e2217c0ce56f94",
+  "status": "Local combined Provider settings and reset deployment preparation; not published",
   "sha256": {
     "dashboard-read/v1/README.md": "0985eccff916f52675067dbba97ca873235c32dd407ea03bf8b0a947301ea28f",
     "dashboard-read/v1/check.py": "c427107e3c148749d3ac25f15c1a47de005a69c3ba0c2ee461ebb3f5db09aa0b",
