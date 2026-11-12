@@ -118,6 +118,11 @@ export function ProviderUsageSummary({ state }: { state: ProviderUsageState }) {
   </span>;
 }
 
+const RESET_LIMIT_LABELS: Record<string, string> = {
+  five_hour: "5-hour limit", seven_day: "weekly limit", seven_day_opus: "weekly Opus limit",
+  seven_day_sonnet: "weekly Sonnet limit", seven_day_oauth_apps: "weekly OAuth apps limit",
+};
+
 function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; serverTime: string }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
@@ -149,6 +154,19 @@ function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; 
       ) : (
         <span className={styles.unknown}>{provider.windows.length ? "No preferred window reported" : "Usage unavailable"}</span>
       )}
+      <div className={styles.resets}>
+        <span className={styles.name}>Available resets: {provider.resetCredits?.state === "known" ? `${provider.resetCredits.availableCount}` : provider.resetCredits?.state === "unavailable" ? "Unavailable" : "Unknown"}</span>
+        {provider.resetCredits?.observedAt && <span className={styles.meta}> · <FreshnessLabel serverTime={serverTime} observedAt={provider.resetCredits.observedAt} stale={provider.resetCredits.freshness === "stale"} /></span>}
+        {!provider.resetCredits?.observedAt && provider.resetCredits?.freshness === "stale" && <span className={styles.stale}> · Stale</span>}
+        {provider.resetCredits?.grants && provider.resetCredits.grants.length > 0 && <ul className={styles.grants}>
+          {provider.resetCredits.grants.map((grant, i) => <li key={i}>
+            {grant.label}{grant.remainingCount !== null && ` · ${grant.remainingCount} remaining`}
+            {grant.expiresAt && <> · expires <time dateTime={grant.expiresAt}>{new Date(grant.expiresAt).toLocaleString()}</time></>}
+            {grant.expiresAt && Date.parse(grant.expiresAt) <= Date.parse(serverTime) ? " · Expired" : grant.usableNow === false ? " · Not usable now" : grant.usableNow === true ? " · Usable now" : null}
+            {grant.clears.length > 0 && ` · Clears: ${[...new Set(grant.clears.map(key => RESET_LIMIT_LABELS[key] ?? "other limit"))].join(", ")}`}
+          </li>)}
+        </ul>}
+      </div>
       {many && open && (
         <ul id={listId} className={styles.windows} aria-label={`${provider.accountLabel} usage windows`}>
           {provider.windows.map((w) => (
