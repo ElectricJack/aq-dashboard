@@ -1,5 +1,14 @@
 # Provider reset details
 
+Deployment update, 2026-11-12: official dashboard source
+`5c56c7f7c99410ec10f1b574771b02822896c85c` is live on the owner preview, paired with
+server source `9f0efa681e12e7b0b66b8a8d567f955c6eb8ca98` and schema 117. It preserves
+the previously deployed compact Intelligence editor. All 65 served assets and
+live 1440/390/320px usage disclosures were independently verified. Codex reports
+known zero; Claude reset availability remains unknown. Existing settings and
+non-server containers were preserved. The local-only status below records the
+initial implementation phase and is superseded by this deployment update.
+
 Implemented in `feat/provider-reset-details` using a GPT-6.1 Terra dashboard
 sub-agent, alongside Terra producer/server agents. Root independently reviewed
 the changes, corrected findings, and verified the result. The matching server
