@@ -17,7 +17,6 @@ for (const width of [320, 390, 1440]) {
     await page.goto("/settings?tab=intelligence");
     await expect(page.getByRole("tab", { name: "Intelligence", selected: true })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Swarm" })).toHaveCount(0);
-    await page.getByText("Standard variations", { exact: false }).click();
     await expect(page.getByRole("columnheader", { name: "Max agents" })).toHaveCount(1);
     await expect(page.getByRole("button", { name: /Apply max agents/ })).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
@@ -61,13 +60,12 @@ for (const scenario of ["swarm-settings-conflict", "swarm-settings-error"]) {
 
 test("Intelligence row saves max agents, including zero and unlimited", async ({ page }) => {
   await page.goto("/settings?tab=intelligence");
-  await page.getByText("Standard variations", { exact: false }).click();
   const input = page.getByRole("spinbutton", { name: "Max agents for Fixture standard" });
-  const save = page.getByRole("button", { name: "Save Fixture standard" });
+  const save = page.getByRole("button", { name: "Save", exact: true });
   await expect(input).toBeEnabled();
   await input.fill("0");
   await save.click();
-  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Intelligence save status", exact: true })).toHaveText("Saved.");
   await expect(input).toHaveValue("0");
   await input.fill("");
   await save.click();
@@ -77,10 +75,9 @@ test("Intelligence row saves max agents, including zero and unlimited", async ({
 
 test("Intelligence conflict preserves the edited max agents", async ({ page }) => {
   await page.goto("/settings?scenario=swarm-settings-conflict&tab=intelligence");
-  await page.getByText("Standard variations", { exact: false }).click();
   const input = page.getByRole("spinbutton", { name: "Max agents for Fixture standard" });
   await input.fill("5");
-  await page.getByRole("button", { name: "Save Fixture standard" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(input).toHaveValue("5");
 });

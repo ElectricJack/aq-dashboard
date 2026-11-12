@@ -8,6 +8,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
     { provider: "fixture-provider", intelligence_class: "fixture-advanced", display_name: "Fixture advanced" },
   ];
   if (scenario === "swarm-two-providers") catalog.push({ provider: "fixture-provider-two", intelligence_class: "fixture-standard-two", display_name: "Fixture second standard" });
+  const storageKey = `aq-mock-swarm-settings:${scenario ?? "default"}`;
   const operations = new Map<string, { request: string; response: SwarmSettings }>();
   let revision = 1;
   let activeMode: SwarmMode = "normal";
@@ -15,6 +16,13 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   let reduced: SwarmCellLimit[] | null = catalog.map((c, i) => ({ provider: c.provider, intelligence_class: c.intelligence_class, limit: i ? 1 : 2 }));
   const providerLimits: SwarmProviderLimit[] = [];
   const cellLimits: SwarmLimitOverride[] = [];
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null") as SwarmSettings | null;
+    if (saved) {
+      revision = Number(saved.revision); activeMode = saved.active_mode; normal = saved.normal ?? normal; reduced = saved.reduced;
+      providerLimits.push(...(saved.provider_limits ?? [])); cellLimits.push(...(saved.cell_limits ?? []));
+    }
+  } catch { /* Fresh labelled fixture state. */ }
   const result = (): SwarmSettings => ({ revision: String(revision), catalog_revision: "1", active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
     cells: catalog.map(c => {
       const find = (list: SwarmCellLimit[] | null) => list?.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class)?.limit ?? null;
@@ -43,6 +51,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       if (!valid(body.normal) || (body.reduced !== null && !valid(body.reduced)) || (activeMode === "reduced" && body.reduced === null) || body.reduced?.some(r => r.limit > body.normal.find(n => n.provider === r.provider && n.intelligence_class === r.intelligence_class)!.limit)) return fail(400, "Invalid settings matrix.");
       normal = body.normal; reduced = body.reduced; revision++;
       const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
+      sessionStorage.setItem(storageKey, JSON.stringify(response));
       return HttpResponse.json(response);
     }),
     http.post("/api/settings/swarm/limits", async ({ request }) => {
@@ -69,6 +78,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       }
       revision++;
       const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
+      sessionStorage.setItem(storageKey, JSON.stringify(response));
       return HttpResponse.json(response);
     }),
     http.post("/api/settings/swarm/mode", async ({ request }) => {
@@ -83,6 +93,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       if ((body.active_mode !== "normal" && body.active_mode !== "reduced") || (body.active_mode === "reduced" && reduced === null)) return fail(400, "Invalid mode.");
       activeMode = body.active_mode; revision++;
       const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
+      sessionStorage.setItem(storageKey, JSON.stringify(response));
       return HttpResponse.json(response);
     }),
   ];
