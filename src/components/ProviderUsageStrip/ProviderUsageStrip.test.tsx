@@ -219,7 +219,7 @@ test("shows known reset details and stale observation inside the account disclos
   render(<ProviderUsageStrip state={{ status: "ready", data: result }} />);
   expect(region()).toHaveTextContent("Available resets: 2");
   expect(region()).toHaveTextContent("Weekly reset · 1 remaining");
-  expect(region()).toHaveTextContent("Not usable now · Clears: weekly limit");
+  expect(region()).toHaveTextContent("Not usable when observed · Clears: weekly limit");
   expect(region()).toHaveTextContent("Stale, observed");
   expect(region().querySelector("time")).toHaveAttribute("datetime", "2026-12-01T00:00:00Z");
 });
@@ -243,4 +243,14 @@ test("expired grants do not claim usability and unknown limit names stay private
   expect(region()).not.toHaveTextContent("Usable now");
   expect(region()).not.toHaveTextContent("some_internal_limit");
   expect(region()).toHaveTextContent("Available resets: 1");
+});
+
+
+test("a stale usable grant describes the observation instead of claiming current usability", () => {
+  const result = data([win()]);
+  result.providers[0]!.resetCredits = { state: "known", availableCount: 1, grants: [{ label: "Reset", remainingCount: null, expiresAt: null, usableNow: true, clears: [] }], observedAt: "2026-10-31T10:00:00Z", freshUntil: "2026-10-31T10:01:00Z", quality: "reported", freshness: "stale" };
+  render(<ProviderUsageStrip state={{ status: "ready", data: result }} />);
+  expect(region()).toHaveTextContent("Stale, observed");
+  expect(region()).toHaveTextContent("Usable when observed");
+  expect(region()).not.toHaveTextContent("Usable now");
 });
