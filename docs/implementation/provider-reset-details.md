@@ -18,7 +18,7 @@ refresh marks retained reset information stale without changing its observation
 time. The compact usage header retains its existing composition.
 
 The canonical dashboard-read contract is pinned from actual server commit
-`4aa15a249e4d0380b29cde81c0baea758e90fc67`, with regenerated schema and verified
+`8b3365e55c2a6cbb297654bf1ffe058192c4e668`, with regenerated schema and verified
 hashes. Old responses that omit reset metadata remain supported. This is a local
 implementation pin, not a claim that the server commit has been published.
 
@@ -27,7 +27,7 @@ structured SDK usage control supplies plan windows but no qualified independent
 grant read; Claude resets therefore show Unknown. Real Claude usage collection
 continues. No redemption controls or automated reset use were added.
 
-## Root validation
+## Initial root validation, 2026-11-11
 
 - `pnpm test -- src/api/adapters/providerUsage.test.ts src/components/ProviderUsageStrip/ProviderUsageStrip.test.tsx src/app/useProviderUsage.test.ts src/app/Shell.test.tsx`: 81 passed.
 - `pnpm run typecheck`, `pnpm run lint`, and `pnpm run build`: passed. The production
@@ -78,3 +78,29 @@ The reviewed implementation is local to the server/dashboard feature branches.
 The running server image, host refresh service and served dashboard bundle have
 not been deployed or changed. Claude reset-count support remains limited by the
 selected native client interface.
+
+## Separate-worktree verification, 2026-11-12
+
+Terra agents audited and fixed the producer, server projection, and dashboard in
+three distinct worktrees: `usage-resets-collector-audit`,
+`usage-resets-server-audit`, and `usage-resets-dashboard-audit`. Root reviewed and
+integrated their local commits into the original feature worktrees.
+
+The dashboard fix qualifies stale usability as "when observed" and suppresses a
+current-usability claim if a supplied expiry is malformed. Known null expiry,
+authoritative count, and quota windows remain intact. The compiled stale fixture
+now includes a usable-at-observation grant so this behavior can be reviewed.
+
+Root independently verified 99 dashboard tests, 13 Rust tests and 10 producer
+tests (122 total), production build/typecheck, lint, Rust formatting, Clippy with
+warnings denied, schema fixtures and build budgets. All 27 pinned contract files
+match the exact server commit recorded above.
+
+Root built and served a separate labelled compiled fixture and personally
+captured/opened the stale disclosure at 1440, 390 and 320 pixels. No document
+overflow, page errors, obscured close button or Escape/focus regression was
+found. Evidence is in `evidence/provider-reset-details/audit-2026-11-12/`.
+`root-review.json` records the checks and actual served manifest SHA-256
+`3b59039706ead5d35fc4af5608d87ce4bb6bd903d61310f98133aac626af9f3c`.
+This is fixture-based visual evidence, not a deployment claim. Claude reset
+availability is still explicitly unknown through the selected client interface.

@@ -1,6 +1,6 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "4aa15a249e4d0380b29cde81c0baea758e90fc67",
+  "commit": "8b3365e55c2a6cbb297654bf1ffe058192c4e668",
   "status": "Local implementation on feat/provider-reset-details; not published",
   "sha256": {
     "dashboard-read/v1/README.md": "0985eccff916f52675067dbba97ca873235c32dd407ea03bf8b0a947301ea28f",

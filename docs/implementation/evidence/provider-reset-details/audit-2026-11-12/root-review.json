@@ -1,0 +1,30 @@
+{
+  "reviewer": "root",
+  "date": "2026-11-12",
+  "fixture": true,
+  "servedManifestSha256": "3b59039706ead5d35fc4af5608d87ce4bb6bd903d61310f98133aac626af9f3c",
+  "checks": [
+    {
+      "width": 1440,
+      "staleUsabilityQualified": true,
+      "unknownDistinctFromZero": true,
+      "overflow": false,
+      "escapeRestoresFocus": true
+    },
+    {
+      "width": 390,
+      "staleUsabilityQualified": true,
+      "unknownDistinctFromZero": true,
+      "overflow": false,
+      "escapeRestoresFocus": true
+    },
+    {
+      "width": 320,
+      "staleUsabilityQualified": true,
+      "unknownDistinctFromZero": true,
+      "overflow": false,
+      "escapeRestoresFocus": true
+    }
+  ],
+  "pageErrors": []
+}
