@@ -90,7 +90,14 @@ function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
 
 const UNKNOWN_RESETS: ResetCreditsView = { state: "unknown", availableCount: null, grants: null, freshness: "fresh", observedAt: null, freshUntil: null, quality: "unknown" };
 const validCount = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
-const validDate = (value: unknown): value is string => typeof value === "string" && Number.isFinite(Date.parse(value));
+function validDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match || !Number.isFinite(Date.parse(value))) return false;
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return month >= 1 && month <= 12 && day >= 1 && day <= [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!;
+}
 
 function adaptResetCredits(raw: unknown, serverTime: string): ResetCreditsView {
   if (!isRecord(raw) || !isRecord(raw.observation) || !validDate(raw.observation.observed_at) || !validDate(raw.observation.fresh_until)) return { ...UNKNOWN_RESETS };
@@ -101,7 +108,8 @@ function adaptResetCredits(raw: unknown, serverTime: string): ResetCreditsView {
       label: grant.label.trim().slice(0, 120),
       remainingCount: validCount(grant.remaining_count) ? grant.remaining_count : null,
       expiresAt: validDate(grant.expires_at) ? grant.expires_at : null,
-      usableNow: typeof grant.usable_now === "boolean" ? grant.usable_now : null,
+      // An invalid supplied expiry may already have elapsed; do not assert usability.
+      usableNow: (grant.expires_at == null || validDate(grant.expires_at)) && typeof grant.usable_now === "boolean" ? grant.usable_now : null,
       clears: Array.isArray(grant.clears) ? grant.clears.filter((v): v is string => typeof v === "string" && !!v.trim()).slice(0, 16).map(v => v.trim().slice(0, 80)) : [],
     }];
   }) : null;

@@ -221,3 +221,12 @@ test("preserves an expired grant's reported unusable state", () => {
   const p = { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 1, grants: [{ label: "Expired", remaining_count: 1, expires_at: "2026-10-01T00:00:00Z", usable_now: false, clears: [] }], observation: window().observation } };
   expect(adaptProviderUsage(envelope([p])).providers[0]?.resetCredits?.grants?.[0]).toMatchObject({ expiresAt: "2026-10-01T00:00:00Z", usableNow: false });
 });
+
+
+test("invalid expiry does not claim a grant is usable or alter the authoritative count", () => {
+  const grant = { label: "Reset", remaining_count: 1, expires_at: "not a timestamp", usable_now: true, clears: [] };
+  const p = { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 3, grants: [grant, { ...grant, expires_at: null }, { ...grant, expires_at: "0" }, { ...grant, expires_at: "2026-02-30T00:00:00Z" }], observation: window().observation } };
+  const result = adaptProviderUsage(envelope([p]));
+  expect(result.providers[0]?.resetCredits).toMatchObject({ availableCount: 3, grants: [{ expiresAt: null, usableNow: null }, { expiresAt: null, usableNow: true }, { expiresAt: null, usableNow: null }, { expiresAt: null, usableNow: null }] });
+  expect(result.providers[0]?.windows[0]?.usedPercent).toBe(42);
+});
