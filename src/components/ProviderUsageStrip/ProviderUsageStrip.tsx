@@ -162,7 +162,7 @@ function ProviderEntry({ provider, serverTime }: { provider: ProviderUsageView; 
           {provider.resetCredits.grants.map((grant, i) => <li key={i}>
             {grant.label}{grant.remainingCount !== null && ` · ${grant.remainingCount} remaining`}
             {grant.expiresAt && <> · expires <time dateTime={grant.expiresAt}>{new Date(grant.expiresAt).toLocaleString()}</time></>}
-            {grant.expiresAt && Date.parse(grant.expiresAt) <= Date.parse(serverTime) ? " · Expired" : grant.usableNow === false ? " · Not usable now" : grant.usableNow === true ? " · Usable now" : null}
+            {grant.expiresAt && Date.parse(grant.expiresAt) <= Date.parse(serverTime) ? " · Expired" : grant.usableNow === false ? (provider.resetCredits?.freshness === "stale" ? " · Not usable when observed" : " · Not usable now") : grant.usableNow === true ? (provider.resetCredits?.freshness === "stale" ? " · Usable when observed" : " · Usable now") : null}
             {grant.clears.length > 0 && ` · Clears: ${[...new Set(grant.clears.map(key => RESET_LIMIT_LABELS[key] ?? "other limit"))].join(", ")}`}
           </li>)}
         </ul>}

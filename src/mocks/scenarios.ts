@@ -125,7 +125,7 @@ const resetFixtureAccounts: ProviderUsage[] = [
       { ...baseUsage.data[0]!, account_ref: "fixture-known", account_label: "Fixture known", reset_credits: { state: "known", available_count: 2, grants: [{ label: "Weekly reset", remaining_count: 1, expires_at: "2026-12-01T00:00:00.000Z", usable_now: false, clears: ["seven_day"] }], observation: baseUsage.data[0]!.windows[0]!.observation } },
       { ...baseUsage.data[0]!, account_ref: "fixture-zero", account_label: "Fixture zero", reset_credits: { state: "known", available_count: 0, grants: [], observation: baseUsage.data[0]!.windows[0]!.observation } },
       { ...baseUsage.data[0]!, account_ref: "fixture-unknown", account_label: "Fixture unknown" },
-      { ...baseUsage.data[0]!, account_ref: "fixture-stale", account_label: "Fixture stale", reset_credits: { state: "known", available_count: 1, grants: null, observation: { ...baseUsage.data[0]!.windows[0]!.observation, observed_at: "2026-10-31T10:12:00.000Z", fresh_until: "2026-10-31T10:13:00.000Z" } } },
+      { ...baseUsage.data[0]!, account_ref: "fixture-stale", account_label: "Fixture stale", reset_credits: { state: "known", available_count: 1, grants: [{ label: "Weekly reset", remaining_count: 1, expires_at: null, usable_now: true, clears: ["seven_day"] }], observation: { ...baseUsage.data[0]!.windows[0]!.observation, observed_at: "2026-10-31T10:12:00.000Z", fresh_until: "2026-10-31T10:13:00.000Z" } } },
     ];
 
 const built: Record<ScenarioName, Scenario> = {
