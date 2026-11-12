@@ -8,6 +8,7 @@ import { humanGraphHandlers, fixtureProject, FIXTURE_ATTEMPT_SESSIONS } from "./
 import { decisionHandlers } from "./decisions";
 import { swarmHandlers } from "./swarm";
 import { swarmSettingsHandlers } from "./swarmSettings";
+import { intelligenceStructureHandlers } from "./intelligenceStructure";
 import { withDecisionFixtures } from "./decisionFixtures";
 import { questionHandlers, withQuestionFixtures } from "./questions";
 import { enrollmentHandlers, swarmActionHandlers } from "./swarmActions";
@@ -99,7 +100,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...(questions ? questionHandlers() : []),
     ...humanGraphHandlers(s.reads, s.graph),
     ...swarmHandlers(s.reads, name),
-    ...(fixtures ? swarmSettingsHandlers(name) : []),
+    ...(fixtures ? [...intelligenceStructureHandlers(name), ...swarmSettingsHandlers(name)] : []),
     ...swarmActionHandlers(),
     ...enrollmentHandlers(),
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),

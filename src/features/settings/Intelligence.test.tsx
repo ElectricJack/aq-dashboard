@@ -1,10 +1,11 @@
-import { screen, within, waitFor } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
 import type { Candidate, IntelligenceProfile } from "../../api/intelligenceSettings";
+import { IntelligenceGroups } from "./IntelligenceGroups";
 
 const anthropic: Candidate = { id: "anthropic-choice", provider: "anthropic", model: "configured-model", reasoning_configuration_reference: "balanced@1", harnesses: ["claude"] };
 const openai: Candidate = { id: "openai-choice", provider: "openai", model: "configured-codex", reasoning_configuration_reference: "high@1", harnesses: ["codex"] };
@@ -15,7 +16,7 @@ function snapshot() { return { revision: "12", active_digest: "a".repeat(64), pr
   { ...openai, harness: "codex", reasoning: "medium", reasoning_configuration_reference: "medium@1" },
 ] }; }
 const server = setupServer(...handlersFor("default"));
-beforeEach(() => server.use(http.get("/api/settings/swarm", () => HttpResponse.json(limitsSnapshot()))));
+beforeEach(() => server.use(http.get("/api/settings/swarm", () => HttpResponse.json(limitsSnapshot())), http.get("/api/settings/intelligence/structure", () => HttpResponse.json({}, { status: 503 }))));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" })); afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 function read(data = snapshot()) { server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(data))); }
 async function open() { renderApp("/settings?tab=intelligence"); return screen.findByRole("row", { name: "Standard" }); }
@@ -316,4 +317,193 @@ test("a concurrent cap revision after profile confirmation is rejected without r
   const { row, input } = await editProfileAndCap(); await userEvent.click(within(row).getByRole("button", { name: "Save Standard" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Profile saved. Max agents were not saved. Limits changed.");
   expect(cap).toMatchObject({ expected_revision: "12", expected_catalog_revision: "3" }); expect(input).toHaveValue(3);
+});
+
+
+test("grouping uses explicit assignments and retains unmatched profiles without guessing from their names", async () => {
+  const mapped = { ...profile, id: "standard-low", name: "Imported Standard" };
+  const retained = ["routing-sol-low", "supervisor-medium", "fast-off", "custom-high"].map(id => ({ ...profile, id, name: id }));
+  render(<IntelligenceGroups profiles={[mapped, ...retained]} assignments={[{ profile_id: mapped.id, parent_id: "standard", effort: "low" }]}
+    renderParent={parent => <h3>{parent}</h3>} renderRow={(item, variation) => <tr key={item.id}><td>{variation}</td><td colSpan={3}>{item.id}</td></tr>}
+    otherTable={items => <ul>{items.map(item => <li key={item.id}>{item.id}</li>)}</ul>} />);
+  expect(screen.getByRole("region", { name: "Standard variations, scroll horizontally", hidden: true })).toBeInTheDocument();
+  await userEvent.click(screen.getByText("Standard variations"));
+  expect(screen.getByRole("row", { name: "Low standard-low" })).toBeVisible();
+  expect(screen.getByRole("row", { name: "Standard Medium not configured" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Other profiles" })).toBeVisible();
+  for (const item of retained) expect(screen.getByText(item.id)).toBeVisible();
+});
+
+function structureSnapshot() {
+  return { revision: "2", catalog_revision: "12", routing_markdown: "# Routing\nUse Standard for everyday work.",
+    parents: ["simple", "standard", "complex", "deep"].map(id => ({ id, description: `${id} tasks` })),
+    assignments: [{ profile_id: "standard", parent_id: "standard", effort: "low" }] };
+}
+function readStructure(data = structureSnapshot()) { server.use(http.get("/api/settings/intelligence/structure", () => HttpResponse.json(data))); }
+
+test("four parent types show one description each and child model, reasoning and limits keep their current mappings", async () => {
+  read(); readStructure(); renderApp("/settings?tab=intelligence");
+  for (const name of ["Simple", "Standard", "Complex", "Deep"]) expect(await screen.findByLabelText(`${name} description`)).toBeVisible();
+  await userEvent.click(screen.getByText("Standard variations"));
+  const row = screen.getByRole("row", { name: "Standard" });
+  expect(within(row).getByText("Low", { exact: true })).toBeVisible();
+  expect(within(row).queryByLabelText("Profile name")).not.toBeInTheDocument();
+  expect(within(row).queryByLabelText("Description")).not.toBeInTheDocument();
+  expect(within(row).getByLabelText("Model")).toHaveValue("anthropic:configured-model");
+  await userEvent.selectOptions(screen.getByLabelText("Provider"), "openai");
+  expect(within(row).getByLabelText("Model")).toHaveValue("openai:configured-codex");
+  expect(within(row).getByLabelText("Reasoning effort")).toHaveValue("high@1:codex");
+  expect(screen.getByLabelText("Markdown")).toHaveValue(structureSnapshot().routing_markdown);
+});
+
+test("saving a parent description preserves policy, assignments, other descriptions and runtime profiles", async () => {
+  read(); let data = structureSnapshot(); let submitted: Record<string, unknown> | undefined; let profilePosts = 0;
+  server.use(http.get("/api/settings/intelligence/structure", () => HttpResponse.json(data)), http.post("/api/settings/intelligence/structure", async ({ request }) => {
+    submitted = await request.json() as Record<string, unknown>;
+    data = { ...data, revision: "3", parents: submitted.parents as typeof data.parents };
+    return HttpResponse.json({ ...data, operation_id: submitted.operation_id, disposition: "saved" });
+  }), http.post("/api/settings/intelligence", () => { profilePosts++; return HttpResponse.error(); }));
+  renderApp("/settings?tab=intelligence"); const input = await screen.findByLabelText("Standard description");
+  await userEvent.clear(input); await userEvent.type(input, "Everyday engineering");
+  await userEvent.click(screen.getByRole("button", { name: "Save Standard description" })); await screen.findByText("Saved.");
+  expect(submitted).toMatchObject({ expected_revision: "2", expected_catalog_revision: "12", routing_markdown: structureSnapshot().routing_markdown, assignments: structureSnapshot().assignments,
+    parents: [{ id: "simple", description: "simple tasks" }, { id: "standard", description: "Everyday engineering" }, { id: "complex", description: "complex tasks" }, { id: "deep", description: "deep tasks" }] });
+  expect(profilePosts).toBe(0);
+});
+
+test("a conflicting parent description retains its draft and original revision until reset", async () => {
+  read(); let data = structureSnapshot();
+  server.use(http.get("/api/settings/intelligence/structure", () => HttpResponse.json(data)), http.post("/api/settings/intelligence/structure", () => {
+    data = { ...data, revision: "3", parents: data.parents.map(parent => parent.id === "standard" ? { ...parent, description: "Someone else's description" } : parent) };
+    return HttpResponse.json({ error: "conflict", message: "Settings changed." }, { status: 409 });
+  }));
+  renderApp("/settings?tab=intelligence"); const input = await screen.findByLabelText("Standard description");
+  await userEvent.type(input, " revised"); await userEvent.click(screen.getByRole("button", { name: "Save Standard description" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Settings changed.");
+  expect(input).toHaveValue("standard tasks revised"); expect(screen.getByRole("button", { name: "Save Standard description" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Reset Standard description" }));
+  await waitFor(() => expect(input).toHaveValue("Someone else's description"));
+});
+
+test("an interrupted parent save inspects and retries the identical metadata request", async () => {
+  read(); readStructure(); const requests: Record<string, unknown>[] = [];
+  server.use(http.post("/api/settings/intelligence/structure", async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>; requests.push(body);
+    return requests.length === 1 ? HttpResponse.error() : HttpResponse.json({ ...structureSnapshot(), parents: body.parents, revision: "3", operation_id: body.operation_id, disposition: "saved" });
+  }), http.get("/api/settings/intelligence/structure/operations/:id", () => HttpResponse.json({}, { status: 404 })));
+  renderApp("/settings?tab=intelligence"); await userEvent.type(await screen.findByLabelText("Standard description"), " revised");
+  await userEvent.click(screen.getByRole("button", { name: "Save Standard description" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Check save status" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Retry same save" })); await screen.findByText("Saved.");
+  expect(requests).toHaveLength(2); expect(requests[0]).toEqual(requests[1]);
+});
+
+test("a missing variation saves its profile before assigning it under the captured structure revision", async () => {
+  let profiles = snapshot(); let metadata = structureSnapshot(); const order: string[] = []; let assigned: Record<string, unknown> | undefined;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/intelligence/structure", () => HttpResponse.json(metadata)),
+    http.post("/api/settings/intelligence", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; profile_id: string; name: string; candidates: Candidate[] }; order.push("profile");
+      const created = { ...profile, id: body.profile_id, name: body.name, description: "", candidates: body.candidates, projects: [] };
+      profiles = { ...profiles, revision: "13", profiles: [...profiles.profiles, created] };
+      return HttpResponse.json(saved(body.operation_id, created));
+    }), http.post("/api/settings/intelligence/structure", async ({ request }) => {
+      assigned = await request.json() as Record<string, unknown>; order.push("assignment");
+      metadata = { ...metadata, revision: "3", catalog_revision: "13", assignments: assigned.assignments as typeof metadata.assignments };
+      return HttpResponse.json({ ...metadata, operation_id: assigned.operation_id, disposition: "saved" });
+    }));
+  renderApp("/settings?tab=intelligence"); await screen.findByLabelText("Standard description"); await userEvent.click(screen.getByText("Standard variations"));
+  await userEvent.click(screen.getByRole("button", { name: "Add variation: Standard Medium" }));
+  const row = screen.getByRole("row", { name: "Standard Medium" }); await userEvent.selectOptions(within(row).getByLabelText("Model"), "anthropic:configured-model");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard Medium" }));
+  await waitFor(() => expect(order).toEqual(["profile", "assignment"]));
+  expect(assigned).toMatchObject({ expected_revision: "2", expected_catalog_revision: "13", assignments: [...structureSnapshot().assignments, { profile_id: expect.stringMatching(/^profile-/), parent_id: "standard", effort: "medium" }] });
+  expect(screen.queryByText("Profile saved. The variation assignment must also be confirmed.")).not.toBeInTheDocument();
+});
+
+test("deleting and readding a variation uses a fresh profile identity and replaces the retired assignment", async () => {
+  let profiles = snapshot(); let metadata = structureSnapshot(); let replacementId = ""; let assignment: Record<string, unknown> | undefined;
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/intelligence/structure", () => HttpResponse.json(metadata)),
+    http.post("/api/settings/intelligence", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; profile_id: string; name: string; candidates: Candidate[]; delete?: boolean };
+      if (body.delete) { profiles = { ...profiles, revision: "13", profiles: [] }; return HttpResponse.json({ ...saved(body.operation_id), disposition: "deleted" }); }
+      replacementId = body.profile_id; const created = { ...profile, id: body.profile_id, name: body.name, candidates: body.candidates, projects: [] };
+      profiles = { ...profiles, revision: "14", profiles: [created] }; return HttpResponse.json({ ...saved(body.operation_id, created), revision: "14" });
+    }), http.post("/api/settings/intelligence/structure", async ({ request }) => {
+      assignment = await request.json() as Record<string, unknown>;
+      metadata = { ...metadata, revision: "3", catalog_revision: "14", assignments: assignment.assignments as typeof metadata.assignments };
+      return HttpResponse.json({ ...metadata, operation_id: assignment.operation_id, disposition: "saved" });
+    }));
+  renderApp("/settings?tab=intelligence"); await screen.findByLabelText("Standard description"); await userEvent.click(screen.getByText("Standard variations"));
+  await userEvent.click(screen.getByRole("button", { name: "Delete Standard" })); await userEvent.click(screen.getByRole("button", { name: "Confirm delete Standard" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add variation: Standard Low" }));
+  const row = screen.getByRole("row", { name: "Standard Low" }); await userEvent.selectOptions(within(row).getByLabelText("Model"), "anthropic:configured-model");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard Low" }));
+  await waitFor(() => expect(assignment).toBeDefined());
+  expect(replacementId).toMatch(/^profile-/); expect(replacementId).not.toBe(profile.id);
+  expect(assignment).toMatchObject({ expected_revision: "2", expected_catalog_revision: "14", assignments: [{ profile_id: replacementId, parent_id: "standard", effort: "low" }] });
+});
+
+test("a partially saved new variation can reload and save only its assignment without replacing concurrent metadata", async () => {
+  let profiles = snapshot(); let metadata = structureSnapshot(); let profilePosts = 0; const assignments: Record<string, unknown>[] = [];
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/intelligence/structure", () => HttpResponse.json(metadata)),
+    http.post("/api/settings/intelligence", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; profile_id: string; name: string; candidates: Candidate[] }; profilePosts++;
+      const created = { ...profile, id: body.profile_id, name: body.name, candidates: body.candidates, projects: [] };
+      profiles = { ...profiles, revision: "13", profiles: [...profiles.profiles, created] }; return HttpResponse.json(saved(body.operation_id, created));
+    }), http.post("/api/settings/intelligence/structure", async ({ request }) => {
+      const body = await request.json() as Record<string, unknown>; assignments.push(body);
+      if (assignments.length === 1) { metadata = { ...metadata, revision: "4", catalog_revision: "13", routing_markdown: "Concurrent policy" }; return HttpResponse.json({ error: "conflict", message: "Settings changed." }, { status: 409 }); }
+      metadata = { ...metadata, revision: "5", assignments: body.assignments as typeof metadata.assignments };
+      return HttpResponse.json({ ...metadata, operation_id: body.operation_id, disposition: "saved" });
+    }));
+  renderApp("/settings?tab=intelligence"); await screen.findByLabelText("Standard description"); await userEvent.click(screen.getByText("Standard variations"));
+  await userEvent.click(screen.getByRole("button", { name: "Add variation: Standard Medium" }));
+  const row = screen.getByRole("row", { name: "Standard Medium" }); await userEvent.selectOptions(within(row).getByLabelText("Model"), "anthropic:configured-model");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard Medium" }));
+  const retryAssignment = await screen.findByRole("button", { name: "Reload and save assignment" });
+  expect(within(row).getByLabelText("Model")).toBeDisabled();
+  await userEvent.click(retryAssignment);
+  await waitFor(() => expect(assignments).toHaveLength(2)); expect(profilePosts).toBe(1);
+  expect(assignments[1]).toMatchObject({ expected_revision: "4", expected_catalog_revision: "13", routing_markdown: "Concurrent policy" });
+});
+
+test("a new variation retains a failed cap draft and assigns only after the cap retry confirms", async () => {
+  let profiles = snapshot(); let metadata = structureSnapshot(); let limits = limitsSnapshot(); let profilePosts = 0; let capPosts = 0; let assignmentPosts = 0; let createdId = "";
+  server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(profiles)), http.get("/api/settings/intelligence/structure", () => HttpResponse.json(metadata)),
+    http.get("/api/settings/swarm", () => HttpResponse.json(limits)), http.post("/api/settings/intelligence", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; profile_id: string; name: string; candidates: Candidate[] }; profilePosts++; createdId = body.profile_id;
+      const created = { ...profile, id: createdId, name: body.name, candidates: body.candidates, projects: [] };
+      profiles = { ...profiles, revision: "13", profiles: [...profiles.profiles, created] };
+      limits = { ...limits, catalog_revision: "3", cells: [...limits.cells, { ...limits.cells[0]!, intelligence_class: createdId, display_name: body.name, effective_limit: null }] };
+      return HttpResponse.json(saved(body.operation_id, created));
+    }), http.post("/api/settings/swarm/limits", () => {
+      capPosts++; if (capPosts === 1) return HttpResponse.json({ error: "invalid", message: "Limit rejected." }, { status: 422 });
+      limits = { ...limits, revision: "13", cell_limits: [...limits.cell_limits, { provider: "anthropic", intelligence_class: createdId, limit: 3 }], cells: limits.cells.map(cell => cell.intelligence_class === createdId ? { ...cell, effective_limit: 3 } : cell) }; return HttpResponse.json(limits);
+    }), http.post("/api/settings/intelligence/structure", async ({ request }) => {
+      const body = await request.json() as Record<string, unknown>; assignmentPosts++;
+      metadata = { ...metadata, revision: "3", catalog_revision: "13", assignments: body.assignments as typeof metadata.assignments };
+      return HttpResponse.json({ ...metadata, operation_id: body.operation_id, disposition: "saved" });
+    }));
+  renderApp("/settings?tab=intelligence"); await screen.findByLabelText("Standard description"); await userEvent.click(screen.getByText("Standard variations"));
+  await userEvent.click(screen.getByRole("button", { name: "Add variation: Standard Medium" }));
+  const row = screen.getByRole("row", { name: "Standard Medium" }); await userEvent.selectOptions(within(row).getByLabelText("Model"), "anthropic:configured-model");
+  await userEvent.type(within(row).getByRole("spinbutton"), "3"); await userEvent.click(within(row).getByRole("button", { name: "Save Standard Medium" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Profile saved. Max agents were not saved. Limit rejected.");
+  expect(within(row).getByRole("spinbutton")).toHaveValue(3); expect(assignmentPosts).toBe(0);
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard Medium" }));
+  await waitFor(() => expect(assignmentPosts).toBe(1)); expect(profilePosts).toBe(1); expect(capPosts).toBe(2);
+});
+
+
+test("editing the first provider preserves candidate preference order", async () => {
+  const data = snapshot();
+  data.model_choices.push({ ...anthropic, harness: "claude", reasoning: "low", reasoning_configuration_reference: "low@1" });
+  read(data); let submitted: { candidates: Candidate[] } | undefined;
+  server.use(http.post("/api/settings/intelligence", async ({ request }) => {
+    const body = await request.json() as { operation_id: string; candidates: Candidate[] }; submitted = body;
+    return HttpResponse.json(saved(body.operation_id, { candidates: body.candidates }));
+  }));
+  const row = await open(); await userEvent.selectOptions(within(row).getByLabelText("Reasoning effort"), "low@1:claude");
+  await userEvent.click(within(row).getByRole("button", { name: "Save Standard" })); await within(row).findByText("Saved.");
+  expect(submitted?.candidates).toEqual([{ ...anthropic, reasoning_configuration_reference: "low@1" }, openai]);
 });

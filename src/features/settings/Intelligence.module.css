@@ -19,3 +19,23 @@
 .confirmDelete { display: grid; gap: var(--space-2); inline-size: 100%; min-inline-size: 0; overflow-wrap: anywhere; }
 
 .limitCell { display: grid; gap: var(--space-2); min-inline-size: 110px; max-inline-size: 170px; }
+
+.parent { border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); min-inline-size: 0; }
+.parentHeader { display: grid; grid-template-columns: minmax(100px, .6fr) minmax(200px, 3fr) auto; align-items: start; gap: var(--space-3); padding: var(--space-4); }
+.parentHeader h3 { margin: var(--space-2) 0; font-size: var(--font-size-h3, 16px); }
+.parentHeader label { display: grid; gap: var(--space-2); }
+.parentStatus { grid-column: 1 / -1; margin: 0; }
+.variations { border-block-start: 1px solid var(--color-border); }
+.variations > summary { cursor: pointer; display: list-item; padding: var(--space-3) var(--space-4); min-block-size: var(--control-height); box-sizing: border-box; }
+.variations > summary .meta { margin-inline-start: var(--space-3); font-size: var(--font-size-meta); }
+.variations > summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+.variations .tableWrap { border: 0; border-radius: 0 0 var(--radius-panel) var(--radius-panel); }
+.variationTable { min-inline-size: 850px; }
+.variationTable th:nth-child(1) { inline-size: 17%; }.variationTable th:nth-child(2) { inline-size: 28%; }.variationTable th:nth-child(3) { inline-size: 20%; }.variationTable th:nth-child(4) { inline-size: 15%; }.variationTable th:nth-child(5) { inline-size: 20%; }
+.identities { font-size: var(--font-size-meta); color: var(--color-text-secondary); margin-block-start: var(--space-2); overflow-wrap: anywhere; }
+.identities summary { cursor: pointer; }.identities span { display: block; margin-block-start: var(--space-2); }
+.otherProfiles { display: grid; gap: var(--space-3); min-inline-size: 0; }.otherProfiles h3 { margin: 0; }
+@media (max-width: 760px) { .parentHeader { grid-template-columns: 1fr; }.parentHeader h3 { margin: 0; }.parentHeader .rowActions { min-inline-size: 0; }.variations > summary .meta { display: block; margin: var(--space-2) 0 0; } }
+
+.scrollHint { display: none; margin: 0; padding: 0 var(--space-4) var(--space-3); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+@media (max-width: 900px) { .scrollHint { display: block; } }

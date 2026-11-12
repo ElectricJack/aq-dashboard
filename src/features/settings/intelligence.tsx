@@ -9,6 +9,10 @@ import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
+import { readIntelligenceStructure, type IntelligenceStructure, type IntelligenceStructureSaved } from "../../api/intelligenceSettings";
+import { IntelligenceGroups, PARENT_NAMES, variationName, type ParentId, type ProfileAssignment } from "./IntelligenceGroups";
+import { ParentDescriptionEditor, useStructureSave } from "./IntelligenceStructureControls";
+import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 import styles from "./Intelligence.module.css";
 
 const PROVIDERS: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", google: "Google", ollama: "Ollama", opencode: "OpenCode", longcat: "LongCat", nemotron: "Nemotron" };
@@ -22,9 +26,9 @@ function errorMessage(error: unknown) {
 }
 type RowOperation = { kind: "profile"; request: SaveIntelligence; cap?: UpdateSwarmLimits } | { kind: "cap"; request: UpdateSwarmLimits; profileSaved: boolean; refreshCatalog?: boolean };
 type LimitDraft = { value: string; revision: string; catalogRevision: string };
-function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved, onRemove, onReload }: {
+export function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved, onRemove, onReload, variation, onCompleted, externallyLocked = false }: {
   profile: IntelligenceProfile; settings: IntelligenceSettings; provider: string; limits: SwarmSettings | undefined; busy: boolean;
-  onBusy(value: boolean): void; onSaved(result: IntelligenceSaved): Promise<void>; onRemove(): void; onReload(): Promise<void>;
+  onBusy(value: boolean): void; onSaved(result: IntelligenceSaved): Promise<void>; onRemove(): void; onReload(): Promise<void>; variation?: string; externallyLocked?: boolean; onCompleted?(result: IntelligenceSaved): Promise<void>;
 }) {
   const [name, setName] = useState(profile.name ?? profile.id);
   const [description, setDescription] = useState(profile.description ?? "");
@@ -44,10 +48,11 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
+  const profileReceipt = useRef<IntelligenceSaved | null>(null);
   const deleteButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (confirmDelete) { confirmButton.current?.focus(); confirmButton.current?.scrollIntoView?.({ block: "center", inline: "nearest" }); } }, [confirmDelete]);
-  const locked = pending || unconfirmed !== null;
+  const locked = pending || unconfirmed !== null || externallyLocked;
   // A clean row follows refreshed server data; an edited row keeps its draft.
   const shownName = dirty ? name : profile.name ?? profile.id;
   const shownDescription = dirty ? description : profile.description ?? "";
@@ -66,10 +71,16 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
   function setChoice(choice: ModelChoice | null) {
     beginEdit();
     const otherProviders = shownCandidates.filter(c => c.provider !== provider && c.provider !== "configuration-required");
-    setCandidates(choice ? [...otherProviders, { id: candidate?.id ?? `choice-${crypto.randomUUID()}`, provider: choice.provider,
-      model: choice.model, reasoning_configuration_reference: choice.reasoning_configuration_reference, harnesses: [choice.harness] }] : otherProviders);
+    if (choice) {
+      const firstIndex = shownCandidates.findIndex(c => c.provider === provider);
+      const insertionIndex = firstIndex < 0 ? otherProviders.length : shownCandidates.slice(0, firstIndex).filter(c => c.provider !== "configuration-required").length;
+      otherProviders.splice(insertionIndex, 0, { id: candidate?.id ?? `choice-${crypto.randomUUID()}`, provider: choice.provider,
+        model: choice.model, reasoning_configuration_reference: choice.reasoning_configuration_reference, harnesses: [choice.harness] });
+    }
+    setCandidates(otherProviders);
   }
   async function complete(result: IntelligenceSaved, continuing = false) {
+    profileReceipt.current = result;
     setName(result.profile.name ?? result.profile.id); setDescription(result.profile.description ?? "");
     setCandidates(structuredClone(result.profile.candidates)); setVersion(result.profile.version);
     await onSaved(result); setDirty(false); setUnconfirmed(null); setError(null); setConflict(false);
@@ -98,7 +109,7 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
     try {
       if (phase.kind === "profile") {
         await complete(await (inspect ? inspectIntelligenceSave(phase.request.operation_id) : saveIntelligence(phase.request)), !!phase.cap);
-        if (!phase.cap) return;
+        if (!phase.cap) { if (profileReceipt.current) await onCompleted?.(profileReceipt.current); return; }
         const cap = phase.cap;
         setPartialProviders(old => ({ ...old, [cap.cell!.provider]: true }));
         phase = { kind: "cap", request: cap, profileSaved: true, refreshCatalog: true };
@@ -113,6 +124,7 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
         phase = { ...phase, request: { ...phase.request, expected_catalog_revision: catalog.catalog_revision }, refreshCatalog: false };
       }
       completeCap(await (inspect ? inspectSwarmOperation(phase.request.operation_id) : capMutation.mutateAsync(phase.request)), phase.request);
+      if (profileReceipt.current) await onCompleted?.(profileReceipt.current);
     } catch (e) {
       const prefix = phase.kind === "cap" && phase.profileSaved ? "Profile saved. " : "";
       setNotice(null);
@@ -140,8 +152,8 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
   const label = shownName.trim() || "new profile";
   return <Fragment>
     <tr aria-label={label} data-profile-id={profile.id}>
-      <td><input aria-label="Profile name" value={shownName} required maxLength={128} disabled={locked} onChange={e => { beginEdit(); setName(e.target.value); }} /></td>
-      <td><input aria-label="Description" value={shownDescription} maxLength={2000} disabled={locked} onChange={e => { beginEdit(); setDescription(e.target.value); }} /></td>
+      <td>{variation ? <><strong>{variation}</strong><details className={styles.identities}><summary>Profile details</summary><span>{profile.id}</span>{profile.projects.length > 0 && <span>{profile.projects.length} project {profile.projects.length === 1 ? "reference" : "references"}</span>}</details></> : <input aria-label="Profile name" value={shownName} required maxLength={128} disabled={locked} onChange={e => { beginEdit(); setName(e.target.value); }} />}</td>
+      {!variation && <td><input aria-label="Description" value={shownDescription} maxLength={2000} disabled={locked} onChange={e => { beginEdit(); setDescription(e.target.value); }} /></td>}
       <td><select aria-label="Model" value={candidate ? modelKey(candidate) : ""} disabled={locked || models.length === 0} onChange={e => setChoice(models.find(c => modelKey(c) === e.target.value) ?? null)}>
         <option value="">Not set</option>
         {candidate && !models.some(c => c.model === candidate.model) && <option value={modelKey(candidate)}>{candidate.model} (not configured)</option>}
@@ -162,7 +174,7 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
         {profile.version === 0 ? <ActionButton disabled={busy || locked} aria-label={`Delete ${label}`} onClick={onRemove}>Delete</ActionButton> :
           <ActionButton ref={deleteButton} disabled={busy || locked} aria-label={`Delete ${label}`} onClick={() => setConfirmDelete(true)}>{pendingDelete ? "Deleting…" : "Delete"}</ActionButton>}
         {profile.version !== 0 && (dirty || Object.keys(limitDrafts).length > 0 || error) && !unconfirmed && <ActionButton disabled={locked} aria-label={`Reset ${label}`} onClick={() => {
-          setPending(true); void onReload().finally(() => { setDirty(false); setLimitDrafts({}); setPartialProviders({}); setError(null); setConflict(false); setNotice(null); setPending(false); });
+          setPending(true); void onReload().finally(() => { setDirty(false); setLimitDrafts({}); setPartialProviders({}); setError(null); setConflict(false); setNotice(null); setPending(false); if (profileReceipt.current) void onCompleted?.(profileReceipt.current); });
         }}>Reset</ActionButton>}
     {confirmDelete && <div className={styles.confirmDelete} role="group" aria-label={`Confirm delete ${label}`}>
       <span>Delete “{label}” for all providers?</span>
@@ -174,17 +186,56 @@ function ProfileRow({ profile, settings, provider, limits, busy, onBusy, onSaved
         {notice && <span className={styles.success} role="status">{notice}</span>}
       </div></td>
     </tr>
-    {error && <tr><td colSpan={6}><div role="alert" className={styles.warning}>{label}: {error}{conflict && " Your edits are preserved. Reset this row to load the latest settings."}</div>
+    {error && <tr><td colSpan={variation ? 5 : 6}><div role="alert" className={styles.warning}>{label}: {error}{conflict && " Your edits are preserved. Reset this row to load the latest settings."}</div>
       {unconfirmed && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void run(unconfirmed, true)}>{unconfirmed.kind === "profile" && unconfirmed.request.delete ? "Check delete status" : "Check save status"}</ActionButton>
         {retrySame && <ActionButton disabled={pending} onClick={() => void run(unconfirmed)}>{unconfirmed.kind === "profile" && unconfirmed.request.delete ? "Retry same delete" : "Retry same save"}</ActionButton>}</div>}
     </td></tr>}
   </Fragment>;
 }
 
+type PendingVariation = { parent: ParentId; effort: ProfileAssignment["effort"]; structure: IntelligenceStructure };
+function NewVariationRow({ variation, onStructureSaved, onCancel, ...props }: Parameters<typeof ProfileRow>[0] & {
+  variation: string; pendingVariation: PendingVariation; onStructureSaved(result: IntelligenceStructureSaved, profileId: string): Promise<void>; onCancel(): void;
+}) {
+  const [confirmed, setConfirmed] = useState<IntelligenceSaved | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [reloadingAssignment, setReloadingAssignment] = useState(false);
+  const structureBusy = useRef(false);
+  const operation = useStructureSave(result => onStructureSaved(result, props.profile.id), value => { structureBusy.current = value; props.onBusy(value); });
+  const pending = props.pendingVariation;
+  return <>
+    <ProfileRow {...props} variation={variation} busy={props.busy || operation.locked} externallyLocked={operation.locked || confirmed !== null || reloadingAssignment} onBusy={value => props.onBusy(value || structureBusy.current)} onCompleted={async result => {
+      setConfirmed(result);
+      if (result.disposition !== "deleted") await operation.run({ operation_id: crypto.randomUUID(), expected_revision: pending.structure.revision, expected_catalog_revision: result.revision,
+        parents: pending.structure.parents, routing_markdown: pending.structure.routing_markdown,
+        assignments: [...pending.structure.assignments.filter(item => item.profile_id !== result.profile.id && (item.parent_id !== pending.parent || item.effort !== pending.effort)), { profile_id: result.profile.id, parent_id: pending.parent, effort: pending.effort }] });
+      else onCancel();
+    }} />
+    {confirmed && <tr><td colSpan={5}><p className={styles.meta}>Profile saved. The variation assignment must also be confirmed.</p>{operation.feedback}
+      {assignmentError && <p className={styles.warning} role="alert">{assignmentError}</p>}
+      {!operation.locked && <div className={styles.rowActions}><ActionButton disabled={reloadingAssignment} onClick={() => {
+        setReloadingAssignment(true); setAssignmentError(null);
+        void Promise.all([readIntelligenceStructure(), readIntelligence()]).then(async ([latest, catalog]) => {
+          const slot = latest.assignments.find(item => item.parent_id === pending.parent && item.effort === pending.effort);
+          if (slot && slot.profile_id !== props.profile.id && catalog.profiles.some(item => item.id === slot.profile_id)) {
+            setAssignmentError("This variation is now assigned to another profile. This profile remains in Other profiles when you dismiss this row."); return;
+          }
+          operation.reset();
+          await operation.run({ operation_id: crypto.randomUUID(), expected_revision: latest.revision, expected_catalog_revision: catalog.revision,
+            parents: latest.parents, routing_markdown: latest.routing_markdown,
+            assignments: [...latest.assignments.filter(item => item.profile_id !== props.profile.id && (item.parent_id !== pending.parent || item.effort !== pending.effort)), { profile_id: props.profile.id, parent_id: pending.parent, effort: pending.effort }] });
+        }).catch(() => setAssignmentError("Could not reload assignment settings. The saved profile is preserved.")).finally(() => setReloadingAssignment(false));
+      }}>Reload and save assignment</ActionButton><ActionButton disabled={reloadingAssignment} onClick={onCancel}>Keep in Other profiles</ActionButton></div>}
+    </td></tr>}
+  </>;
+}
+
 export function IntelligenceSettings() {
   const { queryContext } = useSession(); const queryClient = useQueryClient(); const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: queryKey(queryContext, "intelligence-settings", {}), queryFn: ({ signal }) => readIntelligence(signal), retry: false });
   const limits = useSwarmSettings();
+  const structure = useQuery({ queryKey: queryKey(queryContext, "intelligence-structure", {}), queryFn: ({ signal }) => readIntelligenceStructure(signal), retry: false });
+  const [pendingVariations, setPendingVariations] = useState<Record<string, PendingVariation>>({});
   const [added, setAdded] = useState<IntelligenceProfile[]>([]); const [busy, setBusy] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState<string | null>(null); const addButton = useRef<HTMLButtonElement>(null);
   const focusAfterDelete = useRef(false);
@@ -193,6 +244,8 @@ export function IntelligenceSettings() {
   const providers = Array.from(new Set([...Object.keys(PROVIDERS), ...(query.data?.model_choices.map(c => c.provider) ?? []),
     ...(query.data?.profiles.flatMap(p => p.candidates.map(c => c.provider).filter(p => p !== "configuration-required")) ?? []), provider]));
   const profiles = [...(query.data?.profiles ?? []), ...added.filter(p => !query.data?.profiles.some(existing => existing.id === p.id))];
+  const localAssignments = Object.entries(pendingVariations).map(([id, item]) => ({ profile_id: id, parent_id: item.parent, effort: item.effort }));
+  const assignments = [...(structure.data?.assignments ?? []).filter(item => !localAssignments.some(local => local.profile_id === item.profile_id || (local.parent_id === item.parent_id && local.effort === item.effort))), ...localAssignments];
   const choices = query.data?.model_choices.filter(c => c.provider === provider) ?? [];
   const sources = Array.from(new Set(choices.map(c => c.source).filter(Boolean)));
   const observed = choices.flatMap(c => c.observed_at ? [c.observed_at] : []).sort().at(-1);
@@ -209,15 +262,30 @@ export function IntelligenceSettings() {
     if (result.disposition === "deleted") { focusAfterDelete.current = true; setDeletedNotice(`Deleted “${result.profile.name ?? result.profile.id}”.${result.routing ? " Affected work will use the router." : ""}`); }
     void queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("project-execution-bindings") });
   }
+  async function structureSaved(result: IntelligenceStructureSaved, profileId?: string) {
+    queryClient.setQueryData<IntelligenceStructure>(queryKey(queryContext, "intelligence-structure", {}), old => !old || BigInt(result.revision) >= BigInt(old.revision) ? result : old);
+    if (profileId) setPendingVariations(old => { const next = { ...old }; delete next[profileId]; return next; });
+    await structure.refetch();
+  }
+  const reload = async () => { await Promise.all([query.refetch(), limits.refetch(), structure.refetch()]); };
+  function row(profile: IntelligenceProfile, variation?: string) {
+    const props = { profile, settings: query.data!, provider, limits: limits.isError ? undefined : limits.data, busy, onBusy: setBusy, onSaved: saved,
+      onRemove: () => { setAdded(old => old.filter(p => p.id !== profile.id)); setPendingVariations(old => { const next = { ...old }; delete next[profile.id]; return next; }); addButton.current?.focus(); }, onReload: reload, variation };
+    const pending = pendingVariations[profile.id];
+    return pending ? <NewVariationRow key={profile.id} {...props} variation={variation!} pendingVariation={pending} onStructureSaved={structureSaved} onCancel={() => setPendingVariations(old => { const next = { ...old }; delete next[profile.id]; return next; })} /> : <ProfileRow key={profile.id} {...props} />;
+  }
+  function table(rows: IntelligenceProfile[]) { return <div className={styles.tableWrap} role="region" aria-label="Intelligence profiles spreadsheet, scroll horizontally" tabIndex={0}>
+    <table className={styles.table} aria-label="Intelligence profiles"><thead><tr><th scope="col">Profile</th><th scope="col">Description</th><th scope="col">Model</th><th scope="col">Reasoning effort</th><th scope="col">Max agents</th><th scope="col">Actions</th></tr></thead><tbody>{rows.map(profile => row(profile))}</tbody></table>
+  </div>; }
   return <div className={styles.sheet}>
     <div className={styles.toolbar}>
       <label className={styles.provider}>Provider<select aria-label="Provider" value={provider} disabled={busy} onChange={e => setParams(old => { const next = new URLSearchParams(old); next.set("provider", e.target.value); return next; })}>
         {providers.map(id => <option key={id} value={id}>{PROVIDERS[id] ?? id}</option>)}
       </select></label>
       <div className={styles.rowActions}><ActionButton disabled={query.isFetching || busy} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
-      <ActionButton ref={addButton} disabled={!query.data || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
+      <ActionButton ref={addButton} disabled={!query.data || structure.isPending || busy || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
     </div>
-    <p className={styles.meta}>Choose a model and effort for each profile. Other providers’ settings are preserved.</p>
+    <p className={styles.meta}>Choose a model and effort for each variation. Other providers’ settings are preserved.</p>
     {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
     {(sources.length > 0 || choices.some(c => c.preference_only)) && <details className={`${styles.meta} ${styles.catalog}`}>
       <summary>Model catalog{observed && <> · updated <time dateTime={observed}>{new Date(observed).toLocaleString()}</time></>}</summary>
@@ -228,13 +296,15 @@ export function IntelligenceSettings() {
     <RetainedNotice query={query} />
     {limits.isError && <p role="alert" className={styles.warning}>Agent limits are unavailable. Profile editing is still available. <ActionButton onClick={() => void limits.refetch()}>Reload limits</ActionButton></p>}
     {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="intelligence profiles" onRetry={() => void query.refetch()} /> : <>
-      <div className={styles.tableWrap} role="region" aria-label="Intelligence profiles spreadsheet, scroll horizontally" tabIndex={0}>
-        <table className={styles.table} aria-label="Intelligence profiles">
-          <thead><tr><th scope="col">Profile</th><th scope="col">Description</th><th scope="col">Model</th><th scope="col">Reasoning effort</th><th scope="col">Max agents</th><th scope="col">Actions</th></tr></thead>
-          <tbody>{profiles.map(profile => <ProfileRow key={profile.id} profile={profile} settings={query.data!} provider={provider} limits={limits.isError ? undefined : limits.data} busy={busy} onBusy={setBusy} onSaved={saved}
-            onRemove={() => { setAdded(old => old.filter(p => p.id !== profile.id)); addButton.current?.focus(); }} onReload={async () => { await Promise.all([query.refetch(), limits.refetch()]); }} />)}</tbody>
-        </table>
-      </div>
+      {structure.data ? <IntelligenceGroups profiles={profiles} assignments={assignments} renderRow={row} otherTable={table}
+        renderParent={parent => <ParentDescriptionEditor parent={parent} structure={structure.data!} catalogRevision={query.data!.revision} busy={busy} onBusy={setBusy} onSaved={structureSaved} onReload={async () => { const result = await structure.refetch(); if (!result.isSuccess) throw result.error; }} />}
+        renderMissing={(parent, effort) => <div className={styles.rowActions}><span className={styles.meta}>Not configured</span><ActionButton disabled={busy || profiles.length >= 128} aria-label={`Add variation: ${PARENT_NAMES[parent]} ${variationName(effort)}`} onClick={() => {
+          const id = `profile-${crypto.randomUUID()}`;
+          setAdded(old => [...old, { id, version: 0, name: `${PARENT_NAMES[parent]} ${variationName(effort)}`, description: "", candidates: [], projects: [] }]);
+          setPendingVariations(old => ({ ...old, [id]: { parent, effort, structure: structuredClone(structure.data!) } }));
+        }}>Add variation</ActionButton></div>} /> : structure.isPending ? <QueryStatus status="pending" error={null} label="intelligence types" onRetry={() => void structure.refetch()} /> : table(profiles)}
+      {structure.isError && <p className={styles.warning}>Intelligence types are unavailable. Existing profiles remain editable. <ActionButton onClick={() => void structure.refetch()}>Reload types</ActionButton></p>}
+      {structure.data && <RoutingPolicyEditor />}
       {profiles.length === 0 && <p className={styles.meta}>No profiles yet. Add a row to get started.</p>}
       <p className={styles.meta}>Save each row when ready. Blank max agents means unlimited; 0 pauses new launches. Running agents finish.</p>
     </>}
