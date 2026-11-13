@@ -126,3 +126,17 @@ test("reloading warns until Intelligence changes are saved", async ({ page }) =>
   expect(dialogs).toEqual([]);
   await expect(page.getByLabel("Markdown")).toHaveValue("# Unsaved source");
 });
+
+test("internal work default and a purpose override persist across reload", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence");
+  const panel = page.getByRole("region", { name: "Internal work" });
+  await expect(panel.getByText("No profile is set. Internal work will fail until one is chosen.")).toBeVisible();
+  await panel.getByLabel("Default profile", { exact: true }).selectOption({ label: "Fixture standard" });
+  await panel.getByLabel("Playbook compilation", { exact: true }).selectOption({ label: "Fixture advanced" });
+  await panel.getByRole("button", { name: "Save internal work", exact: true }).click();
+  await expect(panel.getByRole("status")).toHaveText("Saved.");
+  await page.reload();
+  await expect(panel.getByLabel("Default profile", { exact: true })).toHaveValue("fixture-standard");
+  await expect(panel.getByLabel("Playbook compilation", { exact: true })).toHaveValue("fixture-advanced");
+  await expect(panel.getByLabel("Playbook calls", { exact: true })).toHaveValue("");
+});
