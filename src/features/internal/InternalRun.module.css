@@ -1,0 +1,8 @@
+.run { display:grid; gap:8px; padding:10px; border:1px solid var(--border, #29394b); border-radius:8px; background:var(--surface, #101b26); min-width:0; }
+.head { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+.head h4 { margin:0; font-size:14px; }
+.meta { color:#aabbd2; font-size:12px; }
+.failed { color:#ffb4a8; margin:0; overflow-wrap:anywhere; }
+.pre { margin:4px 0 0; padding:8px; font:12px/1.5 ui-monospace,monospace; background:#0b121a; border:1px solid #233447; border-radius:5px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:240px; overflow:auto; }
+.attempts { margin:0; padding-left:18px; font-size:12px; color:#aabbd2; overflow-wrap:anywhere; }
+.actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
