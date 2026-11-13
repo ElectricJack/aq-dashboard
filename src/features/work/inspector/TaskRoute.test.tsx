@@ -129,3 +129,13 @@ test("a task that waits for routing offers Set route but not Clear route", async
   expect(items).toContain("Set route");
   expect(items).not.toContain("Clear route");
 });
+
+test("an unrouted task on a router (not held back for routing) shows nothing but still offers Set route", async () => {
+  const region = await open(FIXTURE_IDS.implement);
+  expect(region.querySelector("[data-task-route]")).toBeNull();
+  expect(within(region).queryByText(/Waiting for routing/)).toBeNull();
+  await userEvent.click(await within(region).findByRole("button", { name: "More actions" }));
+  const items = within(screen.getByRole("menu")).getAllByRole("menuitem").map(i => i.firstChild!.textContent);
+  expect(items).toContain("Set route");
+  expect(items).not.toContain("Clear route");
+});

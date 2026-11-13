@@ -84,7 +84,8 @@ test("work read: routing is optional; the server's routed and waiting shapes ada
   expect(read().routing).toBeUndefined();
   expect(read(routed).routing).toEqual(routed);
   expect(read(waiting).routing).toEqual(waiting);
-  for (const bad of [null, "waiting", { ...waiting, state: "later" }, { ...waiting, since_ms: -1 }, { ...waiting, since_ms: "5" }, { state: "waiting" }, { ...waiting, route: routed.route },
+  expect(read({ state: "unrouted" }).routing).toEqual({ state: "unrouted" });
+  for (const bad of [null, "waiting", { state: "unrouted", since_ms: 5 }, { state: "unrouted", route: routed.route }, { ...waiting, state: "later" }, { ...waiting, since_ms: -1 }, { ...waiting, since_ms: "5" }, { state: "waiting" }, { ...waiting, route: routed.route },
     { ...routed, route: undefined }, { ...routed, route: { ...routed.route, class: "fast-high" } }, { ...routed, route: { ...routed.route, harnesses: "codex" } },
     { ...routed, route: { ...routed.route, lane: 4 } }, { ...routed, route: { ...routed.route, providers: Array(33).fill("p") } }, { ...routed, route: { ...routed.route, source: "<b>" } }])
     expect(() => read(bad), JSON.stringify(bad)).toThrow();

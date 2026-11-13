@@ -29,7 +29,8 @@ export function whoMayTake(route: Pick<TaskRouteView, "harnesses" | "providers" 
  * class, lane, who may take it and why. Shown only when the work read has a `routing` object.
  */
 export function TaskRoute({ routing, taskId }: { routing: TaskRouting; taskId: string }) {
-  const how = elapsed(useServerClock(), routing.since_ms), route = routing.route;
+  const now = useServerClock(), how = routing.since_ms === undefined ? null : elapsed(now, routing.since_ms), route = routing.route;
+  if (routing.state === "unrouted") return null;
   if (routing.state === "waiting" || !route) return <div className={styles.reasons} data-task-route="waiting">
     <p><strong>Waiting for routing</strong>{how && <> · <span>{how}</span></>}</p>
     <p className={styles.meta}>AQ doesn't offer this task to an agent until it has a route.</p>

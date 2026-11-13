@@ -55,7 +55,7 @@ type Variant="default"|"compact"|"menu";
 /** What the task's reads say about execution; absent while unknown. `blockerIds` are the recorded blockers (work read);
  * `attempts` counts the task's recorded agent attempts (history read), absent while unknown. */
 export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean;blockerIds?:string[];attempts?:number;
-  /** The work read's `routing`: route actions are offered only for a task under an automatic router (Set route; Clear route once routed). */
+  /** The work read's `routing`: route actions are offered whenever the task's project is on an automatic router (Set route in any state; Clear route once routed). */
   routing?:TaskRouting};
 /** AQ's own preconditions for the execution actions (aq-server task_execution.rs): cancel needs an attempt
  * holding the task, retry needs an active task. They are stated, never guessed beyond what the reads show. */

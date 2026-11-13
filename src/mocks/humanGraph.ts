@@ -115,13 +115,13 @@ function fixtureComments():Map<string,FixtureComment[]>{
 export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"standard"|"large"="standard"){
  const comments=fixtureComments();
  // Labelled fixture routing (spec 0011 §8, shaped as aq-server serves it): these two tasks sit under an automatic router.
- // "Replay reconciliation" was routed by the router; "Approve recovery plan" is ready with no route, so it waits for routing.
- const routed=[ID.approve,ID.replay],serverNow=Date.parse(fixture.observed_at);
+ // "Replay reconciliation" was routed by the router; "Approve recovery plan" is ready with no route, so it waits for routing; "Implement safe recovery" is a draft with no route (unrouted).
+ const routed=[ID.approve,ID.replay,ID.implement],serverNow=Date.parse(fixture.observed_at);
  const routeLog=new Map<string,FixtureRouteEntry[]>([[ID.replay,[{sequence:1,at_ms:serverNow-12*60_000,route:{class:"standard-high",harnesses:[],providers:[],prefer:["claude-code"],lane:"backend",provider_intent:"any",
    reasons:[{code:"lane_matched",detail:"Fixture: the task touches the backend lane."},{code:"class_raised_for_risk",detail:"Fixture: risk was assessed as high, so the class was raised to high effort."}],classification:null,policy_digest:null,structure_revision:1,source:"router"}}]]]);
  const routingOf=(taskId:string,state:string)=>{
    const current=routeLog.get(taskId)?.[0];if(current?.route){const {reasons:_reasons,classification:_classification,structure_revision:_revision,...route}=current.route;return {state:"routed",route,since_ms:current.at_ms};}
-   return routed.includes(taskId)&&state==="ready"?{state:"waiting",since_ms:serverNow-4*60_000}:undefined;
+   return !routed.includes(taskId)?undefined:state==="ready"?{state:"waiting",since_ms:serverNow-4*60_000}:{state:"unrouted"};
  };
  const unavailable=()=>HttpResponse.json({request_id:"fixture",code:"unavailable",message:"Read unavailable",retryable:true},{status:503});
  const missing=()=>HttpResponse.json({request_id:"fixture",code:"not_found",message:"This item does not exist or is not available to you.",retryable:false},{status:404});

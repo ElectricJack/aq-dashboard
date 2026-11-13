@@ -42,10 +42,11 @@ export type TaskBlocker = { edge_id: string; id: string; title: string | null; t
 export type TaskRouteView = { class: string; harnesses: string[]; providers: string[]; prefer: string[]; lane: string | null; provider_intent: string; source: string; policy_digest: string | null };
 /**
  * Where a task stands in routing (aq-server, human-graph-1 `routing`, optional): `routed` with its route, or `waiting`
- * (ready under an automatic router with no route, so AQ does not offer it yet). `since_ms` is epoch milliseconds: when the
- * route was written, or, waiting, when the task was last updated. Absent when the task's project is not on an automatic router.
+ * (routing is on and the task is ready with no route, so AQ does not offer it yet), or `unrouted` (no route, nothing held
+ * back: routing is off or the task is not ready; no `since_ms`). `since_ms` is epoch milliseconds: when the route was
+ * written, or, waiting, when the task was last updated. Absent when the task's project is not on an automatic router.
  */
-export type TaskRouting = { state: "routed" | "waiting"; route?: TaskRouteView; since_ms: number };
+export type TaskRouting = { state: "routed" | "waiting" | "unrouted"; route?: TaskRouteView; since_ms?: number };
 /** `reported` is the server's readiness value as sent: for `unrecognized`, the value to show. */
 export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null; routing?: TaskRouting };
 
@@ -60,7 +61,9 @@ function adaptRoute(r: unknown): TaskRouteView {
 /** `routing` is optional: an older server, or a project not on an automatic router, omits it. */
 export function adaptTaskRouting(r: unknown): TaskRouting | undefined {
   if (r === undefined) return undefined;
-  check(isRecord(r) && typeof r.since_ms === "number" && Number.isSafeInteger(r.since_ms) && r.since_ms >= 0);
+  check(isRecord(r));
+  if (r.state === "unrouted") { check(r.route === undefined && r.since_ms === undefined); return { state: "unrouted" }; }
+  check(typeof r.since_ms === "number" && Number.isSafeInteger(r.since_ms) && r.since_ms >= 0);
   if (r.state === "waiting") { check(r.route === undefined); return { state: "waiting", since_ms: r.since_ms }; }
   check(r.state === "routed");
   return { state: "routed", route: adaptRoute(r.route), since_ms: r.since_ms };
