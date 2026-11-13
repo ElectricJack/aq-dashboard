@@ -173,3 +173,15 @@ test("lists what the active policy no longer fits in Settings", async () => {
   expect(await screen.findByRole("list", { name: "Active policy problems" })).toHaveTextContent("Deep, high effort has no assigned profile in Settings");
   expect(screen.getByRole("switch", { name: "Route tasks with this policy" })).toBeChecked();
 });
+
+test("a failed compile with a very large error still shows the policy and the switch", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())),
+    http.get(routingPath, () => HttpResponse.json({ enabled: true, active: active(), latest: latest("failed", { structure_revision: 2, error: "e".repeat(300_000),
+      unresolved: Array.from({ length: 5000 }, (_, i) => `Sentence ${i}.`) }) })),
+    http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [], next_cursor: null })));
+  open();
+  expect(await screen.findByText(/This version did not compile/)).toBeVisible();
+  expect(screen.getByRole("list", { name: "Unresolved sentences" }).children.length).toBeLessThanOrEqual(100);
+  expect(screen.getByRole("switch", { name: "Route tasks with this policy" })).toBeChecked();
+  expect(screen.getByRole("region", { name: "How this policy routes" })).toBeVisible();
+});

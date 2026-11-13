@@ -18,13 +18,24 @@ export type RoutingLatest = {
 };
 export type RoutingPolicyState = { enabled: boolean; active: RoutingActive | null; latest: RoutingLatest | null };
 
+/** How much of one compile's report is kept for display. A larger report is shortened, never refused, so it cannot hide the rest of the panel. */
+export const ROUTING_DISPLAY_LIMITS = { items: 100, textChars: 1024, errorChars: 4096 } as const;
 function ensure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid routing policy response"); }
 const text = (value: unknown, max = 64 * 1024): value is string => typeof value === "string" && value.length <= max;
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
 const texts = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 1024 && value.every(item => text(item));
+/** `value` within `max` characters, ending in "…" when shortened. */
+const clip = (value: string, max: number) => value.length <= max ? value : `${value.slice(0, max - 1)}…`;
+function strings(value: unknown): string[] {
+  ensure(Array.isArray(value));
+  return value.slice(0, ROUTING_DISPLAY_LIMITS.items).map(item => { ensure(typeof item === "string"); return clip(item, ROUTING_DISPLAY_LIMITS.textChars); });
+}
 function problems(value: unknown): RoutingProblem[] {
-  ensure(Array.isArray(value) && value.length <= 1024);
-  return value.map(item => { ensure(isRecord(item) && text(item.path, 512) && text(item.message, 4096)); return { path: item.path, message: item.message }; });
+  ensure(Array.isArray(value));
+  return value.slice(0, ROUTING_DISPLAY_LIMITS.items).map(item => {
+    ensure(isRecord(item) && typeof item.path === "string" && typeof item.message === "string");
+    return { path: clip(item.path, ROUTING_DISPLAY_LIMITS.textChars), message: clip(item.message, ROUTING_DISPLAY_LIMITS.textChars) };
+  });
 }
 function active(value: unknown): RoutingActive | null {
   if (value === null) return null;
@@ -36,10 +47,11 @@ function active(value: unknown): RoutingActive | null {
 function latest(value: unknown): RoutingLatest | null {
   if (value === null) return null;
   ensure(isRecord(value) && ROUTING_COMPILE_STATUSES.includes(value.status as RoutingCompileStatus) && count(value.structure_revision) && count(value.created_at_ms));
-  ensure((value.error === null || text(value.error)) && texts(value.unresolved));
+  ensure(value.error === null || typeof value.error === "string");
   ensure((value.internal_task_id === null || text(value.internal_task_id, 64)) && (value.finished_at_ms === null || count(value.finished_at_ms)));
-  return { status: value.status as RoutingCompileStatus, structure_revision: value.structure_revision, error: value.error as string | null, problems: problems(value.problems),
-    unresolved: value.unresolved, internal_task_id: value.internal_task_id as string | null, created_at_ms: value.created_at_ms, finished_at_ms: value.finished_at_ms as number | null };
+  return { status: value.status as RoutingCompileStatus, structure_revision: value.structure_revision,
+    error: value.error === null ? null : clip(value.error, ROUTING_DISPLAY_LIMITS.errorChars), problems: problems(value.problems),
+    unresolved: strings(value.unresolved), internal_task_id: value.internal_task_id as string | null, created_at_ms: value.created_at_ms, finished_at_ms: value.finished_at_ms as number | null };
 }
 export function adaptRoutingPolicy(value: unknown): RoutingPolicyState {
   ensure(isRecord(value) && typeof value.enabled === "boolean");
