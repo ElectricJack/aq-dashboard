@@ -16,7 +16,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 function open() {
-  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><InternalRun affectedKind="task" affectedId="T-1" /></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><InternalRun affectedKind="task" affectedId="T-1" pollMs={20} /></QueryClientProvider>);
 }
 const runs = (...items: unknown[]) => http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: items, next_cursor: null }));
 
@@ -44,20 +44,45 @@ test("a failed run shows the error and each attempt", async () => {
 });
 
 test("renders nothing when the item has no run", async () => {
-  let asked = false;
-  server.use(http.get("/api/internal-work/runs", () => { asked = true; return HttpResponse.json({ runs: [], next_cursor: null }); }));
+  let asked = 0;
+  server.use(http.get("/api/internal-work/runs", () => { asked++; return HttpResponse.json({ runs: [], next_cursor: null }); }));
   open();
-  await waitFor(() => expect(asked).toBe(true));
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await waitFor(() => expect(asked).toBe(1));
+  await waitFor(() => expect(screen.queryByText("Internal work could not be loaded.")).not.toBeInTheDocument());
   expect(screen.queryByLabelText("Internal work")).not.toBeInTheDocument();
   expect(screen.queryByText("Internal work")).not.toBeInTheDocument();
+  expect(asked).toBe(1);
 });
 
-test("Retry posts for the failed run and then shows the new run", async () => {
+test("a running run is followed until it is answered, then polling stops", async () => {
+  let reads = 0;
+  server.use(http.get("/api/internal-work/runs", () => { reads++; return HttpResponse.json({ runs: [reads === 1 ? { ...base, status: "running", attempts: [] } : answered], next_cursor: null }); }));
+  open();
+  expect(await screen.findByText("A model is working on it.")).toBeVisible();
+  expect(await screen.findByText(/Answered by openai/)).toBeVisible();
+  const settled = reads;
+  await new Promise(resolve => setTimeout(resolve, 100));
+  expect(reads).toBe(settled);
+});
+
+test("a run already in a final state is read once", async () => {
+  let reads = 0;
+  server.use(http.get("/api/internal-work/runs", () => { reads++; return HttpResponse.json({ runs: [failed], next_cursor: null }); }));
+  open();
+  await screen.findByRole("button", { name: "Retry" });
+  await new Promise(resolve => setTimeout(resolve, 100));
+  expect(reads).toBe(1);
+});
+
+test("Retry posts for the failed run, then follows the new run to its outcome", async () => {
   const fresh = { ...base, id: "00000000-0000-4000-8000-0000000000b1", status: "queued", attempts: [], retry_of: ID };
-  let retried: string | null = null, header: string | null = null;
+  let retried: string | null = null, header: string | null = null, afterRetry = 0;
   server.use(
-    http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [retried ? fresh : failed], next_cursor: null })),
+    http.get("/api/internal-work/runs", () => {
+      if (!retried) return HttpResponse.json({ runs: [failed], next_cursor: null });
+      afterRetry++;
+      return HttpResponse.json({ runs: [afterRetry === 1 ? fresh : { ...fresh, ...answered, id: fresh.id, retry_of: ID }], next_cursor: null });
+    }),
     http.post("/api/internal-work/runs/:id/retry", ({ params, request }) => { retried = String(params.id); header = request.headers.get("X-AQ-Request"); return HttpResponse.json({ id: fresh.id }); }),
   );
   open();
@@ -65,6 +90,7 @@ test("Retry posts for the failed run and then shows the new run", async () => {
   expect(await screen.findByText("Waiting for a model.")).toBeVisible();
   expect(retried).toBe(ID);
   expect(header).toBe("1");
+  expect(await screen.findByText(/Answered by openai/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
 });
 

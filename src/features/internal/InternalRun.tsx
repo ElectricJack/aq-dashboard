@@ -13,12 +13,13 @@ function Attempt({ attempt }: { attempt: InternalRunAttempt }) {
 }
 
 /** The newest internal run for one item: what was asked, who answered, how long it took, the answer or the error, and Retry on a failure. Renders nothing when there is no run. */
-export function InternalRun({ affectedKind, affectedId }: { affectedKind: string; affectedId: string }) {
+export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affectedKind: string; affectedId: string; /** How often to re-read a queued or running run; only tests change it. */ pollMs?: number }) {
   const { queryContext } = useSession();
   const client = useQueryClient();
   const params = { affected_kind: affectedKind, affected_id: affectedId, limit: 1 };
   const key = queryKey(queryContext, "internal-run", params);
-  const query = useQuery({ queryKey: key, queryFn: ({ signal }) => listInternalRuns(params, signal), retry: false });
+  const query = useQuery({ queryKey: key, queryFn: ({ signal }) => listInternalRuns(params, signal), retry: false,
+    refetchInterval: current => ["queued", "running"].includes(current.state.data?.runs[0]?.status ?? "") ? pollMs : false });
   const retry = useMutation({ mutationFn: retryInternalRun, onSuccess: () => client.invalidateQueries({ queryKey: key }) });
   const run = query.data?.runs[0];
   if (query.isError) return <p className={styles.meta} role="status">Internal work could not be loaded.</p>;
