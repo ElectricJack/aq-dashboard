@@ -56,7 +56,7 @@ export function Providers() {
   const missing = (query.data?.available ?? []).filter(p => !providers.includes(p.id));
   const choice = missing.some(p => p.id === selected) ? selected : missing[0]?.id ?? "";
   const rows = [...new Set([...(baseline?.providers ?? []), ...providers])];
-  return <Panel title="Providers" description="Choose which configured providers AQ can use for new agents. Removing a provider lets running agents finish and keeps its credentials and Intelligence settings."
+  return <Panel title="Providers" description="Add the providers you want to use in Intelligence profiles. Removing a provider lets running agents finish and keeps its credentials and Intelligence settings."
     actions={<ActionButton disabled={locked || dirty || query.isFetching} onClick={() => void query.refetch()}>Reload providers</ActionButton>}>
     {!query.data || (query.isError && isProtectedReadFailure(query.error)) ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="providers" onRetry={() => void query.refetch()} /> : <div className={styles.content}>
       <RetainedNotice query={query} />
@@ -65,9 +65,9 @@ export function Providers() {
           const provider = query.data!.available.find(p => p.id === id); const removed = !providers.includes(id);
           const name = provider?.name ?? id;
           return <li key={id} className={styles.row} data-removed={removed || undefined}>
-            <div><strong>{name}</strong><p className={styles.meta}>{provider?.accounts.join(", ") || "No longer configured on this server"}</p></div>
+            <div><strong>{name}</strong>{!!provider?.accounts.length && <details className={styles.details}><summary>Account details</summary><p className={styles.meta}>Account references: {provider.accounts.join(", ")}</p></details>}</div>
             <div className={styles.state}>{removed ? "Removal pending" : !baseline?.providers.includes(id) ? "Addition pending" : "Added"}
-              {!removed && <p className={styles.meta}>{provider?.credential_status === "present" ? "Server credentials present" : provider?.credential_status === "disabled" ? "Disabled on server" : "Server credentials unavailable"}</p>}
+              {!removed && <p className={styles.meta}>{!provider || provider.credential_status === "not_configured" ? "Setup required" : provider.credential_status === "present" ? "Server credentials present" : provider?.credential_status === "disabled" ? "Disabled on server" : "Server credentials unavailable"}</p>}
             </div>
             <ActionButton disabled={locked} aria-label={`${removed ? "Undo removal of" : "Remove"} ${name}`} onClick={() => edit(removed ? [...providers, id] : providers.filter(p => p !== id))}>{removed ? "Undo removal" : "Remove"}</ActionButton>
           </li>;
@@ -76,11 +76,11 @@ export function Providers() {
       {providers.length === 0 && <p className={styles.meta}>No providers added. New agents will wait until a provider is added and saved.</p>}
       <div className={styles.add}>
         <label>Provider to add<select aria-label="Provider to add" disabled={locked || !missing.length} value={choice} onChange={event => setSelected(event.target.value)}>
-          {missing.length ? missing.map(p => <option key={p.id} value={p.id}>{p.name}</option>) : <option value="">All configured providers added</option>}
+          {missing.length ? missing.map(p => <option key={p.id} value={p.id}>{p.name}</option>) : <option value="">All available providers added</option>}
         </select></label>
-        <ActionButton disabled={locked || !choice} onClick={() => edit([...providers, choice])}>Add provider</ActionButton>
+        <ActionButton disabled={locked || !choice || providers.length >= 32} onClick={() => edit([...providers, choice])}>Add provider</ActionButton>
       </div>
-      <p className={styles.meta}>Available providers come from the server configuration. Configure a new provider connection on the server before adding it here. Credential presence does not confirm authentication or model readiness.</p>
+      <p className={styles.meta}>Providers marked Setup required need a connection configured on the server before they can run agents.</p>
       {notice && !dirty && <p role="status">{notice}</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {unknown && <div className={styles.add}><ActionButton disabled={pending} onClick={() => void run(unknown, true)}>Check provider save status</ActionButton>{retry && <ActionButton disabled={pending} onClick={() => void run(unknown)}>Retry same provider save</ActionButton>}</div>}

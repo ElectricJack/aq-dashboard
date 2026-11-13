@@ -6,6 +6,7 @@ export function providerSettingsHandlers() {
   let snapshot: ProviderSettings = { revision: "0", available_revision: "a".repeat(64), providers: ["anthropic", "openai", "fixture-provider"], available: [
     { id: "anthropic", name: "Anthropic", accounts: ["Fixture team"], credential_status: "present" },
     { id: "openai", name: "OpenAI", accounts: ["Fixture work"], credential_status: "missing" },
+    { id: "google", name: "Google", accounts: [], credential_status: "not_configured" },
     { id: "fixture-provider", name: "Fixture provider", accounts: ["Labelled fixture"], credential_status: "present" },
   ] };
   try { const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null") as ProviderSettings | null; if (saved) snapshot = saved; } catch { /* Fresh fixture. */ }

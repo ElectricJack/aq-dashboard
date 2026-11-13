@@ -89,6 +89,7 @@ export type ProviderUsage = {
   windows: QuotaWindow[];
   preferred_window_id: Id | null;
   availability_ref: { type: string; id: Id; revision?: ReferenceRevision } | null;
+  reset_credits?: import("./overview").ResetCredits | null;
 };
 
 /* ---------------------------------------------------------------------------
