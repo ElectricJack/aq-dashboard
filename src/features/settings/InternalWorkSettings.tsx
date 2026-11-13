@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../api/client";
 import { readIntelligence } from "../../api/intelligenceSettings";
-import { INTERNAL_WORK_PURPOSES, readInternalWorkSettings, saveInternalWorkSettings, type InternalWorkPurpose, type InternalWorkSettings as Settings } from "../../api/internalWork";
+import { INTERNAL_WORK_PURPOSES, inspectInternalWorkSave, readInternalWorkSettings, saveInternalWorkSettings, type InternalWorkPurpose, type InternalWorkSettings as Settings, type SaveInternalWork } from "../../api/internalWork";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -36,21 +36,40 @@ export function InternalWorkSettings() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState<SaveInternalWork | null>(null);
+  const [retrySame, setRetrySame] = useState(false);
+  const [conflict, setConflict] = useState(false);
   const saved = query.data;
+  // GET /api/settings/intelligence already omits automatic-router profiles (aq-profile-settings store.rs filters automatic_routing), so every listed profile may be chosen.
   const profiles = (catalog.data?.profiles ?? []).map(p => ({ id: p.id, name: p.name || p.id }));
   const current: Draft | null = draft ?? (saved ? { default_profile_id: saved.default_profile_id ?? "", overrides: saved.overrides } : null);
-  const edit = (change: (value: Draft) => Draft) => { if (current) { setDraft(change(current)); setNotice(null); } };
-  async function save(base: Settings, value: Draft) {
+  const edit = (change: (value: Draft) => Draft) => { if (current && !unconfirmed) { setDraft(change(current)); setNotice(null); } };
+  async function run(request: SaveInternalWork, inspect = false) {
+    if (saving) return;
     setSaving(true); setNotice(null); setError(null);
-    const overrides = Object.fromEntries(Object.entries(value.overrides).filter(([, id]) => id)) as Draft["overrides"];
     try {
-      const result = await saveInternalWorkSettings({ operation_id: crypto.randomUUID(), expected_revision: base.revision, expected_catalog_revision: base.catalog_revision, default_profile_id: value.default_profile_id || null, overrides });
+      const result = await (inspect ? inspectInternalWorkSave(request.operation_id) : saveInternalWorkSettings(request));
       client.setQueryData(settingsKey, { revision: result.revision, catalog_revision: result.catalog_revision, default_profile_id: result.default_profile_id, overrides: result.overrides, purposes: result.purposes });
-      setDraft(null); setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
+      setDraft(null); setUnconfirmed(null); setConflict(false); setRetrySame(false);
+      setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
     } catch (failure) {
-      setError(failure instanceof ApiError && failure.status === 409 ? "Settings changed elsewhere. Reload to continue."
-        : failure instanceof ApiError ? failure.serverMessage ?? "The save could not be confirmed." : "The save could not be confirmed.");
+      const status = failure instanceof ApiError ? failure.status : undefined;
+      if (inspect) {
+        setUnconfirmed(request); setRetrySame(status === 404);
+        setError(status === 404 ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. Your edits are preserved.");
+      } else if (status !== undefined && status >= 400 && status < 500) {
+        setUnconfirmed(null); setConflict(status === 409);
+        setError(status === 409 ? "Settings changed elsewhere. Reload to continue." : failure instanceof ApiError ? failure.serverMessage ?? "The save was rejected." : "The save was rejected.");
+      } else {
+        // The response was lost: the save may have committed. Ask the server by operation id.
+        setUnconfirmed(request); setSaving(false); void run(request, true); return;
+      }
     } finally { setSaving(false); }
+  }
+  function save(base: Settings, value: Draft) {
+    if (unconfirmed) return void run(unconfirmed);
+    const overrides = Object.fromEntries(Object.entries(value.overrides).filter(([, id]) => id)) as Draft["overrides"];
+    void run({ operation_id: crypto.randomUUID(), expected_revision: base.revision, expected_catalog_revision: base.catalog_revision, default_profile_id: value.default_profile_id || null, overrides });
   }
   return <section className={styles.section} aria-labelledby="internal-work-heading">
     <h3 id="internal-work-heading">Internal work</h3>
@@ -65,7 +84,9 @@ export function InternalWorkSettings() {
       </div>
       <div className={styles.actions}>
         <ActionButton aria-label="Save internal work" disabled={saving || !draft} onClick={() => void save(saved, current)}>Save</ActionButton>
-        {error && <ActionButton disabled={saving} onClick={() => { setDraft(null); setError(null); void query.refetch(); }}>Reload</ActionButton>}
+        {conflict && <ActionButton disabled={saving} onClick={() => { setDraft(null); setError(null); setConflict(false); void query.refetch(); }}>Reload</ActionButton>}
+        {unconfirmed && <ActionButton disabled={saving} onClick={() => void run(unconfirmed, true)}>Check save status</ActionButton>}
+        {unconfirmed && retrySame && <ActionButton disabled={saving} onClick={() => void run(unconfirmed)}>Retry same save</ActionButton>}
         {notice && <span className={styles.success} role="status">{notice}</span>}
       </div>
       {error && <p className={styles.warning} role="alert">{error}</p>}
