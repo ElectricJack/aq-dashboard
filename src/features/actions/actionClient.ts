@@ -26,6 +26,8 @@ export type ActionOperation = {
   operation_id:string; disposition:"pending"|"confirmed"|"conflict"|"rejected"|"unknown";
   request_digest:string; subject_refs:EntityRef[]; receipt_refs:EntityRef[]; affected_entities:EntityRef[];
   current_versions?:Record<string,string>; recovery:string;
+  /** A `rejected` operation's reason code, when its domain owner names one (`busy`: nothing changed, a new submission may succeed). */
+  reason?:string;
 };
 export function freezeAction(kind:ActionKind, context:ActionContext, fields:Record<string,unknown>, reason?:string):FrozenAction {
   const id=crypto.randomUUID(), author=kind==="knowledge.author";
@@ -48,7 +50,8 @@ export function adaptActionOperation(raw:unknown, frozen:FrozenAction):ActionOpe
     !["none","lookup_original","refresh_and_review"].includes(String(n.recovery))||
     typeof n.created_at!=="string"||!Number.isFinite(Date.parse(n.created_at))||typeof n.updated_at!=="string"||!Number.isFinite(Date.parse(n.updated_at))||
     !isRecord(n.scope)||!(n.scope.kind==="all_authorized"||(n.scope.kind==="project"&&n.scope.project_id===(frozen.project??JSON.parse(frozen.bytes).payload.project_id)))||
-    (n.current_versions!==undefined&&(!isRecord(n.current_versions)||Object.keys(n.current_versions).length>32||!Object.values(n.current_versions).every(revision))))throw new ContractError("Invalid action operation");
+    (n.current_versions!==undefined&&(!isRecord(n.current_versions)||Object.keys(n.current_versions).length>32||!Object.values(n.current_versions).every(revision)))||
+    (n.reason!==undefined&&n.reason!==null&&(n.disposition!=="rejected"||typeof n.reason!=="string"||!/^[a-z][a-z0-9_]{0,63}$/.test(n.reason))))throw new ContractError("Invalid action operation");
   if(n.subject_refs.some(s=>s.type!==frozen.subject.type||s.id!==frozen.subject.id))throw new ContractError("Action subject changed");
   if(n.disposition==="confirmed"&&!n.receipt_refs.length)throw new ContractError("Confirmation has no receipt");
   return n as unknown as ActionOperation;

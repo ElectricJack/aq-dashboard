@@ -77,6 +77,9 @@ function Action({ label: liveLabel, capability: capabilityName, freeze: liveFree
     setIntent(value); setError(null); await run(value);
   }
   function reload() { refetch(); setOpen(false); reset(); }
+  // A busy refusal changed nothing: the owner submits again under a new operation, keeping the confirmation.
+  function tryAgain() { setIntent(null); setOperation(null); setError(null); }
+  const contended = operation?.disposition === "rejected" && operation.reason === "busy";
   const status: Status | undefined = retired ? "retired" : unknown ? "unknown" : operation?.disposition;
   const locked = busy || !!intent || accessLost;
   return <div className={actionStyles.action}>
@@ -90,9 +93,10 @@ function Action({ label: liveLabel, capability: capabilityName, freeze: liveFree
         <label className={actionStyles.confirm}><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />{confirm}</label>
       </fieldset>{!intent && <ActionButton type="submit" disabled={busy || accessLost || !capability.enabled || !!blocked}>Submit</ActionButton>}</form>
       {intent && <section className={actionStyles.operation} aria-label="Action status">
-        <p role="status">{status === "retired" ? "Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation." : status === "confirmed" ? confirmedText : status === "conflict" ? `Conflict — ${changed} since this page loaded. Reload to see its current state, then try again.` : status === "rejected" ? "Rejected — the server did not permit this action." : status === "pending" ? pendingText : "Outcome unknown — keep this operation and check its status."}</p>
+        <p role="status">{status === "retired" ? "Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation." : status === "confirmed" ? confirmedText : status === "conflict" ? `Conflict — ${changed} since this page loaded. Reload to see its current state, then try again.` : status === "rejected" ? contended ? "The machine was busy; nothing changed. Try again." : "Rejected — the server did not permit this action." : status === "pending" ? pendingText : "Outcome unknown — keep this operation and check its status."}</p>
         <div className={actionStyles.footer}>
           {unsettled && !retired && <><ActionButton disabled={busy || accessLost} onClick={() => void run(intent, true)}>Check status</ActionButton><ActionButton disabled={busy || accessLost || !capability.enabled} onClick={() => void run(intent)}>Retry exact submission</ActionButton></>}
+          {contended && <ActionButton disabled={busy || accessLost || !capability.enabled} onClick={tryAgain}>Try again</ActionButton>}
           {(status === "conflict" || status === "rejected") && <ActionButton disabled={busy || accessLost} onClick={reload}>Reload current state</ActionButton>}
         </div>
         <details className={actionStyles.reference}><summary>Operation reference and receipts</summary><p>{intent.id}</p>{operation?.request_digest && <p>{operation.request_digest}</p>}{operation?.receipt_refs.map((r, i) => <p key={i}>{r.type} · {r.id}</p>)}</details>
