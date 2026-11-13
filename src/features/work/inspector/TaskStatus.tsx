@@ -60,7 +60,7 @@ export function statusReason(state: WorkReadiness | undefined, work: TaskWork | 
 export function StatusBadge({ work, lifecycle, ended = null }: { work: TaskWork | undefined; lifecycle: string | null; ended?: string | null }) {
   const status = headerStatus(work, lifecycle, ended), reason = statusReason(work?.state, work), fallback = heldByFallback(work, ended);
   // Fallback (older server): AQ's "running" stays visible, qualified, because the holding attempt has ended.
-  const label = fallback ? `Held by a ${humanize(ended!).toLowerCase()} attempt` : status === "unrecognized" ? unrecognizedLabel(work!.reported) : work ? TASK_STATUS_LABEL[status] : nodeLabel(lifecycle);
+  const label = fallback ? `Held by a ${humanize(ended!).toLowerCase()} attempt` : status === "unrecognized" ? unrecognizedLabel(work!.reported) : status === "completed" && work?.noChanges ? "Completed, no changes" : work ? TASK_STATUS_LABEL[status] : nodeLabel(lifecycle);
   const title = fallback ? "AQ reports this task as running, but the attempt holding it has ended."
     : status === "held" ? work!.reasons.map(r => r.message).join("\n") || undefined
     : status === "unrecognized" ? "AQ reported a readiness state this dashboard version doesn't know." : undefined;

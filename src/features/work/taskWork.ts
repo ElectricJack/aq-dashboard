@@ -48,7 +48,9 @@ export type TaskRouteView = { class: string; harnesses: string[]; providers: str
  */
 export type TaskRouting = { state: "routed" | "waiting" | "unrouted"; route?: TaskRouteView; since_ms?: number };
 /** `reported` is the server's readiness value as sent: for `unrecognized`, the value to show. */
-export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null; routing?: TaskRouting };
+export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null; routing?: TaskRouting;
+  /** AQ's default policy completed the task and found no file change (`completed_without_changes`, owner ruling 4b). */
+  noChanges?: true };
 
 export const ROUTE_CLASS = /^(simple|standard|complex|deep)-(low|medium|high|max)$/;
 const names = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 32 && v.every(x => text(x, 128));
@@ -91,6 +93,7 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
       return { code: r.code as string, attempt_id: r.attempt_id as string, status: r.status as string, message: r.message as string, ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }) };
     });
     const routing = adaptTaskRouting(value.routing);
+    check(value.completed_without_changes === undefined || value.completed_without_changes === true);
     const e = value.execution;
     check(e === null || (isRecord(e) && validGraphId(e.attempt_id) && validGraphId(e.session_id) && text(e.status, 64)));
     const blockers = value.readiness.blockers.map((b): TaskBlocker => {
@@ -99,7 +102,7 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
       check(b.task_state === undefined || b.task_state === null || TASK_STATES.includes(b.task_state as string));
       return { edge_id: b.edge_id, id: b.id, title: (b.title as string | null | undefined) ?? null, task_state: (b.task_state as string | null | undefined) ?? null, satisfied: b.satisfied as boolean | null };
     });
-    return { state, reported, reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent), ...(routing ? { routing } : {}) };
+    return { state, reported, reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent), ...(routing ? { routing } : {}), ...(value.completed_without_changes === true && state === "completed" ? { noChanges: true as const } : {}) };
   });
 }
 
