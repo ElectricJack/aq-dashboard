@@ -64,3 +64,6 @@ export async function saveIntelligence(request: SaveIntelligence) {
 export async function inspectIntelligenceSave(operation: string) {
   return saved(await apiGet<unknown>(`/api/settings/intelligence/operations/${encodeURIComponent(operation)}`), operation);
 }
+
+export { readIntelligenceStructure, saveIntelligenceStructure, inspectIntelligenceStructureSave } from "./intelligenceStructure";
+export type { IntelligenceStructure, SaveIntelligenceStructure, IntelligenceStructureSaved, IntelligenceParent, IntelligenceParentId, IntelligenceEffort, IntelligenceAssignment } from "./intelligenceStructure";

@@ -193,3 +193,40 @@ describe("SO-08: staleness follows the dashboard's poll interval", () => {
     expect(freshness(live("unknown"), 600)).toBe("fresh");
   });
 });
+
+test("reset credits preserve zero, details, independent freshness and old-server unknown", () => {
+  const observation = window().observation;
+  const p = { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 0, grants: [{ label: "Weekly", remaining_count: 1, expires_at: "2026-12-01T00:00:00Z", usable_now: false, clears: ["seven_day"] }], observation } };
+  const result = adaptProviderUsage(envelope([p, provider([window()])]));
+  expect(result.providers[0]?.resetCredits).toMatchObject({ state: "known", availableCount: 0, grants: [{ label: "Weekly", usableNow: false }] });
+  expect(result.providers[1]?.resetCredits).toMatchObject({ state: "unknown", availableCount: null });
+  const later = atServerTime(result, "2026-10-31T12:05:00Z");
+  expect(later.providers[0]?.resetCredits?.freshness).toBe("stale");
+  const mixed = adaptProviderUsage(envelope([{ ...p, reset_credits: { ...p.reset_credits, observation: { ...observation, observed_at: "2026-10-31T10:00:00Z", fresh_until: "2026-10-31T10:01:00Z" } } }]));
+  expect(mixed.providers[0]?.resetCredits?.freshness).toBe("stale");
+  expect(mixed.providers[0]?.windows[0]?.freshness).toBe("fresh");
+});
+
+test("malformed reset metadata cannot erase windows or fabricate a count", () => {
+  for (const count of [-1, 1.5, 1000001, null]) {
+    const raw = { ...provider([window()]), reset_credits: { state: "known", available_count: count, grants: null, observation: window().observation } };
+    const view = adaptProviderUsage(envelope([raw as unknown as ProviderUsage]));
+    expect(view.providers[0]?.resetCredits).toMatchObject({ state: "unknown", availableCount: null });
+    expect(view.providers[0]?.windows[0]?.usedPercent).toBe(42);
+  }
+});
+
+
+test("preserves an expired grant's reported unusable state", () => {
+  const p = { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 1, grants: [{ label: "Expired", remaining_count: 1, expires_at: "2026-10-01T00:00:00Z", usable_now: false, clears: [] }], observation: window().observation } };
+  expect(adaptProviderUsage(envelope([p])).providers[0]?.resetCredits?.grants?.[0]).toMatchObject({ expiresAt: "2026-10-01T00:00:00Z", usableNow: false });
+});
+
+
+test("invalid expiry does not claim a grant is usable or alter the authoritative count", () => {
+  const grant = { label: "Reset", remaining_count: 1, expires_at: "not a timestamp", usable_now: true, clears: [] };
+  const p = { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 3, grants: [grant, { ...grant, expires_at: null }, { ...grant, expires_at: "0" }, { ...grant, expires_at: "2026-02-30T00:00:00Z" }], observation: window().observation } };
+  const result = adaptProviderUsage(envelope([p]));
+  expect(result.providers[0]?.resetCredits).toMatchObject({ availableCount: 3, grants: [{ expiresAt: null, usableNow: null }, { expiresAt: null, usableNow: true }, { expiresAt: null, usableNow: null }, { expiresAt: null, usableNow: null }] });
+  expect(result.providers[0]?.windows[0]?.usedPercent).toBe(42);
+});

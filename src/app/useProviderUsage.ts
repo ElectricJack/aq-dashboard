@@ -18,11 +18,12 @@ const QUOTA_POLL_MS = USAGE_POLL_MS;
 /** A hung request must not keep the last value looking current. */
 const QUOTA_TIMEOUT_MS = 15_000;
 
-function markStale(data: ProviderUsageResult): ProviderUsageResult {
+export function markStale(data: ProviderUsageResult): ProviderUsageResult {
   return {
     ...data,
     providers: data.providers.map((p) => ({
       ...p,
+      resetCredits: p.resetCredits && { ...p.resetCredits, freshness: "stale" as const },
       windows: p.windows.map((w) => ({ ...w, freshness: "stale" as const })),
     })),
   };

@@ -8,6 +8,7 @@ export type LoadView = { source: "linux" | "windows_host" | "unknown"; hostProbe
   cpuPercent: number; memoryPercent: number; cpuAvgPercent: number | null; memoryAvgPercent: number | null; samples: number; observedAt: string; fresh: boolean };
 export type AgentView = { manual?: import("../../features/agents/swarm/manualAgents").ManualAgent; sessionId: string; attemptId: string; task: { id: string; title: string } | null; project: { id: string; label: string };
   provider: string | null; model: string | null; harness: string | null; intelligenceClass: "fast" | "standard" | "deep" | null;
+  routingProfile?: { id: string; displayName: string } | null;
   terminalId: string | null; startedAt: string | null };
 export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
@@ -67,6 +68,12 @@ function load(l: MachineLoad | null | undefined): LoadView | null {
   };
 }
 
+/** Legacy servers did not report the routing profile; preserve their display label. */
+export function agentClassLabel(agent: AgentView): string {
+  if (agent.manual?.spec.profile_name) return agent.manual.spec.profile_name;
+  return agent.routingProfile === undefined ? agent.intelligenceClass ?? "unclassified" : agent.routingProfile?.displayName ?? "unclassified";
+}
+
 function agent(a: SwarmAgent): AgentView {
   return {
     sessionId: String(a.session_id), attemptId: String(a.attempt_id),
@@ -74,6 +81,7 @@ function agent(a: SwarmAgent): AgentView {
     project: { id: String(a.project?.id ?? ""), label: String(a.project?.label ?? "") },
     provider: text(a.provider), model: text(a.model), harness: text(a.harness),
     intelligenceClass: oneOfOrNull(a.intelligence_class, CLASSES),
+    ...(a.routing_profile === undefined ? {} : { routingProfile: isRecord(a.routing_profile) && typeof a.routing_profile.id === "string" && a.routing_profile.id.trim() && typeof a.routing_profile.display_name === "string" && a.routing_profile.display_name.trim() ? { id: a.routing_profile.id, displayName: a.routing_profile.display_name } : null }),
     terminalId: isRecord(a.terminal) ? text(a.terminal.id) : null, startedAt: text(a.started_at),
   };
 }

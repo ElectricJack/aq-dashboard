@@ -11,8 +11,8 @@ applyPreferences(readPreferences());
 installPreloadErrorHandler();
 
 async function start() {
-  // Statically false in production builds, so mock code is never bundled.
-  if (import.meta.env.DEV && import.meta.env.MODE === "mock") {
+  // Mock code is excluded from the production build; explicit fixture builds support compiled visual review.
+  if (import.meta.env.MODE === "mock" && (import.meta.env.DEV || import.meta.env.VITE_FIXTURE_BUILD === "true")) {
     const { startMocks } = await import("./mocks/browser");
     await startMocks();
   }

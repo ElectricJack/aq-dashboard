@@ -116,3 +116,14 @@ describe("adaptSwarm", () => {
     expect(adaptSwarm(f as unknown as Swarm, TIME).server.ownerAvailability).toBeNull();
   });
 });
+
+it("adapts the authoritative routing profile while preserving the legacy palette", () => {
+  const f = fixture();
+  const a = f.machines[0]!.nodes[0]!.agents[0]!;
+  a.routing_profile = { id: "complex", display_name: "Complex" };
+  const adapted = adaptSwarm(f, TIME).machines[0]!.nodes[0]!.agents[0]!;
+  expect(adapted.routingProfile).toEqual({ id: "complex", displayName: "Complex" });
+  expect(adapted.intelligenceClass).toBe("standard");
+  (a as unknown as Record<string, unknown>).routing_profile = { id: "complex" };
+  expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]!.agents[0]!.routingProfile).toBeNull();
+});

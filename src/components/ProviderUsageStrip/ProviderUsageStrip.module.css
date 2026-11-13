@@ -269,3 +269,14 @@
     white-space: nowrap;
   }
 }
+
+.resets {
+  margin-block-start: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.grants {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-4);
+  color: var(--color-text-secondary);
+}
