@@ -5,11 +5,12 @@ import { validGraphId, type GraphEnvelope, type GraphNode } from "../../api/adap
 export const actionLabels = {
   "task.edit": "Edit task", "task.reprioritize": "Reprioritize", "task.cancel": "Cancel task", "task.delete": "Delete task", "task.retry": "Retry attempt",
   "task.dependency.add": "Add dependency", "task.dependency.remove": "Remove dependency",
+  "task.route.set": "Set route", "task.route.clear": "Clear route",
   "knowledge.author": "Add record", "knowledge.correct": "Correct record",
   "knowledge.verify": "Verify record", "knowledge.retire": "Retire record",
   "knowledge.restore": "Restore record",
 } as const;
-export const actionCapability = (kind: ActionKind): string => ({"task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.cancel":"tasks.cancel","task.delete":"tasks.delete","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
+export const actionCapability = (kind: ActionKind): string => ({"task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.cancel":"tasks.cancel","task.delete":"tasks.delete","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove","task.route.set":"tasks.route","task.route.clear":"tasks.route"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
 export type ActionKind = keyof typeof actionLabels;
 /** Document actions for a knowledge record's lifecycle: a retired (or deleted) record is only restored, never edited or retired again. */
 export const knowledgeActionKinds = (node: Pick<GraphNode, "retired" | "deleted"> | undefined): ActionKind[] =>

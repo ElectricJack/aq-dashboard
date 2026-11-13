@@ -8,6 +8,7 @@ import { TASK_STATUS_LABEL, attemptEnded, unrecognizedLabel, type TaskStatus } f
 import { StatusIcon } from "../StatusIcon";
 import type { HoldReason, TaskAttempt, TaskBlocker, TaskWork, WorkReadiness } from "../taskWork";
 import { IdValue, humanize } from "./common";
+import { TaskRoute } from "./TaskRoute";
 import styles from "./Inspector.module.css";
 
 /**
@@ -70,7 +71,7 @@ export function StatusBadge({ work, lifecycle, ended = null }: { work: TaskWork 
 }
 
 /** Status section: why it is (not) running, and the agent holding it (items 2 and 3). */
-export function TaskStatusSection({ query, search, linkSearch, ended = null }: { query: UseQueryResult<GraphEnvelope<TaskWork>, unknown>; search: string; linkSearch: string; ended?: string | null }) {
+export function TaskStatusSection({ query, taskId, search, linkSearch, ended = null }: { query: UseQueryResult<GraphEnvelope<TaskWork>, unknown>; taskId: string; search: string; linkSearch: string; ended?: string | null }) {
   const work = query.data?.data;
   if (!work) return <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this task's readiness" subject="collection" retryLabel="task readiness" onRetry={() => void query.refetch()} />;
   const open = unsatisfied(work);
@@ -90,6 +91,7 @@ export function TaskStatusSection({ query, search, linkSearch, ended = null }: {
     {work.state === "held" && <p className={styles.reasons}>AQ isn't running this task: an attempt that has stopped or finished still holds it, so no new attempt starts until that claim is released.</p>}
     {work.reasons.length > 0 && <HoldReasons reasons={work.reasons} held={work.state === "held"} holder={work.execution?.attempt_id} />}
     {heldByFallback(work, ended) && <p className={styles.reasons} data-held-reason="">AQ reports this task as running because the attempt below still holds it, but that attempt is {humanize(ended!).toLowerCase()}, so no agent is working on the task now.</p>}
+    {work.routing && <TaskRoute routing={work.routing} taskId={taskId} />}
     <TaskAgent work={work} linkSearch={linkSearch} ended={ended} />
   </>;
 }

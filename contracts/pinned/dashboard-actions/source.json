@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "21a77e9b1c67e4485d522d3227c2a84b7b8f54b6",
+  "commit": "9aed4436cfeb8d7f635385f780d8348b6a91f4f1",
   "status": "Published on aq-server main at 7529e623",
   "sha256": {
-    "dashboard-actions/v1/README.md": "5f13957eab7c3b73af99fab598eab20a7a6a90e6b10d275b22dfd436917a8505",
-    "dashboard-actions/v1/check.py": "0f49c6aefa6f073fb8c378ee1bdee7cbac26a38125c8d4485d99624e4294a228",
-    "dashboard-actions/v1/fixtures/compatibility.json": "d8e52ede795122bd7c7a2a16a041bb3a0a831401ed7d338a180c8e62baac9fda",
+    "dashboard-actions/v1/README.md": "334006676715f26d4c63bcecbc7856d43b51e1c9bd348ca44805c5ea4b4c283f",
+    "dashboard-actions/v1/check.py": "55dcae48248bffacc6577b28808cb231763c2f7941739ddd4f7af007335da704",
+    "dashboard-actions/v1/fixtures/compatibility.json": "82d1f87964814b1a6610d17439de4f7855f2fe61297fb85e439ab6bc78c998c9",
     "dashboard-actions/v1/fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "dashboard-actions/v1/fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "dashboard-actions/v1/fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -17,7 +17,7 @@
     "dashboard-actions/v1/fixtures/error-429.json": "1597ae5d23dbd1f1b0144d0000d57d8d525b9b0c0eb97afa39465fe0aebd29e7",
     "dashboard-actions/v1/fixtures/error-503.json": "e1003a4e028bb92211d2ef07e03693e3a31e7d84841edf07ed193bc3b37ee1e7",
     "dashboard-actions/v1/fixtures/expired-cursor.json": "c88a692183565d08e896ab954985023b2ca4faa271c391e7724d6203e5bba971",
-    "dashboard-actions/v1/fixtures/invalid.json": "0345c702827bd97846258d9b824735cd0f82f3ee6dd314e44abe3ddbf06c4801",
+    "dashboard-actions/v1/fixtures/invalid.json": "e209e49613e1be19df25cd900c6f23715449938f452fee6c52a362ead153ad0d",
     "dashboard-actions/v1/fixtures/operation-confirmed.json": "00acd7d41385a635ac638f48e052a525aff666b5167fc7daed5024584ffdc3c4",
     "dashboard-actions/v1/fixtures/operation-conflict-current-versions.json": "baa1b625034e1005eaeb6a82f7367769393595ba60ae092c696d2a209147e000",
     "dashboard-actions/v1/fixtures/operation-conflict.json": "d5a7167ec55064893b8c8911bb3d7d190d22f903e37ddb46932fe17a57a57cfe",
@@ -53,10 +53,12 @@
     "dashboard-actions/v1/fixtures/request-task-graph-create.json": "4d861459bcbccaafe340f58154aea2d2f443fc05c102e79f51b86f8426e1402d",
     "dashboard-actions/v1/fixtures/request-task-reprioritize.json": "d435fe266bad6e9588f68b89672fd66d59537b9bb1eba9bc770a4685432341dc",
     "dashboard-actions/v1/fixtures/request-task-retry.json": "1b3a7ee5eec647c046c5e888bd2b3fda08542ec34d7e26c6612057cd0ccf96d8",
+    "dashboard-actions/v1/fixtures/request-task-route-clear.json": "8aa3ac6ad492588d05cb847a8f87ca67096e5be7cd067ee4dbad129531a37518",
+    "dashboard-actions/v1/fixtures/request-task-route-set.json": "a90126b7b8a06385e01a3d00bb42985e24914ca70155cad7e185f807455c9c7b",
     "dashboard-actions/v1/fixtures/request-worker-drain.json": "84f217d4fff06de55453765dc58f82343e7d772bb4b76e76a1ce04d2927ec8d6",
     "dashboard-actions/v1/fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
-    "dashboard-actions/v1/schema.json": "502cd9ead7bc90255f0a46a044c9c6a81b4a2bb94da28669407a673244bf81d2"
+    "dashboard-actions/v1/schema.json": "3cacd5d2ea0cf55d6f012eda5a8ae129b55e703d7f11c3bbaa1afc4558538a69"
   }
 }

@@ -11,6 +11,9 @@ import { graphPath, useGraphDetail, useGraphList, useGraphNeighborhood } from ".
 import { ActionButton } from "../../components/layout/Workspace";
 import { actionCapability, actionLabels, actionRequest, freezeAction, knowledgeActionKinds, knowledgeCategoryLabel, type ActionContext, type ActionKind, type ActionOperation, type FrozenAction } from "./actionClient";
 import { validateTitle } from "../../api/adapters/taskCreate";
+import { ROUTE_CLASS, type TaskRouting } from "../work/taskWork";
+import { classLabel } from "../work/inspector/TaskRoute";
+import { NO_ROUTE, RouteFields, type RouteChoice } from "./RouteFields";
 import styles from "./RecordActions.module.css";
 
 type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;priority:string;confirm:boolean};
@@ -51,7 +54,9 @@ function rebase(draft:Draft,before:Draft,after:Draft,fields:EditField[]):{draft:
 type Variant="default"|"compact"|"menu";
 /** What the task's reads say about execution; absent while unknown. `blockerIds` are the recorded blockers (work read);
  * `attempts` counts the task's recorded agent attempts (history read), absent while unknown. */
-export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean;blockerIds?:string[];attempts?:number};
+export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean;blockerIds?:string[];attempts?:number;
+  /** The work read's `routing`: route actions are offered only for a task under an automatic router (Set route; Clear route once routed). */
+  routing?:TaskRouting};
 /** AQ's own preconditions for the execution actions (aq-server task_execution.rs): cancel needs an attempt
  * holding the task, retry needs an active task. They are stated, never guessed beyond what the reads show. */
 function executionReason(k:ActionKind,state:string|null|undefined,execution?:TaskExecutionFacts):string|undefined{
@@ -69,11 +74,12 @@ export function RecordActions(props:{record:ActionContext;author?:boolean;pinned
 }
 function Actions({record,author=false,pinned,kinds:only,variant="default",execution}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient(), navigate=useNavigate();
-  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize","task.cancel","task.delete","task.retry","task.dependency.add","task.dependency.remove"] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
+  const routeKinds:ActionKind[]=!execution?.routing?[]:execution.routing.state==="routed"?["task.route.set","task.route.clear"]:["task.route.set"];
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize","task.cancel","task.delete","task.retry","task.dependency.add","task.dependency.remove",...routeKinds] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
-  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<number|null>(null);
+  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<number|null>(null),[route,setRoute]=useState<RouteChoice>(NO_ROUTE);
   const dialog=useRef<HTMLDialogElement>(null),root=useRef<HTMLDivElement>(null),opener=useRef<HTMLElement|null>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
   const blockerIds=new Set((execution?.blockerIds??[]).map(id=>id.toLowerCase()));
   const dependency=useGraphNeighborhood(kind==="task.dependency.remove"?record.project.id:"",record.data?.id??"");
@@ -101,7 +107,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       if(operation?.request_digest&&operation.operation_id===next.operation_id&&operation.request_digest!==next.request_digest)throw new ContractError("Operation identity changed");
       setOperation(next);setUnknown(false);setError(null);
       if(next.disposition==="confirmed"&&value.kind==="task.delete"){setOpen(false);void navigate({pathname:"/work",search:scopeSearch({kind:"project",project_id:record.project.id})});}
-      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-history","human-graph-task-summary","overview-task-contributions"].includes(String(q.queryKey[4]))});
+      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-history","human-graph-task-summary","overview-task-contributions","task-routes"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
       if(reason instanceof ApiError&&reason.status===401){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
       // A 403 refuses this one request (SO-03, ISSUE-003): the dialog and its draft stay; a resubmission gets a new operation identity.
@@ -124,7 +130,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   },[intent,unsettled,busy,accessLost,retired]);
   function launch(k:ActionKind){
     if(unsettled){if(k===kind)setOpen(true);return;}
-    frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRebased(null);setRefusal(null);setBaseline(record);setDraft(draftFor(record,author));setKind(k);setOpen(true);
+    frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRebased(null);setRefusal(null);setBaseline(record);setDraft(draftFor(record,author));setRoute(k==="task.route.set"&&execution?.routing?.route?{class:execution.routing.route.class,harnesses:[],providers:[]}:NO_ROUTE);setKind(k);setOpen(true);
   }
   function fields(k:ActionKind):{payload:Record<string,unknown>;reason?:string}{
     if(["task.edit","knowledge.author","knowledge.correct"].includes(k)){
@@ -136,7 +142,8 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     }
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
-    if(["task.retry","task.cancel","task.delete"].includes(k))return {payload:{}};
+    if(["task.retry","task.cancel","task.delete","task.route.clear"].includes(k))return {payload:{}};
+    if(k==="task.route.set"){if(!ROUTE_CLASS.test(route.class))throw new Error("Choose a class that has an assigned profile.");return {payload:{class:route.class,...(route.harnesses.length?{harnesses:route.harnesses}:{}),...(route.providers.length?{providers:route.providers}:{})}};}
     if(k==="task.reprioritize"){const v=draft.priority.trim();if(!PRIORITY.test(v)||Math.abs(Number(v))>PRIORITY_MAX)throw new Error("Enter a whole-number priority from -1000000 to 1000000.");return {payload:{priority:Number(v)}};}
     if(k==="knowledge.restore"){
       if(!restoreValid)throw new Error("Enter the content revision to restore.");
@@ -203,9 +210,11 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
         {["knowledge.retire","knowledge.restore"].includes(kind)&&<label className={styles.confirm}><input type="checkbox" checked={draft.confirm} onChange={e=>update("confirm",e.target.checked)}/>{kind==="knowledge.restore"?"Confirm restore. Verification resets to unverified on the new revision.":"Confirm retirement. Historical revisions remain available."}</label>}
 
         {kind==="task.reprioritize"&&<><label>Priority<input required inputMode="numeric" pattern="-?[0-9]*" maxLength={8} value={draft.priority} onChange={e=>update("priority",e.target.value)}/></label><p className={styles.meta}>A whole number from -1000000 to 1000000. AQ starts higher-priority tasks first. This dashboard can't read the current priority yet.</p></>}
+        {kind==="task.route.set"&&<RouteFields value={route} onChange={setRoute}/>}
+        {kind==="task.route.clear"&&<p>Remove this task's route. Under an automatic router the task then waits for routing until it is routed again.</p>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":"Submit"}</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Task canceled":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -221,6 +230,7 @@ const NOT_OFFERED="Not offered by this AQ server";
 const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
 
   "task.retry":"It retries only an active task whose last attempt can be replaced.",
+  "task.route.set":"It sets only a class that Settings assigns a profile to; check the class and its limits.",
   // AQ accepts a repeated dependency as a no-op; a cycle (or another Graph rule) is what it refuses (WDR-05).
   "task.dependency.add":"AQ refuses a dependency that would create a cycle, for example when this task already blocks the chosen one.",
 };

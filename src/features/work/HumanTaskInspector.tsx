@@ -112,7 +112,7 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
   const w = work.data?.data, parent = w?.parent, ended = endedHolder(w, attempts);
   const compact = useMediaQuery(COMPACT_HEADER_QUERY);
   const linkSearch = listSearch(search);
-  const facts = w ? { holding: !!w.execution, blockers: w.blockers.length, complete: w.complete, blockerIds: w.blockers.map(b => b.id), ...(attemptCount !== undefined ? { attempts: attemptCount } : {}) } : undefined;
+  const facts = w ? { holding: !!w.execution, ...(w.routing ? { routing: w.routing } : {}), blockers: w.blockers.length, complete: w.complete, blockerIds: w.blockers.map(b => b.id), ...(attemptCount !== undefined ? { attempts: attemptCount } : {}) } : undefined;
   const link = typeof window === "undefined" ? "" : `${window.location.origin}/work/${encodeURIComponent(n.id)}?${new URLSearchParams({ scope: `project:${project}` })}`;
   return <ServerNow serverTime={record.observed_at}>
     <section ref={root} className={classes(styles.inspector, className)} aria-labelledby={titleId} data-task-inspector="" data-focused={focused || undefined}>
@@ -144,7 +144,7 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
         </div>
       </div>
       {notice}
-      <Section id="status" title="Status"><TaskStatusSection query={work} search={search} linkSearch={linkSearch} ended={ended} /></Section>
+      <Section id="status" title="Status"><TaskStatusSection query={work} taskId={n.id} search={search} linkSearch={linkSearch} ended={ended} /></Section>
       {/* Comments come straight after Status: the part the owner reads most stays on the first screen (spec 0004 §3, P1-03). */}
       <Section id="comments" title="Comments" summary={commentCount}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
       <Section id="description" title="Description"><Description body={n.body} /></Section>

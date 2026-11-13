@@ -59,6 +59,7 @@ export const ACTION_CAPABILITIES = [
   "dashboard.actions",
   "tasks.edit",
   "tasks.reprioritize",
+  "tasks.route",
   "tasks.comments.write",
   "tasks.cancel",
   "tasks.retry",

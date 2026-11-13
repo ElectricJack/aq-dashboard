@@ -38,8 +38,33 @@ export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopp
 export type HoldReason = { code: string; attempt_id: string; status: string; message: string; hold_reason?: string };
 /** `satisfied` is true only for a completed blocker, null when the blocker isn't in the read Context. */
 export type TaskBlocker = { edge_id: string; id: string; title: string | null; task_state: string | null; satisfied: boolean | null };
+/** The route on a task (`routing.route` of the work read; spec 0011 §3): its class, e.g. `standard-high`, and who may take the task. */
+export type TaskRouteView = { class: string; harnesses: string[]; providers: string[]; prefer: string[]; lane: string | null; provider_intent: string; source: string; policy_digest: string | null };
+/**
+ * Where a task stands in routing (aq-server, human-graph-1 `routing`, optional): `routed` with its route, or `waiting`
+ * (ready under an automatic router with no route, so AQ does not offer it yet). `since_ms` is epoch milliseconds: when the
+ * route was written, or, waiting, when the task was last updated. Absent when the task's project is not on an automatic router.
+ */
+export type TaskRouting = { state: "routed" | "waiting"; route?: TaskRouteView; since_ms: number };
 /** `reported` is the server's readiness value as sent: for `unrecognized`, the value to show. */
-export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null };
+export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null; routing?: TaskRouting };
+
+export const ROUTE_CLASS = /^(simple|standard|complex|deep)-(low|medium|high|max)$/;
+const names = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 32 && v.every(x => text(x, 128));
+function adaptRoute(r: unknown): TaskRouteView {
+  check(isRecord(r) && typeof r.class === "string" && ROUTE_CLASS.test(r.class) && names(r.harnesses) && names(r.providers) && names(r.prefer));
+  check(r.lane === null || text(r.lane, 128));
+  check(openEnumValue(r.provider_intent) && openEnumValue(r.source) && (r.policy_digest === null || text(r.policy_digest, 128)));
+  return { class: r.class, harnesses: r.harnesses, providers: r.providers, prefer: r.prefer, lane: r.lane as string | null, provider_intent: r.provider_intent, source: r.source, policy_digest: r.policy_digest as string | null };
+}
+/** `routing` is optional: an older server, or a project not on an automatic router, omits it. */
+export function adaptTaskRouting(r: unknown): TaskRouting | undefined {
+  if (r === undefined) return undefined;
+  check(isRecord(r) && typeof r.since_ms === "number" && Number.isSafeInteger(r.since_ms) && r.since_ms >= 0);
+  if (r.state === "waiting") { check(r.route === undefined); return { state: "waiting", since_ms: r.since_ms }; }
+  check(r.state === "routed");
+  return { state: "routed", route: adaptRoute(r.route), since_ms: r.since_ms };
+}
 
 /**
  * An open enum value (W77): a short identifier a newer server may add. Unknown values degrade to a neutral
@@ -62,6 +87,7 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
       check(r.hold_reason === undefined || (typeof r.hold_reason === "string" && r.hold_reason.length >= 1 && r.hold_reason.length <= 96));
       return { code: r.code as string, attempt_id: r.attempt_id as string, status: r.status as string, message: r.message as string, ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }) };
     });
+    const routing = adaptTaskRouting(value.routing);
     const e = value.execution;
     check(e === null || (isRecord(e) && validGraphId(e.attempt_id) && validGraphId(e.session_id) && text(e.status, 64)));
     const blockers = value.readiness.blockers.map((b): TaskBlocker => {
@@ -70,7 +96,28 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
       check(b.task_state === undefined || b.task_state === null || TASK_STATES.includes(b.task_state as string));
       return { edge_id: b.edge_id, id: b.id, title: (b.title as string | null | undefined) ?? null, task_state: (b.task_state as string | null | undefined) ?? null, satisfied: b.satisfied as boolean | null };
     });
-    return { state, reported, reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent) };
+    return { state, reported, reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent), ...(routing ? { routing } : {}) };
+  });
+}
+
+/** One entry of a task's route history (`GET /api/tasks/{id}/routes`, owner-only), newest first; `route` is null for a cleared route. */
+export type TaskRouteEntry = { sequence: number; at_ms: number; route: (TaskRouteView & { reasons: { code: string; detail: string }[] }) | null };
+export function adaptTaskRoutes(raw: unknown): TaskRouteEntry[] {
+  check(isRecord(raw) && Array.isArray(raw.items) && raw.items.length <= 1000);
+  return raw.items.map((e): TaskRouteEntry => {
+    check(isRecord(e) && Number.isSafeInteger(e.sequence) && (e.sequence as number) > 0 && Number.isSafeInteger(e.at_ms) && (e.at_ms as number) >= 0);
+    if (e.route === null) return { sequence: e.sequence as number, at_ms: e.at_ms as number, route: null };
+    check(isRecord(e.route) && Array.isArray(e.route.reasons) && e.route.reasons.length <= 32);
+    const reasons = e.route.reasons.map(r => { check(isRecord(r) && openEnumValue(r.code) && typeof r.detail === "string" && r.detail.length <= 2000); return { code: r.code as string, detail: r.detail as string }; });
+    return { sequence: e.sequence as number, at_ms: e.at_ms as number, route: { ...adaptRoute(e.route), reasons } };
+  });
+}
+/** The route history; read only while the disclosure is open. A 403 (the viewer is not the owner) is an answer, not a fault. */
+export function useTaskRoutes(id: string, enabled: boolean) {
+  const { queryContext } = useSession();
+  return useQuery({
+    queryKey: queryKey(queryContext, "task-routes", { id }), enabled: enabled && validGraphId(id), refetchOnWindowFocus: false, meta: PANEL_READ, ...readRetry,
+    queryFn: async ({ signal }) => adaptTaskRoutes(await apiGet<unknown>(`/api/tasks/${encodeURIComponent(id)}/routes`, signal)),
   });
 }
 
