@@ -1,5 +1,6 @@
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listInternalRuns, retryInternalRun, type InternalRunAttempt } from "../../api/internalWork";
+import { listInternalRuns, readInternalRun, retryInternalRun, type InternalRunAttempt, type InternalRunTranscript, type TranscriptItem } from "../../api/internalWork";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -12,6 +13,42 @@ function Attempt({ attempt }: { attempt: InternalRunAttempt }) {
   return <li>{attempt.provider} · {attempt.model} ({WAY[attempt.way]}), {duration(attempt.elapsed_ms)}: {attempt.reason ? `${reasonText(attempt.reason)}${attempt.detail ? ` - ${attempt.detail}` : ""}` : "answered"}</li>;
 }
 
+const REDACTION = "[credential redacted]";
+const PREVIEW_CHARS = 400;
+/** Text only: the server's redaction marker is highlighted, everything else is shown as the characters it is. */
+function Plain({ value }: { value: string }) {
+  return <>{value.split(REDACTION).map((part, index) => <Fragment key={index}>{index > 0 && <mark className={styles.redacted}>{REDACTION}</mark>}{part}</Fragment>)}</>;
+}
+function Clippable({ value, clipped }: { value: string; clipped?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const long = value.length > PREVIEW_CHARS;
+  return <>
+    <pre className={styles.pre}><Plain value={long && !open ? `${value.slice(0, PREVIEW_CHARS)}…` : value} /></pre>
+    {clipped && <span className={styles.meta}>clipped by the server</span>}
+    {long && <button type="button" className={styles.more} onClick={() => setOpen(!open)}>{open ? "Show less" : "Show all"}</button>}
+  </>;
+}
+function Step({ item }: { item: TranscriptItem }) {
+  switch (item.kind) {
+    case "text": return <li><span className={styles.meta}>Agent said</span><Clippable value={item.text} clipped={item.clipped} /></li>;
+    case "error": return <li><span className={styles.failed}>Error: <Plain value={item.text} /></span>{item.clipped && <span className={styles.meta}> clipped by the server</span>}</li>;
+    case "tool": return <li><span className={styles.meta}>Tool: <span className={styles.tool}>{item.tool}</span></span><Clippable value={item.input} clipped={item.clipped} /></li>;
+    case "result": return <li><span className={item.error ? styles.failed : styles.meta}>{item.error ? "Result (failed)" : "Result"}</span><Clippable value={item.output} clipped={item.clipped} /></li>;
+    case "clipped": return <li className={styles.meta}>The server cut this transcript short.</li>;
+    default: return <li className={styles.meta}>A step this view does not know how to show.</li>;
+  }
+}
+function Steps({ transcript }: { transcript: InternalRunTranscript }) {
+  const label = `Agent steps, candidate ${transcript.candidate_index + 1}`;
+  return <details>
+    <summary>What the agent did (candidate {transcript.candidate_index + 1})</summary>
+    <ol className={styles.steps} aria-label={label}>
+      {transcript.events.map((item, index) => <Step key={index} item={item} />)}
+      {transcript.omitted > 0 && <li className={styles.meta}>{transcript.omitted} more steps are not shown.</li>}
+    </ol>
+  </details>;
+}
+
 /** The newest internal run for one item: what was asked, who answered, how long it took, the answer or the error, and Retry on a failure. Renders nothing when there is no run. */
 export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affectedKind: string; affectedId: string; /** How often to re-read a queued or running run; only tests change it. */ pollMs?: number }) {
   const { queryContext } = useSession();
@@ -22,6 +59,10 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
     refetchInterval: current => ["queued", "running"].includes(current.state.data?.runs[0]?.status ?? "") ? pollMs : false });
   const retry = useMutation({ mutationFn: retryInternalRun, onSuccess: () => client.invalidateQueries({ queryKey: key }) });
   const run = query.data?.runs[0];
+  // The list never carries transcripts; the read of one run does, once the run has ended.
+  const ended = run?.status === "answered" || run?.status === "failed";
+  const detail = useQuery({ queryKey: queryKey(queryContext, "internal-run-read", { id: run?.id ?? "" }), queryFn: ({ signal }) => readInternalRun(run!.id, signal), enabled: ended, retry: false });
+  const transcripts = detail.data?.transcripts ?? [];
   if (query.isError) return <p className={styles.meta} role="status">Internal work could not be loaded.</p>;
   if (!run) return null;
   return <section className={styles.run} aria-label="Internal work">
@@ -40,6 +81,7 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
     </>}
     {run.status === "failed" && <p className={styles.failed} role="alert">Failed: {reasonText(run.reason ?? null)}{run.detail ? ` - ${run.detail}` : ""}</p>}
     {(run.status === "queued" || run.status === "running") && <p className={styles.meta}>{run.status === "queued" ? "Waiting for a model." : "A model is working on it."}</p>}
+    {transcripts.map(transcript => <Steps key={transcript.candidate_index} transcript={transcript} />)}
     {run.attempts.length > 0 && <ul className={styles.attempts} aria-label="Attempts">{run.attempts.map((attempt, index) => <Attempt key={index} attempt={attempt} />)}</ul>}
     {run.status === "failed" && <div className={styles.actions}>
       <ActionButton disabled={retry.isPending} onClick={() => retry.mutate(run.id)}>Retry</ActionButton>

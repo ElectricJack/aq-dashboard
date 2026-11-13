@@ -32,12 +32,23 @@ export async function inspectInternalWorkSave(operationId: string) { return save
 const RUN_STATUSES = ["queued", "running", "answered", "failed"] as const;
 export type InternalRunStatus = typeof RUN_STATUSES[number];
 export type InternalRunAttempt = { provider: string; model: string; way: "api" | "login"; reason: string | null; detail: string; elapsed_ms: number };
+/** One step of an agent's transcript. Texts are server-clipped (to 2 KiB) and redacted already; `clipped` marks an item the server cut. */
+export type TranscriptItem =
+  | { kind: "text" | "error"; text: string; clipped?: boolean }
+  | { kind: "tool"; tool: string; input: string; clipped?: boolean }
+  | { kind: "result"; output: string; error: boolean; clipped?: boolean }
+  | { kind: "clipped" }
+  | { kind: "unknown" };
+export type InternalRunTranscript = { candidate_index: number; events: TranscriptItem[]; /** Items past the bound, not kept. */ omitted: number };
+export const TRANSCRIPT_MAX_ITEMS = 2000, TRANSCRIPT_MAX_TRANSCRIPTS = 64, TRANSCRIPT_TEXT_CHARS = 4096;
 export type InternalRunData = {
   id: string; purpose: InternalWorkPurpose; status: InternalRunStatus;
   affected: { kind: string; id: string; project_id: string | null };
   instructions: string; input: string; answer?: unknown; reason?: string; detail?: string; attempts: InternalRunAttempt[];
   provider?: string; model?: string; way?: "api" | "login"; elapsed_ms?: number; usage?: { input_tokens: number; output_tokens: number };
   created_at_ms: number; finished_at_ms?: number; escalation: "none" | "supervisor" | "owner" | "resolved"; diagnosis?: string; retry_of?: string;
+  /** Only the read of one run has them; one per agent candidate. */
+  transcripts?: InternalRunTranscript[];
 };
 export type InternalRunPage = { runs: InternalRunData[]; next_cursor: string | null };
 export type InternalRunQuery = { affected_kind?: string; affected_id?: string; purpose?: InternalWorkPurpose; status?: InternalRunStatus; cursor?: string; limit?: number };
@@ -53,6 +64,25 @@ function attempt(value: unknown): InternalRunAttempt {
   runEnsure(isRecord(value) && text(value.provider) && text(value.model) && WAYS.includes(String(value.way)) && (value.reason === null || text(value.reason)) && text(value.detail) && count(value.elapsed_ms));
   return { provider: value.provider, model: value.model, way: value.way as "api" | "login", reason: value.reason, detail: value.detail, elapsed_ms: value.elapsed_ms };
 }
+const clip = (value: string) => value.length > TRANSCRIPT_TEXT_CHARS ? value.slice(0, TRANSCRIPT_TEXT_CHARS) : value;
+function transcriptItem(value: unknown): TranscriptItem {
+  runEnsure(isRecord(value) && text(value.kind) && (value.clipped === undefined || typeof value.clipped === "boolean"));
+  const clipped = value.clipped === true ? { clipped: true } : {};
+  switch (value.kind) {
+    case "text": case "error": runEnsure(text(value.text)); return { kind: value.kind, text: clip(value.text), ...clipped };
+    case "tool": runEnsure(text(value.tool) && text(value.input)); return { kind: "tool", tool: clip(value.tool), input: clip(value.input), ...clipped };
+    case "result": runEnsure(text(value.output) && typeof value.error === "boolean"); return { kind: "result", output: clip(value.output), error: value.error, ...clipped };
+    case "clipped": return { kind: "clipped" };
+    default: return { kind: "unknown" };
+  }
+}
+function transcripts(value: unknown): InternalRunTranscript[] {
+  runEnsure(Array.isArray(value) && value.length <= TRANSCRIPT_MAX_TRANSCRIPTS);
+  return value.map(one => {
+    runEnsure(isRecord(one) && count(one.candidate_index) && Array.isArray(one.events));
+    return { candidate_index: one.candidate_index, events: one.events.slice(0, TRANSCRIPT_MAX_ITEMS).map(transcriptItem), omitted: Math.max(0, one.events.length - TRANSCRIPT_MAX_ITEMS) };
+  });
+}
 export function adaptInternalRun(value: unknown): InternalRunData {
   runEnsure(isRecord(value) && uuid(value.id) && purpose(value.purpose) && RUN_STATUSES.includes(value.status as InternalRunStatus));
   runEnsure(isRecord(value.affected) && text(value.affected.kind) && text(value.affected.id) && (value.affected.project_id === null || uuid(value.affected.project_id)));
@@ -67,6 +97,7 @@ export function adaptInternalRun(value: unknown): InternalRunData {
   return {
     ...optional, id: known.id, purpose: known.purpose, status: known.status, affected: { kind: affected.kind, id: affected.id, project_id: affected.project_id },
     instructions: known.instructions, input: known.input, attempts: value.attempts.map(attempt), created_at_ms: known.created_at_ms, escalation: known.escalation,
+    ...(value.transcripts === undefined ? {} : { transcripts: transcripts(value.transcripts) }),
   };
 }
 function runsUrl(params: InternalRunQuery) {

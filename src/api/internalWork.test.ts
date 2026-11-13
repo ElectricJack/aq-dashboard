@@ -68,3 +68,21 @@ test("rejects a malformed run page and a malformed retry response", async () => 
   await expect(listInternalRuns({})).rejects.toThrow(ContractError);
   await expect(retryInternalRun(run().id)).rejects.toThrow(ContractError);
 });
+
+test("adapts a run's transcripts, bounded and without trusting unknown items", () => {
+  const events = [{ kind: "text", text: "hi" }, { kind: "tool", tool: "shell", input: "ls", extra: 1 }, { kind: "result", output: "x".repeat(10_000), error: true, clipped: true }, { kind: "error", text: "e" }, { kind: "clipped" }, { kind: "mystery", text: "m" }];
+  const adapted = adaptInternalRun({ ...run(), transcripts: [{ candidate_index: 1, events }] });
+  expect(adapted.transcripts?.[0]?.candidate_index).toBe(1);
+  const items = adapted.transcripts![0]!.events;
+  expect(items.slice(0, 2)).toEqual([{ kind: "text", text: "hi" }, { kind: "tool", tool: "shell", input: "ls" }]);
+  expect(items[2]!).toMatchObject({ kind: "result", error: true, clipped: true });
+  expect((items[2] as { output: string }).output.length).toBeLessThanOrEqual(4096);
+  expect(items[4]!).toEqual({ kind: "clipped" });
+  expect(items[5]!).toEqual({ kind: "unknown" });
+  expect(adaptInternalRun(run()).transcripts).toBeUndefined();
+  const many = adaptInternalRun({ ...run(), transcripts: [{ candidate_index: 0, events: Array.from({ length: 5000 }, () => ({ kind: "text", text: "a" })) }] });
+  expect(many.transcripts![0]!.events.length).toBeLessThanOrEqual(2001);
+  expect(many.transcripts![0]!.omitted).toBe(5000 - 2000);
+  for (const bad of [{ transcripts: "x" }, { transcripts: [{ candidate_index: -1, events: [] }] }, { transcripts: [{ candidate_index: 0, events: {} }] }, { transcripts: [{ candidate_index: 0, events: [{ kind: "text", text: 1 }] }] }])
+    expect(() => adaptInternalRun({ ...run(), ...bad })).toThrow(ContractError);
+});

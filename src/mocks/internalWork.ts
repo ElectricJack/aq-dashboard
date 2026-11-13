@@ -19,6 +19,16 @@ const fixtureRuns = (): InternalRunData[] => [
     usage: { input_tokens: 120, output_tokens: 18 }, created_at_ms: FIXTURE_NOW - 3_600_000, finished_at_ms: FIXTURE_NOW - 3_599_100 },
 ];
 
+/** A labelled fixture agent run with its steps; like the server, only the read of one run carries `transcripts`. */
+const FIXTURE_AGENT_RUN: InternalRunData = { ...FIXTURE_RUN_BASE, id: "00000000-0000-4000-8000-0000000000a3", purpose: "playbook_compilation", status: "failed", reason: "invalid_output", detail: "the agent ended without saving, asking or giving up",
+  affected: { kind: "playbook_source", id: "fixture-source", project_id: null }, instructions: "Fixture: author the playbook from the document.", input: "Fixture document",
+  attempts: [{ provider: "fixture-provider", model: "fixture-model", way: "login", reason: "invalid_output", detail: "the agent ended without saving, asking or giving up", elapsed_ms: 61_000 }], created_at_ms: FIXTURE_NOW - 120_000, finished_at_ms: FIXTURE_NOW - 59_000,
+  transcripts: [{ candidate_index: 0, omitted: 0, events: [
+    { kind: "text", text: "Fixture: I will read the document first." }, { kind: "tool", tool: "shell", input: "cat in/document.md" },
+    { kind: "result", output: `Fixture output. ${"A long line of fixture tool output. ".repeat(30)}`, error: false, clipped: true },
+    { kind: "result", output: "Fixture: token [credential redacted] was in this output", error: true }, { kind: "clipped" },
+  ] }] };
+
 /** Labelled fixture state for internal work settings; survives reload in the same browser tab. */
 export function internalWorkHandlers() {
   const key = "aq-mock-internal-work";
@@ -26,7 +36,7 @@ export function internalWorkHandlers() {
   let snapshot: Snapshot = (() => { try { return JSON.parse(sessionStorage.getItem(key) || "null") || initial(); } catch { return initial(); } })();
   const operations = new Map<string, { request: string; response: Snapshot & { operation_id: string; disposition: string } }>();
   const fail = (status: number, message: string) => HttpResponse.json({ error: "internal_work", message }, { status });
-  let runs = fixtureRuns();
+  let runs = [FIXTURE_AGENT_RUN, ...fixtureRuns()];
   return [
     http.get("/api/internal-work/runs", ({ request }) => {
       const url = new URL(request.url), limit = Number(url.searchParams.get("limit") ?? 50);
@@ -34,7 +44,7 @@ export function internalWorkHandlers() {
         const wanted = url.searchParams.get(name);
         return !wanted || (name === "affected_kind" ? run.affected.kind : name === "affected_id" ? run.affected.id : run[name]) === wanted;
       }));
-      return HttpResponse.json({ runs: match.slice(0, limit), next_cursor: null });
+      return HttpResponse.json({ runs: match.slice(0, limit).map(({ transcripts: _omitted, ...rest }) => rest), next_cursor: null });
     }),
     http.get("/api/internal-work/runs/:id", ({ params }) => {
       const run = runs.find(item => item.id === params.id);
