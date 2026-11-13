@@ -3,7 +3,7 @@ import { apiGet, apiSend } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 import { queryKey } from "./queryKeys";
 import { useSession } from "../app/session";
-export type Provider = { id: string; name: string; accounts: string[]; credential_status: "present" | "missing" | "disabled" };
+export type Provider = { id: string; name: string; accounts: string[]; credential_status: "present" | "missing" | "disabled" | "not_configured" };
 export type ProviderSettings = { revision: string; available_revision: string; providers: string[]; available: Provider[] };
 export type SaveProviders = { operation_id: string; expected_revision: string; expected_available_revision: string; providers: string[] };
 function ensure(value: unknown): asserts value { if (!value) throw new ContractError("Invalid provider settings response"); }
@@ -12,10 +12,10 @@ const unique = (values: string[]) => new Set(values).size === values.length;
 export function adaptProviderSettings(raw: unknown): ProviderSettings {
   ensure(isRecord(raw) && typeof raw.revision === "string" && /^(0|[1-9]\d*)$/.test(raw.revision) && raw.revision.length <= 32 && typeof raw.available_revision === "string" && /^[a-f0-9]{64}$/.test(raw.available_revision));
   ensure(Array.isArray(raw.providers) && raw.providers.length <= 32 && raw.providers.every(label) && unique(raw.providers));
-  ensure(Array.isArray(raw.available) && raw.available.length <= 32);
+  ensure(Array.isArray(raw.available) && raw.available.length <= 64);
   const ids: string[] = [];
   for (const row of raw.available) {
-    ensure(isRecord(row) && label(row.id) && label(row.name) && ["present", "missing", "disabled"].includes(String(row.credential_status)) && Array.isArray(row.accounts) && row.accounts.length <= 32 && row.accounts.every(label) && unique(row.accounts));
+    ensure(isRecord(row) && label(row.id) && label(row.name) && ["present", "missing", "disabled", "not_configured"].includes(String(row.credential_status)) && Array.isArray(row.accounts) && row.accounts.length <= 32 && row.accounts.every(label) && unique(row.accounts));
     ids.push(row.id);
   }
   ensure(unique(ids)); return raw as ProviderSettings;

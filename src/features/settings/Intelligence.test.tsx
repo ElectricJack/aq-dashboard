@@ -99,6 +99,7 @@ test("settings sections are keyboard-accessible tabs and profile drafts survive 
 });
 
 test("an unconfigured provider still permits adding empty profile rows", async () => {
+  server.use(http.get("/api/settings/providers", () => HttpResponse.json({ revision: "1", available_revision: "a".repeat(64), providers: ["google"], available: [{ id: "google", name: "Google", accounts: [], credential_status: "not_configured" }] })));
   read(); renderApp("/settings?tab=intelligence&provider=google"); await screen.findByRole("row", { name: "Standard" });
   expect(await screen.findByText(/No Google models are configured yet/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Add row" })); const row = screen.getByRole("row", { name: "new profile" });
@@ -632,4 +633,30 @@ test("clean Intelligence settings do not warn before leaving", async () => {
   await act(async () => { await router.navigate("/work"); });
   await waitFor(() => expect(router.state.location.pathname).toBe("/work"));
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+test("the provider selector excludes removed mappings and ignores a stale provider URL", async () => {
+  read(); server.use(http.get("/api/settings/providers", () => HttpResponse.json({ revision: "2", available_revision: "a".repeat(64), providers: ["openai"], available: [
+    { id: "anthropic", name: "Anthropic", accounts: ["Team"], credential_status: "present" },
+    { id: "openai", name: "OpenAI", accounts: ["Work"], credential_status: "present" },
+  ] })));
+  renderApp("/settings?tab=intelligence&provider=anthropic");
+  await waitFor(() => expect(screen.getByLabelText("Provider")).toHaveValue("openai"));
+  expect(within(screen.getByLabelText("Provider")).getAllByRole("option").map(option => option.textContent)).toEqual(["OpenAI"]);
+  const row = await screen.findByRole("row", { name: "Standard" });
+  expect(within(row).getByLabelText("Model")).toHaveValue("openai:configured-codex");
+});
+test("no added providers gives an empty disabled selector and a Providers link", async () => {
+  read(); server.use(http.get("/api/settings/providers", () => HttpResponse.json({ revision: "2", available_revision: "a".repeat(64), providers: [], available: [] })));
+  renderApp("/settings?tab=intelligence");
+  const selector = await screen.findByLabelText("Provider");
+  await waitFor(() => expect(selector).toHaveTextContent("No providers added")); expect(selector).toBeDisabled();
+  expect(await screen.findByRole("link", { name: "Add a provider" })).toHaveAttribute("href", "/settings?tab=providers");
+});
+test("unavailable membership never falls back to catalog or hardcoded providers", async () => {
+  read(); server.use(http.get("/api/settings/providers", () => HttpResponse.json({}, { status: 503 })));
+  renderApp("/settings?tab=intelligence");
+  const selector = await screen.findByLabelText("Provider");
+  await waitFor(() => expect(selector).toHaveTextContent("Providers unavailable")); expect(selector).toBeDisabled();
+  expect(within(selector).queryByRole("option", { name: "Anthropic" })).toBeNull();
 });

@@ -86,3 +86,17 @@ test("an unconfirmed provider save locks edits and retries the exact operation",
   await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeDisabled());
   expect(await screen.findByText("Providers saved.")).toBeVisible();
 });
+
+test("Google can be added before connection setup and shows Setup required", async () => {
+  const data = initial(); data.available.push({ id: "google", name: "Google", accounts: [], credential_status: "not_configured" });
+  server.use(http.get("/api/settings/providers", () => HttpResponse.json(data)));
+  const list = await open(); await userEvent.selectOptions(screen.getByLabelText("Provider to add"), "google");
+  await userEvent.click(screen.getByRole("button", { name: "Add provider" }));
+  expect(within(list).getByText("Google")).toBeVisible(); expect(within(list).getByText("Setup required")).toBeVisible();
+});
+test("account references appear only in account details, beneath consistent provider names", async () => {
+  fixture(); const list = await open();
+  expect(within(list).getByText("Anthropic")).toBeVisible();
+  const account = within(list).getByText("Account references: Team"); expect(account).not.toBeVisible();
+  await userEvent.click(within(list).getByText("Account details")); expect(account).toBeVisible();
+});

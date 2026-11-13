@@ -61,3 +61,23 @@ test("one Save includes both Intelligence and provider edits", async ({ page }) 
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
   await expect(page.getByLabel("Standard description", { exact: true })).toHaveValue("Use for ordinary implementation tasks");
 });
+
+test("Google is addable before setup and Intelligence lists only added providers", async ({ page }) => {
+  await page.goto("/settings?tab=providers");
+  const add = page.getByRole("combobox", { name: "Provider to add", exact: true });
+  await expect(add.getByRole("option", { name: "Google", exact: true })).toHaveCount(1);
+  const list = page.getByRole("list", { name: "Added providers" });
+  await expect(list.getByText("Account references: Fixture team", { exact: true })).toBeAttached();
+  await expect(list.getByText("Account references: Fixture team", { exact: true })).not.toBeVisible();
+  await add.selectOption("google"); await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await expect(list.getByText("Setup required", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove Fixture provider", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Settings save status", exact: true })).toHaveText("Saved.");
+  await page.goto("/settings?tab=intelligence&provider=fixture-provider");
+  const provider = page.getByRole("combobox", { name: "Provider", exact: true });
+  await expect(provider).toHaveValue("anthropic");
+  await expect(provider.getByRole("option")).toHaveText(["Anthropic", "OpenAI", "Google"]);
+  await provider.selectOption("google");
+  await expect(page.getByText(/No Google models are configured yet/)).toBeVisible();
+});

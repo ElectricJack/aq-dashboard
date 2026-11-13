@@ -272,9 +272,9 @@ function IntelligenceSettingsContent() {
   const [deletedNotice, setDeletedNotice] = useState<string | null>(null); const addButton = useRef<HTMLButtonElement>(null);
   const focusAfterDelete = useRef(false);
   useEffect(() => { if (!busy && focusAfterDelete.current) { focusAfterDelete.current = false; addButton.current?.focus(); } }, [busy]);
-  const provider = params.get("provider") ?? query.data?.model_choices[0]?.provider ?? "anthropic";
-  const providers = Array.from(new Set([...(providerSettings.data?.providers ?? Object.keys(PROVIDERS)), ...(providerSettings.data ? [] : query.data?.model_choices.map(c => c.provider) ?? []),
-    ...(query.data?.profiles.flatMap(p => p.candidates.map(c => c.provider).filter(p => p !== "configuration-required")) ?? []), provider]));
+  const providers = providerSettings.isError ? [] : providerSettings.data?.providers ?? [];
+  const requestedProvider = params.get("provider") ?? query.data?.model_choices[0]?.provider;
+  const provider = requestedProvider && providers.includes(requestedProvider) ? requestedProvider : providers[0] ?? "";
   const profiles = [...(query.data?.profiles ?? []), ...added.filter(p => !query.data?.profiles.some(existing => existing.id === p.id))];
   const localAssignments = Object.entries(pendingVariations).map(([id, item]) => ({ profile_id: id, parent_id: item.parent, effort: item.effort }));
   const assignments = [...(structure.data?.assignments ?? []).filter(item => !localAssignments.some(local => local.profile_id === item.profile_id || (local.parent_id === item.parent_id && local.effort === item.effort))), ...localAssignments];
@@ -311,15 +311,17 @@ function IntelligenceSettingsContent() {
   </div>; }
   return <div className={styles.sheet}>
     <div className={styles.toolbar}>
-      <label className={styles.provider}>Provider<select aria-label="Provider" value={provider} disabled={busy || drafts.saving} onChange={e => setParams(old => { const next = new URLSearchParams(old); next.set("provider", e.target.value); return next; })}>
-        {providers.map(id => <option key={id} value={id}>{providerSettings.data?.available.find(item => item.id === id)?.name ?? PROVIDERS[id] ?? id}{providerSettings.data && !providerSettings.data.providers.includes(id) ? " (removed)" : ""}</option>)}
+      <label className={styles.provider}>Provider<select aria-label="Provider" value={provider} disabled={!providers.length || providerSettings.isError || busy || drafts.saving} onChange={e => setParams(old => { const next = new URLSearchParams(old); next.set("provider", e.target.value); return next; })}>
+        {!providers.length && <option value="">{providerSettings.isPending ? "Loading providers…" : providerSettings.isError ? "Providers unavailable" : "No providers added"}</option>}
+        {providers.map(id => <option key={id} value={id}>{providerSettings.data?.available.find(item => item.id === id)?.name ?? PROVIDERS[id] ?? id}</option>)}
       </select></label>
       <div className={styles.rowActions}><ActionButton disabled={query.isFetching || busy || drafts.saving} onClick={() => void query.refetch()}>Reload catalog</ActionButton>
       <ActionButton ref={addButton} disabled={!query.data || structure.isPending || busy || drafts.saving || profiles.length >= 128} onClick={() => setAdded(old => [...old, { id: `profile-${crypto.randomUUID()}`, version: 0, name: "", description: "", projects: [], candidates: [] }])}>Add row</ActionButton></div>
     </div>
-    {providerSettings.data && !providerSettings.data.providers.includes(provider) && <p className={styles.meta}>This provider is removed. <Link to="/settings?tab=providers">Add it in Providers</Link> to allow new agents.</p>}
+    {providerSettings.isError && <p role="alert" className={styles.warning}>Added providers are unavailable. <ActionButton onClick={() => void providerSettings.refetch()}>Reload providers</ActionButton></p>}
+    {providerSettings.data && !providerSettings.isError && !providers.length && <p className={styles.meta}><Link to="/settings?tab=providers">Add a provider</Link> to configure models and agent limits.</p>}
     <p className={styles.meta}>Choose a model and effort for each variation. Other providers’ settings are preserved.</p>
-    {query.data && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
+    {query.data && provider && choices.length === 0 && <p className={styles.meta}>No {PROVIDERS[provider] ?? provider} models are configured yet. You can add profile rows now; model choices become available after provider setup.</p>}
     {(sources.length > 0 || choices.some(c => c.preference_only)) && <details className={`${styles.meta} ${styles.catalog}`}>
       <summary>Model catalog{observed && <> · updated <time dateTime={observed}>{new Date(observed).toLocaleString()}</time></>}</summary>
       {choices.some(c => c.preference_only) && <p>Imported defaults are saved preferences. Worker and provider support are checked before launch.</p>}
