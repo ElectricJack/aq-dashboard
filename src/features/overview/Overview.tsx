@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView, type TotalView } from "../../api/adapters/inspection";
+import { ATTENTION_SOURCE_LABEL } from "../../api/adapters/overview";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
 import { ArrowRight, CircleAlert, CircleCheck, CircleHelp, TriangleAlert, type LucideIcon } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
@@ -30,6 +31,7 @@ const ACTION_LABEL: Record<AttentionView["kind"], string> = {
   blocked: "Inspect",
   failed: "Inspect",
   uncertain_operation: "Reconcile",
+  internal_work: "Open",
   unsupported: "Open",
 };
 
@@ -140,6 +142,7 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   const name = worker ? `${item.title}, worker ${shortRef({ id: item.subject.id })}` : item.title;
   const secondary = [
     where,
+    ATTENTION_SOURCE_LABEL[item.kind] ?? null,
     worker ? `worker ${shortRef({ id: item.subject.id })}` : null,
     age,
     item.reason,

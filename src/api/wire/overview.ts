@@ -4,7 +4,7 @@ export type { ReferenceRevision } from './proposed';
 export type EntityRef = { type: string; id: string; revision?: ReferenceRevision | null };
 export type SourceObservation = { source: string; project?: ProjectRef | null; observation?: Observation | null; coverage: Coverage; total: Total };
 export type AttentionItem = {
- id: string; kind: 'decision'|'question'|'blocked'|'failed'|'uncertain_operation'|'worker_offline';
+ id: string; kind: 'decision'|'question'|'blocked'|'failed'|'uncertain_operation'|'worker_offline'|'internal_work';
  title: string; project?: ProjectRef|null; reason: string; impact: string; since?: string|null;
  subject: EntityRef; action?: {kind:string;label:string;subject:EntityRef}|null;
 };
