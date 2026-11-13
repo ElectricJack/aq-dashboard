@@ -20,7 +20,7 @@ function archiveLabel(s: HistorySession) { if (s.archive.state === 'not_recorded
 function dateValue(s: string, end = false) { if (!s) return undefined; const d = new Date(`${s}T00:00:00`); if (end) d.setDate(d.getDate()+1); return Number.isFinite(d.getTime()) ? d.getTime() : undefined; }
 export function History() {
  const [scope] = useScope(); const {queryContext} = useSession(); const [params,setParams] = useSearchParams();
- const [q,setQ]=useState(''),[provider,setProvider]=useState(''),[model,setModel]=useState(''),[status,setStatus]=useState(''),[from,setFrom]=useState(''),[until,setUntil]=useState(''),[internal,setInternal]=useState(false);
+ const [q,setQ]=useState(''),[provider,setProvider]=useState(''),[model,setModel]=useState(''),[status,setStatus]=useState(''),[from,setFrom]=useState(''),[until,setUntil]=useState(''),[internal,setInternal]=useState(()=>params.get('internal')==='1');
  const project = scope.kind === 'project' ? scope.project_id : undefined;
  const filters = {project_id:project,q,provider,model,status,created_from_ms:dateValue(from),created_until_ms:dateValue(until,true),limit:50};
  const listing = useInfiniteQuery({queryKey:['history',queryContext.principalId,queryContext.authorizationRevision,filters],initialPageParam:undefined as string|undefined,enabled:!internal,queryFn:({pageParam,signal})=>history({...filters,cursor:pageParam},signal),getNextPageParam:p=>p.next_cursor ?? undefined,retry:false,meta:PANEL_READ});

@@ -134,6 +134,10 @@ function ConstraintStatus({ constraint }: { constraint: OverviewView["inMotion"]
 function AttentionRow({ item, serverTime, search }: { item: AttentionView; serverTime: string; search: string }) {
   const [inspect, setInspect] = useState(false);
   const path = item.kind === "unsupported" ? null : subjectPath(item.subject);
+  // A path may carry its own query (History's Internal filter); keep the scope too.
+  const [pathname, query] = (path ?? "").split("?");
+  const linkSearch = new URLSearchParams(search);
+  new URLSearchParams(query).forEach((value, key) => linkSearch.set(key, value));
   const label = ACTION_LABEL[item.kind];
   const age = item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown";
   const worker = item.kind === "worker_offline";
@@ -158,7 +162,7 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
       </div>
       <span className={styles.impact}>{item.impact}</span>
       {path ? (
-        <Link className={styles.action} to={{ pathname: path, search }} aria-label={`${label}: ${name}`}>
+        <Link className={styles.action} to={{ pathname, search: linkSearch.size ? `?${linkSearch}` : "" }} aria-label={`${label}: ${name}`}>
           {actionContent}
         </Link>
       ) : item.kind === "worker_offline" || item.kind === "uncertain_operation" ? (

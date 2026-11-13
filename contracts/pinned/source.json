@@ -57,7 +57,7 @@
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
     "dashboard-actions/v1/schema.json": "502cd9ead7bc90255f0a46a044c9c6a81b4a2bb94da28669407a673244bf81d2",
-    "dashboard-read/v1/README.md": "7afb11703e7d16df84b994bbe47a113a8f2f8fafffd1c51ae8b5b11a09d509d7",
+    "dashboard-read/v1/README.md": "d3724fd6a87eff061b9c2c95be151e3b6e2a2fe4051f948b3164fbffc3f48a87",
     "dashboard-read/v1/check.py": "e9b92a35253223bed0089a6975141f86cadaeaf0e2bc4c2163e2ee6ae07cb9a7",
     "dashboard-read/v1/fixtures/bootstrap.json": "743bdb6b04bc1da16f238ae1a6652d48dfa0b6904b11c4d564d1ae5642b51da1",
     "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
@@ -99,6 +99,6 @@
   "contract_commits": {
     "results-feedback": "52cd05ef63126aeb2e8dae068ac835edb5de2b91",
     "dashboard-actions": "21a77e9b1c67e4485d522d3227c2a84b7b8f54b6",
-    "dashboard-read": "de212c38"
+    "dashboard-read": "e1df2207"
   }
 }

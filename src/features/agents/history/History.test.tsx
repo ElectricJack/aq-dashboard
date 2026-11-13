@@ -77,6 +77,11 @@ test('Internal is off by default: sessions show and no internal runs are request
  const router=createMemoryRouter([{path:'/agents/history',Component}],{initialEntries:['/agents/history']});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<App router={router} queryClient={client}/>);
  try{const list=await screen.findByRole('list',{name:'Session history'});await waitFor(()=>expect(within(list).getByText(/anthropic · fixture/)).toBeVisible());expect(screen.getByLabelText('Internal')).not.toBeChecked();expect(runRequests).toBe(0);}finally{router.dispose();client.clear();}
 });
+test('?internal=1 opens History with Internal on, as an internal work attention item links it',async()=>{
+ handlers();let runRequests=0;server.use(http.get('/api/internal-work/runs',()=>{runRequests++;return HttpResponse.json({runs:[internalRun],next_cursor:null});}));
+ const router=createMemoryRouter([{path:'/agents/history',Component}],{initialEntries:['/agents/history?internal=1']});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<App router={router} queryClient={client}/>);
+ try{const list=await screen.findByRole('list',{name:'Internal work'});expect(await within(list).findByText('playbook call')).toBeVisible();expect(screen.getByLabelText('Internal')).toBeChecked();expect(runRequests).toBe(1);}finally{router.dispose();client.clear();}
+});
 test('turning Internal on lists internal runs instead of sessions',async()=>{
  handlers();const search:string[]=[];server.use(http.get('/api/internal-work/runs',({request})=>{search.push(new URL(request.url).search);return HttpResponse.json({runs:[internalRun],next_cursor:null});}));
  const router=createMemoryRouter([{path:'/agents/history',Component}],{initialEntries:['/agents/history']});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<App router={router} queryClient={client}/>);const user=userEvent.setup();
