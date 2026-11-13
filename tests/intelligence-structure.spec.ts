@@ -19,7 +19,8 @@ for (const width of [1440, 390, 320]) {
     await expect(page.getByRole("table", { name: "Intelligence variations", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
     await expect(page.getByRole("combobox", { name: "Variation to add" })).toContainText("Standard · Medium");
-    await expect(page.getByText("Saved policy source; playbook execution will be connected later.")).toBeVisible();
+    await expect(page.getByText("Saved changes are compiled and take effect when they compile.")).toBeVisible();
+    await expect(page.getByRole("switch", { name: "Route tasks with this policy" })).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map(v => v.id)).toEqual([]);
@@ -39,6 +40,34 @@ test("parent description and routing markdown persist across reload", async ({ p
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
   await expect(page.getByLabel("Standard description", { exact: true })).toHaveValue("Saved description");
   await expect(page.getByLabel("Markdown")).toHaveValue("# Saved routing\n\nUse Standard for ordinary work.");
+});
+
+test("a saved policy compiles, shows how it routes, and routing can be turned on", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence");
+  const policy = page.getByRole("region", { name: "Routing policy" });
+  const toggle = policy.getByRole("switch", { name: "Route tasks with this policy" });
+  // The first read waits for the mock network and every Settings panel to load.
+  await expect(toggle).toBeDisabled({ timeout: 15_000 });
+  await policy.getByLabel("Markdown").fill("# Routing\n\nBug fixes are Standard, high effort.");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(policy.getByText("Compiling…")).toBeVisible();
+  const summary = policy.getByRole("region", { name: "How this policy routes" });
+  await expect(summary).toContainText("Fixture: Bug fixes: Standard, high effort; Complex, high effort after 1 failed attempt.", { timeout: 10_000 });
+  await expect(policy.getByText("Compiling…")).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await page.reload();
+  await expect(page.getByRole("switch", { name: "Route tasks with this policy" })).toBeChecked();
+});
+
+test("a failed compile keeps the previous policy and says what could not be resolved", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence&scenario=routing-compile-failed");
+  const policy = page.getByRole("region", { name: "Routing policy" });
+  await expect(policy.getByText("This version did not compile. The previous policy is still routing.")).toBeVisible({ timeout: 15_000 });
+  await expect(policy.getByRole("list", { name: "Unresolved sentences" })).toContainText("Fixture: Art and visual design go to the plotter.");
+  await expect(policy.getByRole("list", { name: "Compile problems" })).toContainText("kinds.docs.class");
+  await expect(policy.getByRole("region", { name: "How this policy routes" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
 
 test("variation limits save independently", async ({ page }) => {
