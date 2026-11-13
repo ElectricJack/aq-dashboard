@@ -79,7 +79,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
-  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<number|null>(null),[route,setRoute]=useState<RouteChoice>(NO_ROUTE);
+  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<{status:number;reasoned:boolean}|null>(null),[route,setRoute]=useState<RouteChoice>(NO_ROUTE);
   const dialog=useRef<HTMLDialogElement>(null),root=useRef<HTMLDivElement>(null),opener=useRef<HTMLElement|null>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
   const blockerIds=new Set((execution?.blockerIds??[]).map(id=>id.toLowerCase()));
   const dependency=useGraphNeighborhood(kind==="task.dependency.remove"?record.project.id:"",record.data?.id??"");
@@ -115,7 +115,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       else if(reason instanceof ApiError&&reason.status===426){reportIncompatible("dashboard.actions");setUnknown(true);}
       else if(reason instanceof ApiError&&reason.status===410){setRetired(true);setUnknown(false);setError(null);}
       else if(!lookup&&reason instanceof ApiError&&reason.status===409){setOperation({operation_id:value.id,disposition:"conflict",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],current_versions:reason.envelope?.current_versions,recovery:"refresh_and_review"});setUnknown(false);setError(reason.envelope?.message??"The expected version has changed.");}
-      else if(!lookup&&reason instanceof ApiError&&!reason.effectUnknown&&[400,404,413,422].includes(reason.status??0)){setOperation({operation_id:value.id,disposition:"rejected",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],recovery:"refresh_and_review"});setUnknown(false);setRefusal(reason.status??null);
+      else if(!lookup&&reason instanceof ApiError&&!reason.effectUnknown&&[400,404,413,422].includes(reason.status??0)){setOperation({operation_id:value.id,disposition:"rejected",request_digest:"",subject_refs:[],receipt_refs:[],affected_entities:[],recovery:"refresh_and_review"});setUnknown(false);setRefusal({status:reason.status??0,reasoned:!!reason.envelope&&!GENERIC_REFUSALS.includes(reason.envelope.code)});
         // The only task a dependency names besides the subject is the blocker: a 404 means it doesn't exist or isn't visible (WDR-05).
         setError(value.kind==="task.dependency.add"&&reason.status===404?"The blocker task doesn't exist or isn't available to you. Check the task ID, or choose the blocker from the matching tasks.":reason.envelope?.message??"AQ refused this action.");}
       else{setUnknown(true);setError(null);}
@@ -214,7 +214,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
         {kind==="task.route.clear"&&<p>Remove this task's route. Under an automatic router the task then waits for routing until it is routed again.</p>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":"Submit"}</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!(kind==="task.dependency.add"&&refusal===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!refusal?.reasoned&&!(kind==="task.dependency.add"&&refusal?.status===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -226,7 +226,9 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
 }
 
 const NOT_OFFERED="Not offered by this AQ server";
-/** The dashboard actions contract carries no rejection reason (WD-08); restate the server's preconditions instead. */
+/** A receipt carries no rejection reason (WD-08), so the dialog restates the server's preconditions, unless AQ refused
+ * with its own reason code (for example a retry the retry budget holds, M2): then its message is the reason. */
+const GENERIC_REFUSALS=["invalid_request","not_found","request_too_large"];
 const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
 
   "task.retry":"It retries only an active task whose last attempt can be replaced.",
