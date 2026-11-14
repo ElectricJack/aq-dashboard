@@ -73,6 +73,7 @@ export const ATTENTION_ICON: Record<AttentionView["kind"], LucideIcon> = {
   blocked: OctagonAlert,
   failed: TriangleAlert,
   uncertain_operation: CircleDashed,
+  internal_work: Workflow,
   unsupported: CircleHelp,
 };
 

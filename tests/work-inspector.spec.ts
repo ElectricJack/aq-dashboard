@@ -38,12 +38,45 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       const actions = vp.name === "desktop" ? "More actions" : "Task actions";
       await panel.getByRole("button", { name: actions }).click();
       const menu = page.getByRole("menu");
-      await expect(menu.getByRole("menuitem")).toHaveCount(vp.name === "desktop" ? 5 : 6);
+      // Includes Set route, offered because this fixture task is ready under an automatic router (spec 0011 §8).
+      await expect(menu.getByRole("menuitem")).toHaveCount(vp.name === "desktop" ? 7 : 8);
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-menu-${vp.name}.png` });
       await axe(page);
       await page.keyboard.press("Escape");
       await expect(menu).toBeHidden();
       await expect(panel.getByRole("button", { name: actions })).toBeFocused();
+    });
+
+    test("the owner sets a route on a task that waits for routing, then clears it", async ({ page }) => {
+      await page.goto(`/work/${approve}?${scope}`);
+      const panel = inspector(page);
+      const route = panel.locator("[data-task-route]");
+      await expect(route).toContainText("Waiting for routing · 4 min");
+      const actions = vp.name === "desktop" ? "More actions" : "Task actions";
+      const choose = async (name: string) => {
+        await panel.getByRole("button", { name: actions }).click();
+        await page.getByRole("menuitem", { name }).click();
+        return page.getByRole("dialog", { name });
+      };
+      const set = await choose("Set route");
+      await set.getByLabel("Class").selectOption("standard-high");
+      await expect(set.getByRole("checkbox", { name: "fixture-provider" })).toBeVisible();
+      if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-set-route-${vp.name}.png` });
+      await axe(page);
+      await set.getByRole("button", { name: "Submit" }).click();
+      await expect(set.getByText("Route set to Standard · High")).toBeVisible();
+      await set.getByRole("button", { name: "Close action" }).click();
+      await expect(route).toContainText("Standard · High");
+      await expect(route).toContainText("Set by the owner");
+      await route.getByText("Why this route").click();
+      await expect(route.getByText("Fixture: the owner set this route.")).toBeVisible();
+      if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-routed-${vp.name}.png` });
+      const clear = await choose("Clear route");
+      await clear.getByRole("button", { name: "Submit" }).click();
+      await expect(clear.getByText("Route cleared")).toBeVisible();
+      await clear.getByRole("button", { name: "Close action" }).click();
+      await expect(route).toContainText("Waiting for routing");
+      await axe(page);
     });
 
     test("without task capabilities one shared reason replaces repeated hints", async ({ page }) => {

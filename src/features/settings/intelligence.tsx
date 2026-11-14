@@ -13,6 +13,7 @@ import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import { readIntelligenceStructure, type IntelligenceStructure, type IntelligenceStructureSaved } from "../../api/intelligenceSettings";
 import { IntelligenceGroups, PARENT_NAMES, variationName, type ParentId, type ProfileAssignment } from "./IntelligenceGroups";
 import { ParentDescriptionEditor, StructureDraftProvider, useStructureSave } from "./IntelligenceStructureControls";
+import { InternalWorkSettings } from "./InternalWorkSettings";
 import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 import { useIntelligenceDraft, useIntelligenceDrafts } from "./IntelligenceDrafts";
 import styles from "./Intelligence.module.css";
@@ -339,6 +340,7 @@ function IntelligenceSettingsContent() {
           setPendingVariations(old => ({ ...old, [id]: { parent, effort, structure: structuredClone(structure.data!) } }));
         }}>Add variation</ActionButton></div>} /> : structure.isPending ? <QueryStatus status="pending" error={null} label="intelligence types" onRetry={() => void structure.refetch()} /> : table(profiles)}
       {structure.isError && <p className={styles.warning}>Intelligence types are unavailable. Existing profiles remain editable. <ActionButton onClick={() => void structure.refetch()}>Reload types</ActionButton></p>}
+      {structure.data && <InternalWorkSettings />}
       {structure.data && <RoutingPolicyEditor />}
       {profiles.length === 0 && <p className={styles.meta}>No profiles yet. Add a row to get started.</p>}
       <p className={styles.meta}>Blank max agents means unlimited; 0 pauses new launches. Running agents finish.</p>

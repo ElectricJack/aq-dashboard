@@ -8,6 +8,9 @@ import search from '../../../contracts/pinned/dashboard-read/v1/fixtures/search-
 import prior from '../../../contracts/live/fixtures/overview.json';
 import { adaptOverview, adaptSearch } from './inspection';
 import { adaptProviderUsage } from './providerUsage';
+import schema from '../../../contracts/pinned/dashboard-read/v1/schema.json';
+import { ATTENTION_SOURCE_LABEL } from './overview';
+import { subjectPath } from '../../app/subjects';
 import type { Overview, SearchResults, Envelope, ProviderUsage } from '../wire/proposed';
 const overview = (v: unknown) => adaptOverview(v as Overview);
 const usage = (v: unknown) => adaptProviderUsage(v as Envelope<ProviderUsage[]>);
@@ -39,4 +42,16 @@ test('G4 search refs and per-group continuation are adapted',()=>{
  const view=adaptSearch(search.data as unknown as SearchResults);
  expect(view.groups[0]?.hits[0]?.ref.type).toBe('task');
  expect(view.groups[0]).toHaveProperty('nextCursor',search.data.groups[0]!.next_cursor);
+});
+test('internal work attention is labelled Internal work and opens the affected item, not the run',()=>{
+ expect(schema.$defs.AttentionKind.enum).toContain('internal_work');
+ const task='6a1f6c64-2b1e-4c8f-9a52-0d6f3c1e7b10';
+ const run='0b3c2d4e-5f60-4718-8a9b-c0d1e2f3a4b5';
+ const item={id:`internal_work:${run}`,kind:'internal_work',title:'Internal work failed',project:null,reason:'supervisor attempts exhausted',impact:'Review the owning record for current context',since:'2026-11-12T10:00:00.000Z',subject:{type:'task',id:task},action:null};
+ const view=overview({...nonempty.data,attention:[item]});
+ const adapted=view.attention[0]!;
+ expect(adapted.kind).toBe('internal_work');
+ expect(ATTENTION_SOURCE_LABEL[adapted.kind]).toBe('Internal work');
+ expect(adapted.reason).toBe('supervisor attempts exhausted');
+ expect(subjectPath(adapted.subject)).toBe(`/work/${task}`);
 });

@@ -11,6 +11,8 @@ export type HostProbe = "not_applicable" | "fresh" | "stale" | "missing";
 export type ServiceState = "running" | "stopped" | "draining" | "unreported";
 export type ReportedState = "ready" | "unavailable" | "unreported";
 export type IntelligenceClass = "fast" | "standard" | "deep";
+// "history_rate_limited" is unused: no server sends it since the offer and worker report
+// rate limits were removed (2026-11-13). It stays because the pinned schema lists it.
 export type HoldCode =
   | "worker_offline" | "worker_revoked" | "worker_stopped" | "worker_draining"
   | "capability_unreported" | "capability_expired"

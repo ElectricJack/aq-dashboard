@@ -10,7 +10,14 @@ const CODE = "ENROLL-7f3a9c-ONCE";
 const server = setupServer(...handlersFor("default"));
 let restore: () => void;
 beforeAll(() => { restore = stubReactFlowDom(); server.listen({ onUnhandledFrame: "error" }); });
-beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+beforeEach(() => {
+  sessionStorage.clear(); localStorage.clear();
+  // The Swarm page also reads these; without an answer each shows its own alert.
+  server.use(
+    http.get("/api/settings/swarm", () => HttpResponse.json({ revision: "1", catalog_revision: "1", active_mode: "normal", normal: [], reduced: [], cells: [], unclassified: [], provider_limits: [], cell_limits: [] })),
+    http.get("/api/manual-agents", () => HttpResponse.json({ items: [] })),
+  );
+});
 afterEach(() => { server.resetHandlers(); server.events.removeAllListeners(); vi.restoreAllMocks(); });
 afterAll(() => { server.close(); restore(); });
 

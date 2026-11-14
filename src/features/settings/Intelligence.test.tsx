@@ -16,7 +16,8 @@ function snapshot() { return { revision: "12", active_digest: "a".repeat(64), pr
   { ...openai, harness: "codex", reasoning: "medium", reasoning_configuration_reference: "medium@1" },
 ] }; }
 const server = setupServer(...handlersFor("default"));
-beforeEach(() => server.use(http.get("/api/settings/swarm", () => HttpResponse.json(limitsSnapshot())), http.get("/api/settings/intelligence/structure", () => HttpResponse.json({}, { status: 503 }))));
+beforeEach(() => server.use(http.get("/api/settings/swarm", () => HttpResponse.json(limitsSnapshot())), http.get("/api/settings/intelligence/structure", () => HttpResponse.json({}, { status: 503 })),
+  http.get("/api/settings/internal-work", () => HttpResponse.json({ revision: "0", catalog_revision: "1", default_profile_id: null, overrides: {}, purposes: [] }))));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" })); afterEach(() => server.resetHandlers()); afterAll(() => server.close());
 function read(data = snapshot()) { server.use(http.get("/api/settings/intelligence", () => HttpResponse.json(data))); }
 async function open() { renderApp("/settings?tab=intelligence"); return screen.findByRole("row", { name: "Standard" }); }

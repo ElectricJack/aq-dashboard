@@ -131,3 +131,11 @@
 .historyValues > span { display:inline-flex; flex-wrap:wrap; gap:var(--space-1); overflow-wrap:anywhere; }
 .historyValues > span > span:first-child { color:var(--color-text-secondary); }
 .partial { margin-inline-start:var(--space-2); padding:0 6px; border:1px solid var(--color-attention); border-radius:4px; color:var(--color-attention); font-size:var(--font-size-xs); line-height:18px; font-weight:600; }
+
+/* Route history disclosure (spec 0011 §8): reasons under each route, newest first. */
+.routeHistory { font-size:var(--font-size-meta); }
+.routeHistory summary { cursor:pointer; color:var(--color-accent); }
+.routeHistory ol { list-style:none; margin:var(--space-1) 0 0; padding:0; display:grid; gap:var(--space-2); }
+.routeHistory li { display:grid; gap:2px; }
+.routeHistory ul { list-style:disc; padding-inline-start:var(--space-4); }
+.routeHistory ul li { display:list-item; }

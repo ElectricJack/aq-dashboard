@@ -163,6 +163,21 @@ test("an HTTP refusal shows the server's own message when it sends one (WD-08)",
  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Blocker would create a dependency cycle");expect(within(dialog).queryByText(/permissions/)).toBeNull();
 });
 
+test("a retry AQ refuses for a held task says why in its dialog, not the generic precondition (M2)",async()=>{
+ const message="Retry refused: the catalog retry policy's maximum attempts are used up (2 of 2 allowed attempts charged). A retry cannot override the budget: cancel this task and create a new one (re-add its dependencies) to run it again.";
+ server.use(http.post("/api/v1/actions",()=>HttpResponse.json({request_id:"r",code:"replacement_policy_retry_budget_exhausted",message,retryable:false},{status:422})));
+ const {dialog}=await open("task.retry","Retry attempt");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
+ expect(await within(dialog).findByRole("alert")).toHaveTextContent(message);
+ expect(within(dialog).getByRole("status")).toHaveTextContent(/^Rejected — AQ refused this action\.$/);
+ expect(within(dialog).queryByText("Action confirmed",{exact:true})).not.toBeInTheDocument();
+});
+
+test("a rejected retry receipt names AQ's reason in its dialog (R1-M5)",async()=>{
+ server.use(http.post("/api/v1/actions",async({request})=>HttpResponse.json(operation((await request.json() as {operation_id:string}).operation_id,"rejected",{reason:"replacement_prior_execution_uncertain"}))));
+ const {dialog}=await open("task.retry","Retry attempt");await userEvent.click(within(dialog).getByRole("button",{name:/^(Submit|Cancel task)$/}));
+ expect(await within(dialog).findByRole("status")).toHaveTextContent(/^Rejected — AQ refused this action: its last attempt may still be running\.$/);
+});
+
 test("a task can be canceled without a holding attempt",async()=>{
  holding=false;const {node}=setup("task.edit");renderApp(`/work/${node.id}?scope=project:${graphProject}`);
  await screen.findByText("No agent attempt holds this task.");
