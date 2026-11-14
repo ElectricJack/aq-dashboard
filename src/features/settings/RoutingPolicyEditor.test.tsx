@@ -15,9 +15,9 @@ const snapshot = () => ({ revision: "1", catalog_revision: "2", routing_markdown
 ], assignments: [{ profile_id: "profile", parent_id: "simple", effort: "low" }] });
 const routingPath = "/api/settings/intelligence/routing";
 const sourcePath = "/api/playbooks/sources/routing";
-/** What the routing endpoint still answers after the decision table was removed: the switch, and nothing else. */
-const switchState = (enabled = false) => ({ enabled, active: null, latest: null });
-const bare = { id: "routing", kind: "builtin", binding: "aq.routing", active: null, latest: null };
+/** The routing read of a server that does not fill `source`: the source is then read from the sources API, which is what most tests here drive. */
+const switchState = (enabled = false) => ({ enabled, source: null });
+const bare = { id: "routing", kind: "builtin", binding: "aq.routing", purpose: "Choose the intelligence level for each task", revision: 1, active: null, latest: null };
 const server = setupServer(
   http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: "2", active_digest: null, profiles: [], model_choices: [] })),
   http.get(routingPath, () => HttpResponse.json(switchState())),
@@ -96,9 +96,9 @@ test("combines description and policy drafts and clears a reverted field", async
 });
 
 const kase = (situation: string, result: string, passed = true) => ({ name: "steps.classify", situation, result, passed });
-const active = (extra: Record<string, unknown> = {}) => ({ artifact: "sha256:" + "a".repeat(64), since_ms: 2_000, comparison: { change: "behaviour" }, can_rollback: true, previous: { since_ms: 1_000, summary: null },
+const active = (extra: Record<string, unknown> = {}) => ({ artifact: "sha256:" + "a".repeat(64), since_ms: 2_000, comparison: { change: "behaviour" }, can_rollback: true, previous: { since_ms: 1_000 },
   cases: [kase("a bug fix that failed once", "class: complex\neffort: high"), kase("a documentation fix", "class: simple\neffort: low")], ...extra });
-const latest = (status: string, extra: Record<string, unknown> = {}) => ({ run: "r1", status, question: null, unable: null, refusal: null, internal_task_id: null, created_at_ms: Date.now() - 5_000, finished_at_ms: status === "running" ? null : Date.now(), ...extra });
+const latest = (status: string, extra: Record<string, unknown> = {}) => ({ run: "7", status, question: null, unable: null, refusal: null, internal_task_id: null, created_at_ms: Date.now() - 5_000, finished_at_ms: status === "running" ? null : Date.now(), elapsed_ms: 5_000, ...extra });
 const source = (extra: Record<string, unknown> = {}) => ({ ...bare, ...extra });
 const useSource = (view: () => Record<string, unknown>) => server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json(view())));
 
@@ -110,10 +110,57 @@ test("says an agent turns saved changes into a playbook, and that the newest sav
   expect(screen.queryByText(/compile/i)).toBeNull();
 });
 
-test("a routing source that does not exist yet is the no playbook state, not an error", async () => {
-  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json({ error: "not_found", message: "Source not found" }, { status: 404 }))); open();
-  expect(await screen.findByText(/There is no playbook yet/)).toBeVisible();
-  expect(screen.queryByText(/could not be loaded/)).toBeNull();
+test("the source the routing read carries is shown without reading the sources API", async () => {
+  let reads = 0;
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(routingPath, () => HttpResponse.json({ enabled: true, source: source({ active: active(), latest: latest("saved") }) })),
+    http.get(sourcePath, () => { reads++; return HttpResponse.json(bare); }));
+  open();
+  expect(await screen.findByRole("region", { name: "What the playbook does" })).toBeVisible();
+  expect(screen.getByRole("switch", { name: "Route tasks with this playbook" })).toBeChecked();
+  expect(reads).toBe(0);
+});
+
+test("a routing source that does not exist yet is said in a plain sentence, and the switch stays off", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json({ error: "not_found", message: "There is no playbook source routing" }, { status: 404 }))); open();
+  expect(await screen.findByText("This server has not set up the routing playbook yet, so there is nothing to show.")).toBeVisible();
+  expect(screen.queryByText(/could not be loaded|There is no playbook source|404/)).toBeNull();
+  expect(screen.getByRole("switch", { name: "Route tasks with this playbook" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Author again" })).toBeNull();
+  expect(screen.getByLabelText("Markdown")).toBeEnabled();
+});
+
+test("playbooks that are not running are said in a plain sentence, without the server's failure text", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json({ error: "playbooks_unavailable", message: "playbooks unavailable: error connecting to engine database: timeout" }, { status: 503 }))); open();
+  expect(await screen.findByText("Playbooks are not running on this server right now. The routing playbook will show here once they are.")).toBeVisible();
+  expect(screen.queryByText(/could not be loaded|engine database|playbooks unavailable|503/)).toBeNull();
+  expect(screen.getByRole("switch", { name: "Route tasks with this playbook" })).toBeDisabled();
+});
+
+test("author again starts a run, which is polled until it ends; with nothing changed it says no run was started", async () => {
+  let running = false, started = 0, reads = 0;
+  const view = () => source({ active: active(), latest: running ? latest("running", { run: "8" }) : latest("saved") });
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => { reads++; const now = view(); if (running && reads > 4) running = false; return HttpResponse.json(now); }),
+    http.post(`${sourcePath}/runs`, () => { started++; return HttpResponse.json(view()); }));
+  open(20);
+  await userEvent.click(await screen.findByRole("button", { name: "Author again" }));
+  expect(await screen.findByText("Nothing has changed since this playbook was written, so no new run was started.")).toBeVisible();
+  running = true; reads = 0;
+  await userEvent.click(screen.getByRole("button", { name: "Author again" }));
+  expect(await screen.findByText("Writing the playbook…")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Author again" })).toBeNull();
+  await waitFor(() => expect(screen.queryByText("Writing the playbook…")).toBeNull());
+  expect(started).toBe(2);
+  expect(screen.getByRole("button", { name: "Author again" })).toBeEnabled();
+});
+
+test("author again when playbooks are not running says so in a plain sentence", async () => {
+  useSource(() => source({ latest: latest("failed", { refusal: "The agent ran out of time before it finished." }) }));
+  server.use(http.post(`${sourcePath}/runs`, () => HttpResponse.json({ error: "playbooks_unavailable", message: "playbooks unavailable: engine database timeout" }, { status: 503 })));
+  open();
+  expect(await screen.findByText("The agent ran out of time before it finished.")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Author again" }));
+  expect(await screen.findByText(/Playbooks are not running on this server right now\./)).toBeVisible();
+  expect(screen.queryByText(/engine database/)).toBeNull();
 });
 
 test("a source that cannot be read says so and leaves the document editable", async () => {
@@ -138,14 +185,14 @@ test("shows Writing the playbook… until the run finishes, then what the playbo
 });
 
 test("the agent's question is shown beside the editor, each sentence with its line, and the document stays editable", async () => {
-  const question = { question: "Which sentence wins?", sentences: [{ line: 3, text: "Research is Standard." }, { line: 9, text: "Research is always Complex." }] };
+  const question = { question: "Which sentence wins?", sentences: [{ line: 3, text: "Research is Standard." }, { line: 9, end_line: 10, text: "Research is always Complex,\nwhatever else is said." }] };
   useSource(() => source({ active: active(), latest: latest("question", { question }) }));
   open();
   const asking = await screen.findByRole("region", { name: "The playbook needs an answer" });
   expect(asking).toHaveTextContent("Which sentence wins?");
   const items = within(asking).getAllByRole("listitem");
   expect(items[0]).toHaveTextContent("Line 3Research is Standard.");
-  expect(items[1]).toHaveTextContent("Line 9Research is always Complex.");
+  expect(items[1]).toHaveTextContent("Lines 9–10Research is always Complex, whatever else is said.");
   const editor = screen.getByLabelText("Markdown");
   expect(asking.parentElement).toBe(editor.closest("div")!.parentElement);
   expect(screen.getAllByText("The playbook needs an answer")).toHaveLength(1);
@@ -155,7 +202,7 @@ test("the agent's question is shown beside the editor, each sentence with its li
 });
 
 test("a sentence that cannot be carried out, and a refusal, are shown in plain words", async () => {
-  useSource(() => source({ latest: latest("unable", { unable: [{ sentence: "Art goes to the plotter.", line: 12, reason: "There is no plotter." }] }) }));
+  useSource(() => source({ latest: latest("unable", { unable: { reason: "There is no plotter.", line: 12, sentence: "Art goes to the plotter." } }) }));
   const first = open();
   expect(await screen.findByText("This sentence cannot be carried out")).toBeVisible();
   expect(screen.getByText("Art goes to the plotter.")).toBeVisible();
@@ -183,7 +230,7 @@ test("saving while a run is in flight shows the newer run: the newest save wins"
   server.use(http.get(path, () => HttpResponse.json({ ...snapshot(), revision: saved ? "2" : "1" })), http.post(path, async ({ request }) => {
     const body = await request.json() as Record<string, unknown>; saves.push(body); saved = true;
     return HttpResponse.json({ ...snapshot(), revision: "2", routing_markdown: body.routing_markdown, operation_id: body.operation_id, disposition: "saved" });
-  }), http.get(sourcePath, () => HttpResponse.json(source({ latest: latest("running", { run: saved ? "new" : "old", created_at_ms: saved ? Date.now() : Date.now() - 3_600_000 }) }))));
+  }), http.get(sourcePath, () => HttpResponse.json(source({ latest: latest("running", { run: saved ? "9" : "8", created_at_ms: saved ? Date.now() : Date.now() - 3_600_000, elapsed_ms: saved ? 0 : 3_600_000 }) }))));
   open(20);
   expect(await screen.findByText(/Running for 60 min/)).toBeVisible();
   fireEvent.change(screen.getByLabelText("Markdown"), { target: { value: "# Newer" } });
@@ -228,41 +275,29 @@ test("the switch can always be turned off", async () => {
 });
 
 const noPrevious = { comparison: null, can_rollback: false, previous: null };
-test("rollback asks first, then calls the API, and the view is read again even when the answer is empty", async () => {
-  let rolledBack = 0;
-  server.use(http.get(path, () => HttpResponse.json(snapshot())),
-    http.get(sourcePath, () => HttpResponse.json(source({ active: active(rolledBack ? noPrevious : {}), latest: latest("saved") }))),
-    http.post(`${sourcePath}/rollback`, () => { rolledBack++; return new HttpResponse(null, { status: 204 }); }));
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
-  expect(rolledBack).toBe(0);
-  await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
-  await waitFor(() => expect(rolledBack).toBe(1));
-  await waitFor(() => expect(screen.queryByRole("button", { name: /Roll back/ })).toBeNull());
-  expect(screen.queryByRole("alert")).toBeNull();
-  expect(screen.getByText("There is no earlier playbook to compare it with.")).toBeVisible();
-});
-
-test("the view the server sends back is used, and the source is still read again", async () => {
+test("rollback asks first, then the view the server sends back is used, and the source is still read again", async () => {
   let reads = 0, rolledBack = false;
   server.use(http.get(path, () => HttpResponse.json(snapshot())),
     http.get(sourcePath, () => { reads++; return HttpResponse.json(source({ active: active(rolledBack ? noPrevious : {}), latest: latest("saved") })); }),
     http.post(`${sourcePath}/rollback`, () => { rolledBack = true; return HttpResponse.json(source({ active: active(noPrevious), latest: latest("saved") })); }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
+  expect(rolledBack).toBe(false);
   const before = reads;
   await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: /Roll back/ })).toBeNull());
   await waitFor(() => expect(reads).toBeGreaterThan(before));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByText("There is no earlier playbook to compare it with.")).toBeVisible();
 });
 
 test("a refused rollback shows the server's words", async () => {
   server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json(source({ active: active(), latest: latest("saved") }))),
-    http.post(`${sourcePath}/rollback`, () => HttpResponse.json({ error: "conflict", message: "There is no previous playbook to roll back to." }, { status: 409 })));
+    http.post(`${sourcePath}/rollback`, () => HttpResponse.json({ error: "conflict", message: "There is no earlier playbook to go back to." }, { status: 409 })));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
   await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
-  expect(await screen.findByText("There is no previous playbook to roll back to.")).toBeVisible();
+  expect(await screen.findByText("There is no earlier playbook to go back to.")).toBeVisible();
 });
 
 test("a failed refresh while a run is in progress says so and stops polling", async () => {

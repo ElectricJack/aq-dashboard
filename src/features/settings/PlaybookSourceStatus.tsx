@@ -1,6 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { ApiError } from "../../api/client";
-import type { ActivePlaybook, AuthoringQuestion, LatestRun, PlaybookCase, PlaybookChange, SourceView } from "../../api/playbookSources";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { sourceFailure, type ActivePlaybook, type AuthoringQuestion, type LatestRun, type PlaybookCase, type PlaybookChange, type SourceView } from "../../api/playbookSources";
 import { ActionButton } from "../../components/layout/Workspace";
 import { InternalRun } from "../internal/InternalRun";
 import { Timestamp } from "./Timestamp";
@@ -33,6 +32,9 @@ function useNow(running: boolean) {
   return now;
 }
 
+/** "Line 3", or "Lines 3–4" for a sentence that spans several lines. */
+const lines = (line: number, end: number | null) => end !== null && end !== line ? `Lines ${line}–${end}` : `Line ${line}`;
+
 /** The agent's question, with each sentence of the document it is about and its line number. Everything here is the agent's text, shown as text. */
 export function PlaybookQuestion({ question }: { question: AuthoringQuestion }) {
   const id = useId();
@@ -42,7 +44,7 @@ export function PlaybookQuestion({ question }: { question: AuthoringQuestion }) 
     {question.sentences.length > 0 && <>
       <p className={styles.meta}>These sentences in the document are what it is asking about. Change them, then save.</p>
       <ol className={styles.sentences} aria-label="Sentences in question">
-        {question.sentences.map((sentence, index) => <li key={index}><span className={styles.line}>Line {sentence.line}</span><span className={styles.text}>{sentence.text}</span></li>)}
+        {question.sentences.map((sentence, index) => <li key={index}><span className={styles.line}>{lines(sentence.line, sentence.end_line)}</span><span className={styles.text}>{sentence.text}</span></li>)}
       </ol>
     </>}
   </section>;
@@ -87,7 +89,7 @@ function RollbackConfirm({ active, busy, onConfirm, onCancel }: { active: Active
   useEffect(() => { keep.current?.focus(); }, []);
   return <div className={styles.confirm} role="group" aria-labelledby={id} onKeyDown={event => { if (event.key === "Escape") onCancel(); }}>
     <h5 id={id}>Put the previous playbook back?</h5>
-    <p>{active.previous ? <>The previous playbook, which took effect {when(active.previous.since_ms)}, becomes the one in effect.</> : "The previous playbook becomes the one in effect."}</p>
+    <p>{active.previous && active.previous.since_ms > 0 ? <>The previous playbook, which took effect {when(active.previous.since_ms)}, becomes the one in effect.</> : "The previous playbook becomes the one in effect."}</p>
     {active.previous?.summary && <p className={styles.text}>{active.previous.summary}</p>}
     <p>The current playbook, in effect since {when(active.since_ms)}, stops. Tasks routed from now on follow the previous playbook.</p>
     <div className={styles.actions}>
@@ -110,7 +112,7 @@ function Active({ active, onRollback }: { active: ActivePlaybook; onRollback: ()
   const grouped = active.cases.length > GROUP_CASES_ABOVE && new Set(active.cases.map(one => one.result)).size < active.cases.length;
   const rollBack = async () => {
     setRolling(true); setError(null);
-    try { await onRollback(); } catch (caught) { setError(caught instanceof ApiError && caught.serverMessage ? caught.serverMessage : "The previous playbook could not be put back."); } finally { setRolling(false); setConfirming(false); }
+    try { await onRollback(); } catch (caught) { setError(sourceFailure(caught, "The previous playbook could not be put back.")); } finally { setRolling(false); setConfirming(false); }
   };
   return <section className={styles.active} aria-labelledby={heading}>
     <h4 id={heading}>What the playbook does</h4>
@@ -131,10 +133,12 @@ function Active({ active, onRollback }: { active: ActivePlaybook; onRollback: ()
 
 function Latest({ latest, hasActive, showQuestion }: { latest: LatestRun; hasActive: boolean; showQuestion: boolean }) {
   const now = useNow(latest.status === "running");
+  // The server says how long the run has taken by its own clock; this page only adds the time since it read that.
+  const read = useMemo(() => Date.now(), [latest.run, latest.elapsed_ms]);
   const still = hasActive ? "The previous playbook is still in effect." : "No playbook is in effect yet.";
   switch (latest.status) {
     case "running": return <div className={styles.notice} role="status">
-      <p><strong>Writing the playbook…</strong> Running for {elapsed(now - latest.created_at_ms)}.</p>
+      <p><strong>Writing the playbook…</strong> Running for {elapsed(latest.elapsed_ms + Math.max(0, now - read))}.</p>
       <p className={styles.meta}>{hasActive ? "The current playbook keeps working meanwhile. " : ""}Saving the document again replaces this run: the newest save wins.</p>
     </div>;
     case "question": return <div className={styles.notice}>
@@ -142,14 +146,11 @@ function Latest({ latest, hasActive, showQuestion }: { latest: LatestRun; hasAct
       <p className={styles.meta}>{still}</p>
     </div>;
     case "unable": return <div className={styles.problem} role="alert">
-      <h4>{latest.unable.length > 1 ? "These sentences cannot be carried out" : "This sentence cannot be carried out"}</h4>
-      {latest.unable.length === 0 && <p className={styles.meta}>The agent did not say which sentence.</p>}
-      <ul className={styles.unable} aria-label="Sentences that cannot be carried out">
-        {latest.unable.map((one, index) => <li key={index}>
-          <p className={styles.text}>{one.line !== null && <span className={styles.line}>Line {one.line}</span>}{one.sentence}</p>
-          <p className={styles.text}>{one.reason}</p>
-        </li>)}
-      </ul>
+      <h4>{latest.unable?.host_fault ? "The playbook could not be written" : "This sentence cannot be carried out"}</h4>
+      {latest.unable ? <div className={styles.unable}>
+        <p className={styles.text}>{latest.unable.line !== null && <span className={styles.line}>Line {latest.unable.line}</span>}{latest.unable.sentence}</p>
+        <p className={styles.text}>{latest.unable.reason}</p>
+      </div> : <p className={styles.meta}>The agent did not say which sentence.</p>}
       <p className={styles.meta}>{still}</p>
     </div>;
     case "refused": return <div className={styles.problem} role="alert">
@@ -163,6 +164,7 @@ function Latest({ latest, hasActive, showQuestion }: { latest: LatestRun; hasAct
     </div>;
     case "failed": return <div className={styles.problem} role="alert">
       <h4>The run ended without a playbook</h4>
+      {latest.refusal && <p className={styles.text}>{latest.refusal}</p>}
       <p className={styles.meta}>{still}</p>
     </div>;
     case "saved": return null;
@@ -170,13 +172,32 @@ function Latest({ latest, hasActive, showQuestion }: { latest: LatestRun; hasAct
   }
 }
 
+/** Starts another run from the saved document. The server starts none when nothing changed, and the owner is told so. */
+function AuthorAgain({ onAuthorAgain }: { onAuthorAgain: () => Promise<SourceView> }) {
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState<{ text: string; failed: boolean } | null>(null);
+  const start = async () => {
+    setBusy(true); setSaid(null);
+    try {
+      const view = await onAuthorAgain();
+      if (view.latest?.status !== "running") setSaid({ text: "Nothing has changed since this playbook was written, so no new run was started.", failed: false });
+    } catch (caught) { setSaid({ text: sourceFailure(caught, "A new run could not be started."), failed: true }); } finally { setBusy(false); }
+  };
+  return <div className={styles.actions}>
+    <ActionButton disabled={busy} onClick={() => void start()}>Author again</ActionButton>
+    {said && (said.failed ? <span className={styles.failed} role="alert">{said.text}</span> : <span className={styles.meta} role="status">{said.text}</span>)}
+  </div>;
+}
+
 /**
  * What an authoring run did to a source's playbook: writing now, a question, what could not be carried out, and
  * what the playbook in effect does (cases, change from the previous one) with a way back to the previous one.
  * Everything shown from a run is untrusted text and is rendered as text only.
  */
-export function PlaybookSourceStatus({ source, onRollback, showQuestion = true }: {
+export function PlaybookSourceStatus({ source, onRollback, onAuthorAgain, showQuestion = true }: {
   source: SourceView; onRollback: () => Promise<unknown>;
+  /** Given, an "Author again" button is offered whenever no run is in progress. */
+  onAuthorAgain?: () => Promise<SourceView>;
   /** False when the caller shows the question itself (beside the document editor). */
   showQuestion?: boolean;
 }) {
@@ -184,6 +205,7 @@ export function PlaybookSourceStatus({ source, onRollback, showQuestion = true }
   return <div className={styles.status}>
     {latest ? <Latest latest={latest} hasActive={active !== null} showQuestion={showQuestion} /> : active === null && <p className={styles.meta}>There is no playbook yet. Save the document and an agent will write one from it.</p>}
     {active && <Active active={active} onRollback={onRollback} />}
+    {onAuthorAgain && latest?.status !== "running" && <AuthorAgain onAuthorAgain={onAuthorAgain} />}
     {latest && <InternalRun affectedKind={PLAYBOOK_SOURCE_AFFECTED_KIND} affectedId={source.id} />}
   </div>;
 }

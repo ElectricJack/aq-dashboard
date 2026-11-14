@@ -18,11 +18,11 @@ const kase = (situation: string, result: string, passed = true): PlaybookCase =>
 const cases = [kase("a bug fix that failed once", "class: complex\neffort: high"), kase("a documentation fix", "class: simple\neffort: low")];
 const active = (extra: Partial<ActivePlaybook> = {}): ActivePlaybook => ({ artifact: `sha256:${"a".repeat(64)}`, since_ms: Date.UTC(2026, 10, 12, 9, 0, 0), comparison: { change: "behaviour" }, can_rollback: true,
   previous: { since_ms: Date.UTC(2026, 10, 11, 9, 0, 0), summary: "Bug fixes were Standard." }, cases, ...extra });
-const run = (status: LatestRun["status"], extra: Partial<LatestRun> = {}): LatestRun => ({ run: "r1", status, question: null, unable: [], refusal: null, internal_task_id: null, created_at_ms: Date.now() - 125_000, finished_at_ms: null, ...extra });
-const source = (extra: Partial<SourceView> = {}): SourceView => ({ id: "routing", kind: "builtin", binding: "aq.routing", active: null, latest: null, ...extra });
-function open(view: SourceView, onRollback: () => Promise<unknown> = async () => {}, showQuestion?: boolean) {
+const run = (status: LatestRun["status"], extra: Partial<LatestRun> = {}): LatestRun => ({ run: "r1", status, question: null, unable: null, refusal: null, internal_task_id: null, created_at_ms: Date.now() - 125_000, finished_at_ms: null, elapsed_ms: 125_000, ...extra });
+const source = (extra: Partial<SourceView> = {}): SourceView => ({ id: "routing", kind: "builtin", binding: "aq.routing", purpose: "Choose the intelligence level for each task", revision: 1, active: null, latest: null, ...extra });
+function open(view: SourceView, onRollback: () => Promise<unknown> = async () => {}, showQuestion?: boolean, onAuthorAgain?: () => Promise<SourceView>) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}><PlaybookSourceStatus source={view} onRollback={onRollback} {...(showQuestion === undefined ? {} : { showQuestion })} /></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><PlaybookSourceStatus source={view} onRollback={onRollback} {...(showQuestion === undefined ? {} : { showQuestion })} {...(onAuthorAgain ? { onAuthorAgain } : {})} /></QueryClientProvider>);
 }
 
 describe("shows each state in plain words", () => {
@@ -49,31 +49,40 @@ describe("shows each state in plain words", () => {
   });
 
   test("needs an answer: the question and each sentence with its line number", () => {
-    const question = { question: "Which of these wins for research?", sentences: [{ line: 3, text: "Research is Standard." }, { line: 9, text: "Research is always Complex." }] };
+    const question = { question: "Which of these wins for research?", sentences: [{ line: 3, end_line: null, text: "Research is Standard." }, { line: 9, end_line: 10, text: "Research is always Complex." }] };
     open(source({ active: active(), latest: run("question", { question }) }));
     const region = screen.getByRole("region", { name: "The playbook needs an answer" });
     expect(region).toHaveTextContent("Which of these wins for research?");
     const items = within(screen.getByRole("list", { name: "Sentences in question" })).getAllByRole("listitem");
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent("Line 3Research is Standard.");
-    expect(items[1]).toHaveTextContent("Line 9Research is always Complex.");
+    expect(items[1]).toHaveTextContent("Lines 9–10Research is always Complex.");
     expect(screen.getByText("The previous playbook is still in effect.")).toBeVisible();
   });
 
   test("the caller can show the question itself", () => {
-    open(source({ latest: run("question", { question: { question: "Which?", sentences: [{ line: 1, text: "A." }] } }) }), undefined, false);
+    open(source({ latest: run("question", { question: { question: "Which?", sentences: [{ line: 1, end_line: null, text: "A." }] } }) }), undefined, false);
     expect(screen.queryByRole("region", { name: "The playbook needs an answer" })).toBeNull();
     expect(screen.queryByText("Which?")).toBeNull();
     expect(screen.getByText("No playbook is in effect yet.")).toBeVisible();
   });
 
-  test("could not be authored: the sentence and the reason", () => {
-    open(source({ latest: run("unable", { unable: [{ sentence: "Art goes to the plotter.", line: 12, reason: "There is no plotter among the abilities." }] }) }));
-    expect(screen.getByRole("alert")).toHaveTextContent("This sentence cannot be carried out");
-    const item = within(screen.getByRole("list", { name: "Sentences that cannot be carried out" })).getByRole("listitem");
-    expect(item).toHaveTextContent("Line 12Art goes to the plotter.");
-    expect(item).toHaveTextContent("There is no plotter among the abilities.");
+  test("could not be authored: the sentence with its line, and the reason", () => {
+    open(source({ latest: run("unable", { unable: { sentence: "Art goes to the plotter.", line: 12, reason: "There is no plotter among the abilities.", host_fault: false } }) }));
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("This sentence cannot be carried out");
+    expect(alert).toHaveTextContent("Line 12Art goes to the plotter.");
+    expect(alert).toHaveTextContent("There is no plotter among the abilities.");
     expect(screen.getByText("No playbook is in effect yet.")).toBeVisible();
+  });
+
+  test("a fault in what the server gave the agent is not blamed on a sentence of the document", () => {
+    open(source({ latest: run("unable", { unable: { sentence: "This is a fault in what the server gave the agent, not in your document.", line: null, reason: "The list of abilities was empty.", host_fault: true } }) }));
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("The playbook could not be written");
+    expect(alert).toHaveTextContent("This is a fault in what the server gave the agent, not in your document.");
+    expect(alert).toHaveTextContent("The list of abilities was empty.");
+    expect(alert).not.toHaveTextContent(/This sentence cannot be carried out|Line \d/);
   });
 
   test("refused: the reason, and the previous playbook still in effect", () => {
@@ -88,8 +97,9 @@ describe("shows each state in plain words", () => {
   });
 
   test("an ended run without a playbook, and a state the page does not know", () => {
-    const { unmount } = open(source({ latest: run("failed") }));
+    const { unmount } = open(source({ latest: run("failed", { refusal: "The agent ran out of time before it finished. Author again, or make the document shorter." }) }));
     expect(screen.getByRole("alert")).toHaveTextContent("The run ended without a playbook");
+    expect(screen.getByRole("alert")).toHaveTextContent("The agent ran out of time before it finished.");
     unmount();
     open(source({ latest: run("unknown") }));
     expect(screen.getByRole("status")).toHaveTextContent("a state this page does not recognise");
@@ -232,9 +242,9 @@ describe("rollback", () => {
 });
 
 test("never shows a step id or a sha256 to the owner", () => {
-  const view = source({ active: active({ artifact: `sha256:${"b".repeat(64)}`, cases: [{ name: "steps.classify.assess", situation: "a bug fix", result: "class: complex", passed: true }] }),
+  const view = source({ active: active({ artifact: `sha256:${"b".repeat(64)}`, cases: [{ name: "steps.classify.assess", situation: "a bug fix", result: "Route set (class: complex). Ends as “routed”.", passed: true }] }),
     latest: run("saved", { run: "run-0001", internal_task_id: "00000000-0000-4000-8000-000000000001", finished_at_ms: 5 }) });
-  const { container } = open(view);
+  const { container } = open(view, undefined, undefined, async () => view);
   const shown = container.textContent ?? "";
   expect(shown).not.toMatch(/sha256:/);
   expect(shown).not.toMatch(/steps\./);
@@ -244,7 +254,7 @@ test("never shows a step id or a sha256 to the owner", () => {
 
 test("everything from a run is shown as text, never as markup or a link", () => {
   const html = '<img src=x onerror="alert(1)"> <a href="https://example.test">go</a> **bold** [link](https://example.test)';
-  const view = source({ active: active({ cases: [kase(html, html, false)] }), latest: run("unable", { refusal: html, unable: [{ sentence: html, reason: html, line: 1 }] }) });
+  const view = source({ active: active({ cases: [kase(html, html, false)] }), latest: run("unable", { refusal: html, unable: { sentence: html, reason: html, line: 1, host_fault: false } }) });
   const { container } = open(view);
   expect(screen.getAllByText(html, { exact: false }).length).toBeGreaterThanOrEqual(3);
   expect(container.querySelector("img, a, strong > strong")).toBeNull();
@@ -253,7 +263,39 @@ test("everything from a run is shown as text, never as markup or a link", () => 
 
 test("a question is shown as text too", () => {
   const html = "<b>Which</b> one? https://example.test";
-  const { container } = open(source({ latest: run("question", { question: { question: html, sentences: [{ line: 2, text: html }] } }) }));
+  const { container } = open(source({ latest: run("question", { question: { question: html, sentences: [{ line: 2, end_line: null, text: html }] } }) }));
   expect(container.querySelector("b, a")).toBeNull();
   expect(container).toHaveTextContent(html);
+});
+
+describe("author again", () => {
+  test("is offered when no run is in progress, and not while one is", () => {
+    const { unmount } = open(source({ latest: run("running") }), undefined, undefined, async () => source());
+    expect(screen.queryByRole("button", { name: "Author again" })).toBeNull();
+    unmount();
+    open(source({ latest: run("failed") }), undefined, undefined, async () => source());
+    expect(screen.getByRole("button", { name: "Author again" })).toBeEnabled();
+  });
+
+  test("when the server starts no run because nothing changed, it says so", async () => {
+    const view = source({ active: active(), latest: run("saved", { finished_at_ms: 5 }) });
+    const again = vi.fn(async () => view);
+    open(view, undefined, undefined, again);
+    await userEvent.click(screen.getByRole("button", { name: "Author again" }));
+    expect(again).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Nothing has changed since this playbook was written, so no new run was started.")).toBeVisible();
+  });
+
+  test("a started run says nothing more, and a refusal is shown in plain words", async () => {
+    const view = source({ latest: run("failed") });
+    const { unmount } = open(view, undefined, undefined, async () => source({ latest: run("running") }));
+    await userEvent.click(screen.getByRole("button", { name: "Author again" }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Author again" })).toBeEnabled());
+    expect(screen.queryByText(/no new run was started/)).toBeNull();
+    unmount();
+    open(view, undefined, undefined, async () => { throw new ApiError("http", "AQ responded 503", { status: 503, serverMessage: "playbooks unavailable: engine database timeout" }); });
+    await userEvent.click(screen.getByRole("button", { name: "Author again" }));
+    expect(await screen.findByText(/Playbooks are not running on this server right now\./)).toBeVisible();
+    expect(screen.queryByText(/engine database/)).toBeNull();
+  });
 });

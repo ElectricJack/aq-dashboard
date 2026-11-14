@@ -2,34 +2,23 @@ import { ApiError, apiGet, apiSend } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 
 /**
- * The playbook-authoring sources API (server task C6, spec 0013 §4.4-4.5), written from C6's planned contract before the server exists.
- * Everything the dashboard assumes about that API is in this file, so when the real server differs only this file changes.
+ * The playbook-authoring sources API (spec 0013 §4.4-4.5), as the server serializes it
+ * (`crates/aq-playbook-authoring/src/view.rs` and `http.rs`, server commit 857908e6).
  *
- * Planned contract (C6):
- *   GET    /api/playbooks/sources                       -> {items: [SourceView]}
- *   GET    /api/playbooks/sources/{id}                  -> SourceView
- *   POST   /api/playbooks/sources/{id}/runs             -> author again
- *   POST   /api/playbooks/sources/{id}/rollback
- *   DELETE /api/playbooks/sources/{id}                  -> registered sources only
- *   SourceView = {id, kind, binding,
- *     active: {artifact, since_ms, comparison: {change: "none"|"wording"|"behaviour"|"abilities"}, cases: [{name, situation, result, passed}]} | null,
- *     latest: {run, status, question: {question, sentences: [{line, text}]} | null, unable, refusal, internal_task_id, created_at_ms, finished_at_ms} | null}
+ *   GET    /api/playbooks/sources                 -> {items: [SourceView]}
+ *   GET    /api/playbooks/sources/{id}            -> SourceView; 404 until the source exists
+ *   POST   /api/playbooks/sources/{id}/runs       -> SourceView; starts no run when nothing changed or one is already running
+ *   POST   /api/playbooks/sources/{id}/rollback   -> SourceView; 409 with a sentence when there is no earlier playbook
+ *   DELETE /api/playbooks/sources/{id}            -> {deleted: true}; registered sources only
+ *   SourceView = {id, kind: "builtin"|"registered", binding, purpose, revision,
+ *     active: {artifact, since_ms, comparison: {change} | null, can_rollback, previous: {since_ms, summary?} | null, cases: [{name, situation, result, passed}]} | null,
+ *     latest: {run, status, question: {question, sentences: [{line, end_line?, text}]} | null,
+ *       unable: {reason, sentence, line} | {reason, sentence, host_fault: true} | null,
+ *       refusal: string | null (the sentence for a `refused` or a `failed` run), internal_task_id, created_at_ms, finished_at_ms, elapsed_ms} | null}
  *
- * Fixed with the server after review (round 1):
- *   active.can_rollback: boolean; when true, active.previous: {since_ms, summary?} names the playbook a rollback would bring back.
- *   active.comparison is an object when there is a previous playbook and null/absent when there is none. It is never used to decide whether a rollback is offered.
- *   Rollback and a new run answer 200 with the refreshed SourceView; delete answers {deleted: true}.
- *
- * Assumptions where the contract is still silent (each is marked below):
- *   A1 `latest.status` is one of RUN_STATUSES; anything else is kept as "unknown" and shown as such.
- *   A2 `latest.unable` is null, one `{sentence, reason, line?}`, or a list of them; it is normalised to a list.
- *   A3 `latest.refusal` is null or the reason in plain words (a string).
- *   A5 `kind` is a string (the plan names "builtin" and "registered"); other kinds are carried through.
- *   A6 `GET /api/playbooks/sources/routing` answers 404 until the routing source has been saved once; the dashboard shows that as "no playbook yet".
- *   A7 A mutating call may answer an empty or non-JSON 2xx: that is a success. A JSON answer that is a SourceView is used; any other answer is ignored. The view is always read again afterwards.
- *   A8 The routing document is saved through the existing structure endpoint, which starts the run on the server; the dashboard never PUTs markdown.
- *   A9 An ended run keeps the `question`, `unable` or `refusal` that explains it; `internal_task_id` is not shown (the run view finds the run by source id).
- *   A12 `previous.since_ms` is when the previous playbook took effect; `previous.summary` is optional plain words about it.
+ * While the playbook engine is not open every `/api/playbooks/*` call answers 503 `playbooks_unavailable`.
+ * The routing document is saved through the structure endpoint, which starts the run on the server: a built-in source refuses `PUT …/markdown`.
+ * A status the dashboard does not know is kept as "unknown" and shown as such.
  */
 export const PLAYBOOK_SOURCES_PATH = "/api/playbooks/sources";
 export const PLAYBOOK_CHANGES = ["none", "wording", "behaviour", "abilities"] as const;
@@ -42,14 +31,18 @@ export type PlaybookComparison = { change: PlaybookChange };
 /** What a rollback would bring back. */
 export type PreviousPlaybook = { since_ms: number; summary: string | null };
 export type ActivePlaybook = { artifact: string; since_ms: number; comparison: PlaybookComparison | null; can_rollback: boolean; previous: PreviousPlaybook | null; cases: PlaybookCase[] };
-export type QuotedSentence = { line: number; text: string };
+/** A sentence of the document: its first line, its last line when it spans several, and those lines as the server holds them. */
+export type QuotedSentence = { line: number; end_line: number | null; text: string };
 export type AuthoringQuestion = { question: string; sentences: QuotedSentence[] };
-export type UnableSentence = { sentence: string; reason: string; line: number | null };
+/** What could not be carried out. With `host_fault` the fault is in what the server gave the agent, not in the document, and there is no line. */
+export type UnableSentence = { sentence: string; reason: string; line: number | null; host_fault: boolean };
 export type LatestRun = {
-  run: string; status: RunStatus; question: AuthoringQuestion | null; unable: UnableSentence[]; refusal: string | null;
+  run: string; status: RunStatus; question: AuthoringQuestion | null; unable: UnableSentence | null; refusal: string | null;
   internal_task_id: string | null; created_at_ms: number; finished_at_ms: number | null;
+  /** How long the run has taken, by the server's clock: up to now while it runs, to its end afterwards. */
+  elapsed_ms: number;
 };
-export type SourceView = { id: string; kind: string; binding: string; active: ActivePlaybook | null; latest: LatestRun | null };
+export type SourceView = { id: string; kind: string; binding: string; purpose: string; revision: number; active: ActivePlaybook | null; latest: LatestRun | null };
 
 /** How much of a source's report is kept for display. A larger report is shortened, never refused, so it cannot hide the rest of the panel. */
 export const PLAYBOOK_DISPLAY_LIMITS = { items: 100, textChars: 1024, reasonChars: 4096 } as const;
@@ -88,31 +81,33 @@ function question(value: unknown): AuthoringQuestion | null {
   if (value === null || value === undefined) return null;
   ensure(isRecord(value) && text(value.question));
   const sentences = list(value.sentences).map((item): QuotedSentence => {
-    ensure(isRecord(item) && count(item.line) && text(item.text));
-    return { line: item.line, text: short(item.text) };
+    ensure(isRecord(item) && count(item.line) && (item.end_line === undefined || item.end_line === null || count(item.end_line)) && text(item.text));
+    return { line: item.line, end_line: (item.end_line as number | null | undefined) ?? null, text: short(item.text) };
   });
   return { question: clip(value.question, PLAYBOOK_DISPLAY_LIMITS.reasonChars), sentences };
 }
-function unableSentence(value: unknown): UnableSentence {
+function unable(value: unknown): UnableSentence | null {
+  if (value === null || value === undefined) return null;
   ensure(isRecord(value) && text(value.sentence) && text(value.reason) && (value.line === undefined || value.line === null || count(value.line)));
-  return { sentence: short(value.sentence), reason: clip(value.reason, PLAYBOOK_DISPLAY_LIMITS.reasonChars), line: (value.line as number | null | undefined) ?? null };
+  ensure(value.host_fault === undefined || typeof value.host_fault === "boolean");
+  return { sentence: short(value.sentence), reason: clip(value.reason, PLAYBOOK_DISPLAY_LIMITS.reasonChars), line: (value.line as number | null | undefined) ?? null, host_fault: value.host_fault === true };
 }
 function latest(value: unknown): LatestRun | null {
   if (value === null || value === undefined) return null;
-  ensure(isRecord(value) && text(value.run, 128) && typeof value.status === "string" && count(value.created_at_ms));
+  ensure(isRecord(value) && text(value.run, 128) && typeof value.status === "string" && count(value.created_at_ms) && count(value.elapsed_ms));
   ensure(value.internal_task_id === null || value.internal_task_id === undefined || text(value.internal_task_id, 64));
   ensure(value.finished_at_ms === null || value.finished_at_ms === undefined || count(value.finished_at_ms));
   ensure(value.refusal === null || value.refusal === undefined || typeof value.refusal === "string");
-  const unable = value.unable === null || value.unable === undefined ? [] : Array.isArray(value.unable) ? list(value.unable).map(unableSentence) : [unableSentence(value.unable)];
   return {
     run: value.run, status: RUN_STATUSES.includes(value.status as typeof RUN_STATUSES[number]) ? value.status as RunStatus : "unknown",
-    question: question(value.question), unable, refusal: typeof value.refusal === "string" ? clip(value.refusal, PLAYBOOK_DISPLAY_LIMITS.reasonChars) : null,
+    question: question(value.question), unable: unable(value.unable), refusal: typeof value.refusal === "string" ? clip(value.refusal, PLAYBOOK_DISPLAY_LIMITS.reasonChars) : null,
     internal_task_id: (value.internal_task_id as string | null | undefined) ?? null, created_at_ms: value.created_at_ms, finished_at_ms: (value.finished_at_ms as number | null | undefined) ?? null,
+    elapsed_ms: value.elapsed_ms,
   };
 }
 export function adaptSourceView(value: unknown): SourceView {
-  ensure(isRecord(value) && text(value.id, 128) && text(value.kind, 64) && text(value.binding, 128));
-  return { id: value.id, kind: value.kind, binding: value.binding, active: active(value.active), latest: latest(value.latest) };
+  ensure(isRecord(value) && text(value.id, 128) && text(value.kind, 64) && text(value.binding, 128) && text(value.purpose) && count(value.revision));
+  return { id: value.id, kind: value.kind, binding: value.binding, purpose: short(value.purpose), revision: value.revision, active: active(value.active), latest: latest(value.latest) };
 }
 export function adaptSourceList(value: unknown): SourceView[] {
   ensure(isRecord(value) && Array.isArray(value.items) && value.items.length <= 1024);
@@ -122,18 +117,26 @@ export function adaptSourceList(value: unknown): SourceView[] {
 const sourcePath = (id: string) => `${PLAYBOOK_SOURCES_PATH}/${encodeURIComponent(id)}`;
 export async function listPlaybookSources(signal?: AbortSignal) { return adaptSourceList(await apiGet<unknown>(PLAYBOOK_SOURCES_PATH, signal)); }
 export async function readPlaybookSource(id: string, signal?: AbortSignal) { return adaptSourceView(await apiGet<unknown>(sourcePath(id), signal)); }
-/** A mutating call: an empty or non-JSON 2xx is a success (A7), and the refreshed view is returned when the server sent one. */
-async function change(method: "POST" | "DELETE", path: string): Promise<SourceView | null> {
-  let answer: unknown;
-  try { answer = await apiSend<unknown>(method, path, undefined); } catch (error) {
-    if (error instanceof ApiError && error.kind === "contract" && (error.status ?? 0) >= 200 && (error.status ?? 0) < 300) return null;
-    throw error;
-  }
-  try { return adaptSourceView(answer); } catch { return null; }
+/** Puts the previous playbook back in effect; answers the refreshed view. */
+export async function rollBackPlaybookSource(id: string) { return adaptSourceView(await apiSend<unknown>("POST", `${sourcePath(id)}/rollback`, undefined)); }
+/** Authors the saved document again; answers the refreshed view. The server starts no run when nothing changed since the playbook in effect was written. */
+export async function authorPlaybookSourceAgain(id: string) { return adaptSourceView(await apiSend<unknown>("POST", `${sourcePath(id)}/runs`, undefined)); }
+/** Removes a registered source (never the routing source). */
+export async function deletePlaybookSource(id: string): Promise<void> { await apiSend<unknown>("DELETE", sourcePath(id), undefined); }
+
+/** Why a source cannot be shown or changed, when the reason is the server's state and not a fault: no such source yet (404), or the playbook engine is not open (503 `playbooks_unavailable`). */
+export type SourceGap = "missing" | "unavailable";
+export function sourceGap(error: unknown): SourceGap | null {
+  if (!(error instanceof ApiError)) return null;
+  return error.status === 404 ? "missing" : error.status === 503 ? "unavailable" : null;
 }
-/** Puts the previous playbook back in effect. The caller reads the source again whatever comes back. */
-export const rollBackPlaybookSource = (id: string) => change("POST", `${sourcePath(id)}/rollback`);
-/** Starts another authoring run from the saved document. */
-export const authorPlaybookSourceAgain = (id: string) => change("POST", `${sourcePath(id)}/runs`);
-/** Removes a registered source (never the routing source); its run history stays. */
-export async function deletePlaybookSource(id: string): Promise<void> { await change("DELETE", sourcePath(id)); }
+/** Each gap as a sentence for the owner. The server's 503 message carries the engine's own failure text, so it is never shown. */
+export const SOURCE_GAP_SENTENCES: Record<SourceGap, string> = {
+  missing: "This server has not set up the routing playbook yet, so there is nothing to show.",
+  unavailable: "Playbooks are not running on this server right now. The routing playbook will show here once they are.",
+};
+/** A failed call in the owner's words: a gap sentence, else the server's own sentence, else `fallback`. */
+export function sourceFailure(error: unknown, fallback: string) {
+  const gap = sourceGap(error);
+  return gap ? SOURCE_GAP_SENTENCES[gap] : error instanceof ApiError && error.serverMessage ? error.serverMessage : fallback;
+}

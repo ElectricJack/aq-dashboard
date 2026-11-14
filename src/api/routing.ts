@@ -1,30 +1,31 @@
-import { apiGet, apiSend, ApiError } from "./client";
+import { apiGet, apiSend } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
-import { readPlaybookSource, type SourceView } from "./playbookSources";
+import { adaptSourceView, readPlaybookSource, sourceGap, type SourceGap, type SourceView } from "./playbookSources";
 
 /** The routing switch (spec 0013 §7) and the routing playbook source it depends on. */
 export const ROUTING_POLICY_PATH = "/api/settings/intelligence/routing";
-/** The id of the routing document's playbook source, and the playbook id it is bound to (plan, Global Constraints). */
+/** The id of the routing document's playbook source. */
 export const ROUTING_SOURCE_ID = "routing";
-export const ROUTING_BINDING = "aq.routing";
-export type RoutingPolicyState = { enabled: boolean; source: SourceView };
+/** `source` is null when the server has none to show; `gap` then says why. */
+export type RoutingPolicyState = { enabled: boolean; source: SourceView | null; gap: SourceGap | null };
 
-/** The switch endpoint still answers `active` and `latest` (always null after D1); only `enabled` is read. */
-export function adaptRoutingSwitch(value: unknown): boolean {
+/** The routing read and the switch answer `{enabled, source: SourceView | null}`; a server that does not fill `source` yet leaves it out. */
+export function adaptRoutingPolicy(value: unknown): { enabled: boolean; source: SourceView | null } {
   if (!isRecord(value) || typeof value.enabled !== "boolean") throw new ContractError("Invalid routing switch response");
-  return value.enabled;
+  return { enabled: value.enabled, source: value.source === null || value.source === undefined ? null : adaptSourceView(value.source) };
 }
-/** Before the routing document has been saved once, there is no source to read (A6): that is "no playbook yet", not an error. */
-const NO_SOURCE: SourceView = { id: ROUTING_SOURCE_ID, kind: "builtin", binding: ROUTING_BINDING, active: null, latest: null };
-export async function readRoutingSource(signal?: AbortSignal): Promise<SourceView> {
-  try { return await readPlaybookSource(ROUTING_SOURCE_ID, signal); } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return NO_SOURCE;
-    throw error;
+/**
+ * The switch and the routing source. When the routing read carries no source, the source is read from the sources API,
+ * so the page works against a server that does not fill it yet. No source (404) and no playbook engine (503) are states, not errors.
+ */
+export async function readRoutingPolicy(signal?: AbortSignal): Promise<RoutingPolicyState> {
+  const policy = adaptRoutingPolicy(await apiGet<unknown>(ROUTING_POLICY_PATH, signal));
+  if (policy.source) return { ...policy, gap: null };
+  try { return { enabled: policy.enabled, source: await readPlaybookSource(ROUTING_SOURCE_ID, signal), gap: null }; } catch (error) {
+    const gap = sourceGap(error);
+    if (!gap) throw error;
+    return { enabled: policy.enabled, source: null, gap };
   }
 }
-export async function readRoutingPolicy(signal?: AbortSignal): Promise<RoutingPolicyState> {
-  const [enabled, source] = await Promise.all([apiGet<unknown>(ROUTING_POLICY_PATH, signal).then(adaptRoutingSwitch), readRoutingSource(signal)]);
-  return { enabled, source };
-}
 /** Turns routing on (the server refuses with 409 and its own words until a playbook is active) or off. */
-export async function setRouting(enabled: boolean): Promise<boolean> { return adaptRoutingSwitch(await apiSend<unknown>("POST", ROUTING_POLICY_PATH, { enabled })); }
+export async function setRouting(enabled: boolean): Promise<boolean> { return adaptRoutingPolicy(await apiSend<unknown>("POST", ROUTING_POLICY_PATH, { enabled })).enabled; }
