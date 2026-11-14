@@ -96,7 +96,7 @@ test("combines description and policy drafts and clears a reverted field", async
 });
 
 const kase = (situation: string, result: string, passed = true) => ({ name: "steps.classify", situation, result, passed });
-const active = (extra: Record<string, unknown> = {}) => ({ artifact: "sha256:" + "a".repeat(64), since_ms: 2_000, comparison: { change: "behaviour" },
+const active = (extra: Record<string, unknown> = {}) => ({ artifact: "sha256:" + "a".repeat(64), since_ms: 2_000, comparison: { change: "behaviour" }, can_rollback: true, previous: { since_ms: 1_000, summary: null },
   cases: [kase("a bug fix that failed once", "class: complex\neffort: high"), kase("a documentation fix", "class: simple\neffort: low")], ...extra });
 const latest = (status: string, extra: Record<string, unknown> = {}) => ({ run: "r1", status, question: null, unable: null, refusal: null, internal_task_id: null, created_at_ms: Date.now() - 5_000, finished_at_ms: status === "running" ? null : Date.now(), ...extra });
 const source = (extra: Record<string, unknown> = {}) => ({ ...bare, ...extra });
@@ -227,16 +227,33 @@ test("the switch can always be turned off", async () => {
   await waitFor(() => expect(toggle).not.toBeChecked());
 });
 
-test("rollback calls the API and refreshes the view", async () => {
+const noPrevious = { comparison: null, can_rollback: false, previous: null };
+test("rollback asks first, then calls the API, and the view is read again even when the answer is empty", async () => {
   let rolledBack = 0;
   server.use(http.get(path, () => HttpResponse.json(snapshot())),
-    http.get(sourcePath, () => HttpResponse.json(source({ active: active(rolledBack ? { comparison: null } : {}), latest: latest("saved") }))),
-    http.post(`${sourcePath}/rollback`, () => { rolledBack++; return HttpResponse.json(bare); }));
+    http.get(sourcePath, () => HttpResponse.json(source({ active: active(rolledBack ? noPrevious : {}), latest: latest("saved") }))),
+    http.post(`${sourcePath}/rollback`, () => { rolledBack++; return new HttpResponse(null, { status: 204 }); }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
+  expect(rolledBack).toBe(0);
+  await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
   await waitFor(() => expect(rolledBack).toBe(1));
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Roll back to the previous playbook" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Roll back/ })).toBeNull());
+  expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByText("There is no earlier playbook to compare it with.")).toBeVisible();
+});
+
+test("the view the server sends back is used, and the source is still read again", async () => {
+  let reads = 0, rolledBack = false;
+  server.use(http.get(path, () => HttpResponse.json(snapshot())),
+    http.get(sourcePath, () => { reads++; return HttpResponse.json(source({ active: active(rolledBack ? noPrevious : {}), latest: latest("saved") })); }),
+    http.post(`${sourcePath}/rollback`, () => { rolledBack = true; return HttpResponse.json(source({ active: active(noPrevious), latest: latest("saved") })); }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
+  const before = reads;
+  await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Roll back/ })).toBeNull());
+  await waitFor(() => expect(reads).toBeGreaterThan(before));
 });
 
 test("a refused rollback shows the server's words", async () => {
@@ -244,7 +261,20 @@ test("a refused rollback shows the server's words", async () => {
     http.post(`${sourcePath}/rollback`, () => HttpResponse.json({ error: "conflict", message: "There is no previous playbook to roll back to." }, { status: 409 })));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
+  await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
   expect(await screen.findByText("There is no previous playbook to roll back to.")).toBeVisible();
+});
+
+test("a failed refresh while a run is in progress says so and stops polling", async () => {
+  let reads = 0;
+  useSource(() => { reads++; return source({ latest: latest("running") }); });
+  open(20);
+  await screen.findByText("Writing the playbook…");
+  server.use(http.get(sourcePath, () => { reads++; return HttpResponse.json({ error: "boom", message: "x" }, { status: 500 }); }));
+  expect(await screen.findByText(/could not be refreshed/)).toBeVisible();
+  const settled = reads;
+  await new Promise(resolve => setTimeout(resolve, 100));
+  expect(reads).toBe(settled);
 });
 
 test("a very large report still shows the document, the playbook and the switch", async () => {

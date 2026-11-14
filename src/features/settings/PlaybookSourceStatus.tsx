@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "../../api/client";
 import type { ActivePlaybook, AuthoringQuestion, LatestRun, PlaybookCase, PlaybookChange, SourceView } from "../../api/playbookSources";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -78,29 +78,54 @@ function CasesGrouped({ cases }: { cases: PlaybookCase[] }) {
   </div>;
 }
 
+const when = (ms: number) => <Timestamp iso={new Date(ms).toISOString()} />;
+
+/** Two steps: the button asks, and the owner confirms knowing what comes back and what stops. Keeping the current playbook is the focused default. */
+function RollbackConfirm({ active, busy, onConfirm, onCancel }: { active: ActivePlaybook; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
+  const id = useId();
+  const keep = useRef<HTMLButtonElement>(null);
+  useEffect(() => { keep.current?.focus(); }, []);
+  return <div className={styles.confirm} role="group" aria-labelledby={id} onKeyDown={event => { if (event.key === "Escape") onCancel(); }}>
+    <h5 id={id}>Put the previous playbook back?</h5>
+    <p>{active.previous ? <>The previous playbook, which took effect {when(active.previous.since_ms)}, becomes the one in effect.</> : "The previous playbook becomes the one in effect."}</p>
+    {active.previous?.summary && <p className={styles.text}>{active.previous.summary}</p>}
+    <p>The current playbook, in effect since {when(active.since_ms)}, stops. Tasks routed from now on follow the previous playbook.</p>
+    <div className={styles.actions}>
+      <ActionButton ref={keep} disabled={busy} onClick={onCancel}>Keep the current playbook</ActionButton>
+      <ActionButton disabled={busy} onClick={onConfirm}>Roll back</ActionButton>
+    </div>
+  </div>;
+}
+
 function Active({ active, onRollback }: { active: ActivePlaybook; onRollback: () => Promise<unknown> }) {
+  const heading = useId();
+  const [confirming, setConfirming] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const passed = active.cases.filter(one => one.passed).length;
   // A failing case comes first: it is what the owner most needs to see.
   const cases = [...active.cases].sort((a, b) => Number(a.passed) - Number(b.passed));
   const change = active.comparison ? CHANGES[active.comparison.change] : null;
+  // Grouping by result only helps when it makes the list shorter.
+  const grouped = active.cases.length > GROUP_CASES_ABOVE && new Set(active.cases.map(one => one.result)).size < active.cases.length;
   const rollBack = async () => {
     setRolling(true); setError(null);
-    try { await onRollback(); } catch (caught) { setError(caught instanceof ApiError && caught.serverMessage ? caught.serverMessage : "The previous playbook could not be put back."); } finally { setRolling(false); }
+    try { await onRollback(); } catch (caught) { setError(caught instanceof ApiError && caught.serverMessage ? caught.serverMessage : "The previous playbook could not be put back."); } finally { setRolling(false); setConfirming(false); }
   };
-  return <section className={styles.active} aria-labelledby="playbook-active-heading">
-    <h4 id="playbook-active-heading">What the playbook does</h4>
-    <p className={styles.meta}>In effect since <Timestamp iso={new Date(active.since_ms).toISOString()} />.</p>
+  return <section className={styles.active} aria-labelledby={heading}>
+    <h4 id={heading}>What the playbook does</h4>
+    <p className={styles.meta}>In effect since {when(active.since_ms)}.</p>
     {change ? <p className={styles.change}><strong>{change.label}.</strong> {change.detail}</p> : <p className={styles.meta}>There is no earlier playbook to compare it with.</p>}
     {active.cases.length === 0 ? <p className={styles.meta}>No situations were tried on it.</p> : <>
       <p className={styles.meta}>Each situation was tried on this playbook: {passed} of {active.cases.length} passed.</p>
-      {active.cases.length > GROUP_CASES_ABOVE ? <CasesGrouped cases={cases} /> : <CasesFlat cases={cases} />}
+      {grouped ? <CasesGrouped cases={cases} /> : <CasesFlat cases={cases} />}
     </>}
-    {active.comparison && <div className={styles.actions}>
-      <ActionButton disabled={rolling} onClick={() => void rollBack()}>Roll back to the previous playbook</ActionButton>
-      {error && <span className={styles.failed} role="alert">{error}</span>}
-    </div>}
+    {active.can_rollback && (confirming
+      ? <RollbackConfirm active={active} busy={rolling} onConfirm={() => void rollBack()} onCancel={() => setConfirming(false)} />
+      : <div className={styles.actions}>
+        <ActionButton onClick={() => setConfirming(true)}>Roll back to the previous playbook</ActionButton>
+        {error && <span className={styles.failed} role="alert">{error}</span>}
+      </div>)}
   </section>;
 }
 

@@ -64,10 +64,10 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
   const retry = useMutation({ mutationFn: retryInternalRun, onSuccess: () => client.invalidateQueries({ queryKey: key }) });
   const run = query.data?.runs[0];
   // The list never carries transcripts; the read of one run does, once the run has ended. It is read only for an agent run, or when the owner opens the run's details, never eagerly for every run.
-  const [asked, setAsked] = useState(false);
+  const [asked, setAsked] = useState<string | null>(null);
   const ended = run?.status === "answered" || run?.status === "failed";
   const detail = useQuery({ queryKey: queryKey(queryContext, "internal-run-read", { id: run?.id ?? "" }), queryFn: ({ signal }) => readInternalRun(run!.id, signal),
-    enabled: ended && (run?.purpose === AGENT_PURPOSE || asked), retry: false });
+    enabled: ended && (run?.purpose === AGENT_PURPOSE || asked === run?.id), retry: false });
   const transcripts = detail.data?.transcripts ?? [];
   if (query.isError) return <p className={styles.meta} role="status">Internal work could not be loaded.</p>;
   if (!run) return null;
@@ -76,7 +76,7 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
       <h4>Internal work</h4>
       <span className={styles.meta}>{run.purpose.replaceAll("_", " ")} · {run.status}{run.retry_of ? " · retry" : ""}</span>
     </div>
-    <details onToggle={event => { if (event.currentTarget.open) setAsked(true); }}>
+    <details onToggle={event => { if (event.currentTarget.open) setAsked(run.id); }}>
       <summary>What was asked</summary>
       <pre className={styles.pre}>{run.instructions}</pre>
       <pre className={styles.pre}>{run.input}</pre>

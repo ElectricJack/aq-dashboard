@@ -38,7 +38,17 @@ const FIXTURE_CASES: ActivePlaybook["cases"] = [
   { name: "high-risk", situation: "Fixture: very high risk work, not covered by a test", result: "class: complex\neffort: high", passed: true },
   { name: "high-risk-covered", situation: "Fixture: very high risk work that is narrow and covered by a test", result: "class: standard\neffort: high", passed: true },
 ];
-const fixtureActive = (at: number, change: PlaybookChange | null, artifact = "fixture-artifact"): ActivePlaybook => ({ artifact, since_ms: at, comparison: change ? { change } : null, cases: FIXTURE_CASES });
+const DAY_MS = 86_400_000;
+/** Forty labelled cases with four distinct results: the most the server sends, and enough to be grouped. */
+const MANY_CASES: ActivePlaybook["cases"] = Array.from({ length: 40 }, (_, i) => ({
+  name: `case-${i}`, situation: `Fixture: situation ${i + 1}, a ${["bug fix", "documentation fix", "research task", "risky change"][i % 4]} that arrives ${i % 3 === 0 ? "for the first time" : "after a failure"}`,
+  result: ["class: simple\neffort: low", "class: standard\neffort: high", "class: complex\neffort: high\nharness: Claude or Codex", "class: deep\neffort: max"][i % 4]!, passed: i !== 5,
+}));
+/** With a change there is a previous playbook: the comparison is an object and a rollback is offered. */
+const fixtureActive = (at: number, change: PlaybookChange | null, cases = FIXTURE_CASES, artifact = "fixture-artifact"): ActivePlaybook => ({
+  artifact, since_ms: at, comparison: change ? { change } : null, can_rollback: change !== null,
+  previous: change ? { since_ms: at - DAY_MS, summary: "Fixture: the playbook before this one." } : null, cases,
+});
 const fixtureRun = (status: LatestRun["status"], at: number, extra: Partial<LatestRun> = {}): LatestRun => ({
   run: "fixture-run", status, question: null, unable: [], refusal: null, internal_task_id: null, created_at_ms: at, finished_at_ms: status === "running" ? null : at + RUN_MS, ...extra,
 });
@@ -54,6 +64,7 @@ function initialSource(scenario?: string | null): SourceView {
   switch (scenario) {
     case "playbook-running": return { ...base, active: null, latest: fixtureRun("running", now - 95_000) };
     case "playbook-saved": return { ...base, active: fixtureActive(at0, "behaviour"), latest: fixtureRun("saved", at0 - RUN_MS) };
+    case "playbook-many": return { ...base, active: fixtureActive(at0, "behaviour", MANY_CASES), latest: fixtureRun("saved", at0 - RUN_MS) };
     case "playbook-question": return { ...base, active: fixtureActive(at0, "wording"), latest: fixtureRun("question", at0, { question: FIXTURE_QUESTION }) };
     case "playbook-unable": return { ...base, active: null, latest: fixtureRun("unable", at0, { unable: [{ sentence: "Fixture: Art and visual design go to the plotter.", line: 12, reason: "Fixture: There is no plotter among the abilities this playbook can use." }] }) };
     case "playbook-refused": return { ...base, active: fixtureActive(at0, "none"), latest: fixtureRun("refused", at0, { refusal: "Fixture: The document asks to send task text to an outside address, which routing may not do." }) };
@@ -129,8 +140,8 @@ export function intelligenceStructureHandlers(scenario?: string | null) {
     http.get("/api/playbooks/sources/:id", ({ params }) => { settle(); return params.id === ROUTING_SOURCE_ID ? HttpResponse.json(source) : fail(404, "Source not found."); }),
     http.post("/api/playbooks/sources/:id/rollback", ({ params }) => {
       settle();
-      if (params.id !== ROUTING_SOURCE_ID || !source.active || !previous) return fail(409, "There is no previous playbook to roll back to.");
-      source = { ...source, active: { ...previous, comparison: null } };
+      if (params.id !== ROUTING_SOURCE_ID || !source.active?.can_rollback) return fail(409, "There is no previous playbook to roll back to.");
+      source = { ...source, active: { ...(previous ?? fixtureActive(source.active.since_ms - DAY_MS, null)), comparison: null, can_rollback: false, previous: null } };
       previous = null;
       keepSource();
       return HttpResponse.json(source);

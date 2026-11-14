@@ -16,7 +16,8 @@ afterAll(() => server.close());
 
 const kase = (situation: string, result: string, passed = true): PlaybookCase => ({ name: "steps.classify", situation, result, passed });
 const cases = [kase("a bug fix that failed once", "class: complex\neffort: high"), kase("a documentation fix", "class: simple\neffort: low")];
-const active = (extra: Partial<ActivePlaybook> = {}): ActivePlaybook => ({ artifact: `sha256:${"a".repeat(64)}`, since_ms: Date.UTC(2026, 10, 12, 9, 0, 0), comparison: { change: "behaviour" }, cases, ...extra });
+const active = (extra: Partial<ActivePlaybook> = {}): ActivePlaybook => ({ artifact: `sha256:${"a".repeat(64)}`, since_ms: Date.UTC(2026, 10, 12, 9, 0, 0), comparison: { change: "behaviour" }, can_rollback: true,
+  previous: { since_ms: Date.UTC(2026, 10, 11, 9, 0, 0), summary: "Bug fixes were Standard." }, cases, ...extra });
 const run = (status: LatestRun["status"], extra: Partial<LatestRun> = {}): LatestRun => ({ run: "r1", status, question: null, unable: [], refusal: null, internal_task_id: null, created_at_ms: Date.now() - 125_000, finished_at_ms: null, ...extra });
 const source = (extra: Partial<SourceView> = {}): SourceView => ({ id: "routing", kind: "builtin", binding: "aq.routing", active: null, latest: null, ...extra });
 function open(view: SourceView, onRollback: () => Promise<unknown> = async () => {}, showQuestion?: boolean) {
@@ -132,6 +133,12 @@ describe("the cases table renders situation and result", () => {
     expect(screen.getByText(/1 of 2 passed/)).toBeVisible();
   });
 
+  test("many cases with all different results stay in the table", () => {
+    open(source({ active: active({ cases: Array.from({ length: 20 }, (_, i) => kase(`situation ${i}`, `class: ${i}`)) }) }));
+    expect(screen.getByRole("table")).toBeVisible();
+    expect(screen.queryByRole("group", { name: "What the playbook does in each situation" })).toBeNull();
+  });
+
   test("many cases are grouped by result, each result named once", () => {
     const many = Array.from({ length: 40 }, (_, i) => kase(`situation ${i}`, i % 2 ? "class: complex" : "class: simple", i !== 7));
     open(source({ active: active({ cases: many }) }));
@@ -146,20 +153,53 @@ describe("the cases table renders situation and result", () => {
 });
 
 describe("rollback", () => {
-  test("rollback calls the API and refreshes", async () => {
+  const ask = async () => userEvent.click(screen.getByRole("button", { name: "Roll back to the previous playbook" }));
+
+  test("the first step only asks: it names what comes back and what stops, and Keep is focused", async () => {
     const onRollback = vi.fn(async () => {});
     open(source({ active: active() }), onRollback);
-    await userEvent.click(screen.getByRole("button", { name: "Roll back to the previous playbook" }));
-    expect(onRollback).toHaveBeenCalledTimes(1);
-    expect(await screen.findByRole("button", { name: "Roll back to the previous playbook" })).toBeEnabled();
+    await ask();
+    const group = screen.getByRole("group", { name: "Put the previous playbook back?" });
+    expect(group).toHaveTextContent("The previous playbook, which took effect");
+    expect(group).toHaveTextContent("Bug fixes were Standard.");
+    expect(group).toHaveTextContent("The current playbook, in effect since");
+    expect(group).toHaveTextContent("stops. Tasks routed from now on follow the previous playbook.");
+    expect(screen.getByRole("button", { name: "Keep the current playbook" })).toHaveFocus();
+    expect(onRollback).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Roll back to the previous playbook" })).toBeNull();
   });
 
-  test("it is disabled while the rollback is in progress and says why when it fails", async () => {
+  test("keeping the current playbook, or Escape, changes nothing", async () => {
+    const onRollback = vi.fn(async () => {});
+    open(source({ active: active() }), onRollback);
+    await ask();
+    await userEvent.click(screen.getByRole("button", { name: "Keep the current playbook" }));
+    expect(screen.queryByRole("group")).toBeNull();
+    await ask();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("group")).toBeNull();
+    expect(onRollback).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Roll back to the previous playbook" })).toBeVisible();
+  });
+
+  test("rollback calls the API once the owner confirms, and the confirmation closes", async () => {
+    const onRollback = vi.fn(async () => {});
+    open(source({ active: active() }), onRollback);
+    await ask();
+    await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
+    expect(onRollback).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: "Roll back to the previous playbook" })).toBeEnabled();
+    expect(screen.queryByRole("group")).toBeNull();
+  });
+
+  test("both buttons are disabled while it happens, and a refusal is shown in the server's words", async () => {
     let fail!: (error: unknown) => void;
     const onRollback = vi.fn(() => new Promise<void>((_, reject) => { fail = reject; }));
     open(source({ active: active() }), onRollback);
-    await userEvent.click(screen.getByRole("button", { name: "Roll back to the previous playbook" }));
-    expect(screen.getByRole("button", { name: "Roll back to the previous playbook" })).toBeDisabled();
+    await ask();
+    await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
+    expect(screen.getByRole("button", { name: "Roll back" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Keep the current playbook" })).toBeDisabled();
     fail(new ApiError("http", "x", { status: 409, serverMessage: "There is no previous playbook to roll back to." }));
     expect(await screen.findByRole("alert")).toHaveTextContent("There is no previous playbook to roll back to.");
     expect(screen.getByRole("button", { name: "Roll back to the previous playbook" })).toBeEnabled();
@@ -167,12 +207,25 @@ describe("rollback", () => {
 
   test("a failed rollback without a server message says it in plain words", async () => {
     open(source({ active: active() }), async () => { throw new Error("network"); });
-    await userEvent.click(screen.getByRole("button", { name: "Roll back to the previous playbook" }));
+    await ask();
+    await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("The previous playbook could not be put back.");
   });
 
-  test("it is not offered when there is no previous playbook", () => {
-    open(source({ active: active({ comparison: null }) }));
+  test("without details of the previous playbook the confirmation still says what happens", async () => {
+    open(source({ active: active({ previous: null }) }));
+    await ask();
+    expect(screen.getByRole("group")).toHaveTextContent("The previous playbook becomes the one in effect.");
+  });
+
+  test("it is offered only when the server says a rollback is possible, whatever the comparison says", () => {
+    open(source({ active: active({ can_rollback: false, previous: null, comparison: { change: "none" } }) }));
+    expect(screen.queryByRole("button", { name: /Roll back/ })).toBeNull();
+    expect(screen.getByText("No change.")).toBeVisible();
+  });
+
+  test("with no earlier playbook there is nothing to compare and nothing to roll back", () => {
+    open(source({ active: active({ comparison: null, can_rollback: false, previous: null }) }));
     expect(screen.queryByRole("button", { name: /Roll back/ })).toBeNull();
     expect(screen.getByText("There is no earlier playbook to compare it with.")).toBeVisible();
   });

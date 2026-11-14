@@ -1,13 +1,15 @@
-import { adaptSourceList, adaptSourceView, PLAYBOOK_DISPLAY_LIMITS } from "./playbookSources";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { adaptSourceList, adaptSourceView, PLAYBOOK_DISPLAY_LIMITS, authorPlaybookSourceAgain, deletePlaybookSource, rollBackPlaybookSource } from "./playbookSources";
 
 const kase = { name: "bug-fix-failed-once", situation: "a bug fix that failed once", result: "class: complex\neffort: high", passed: true };
-const active = { artifact: "sha256:" + "a".repeat(64), since_ms: 2, comparison: { change: "behaviour" }, cases: [kase] };
+const active = { artifact: "sha256:" + "a".repeat(64), since_ms: 2, comparison: { change: "behaviour" }, can_rollback: true, previous: { since_ms: 1, summary: "Before." }, cases: [kase] };
 const latest = { run: "r1", status: "saved", question: null, unable: null, refusal: null, internal_task_id: "00000000-0000-4000-8000-000000000001", created_at_ms: 1, finished_at_ms: 2 };
 const view = { id: "routing", kind: "builtin", binding: "aq.routing", active, latest };
 
 test("adapts the source view the server returns", () => {
   expect(adaptSourceView(view)).toEqual({ id: "routing", kind: "builtin", binding: "aq.routing",
-    active: { artifact: active.artifact, since_ms: 2, comparison: { change: "behaviour" }, cases: [kase] },
+    active: { artifact: active.artifact, since_ms: 2, comparison: { change: "behaviour" }, can_rollback: true, previous: { since_ms: 1, summary: "Before." }, cases: [kase] },
     latest: { run: "r1", status: "saved", question: null, unable: [], refusal: null, internal_task_id: latest.internal_task_id, created_at_ms: 1, finished_at_ms: 2 } });
   expect(adaptSourceView({ ...view, active: null, latest: null })).toMatchObject({ active: null, latest: null });
   expect(adaptSourceList({ items: [view, view] })).toHaveLength(2);
@@ -45,4 +47,40 @@ test("a very large report is shortened, never refused", () => {
   expect(adapted.active?.cases).toHaveLength(PLAYBOOK_DISPLAY_LIMITS.items);
   expect(adapted.active?.cases[0]?.situation).toHaveLength(PLAYBOOK_DISPLAY_LIMITS.textChars);
   expect(adapted.latest?.refusal).toHaveLength(PLAYBOOK_DISPLAY_LIMITS.reasonChars);
+});
+
+test("a rollback is possible only when the server says so, and what it brings back is named", () => {
+  expect(adaptSourceView({ ...view, active: { ...active, can_rollback: false, previous: null, comparison: { change: "none" } } }).active).toMatchObject({ can_rollback: false, previous: null });
+  const { can_rollback: _a, previous: _b, ...older } = active;
+  expect(adaptSourceView({ ...view, active: older }).active).toMatchObject({ can_rollback: false, previous: null });
+  expect(adaptSourceView(view).active).toMatchObject({ can_rollback: true, previous: { since_ms: 1, summary: "Before." } });
+  expect(() => adaptSourceView({ ...view, active: { ...active, can_rollback: "yes" } })).toThrow("Contract violation");
+  expect(() => adaptSourceView({ ...view, active: { ...active, since_ms: 9e15 } })).toThrow("Contract violation");
+  expect(() => adaptSourceView({ ...view, active: { ...active, previous: { since_ms: -1 } } })).toThrow("Contract violation");
+});
+
+describe("a mutating call", () => {
+  const server = setupServer();
+  beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
+  afterEach(() => server.resetHandlers());
+  afterAll(() => server.close());
+
+  test("returns the refreshed view the server sends", async () => {
+    server.use(http.post("/api/playbooks/sources/routing/rollback", () => HttpResponse.json(view)), http.post("/api/playbooks/sources/routing/runs", () => HttpResponse.json(view)));
+    expect((await rollBackPlaybookSource("routing"))?.id).toBe("routing");
+    expect((await authorPlaybookSourceAgain("routing"))?.id).toBe("routing");
+  });
+
+  test("an empty answer or an answer that is not a view is a success, not a failure", async () => {
+    server.use(http.post("/api/playbooks/sources/routing/rollback", () => new HttpResponse(null, { status: 204 })), http.post("/api/playbooks/sources/routing/runs", () => HttpResponse.json({ ok: true })),
+      http.delete("/api/playbooks/sources/other", () => HttpResponse.json({ deleted: true })));
+    expect(await rollBackPlaybookSource("routing")).toBeNull();
+    expect(await authorPlaybookSourceAgain("routing")).toBeNull();
+    await expect(deletePlaybookSource("other")).resolves.toBeUndefined();
+  });
+
+  test("a refusal is still a failure", async () => {
+    server.use(http.post("/api/playbooks/sources/routing/rollback", () => HttpResponse.json({ error: "conflict", message: "no" }, { status: 409 })));
+    await expect(rollBackPlaybookSource("routing")).rejects.toMatchObject({ serverMessage: "no" });
+  });
 });

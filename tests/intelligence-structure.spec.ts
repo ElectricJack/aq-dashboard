@@ -81,6 +81,34 @@ test("a sentence that cannot be carried out and a refusal are shown with their r
   await expect(page.getByRole("region", { name: "Routing policy" }).getByText("The previous playbook is still in effect.")).toBeVisible();
 });
 
+/** What each authoring state shows, to wait for before checking the page. */
+const STATES: [string, RegExp][] = [
+  ["playbook-running", /Writing the playbook…/], ["playbook-question", /Which one wins\?/], ["playbook-unable", /This sentence cannot be carried out/],
+  ["playbook-refused", /The playbook was not written/], ["playbook-saved", /Fixture: a bug fix that failed once/], ["playbook-many", /Fixture: situation 1,/],
+];
+for (const width of [1440, 390, 320]) for (const [scenario, shown] of STATES) {
+  test(`${scenario} has no accessibility violation and no horizontal scroll at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/settings?tab=intelligence&scenario=${scenario}`);
+    await expect(page.getByRole("region", { name: "Routing policy" }).getByText(shown).first()).toBeVisible({ timeout: 15_000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(results.violations.map(v => v.id)).toEqual([]);
+  });
+}
+
+test("rolling back asks first, names what comes back, and then the previous playbook is in effect", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence&scenario=playbook-saved");
+  const policy = page.getByRole("region", { name: "Routing policy" });
+  await policy.getByRole("button", { name: "Roll back to the previous playbook" }).click({ timeout: 15_000 });
+  const ask = policy.getByRole("group", { name: "Put the previous playbook back?" });
+  await expect(ask).toContainText("Tasks routed from now on follow the previous playbook.");
+  await expect(policy.getByRole("button", { name: "Keep the current playbook" })).toBeFocused();
+  await ask.getByRole("button", { name: "Roll back" }).click();
+  await expect(policy.getByText("There is no earlier playbook to compare it with.")).toBeVisible();
+  await expect(policy.getByRole("button", { name: /Roll back/ })).toHaveCount(0);
+});
+
 test("variation limits save independently", async ({ page }) => {
   await page.goto("/settings");
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
