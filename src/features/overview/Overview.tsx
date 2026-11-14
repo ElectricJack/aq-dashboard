@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView, type TotalView } from "../../api/adapters/inspection";
+import { ATTENTION_SOURCE_LABEL } from "../../api/adapters/overview";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
 import { ArrowRight, CircleAlert, CircleCheck, CircleHelp, TriangleAlert, type LucideIcon } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
@@ -30,6 +31,7 @@ const ACTION_LABEL: Record<AttentionView["kind"], string> = {
   blocked: "Inspect",
   failed: "Inspect",
   uncertain_operation: "Reconcile",
+  internal_work: "Open",
   unsupported: "Open",
 };
 
@@ -132,6 +134,10 @@ function ConstraintStatus({ constraint }: { constraint: OverviewView["inMotion"]
 function AttentionRow({ item, serverTime, search }: { item: AttentionView; serverTime: string; search: string }) {
   const [inspect, setInspect] = useState(false);
   const path = item.kind === "unsupported" ? null : subjectPath(item.subject);
+  // A path may carry its own query (History's Internal filter); keep the scope too.
+  const [pathname, query] = (path ?? "").split("?");
+  const linkSearch = new URLSearchParams(search);
+  new URLSearchParams(query).forEach((value, key) => linkSearch.set(key, value));
   const label = ACTION_LABEL[item.kind];
   const age = item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown";
   const worker = item.kind === "worker_offline";
@@ -140,6 +146,7 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
   const name = worker ? `${item.title}, worker ${shortRef({ id: item.subject.id })}` : item.title;
   const secondary = [
     where,
+    ATTENTION_SOURCE_LABEL[item.kind] ?? null,
     worker ? `worker ${shortRef({ id: item.subject.id })}` : null,
     age,
     item.reason,
@@ -155,7 +162,7 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
       </div>
       <span className={styles.impact}>{item.impact}</span>
       {path ? (
-        <Link className={styles.action} to={{ pathname: path, search }} aria-label={`${label}: ${name}`}>
+        <Link className={styles.action} to={{ pathname, search: linkSearch.size ? `?${linkSearch}` : "" }} aria-label={`${label}: ${name}`}>
           {actionContent}
         </Link>
       ) : item.kind === "worker_offline" || item.kind === "uncertain_operation" ? (

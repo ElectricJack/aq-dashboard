@@ -96,6 +96,7 @@ function historyChange(i:number){
 /* Task comments (spec 0004 §4.1): "Replay reconciliation" has 57 (two pages of 50) from an agent, the supervisor,
  * the system and the owner, including a deleted one; "Approve recovery plan" has one owner comment. */
 type FixtureComment={comment_id:string;task_id:string;author:{kind:string;user_id:string|null;display_name:string|null;session_id:string|null;attempt_id:string|null};body:string|null;created_at:string;edited_at:string|null;deleted_at:string|null;revision:string;can_edit:boolean};
+type FixtureRouteEntry={sequence:number;at_ms:number;route:null|{class:string;harnesses:string[];providers:string[];prefer:string[];lane:string|null;provider_intent:string;reasons:{code:string;detail:string}[];classification:null;policy_digest:string|null;structure_revision:number|null;source:string}};
 const OWNER={kind:"owner",user_id:id(0xa1),display_name:"owner@example.test",session_id:null,attempt_id:null};
 function fixtureComments():Map<string,FixtureComment[]>{
   const at=(minutesAgo:number)=>new Date(Date.parse("2026-10-31T12:00:00.000Z")-minutesAgo*60_000).toISOString();
@@ -113,6 +114,15 @@ function fixtureComments():Map<string,FixtureComment[]>{
 }
 export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"standard"|"large"="standard"){
  const comments=fixtureComments();
+ // Labelled fixture routing (spec 0011 §8, shaped as aq-server serves it): these two tasks sit under an automatic router.
+ // "Replay reconciliation" was routed by the router; "Approve recovery plan" is ready with no route, so it waits for routing; "Implement safe recovery" is a draft with no route (unrouted).
+ const routed=[ID.approve,ID.replay,ID.implement],serverNow=Date.parse(fixture.observed_at);
+ const routeLog=new Map<string,FixtureRouteEntry[]>([[ID.replay,[{sequence:1,at_ms:serverNow-12*60_000,route:{class:"standard-high",harnesses:[],providers:[],prefer:["claude-code"],lane:"backend",provider_intent:"any",
+   reasons:[{code:"lane_matched",detail:"Fixture: the task touches the backend lane."},{code:"class_raised_for_risk",detail:"Fixture: risk was assessed as high, so the class was raised to high effort."}],classification:null,policy_digest:null,structure_revision:1,source:"router"}}]]]);
+ const routingOf=(taskId:string,state:string)=>{
+   const current=routeLog.get(taskId)?.[0];if(current?.route){const {reasons:_reasons,classification:_classification,structure_revision:_revision,...route}=current.route;return {state:"routed",route,since_ms:current.at_ms};}
+   return !routed.includes(taskId)?undefined:state==="ready"?{state:"waiting",since_ms:serverNow-4*60_000}:{state:"unrouted"};
+ };
  const unavailable=()=>HttpResponse.json({request_id:"fixture",code:"unavailable",message:"Read unavailable",retryable:true},{status:503});
  const missing=()=>HttpResponse.json({request_id:"fixture",code:"not_found",message:"This item does not exist or is not available to you.",retryable:false},{status:404});
  const wrap=(data:unknown)=>({...fixture,data});
@@ -141,7 +151,8 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    // aq-server #99: an attempt that has finished but still holds the task makes it "held", with AQ's reason.
    const stopped=!!execution&&["finished","declined","never_granted"].includes(execution.status);
    const reasons=stopped?[{code:"attempt_stopped_not_released",attempt_id:execution!.attempt_id,status:execution!.status,message:"Fixture: the attempt finished and stopped; the claim stays until its result is settled, the task is retried or the attempt is abandoned."}]:[];
-   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state:node.task_state!=="active"?node.task_state:stopped?"held":execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",blockers,complete:true,reasons},parent:parentOf(node.id,tasks,edges),execution}));
+   const state=node.task_state!=="active"?node.task_state:stopped?"held":execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",routing=routingOf(node.id,String(state));
+   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state,blockers,complete:true,reasons},parent:parentOf(node.id,tasks,edges),execution,...(routing?{routing}:{})}));
  }),http.get(`${path}/tasks/:id/history`,({params,request})=>{
    // Recorded attempts (history read): "Replay reconciliation" holds one; "Worker recovery" had one that ended; the rest never had one.
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
@@ -156,6 +167,15 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  }),http.post("/api/v1/actions",async({request})=>{
    // task.comment.add|edit|delete; other kinds fall through to their own fixtures.
    const body=(await request.clone().json().catch(()=>null)) as {operation_id:string;kind:string;subject:{type:string;id:string;revision?:string};payload:{project_id:string;body?:string;expected_revision?:string}}|null;
+   if(body?.kind==="task.route.set"||body?.kind==="task.route.clear"){
+     // Owner route actions (spec 0011 §8): the route log is what GET /api/tasks/{id}/routes and the work read serve.
+     const log=routeLog.get(body.subject.id)??[],set=body.kind==="task.route.set",limits=body.payload as {class?:string;harnesses?:string[];providers?:string[]};
+     routeLog.set(body.subject.id,[{sequence:(log[0]?.sequence??0)+1,at_ms:serverNow,route:set?{class:limits.class!,harnesses:limits.harnesses??[],providers:limits.providers??[],prefer:[],lane:null,provider_intent:"any",
+       reasons:[{code:"owner_set",detail:"Fixture: the owner set this route."}],classification:null,policy_digest:null,structure_revision:1,source:"owner"}:null},...log]);
+     const stamp=new Date().toISOString();
+     return HttpResponse.json({...operationFixture,scope:{kind:"project",project_id:body.payload.project_id},data:{...operationFixture.data,operation_id:body.operation_id,disposition:"confirmed",scope:{kind:"project",project_id:body.payload.project_id},
+       subject_refs:[body.subject],created_at:stamp,updated_at:stamp,receipt_refs:[{type:"graph_change_set",id:id(0x3ff)}],affected_entities:[{type:"task",id:body.subject.id}],recovery:"none"}});
+   }
    if(!body?.kind?.startsWith("task.comment."))return undefined;
    const now=new Date().toISOString();
    const answer=(disposition:"confirmed"|"conflict",comment:FixtureComment,current?:string)=>HttpResponse.json({...operationFixture,scope:{kind:"project",project_id:body.payload.project_id},data:{...operationFixture.data,operation_id:body.operation_id,disposition,
@@ -176,7 +196,7 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    target.revision=String(Number(target.revision)+1);
    if(body.kind==="task.comment.edit"){target.body=body.payload.body!;target.edited_at=now;}else{target.body=null;target.deleted_at=now;target.can_edit=false;}
    return answer("confirmed",target);
- }),http.get(`${path}/tasks/:id/summary`,({params})=>{
+ }),http.get("/api/tasks/:id/routes",({params})=>HttpResponse.json({items:routeLog.get(String(params.id))??[]})),http.get(`${path}/tasks/:id/summary`,({params})=>{
    // Descendant counts (X11): the fixture tree is one level deep.
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
    const kids=edges.filter(e=>e.edge_type==="parent-child"&&e.source===node.id).map(e=>tasks.find(t=>t.id===e.target)!).filter(Boolean);

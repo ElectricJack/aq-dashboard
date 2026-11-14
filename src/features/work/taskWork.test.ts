@@ -76,6 +76,21 @@ test("work read: the server's held example (aq-server #99) keeps the state and A
     expect(() => adaptTaskWork(withReasons(bad), project, id)).toThrow();
 });
 
+test("work read: routing is optional; the server's routed and waiting shapes adapt, malformed ones fail (spec 0011 §8)", () => {
+  // The exact objects aq-server's it_dashboard human_work test pins (work_read_reports_waiting_then_routed).
+  const routed = { state: "routed", since_ms: 1790000000000, route: { class: "standard-high", harnesses: ["codex"], providers: ["openai"], prefer: [], lane: "backend", provider_intent: "any", source: "owner", policy_digest: null } };
+  const waiting = { state: "waiting", since_ms: 1767225600000 };
+  const read = (routing?: unknown) => adaptTaskWork(env({ ...workExample.data, ...(routing === undefined ? {} : { routing }) }), project, workExample.data.task_id).data;
+  expect(read().routing).toBeUndefined();
+  expect(read(routed).routing).toEqual(routed);
+  expect(read(waiting).routing).toEqual(waiting);
+  expect(read({ state: "unrouted" }).routing).toEqual({ state: "unrouted" });
+  for (const bad of [null, "waiting", { state: "unrouted", since_ms: 5 }, { state: "unrouted", route: routed.route }, { ...waiting, state: "later" }, { ...waiting, since_ms: -1 }, { ...waiting, since_ms: "5" }, { state: "waiting" }, { ...waiting, route: routed.route },
+    { ...routed, route: undefined }, { ...routed, route: { ...routed.route, class: "fast-high" } }, { ...routed, route: { ...routed.route, harnesses: "codex" } },
+    { ...routed, route: { ...routed.route, lane: 4 } }, { ...routed, route: { ...routed.route, providers: Array(33).fill("p") } }, { ...routed, route: { ...routed.route, source: "<b>" } }])
+    expect(() => read(bad), JSON.stringify(bad)).toThrow();
+});
+
 test("history read: the server's example changes (aq-server #99); an older server has none", () => {
   const page = adaptTaskHistory(historyExample, historyExample.project.id, historyExample.data.task_id).data;
   expect(page.items.map(i => i.change?.summary ?? null)).toEqual(["created", "created as active", "priority 0 → 5", "added blocks from 00000000", "links changed", "active → completed", null]);

@@ -34,3 +34,6 @@
 .tabPanel { min-inline-size: 0; }
 .tabPanel[hidden] { display: none; }
 .sectionTitle { margin-block: 0 var(--space-4); font-size: var(--font-size-h2); }
+
+.pageToolbar { display: flex; align-items: start; justify-content: space-between; gap: var(--space-4); }
+.pageToolbar > button { flex: none; }

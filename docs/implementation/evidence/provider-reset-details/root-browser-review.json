@@ -1,0 +1,59 @@
+{
+  "reviewer": "root",
+  "fixture": true,
+  "compiledPreview": "http://127.0.0.1:4289",
+  "servedManifestSha256": "6f60111dbee44a2f33cbd0fd415f101295d5cca907e39ea753a5d2d130dd98a1",
+  "checks": [
+    {
+      "scenario": "reset-credits",
+      "width": 1440,
+      "overflow": false,
+      "closeVisible": true,
+      "escapeRestoresFocus": true
+    },
+    {
+      "scenario": "reset-credits-other",
+      "width": 1440,
+      "overflow": false,
+      "closeVisible": true,
+      "escapeRestoresFocus": true
+    },
+    {
+      "scenario": "reset-credits",
+      "width": 390,
+      "overflow": false,
+      "closeVisible": true,
+      "escapeRestoresFocus": true
+    },
+    {
+      "scenario": "reset-credits-other",
+      "width": 390,
+      "overflow": false,
+      "closeVisible": true,
+      "escapeRestoresFocus": true
+    },
+    {
+      "scenario": "reset-credits",
+      "width": 320,
+      "overflow": false,
+      "closeVisible": true,
+      "escapeRestoresFocus": true
+    },
+    {
+      "scenario": "reset-credits-other",
+      "width": 320,
+      "overflow": false,
+      "closeVisible": true,
+      "escapeRestoresFocus": true
+    },
+    {
+      "scenario": "Python producer -> Rust snapshot collector -> compiled React UI",
+      "width": 390,
+      "availableCount": 3,
+      "claudeState": "unknown",
+      "windowUsedPercent": 35,
+      "envelopeNote": "Payload unchanged; API version label matched to proposed-0 fixture bootstrap"
+    }
+  ],
+  "pageErrors": []
+}

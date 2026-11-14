@@ -21,6 +21,8 @@ export function ServerNow({ serverTime, children }: { serverTime: string; childr
   const now = useServerNow({ serverTime, receivedAt }, { tickMs: 30_000 });
   return <Now value={now}>{children}</Now>;
 }
+/** Server time as an ISO string, or null outside a task view. */
+export const useServerClock = () => useContext(Now);
 /** "5m ago", with the exact time in its title. */
 export function Ago({ at }: { at: string }) {
   const now = useContext(Now);

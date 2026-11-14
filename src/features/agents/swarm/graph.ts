@@ -1,6 +1,6 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
-import type { MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
+import { agentClassLabel, type MachineView, type NodeView, type SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
 
 export type Selection =
@@ -106,7 +106,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     link(machineId, id);
     for (const a of w.agents) {
       const s: Selection = { kind: "agent", sessionId: a.sessionId };
-      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${a.intelligenceClass ?? "unclassified"}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:a.manual.stage}: {}) }));
+      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${agentClassLabel(a)}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:`${agentClassLabel(a)} · ${a.manual.stage}`}: {}) }));
       link(id, selectionId(s));
     }
     const idle = w.slots.idle ?? 0;
@@ -136,11 +136,98 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
   return { nodes, edges };
 }
 
+/** Slots grow downwards within a bounded footprint, rather than becoming dagre siblings. */
+export const SLOT_COLUMNS = 2;
+const SLOT_GAP = 14, SLOT_ROW_GAP = 14, SLOT_HEADER_GAP = 46;
+
 export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir: "TB" | "LR" = "TB"): Node<SwarmCardData>[] {
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const groups = new Map<string, Node<SwarmCardData>[]>();
+  const owner = new Map<string, string>();
+  for (const e of edges) {
+    const parent = byId.get(e.source), child = byId.get(e.target);
+    if (!parent || !child || !["node", "waiting"].includes(parent.data.kind) || !["agent", "free", "waitingAgent"].includes(child.data.kind)) continue;
+    const children = groups.get(parent.id) ?? [];
+    children.push(child); groups.set(parent.id, children); owner.set(child.id, parent.id);
+  }
+  const footprints = new Map<string, { width: number; height: number; columnWidth: number; rowHeight: number }>();
   const g = new dagre.graphlib.Graph(); g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir, nodesep: 14, ranksep: 46 });
-  for (const n of nodes) g.setNode(n.id, { width: n.data.box.width, height: n.data.box.height });
-  for (const e of edges) g.setEdge(e.source, e.target);
+  g.setGraph({ rankdir, nodesep: 28, ranksep: 46 });
+  for (const n of nodes) {
+    if (owner.has(n.id)) continue;
+    const children = groups.get(n.id) ?? [];
+    const columnWidth = Math.max(0, ...children.map(c => c.data.box.width));
+    const rowHeight = Math.max(0, ...children.map(c => c.data.box.height));
+    const columns = Math.min(SLOT_COLUMNS, children.length), rows = Math.ceil(children.length / SLOT_COLUMNS);
+    const footprint = {
+      width: Math.max(n.data.box.width, columns * columnWidth + Math.max(0, columns - 1) * SLOT_GAP),
+      height: n.data.box.height + (rows ? SLOT_HEADER_GAP + rows * rowHeight + (rows - 1) * SLOT_ROW_GAP : 0),
+      columnWidth, rowHeight,
+    };
+    footprints.set(n.id, footprint); g.setNode(n.id, footprint);
+  }
+  for (const e of edges) if (!owner.has(e.target) && !owner.has(e.source)) g.setEdge(e.source, e.target);
+  // Reserve complete branches, including waiting slots beside machine descendants.
+  // Dagre centres boxes within each rank; a tall slot grid would otherwise push
+  // a short sibling's heading far below its parent. Top-align sibling subtrees.
+  if (rankdir === "TB") {
+    const children = new Map<string, string[]>();
+    const parentIds = new Set<string>();
+    for (const e of edges) {
+      if (owner.has(e.target) || owner.has(e.source)) continue;
+      const siblings = children.get(e.source) ?? [];
+      siblings.push(e.target); children.set(e.source, siblings); parentIds.add(e.target);
+    }
+    const branches = new Map<string, { width: number; height: number }>();
+    const measure = (id: string): { width: number; height: number } => {
+      const own = footprints.get(id)!;
+      const descendants = (children.get(id) ?? []).map(measure);
+      const branch = {
+        width: Math.max(own.width, descendants.reduce((sum, d) => sum + d.width, 0) + Math.max(0, descendants.length - 1) * 28),
+        height: own.height + (descendants.length ? SLOT_HEADER_GAP + Math.max(...descendants.map(d => d.height)) : 0),
+      };
+      branches.set(id, branch); return branch;
+    };
+    const roots = nodes.filter(n => !owner.has(n.id) && !parentIds.has(n.id));
+    roots.forEach(n => measure(n.id));
+    const positions = new Map<string, { x: number; y: number }>();
+    const place = (id: string, left: number, top: number) => {
+      const card = byId.get(id)!, branch = branches.get(id)!, own = footprints.get(id)!;
+      positions.set(id, { x: left + (branch.width - card.data.box.width) / 2, y: top });
+      const slots = groups.get(id) ?? [];
+      const columns = Math.min(SLOT_COLUMNS, slots.length);
+      const gridWidth = columns * own.columnWidth + Math.max(0, columns - 1) * SLOT_GAP;
+      slots.forEach((slot, index) => positions.set(slot.id, {
+        x: left + (branch.width - gridWidth) / 2 + (index % SLOT_COLUMNS) * (own.columnWidth + SLOT_GAP) + (own.columnWidth - slot.data.box.width) / 2,
+        y: top + card.data.box.height + SLOT_HEADER_GAP + Math.floor(index / SLOT_COLUMNS) * (own.rowHeight + SLOT_ROW_GAP),
+      }));
+      const descendants = children.get(id) ?? [];
+      const totalWidth = descendants.reduce((sum, child) => sum + branches.get(child)!.width, 0) + Math.max(0, descendants.length - 1) * 28;
+      let childLeft = left + (branch.width - totalWidth) / 2;
+      for (const child of descendants) {
+        place(child, childLeft, top + own.height + SLOT_HEADER_GAP);
+        childLeft += branches.get(child)!.width + 28;
+      }
+    };
+    let left = 0;
+    for (const root of roots) { place(root.id, left, 0); left += branches.get(root.id)!.width + 28; }
+    return nodes.map(n => ({ ...n, position: positions.get(n.id)!, width: n.data.box.width, height: n.data.box.height }));
+  }
   dagre.layout(g);
-  return nodes.map(n => { const p = g.node(n.id); return { ...n, position: { x: p.x - p.width / 2, y: p.y - p.height / 2 }, width: p.width, height: p.height }; });
+  return nodes.map(n => {
+    const parentId = owner.get(n.id);
+    const footprint = footprints.get(parentId ?? n.id)!;
+    const p = g.node(parentId ?? n.id);
+    const left = p.x - footprint.width / 2, top = p.y - footprint.height / 2;
+    let x = left + (footprint.width - n.data.box.width) / 2, y = top;
+    if (parentId) {
+      const children = groups.get(parentId)!;
+      const index = children.indexOf(n), column = index % SLOT_COLUMNS, row = Math.floor(index / SLOT_COLUMNS);
+      const columns = Math.min(SLOT_COLUMNS, children.length);
+      const gridWidth = columns * footprint.columnWidth + (columns - 1) * SLOT_GAP;
+      x = left + (footprint.width - gridWidth) / 2 + column * (footprint.columnWidth + SLOT_GAP) + (footprint.columnWidth - n.data.box.width) / 2;
+      y += byId.get(parentId)!.data.box.height + SLOT_HEADER_GAP + row * (footprint.rowHeight + SLOT_ROW_GAP);
+    }
+    return { ...n, position: { x, y }, width: n.data.box.width, height: n.data.box.height };
+  });
 }

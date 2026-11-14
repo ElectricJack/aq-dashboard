@@ -1,0 +1,28 @@
+.editor { display: grid; gap: var(--space-4); min-inline-size: 0; }
+.intro { display: grid; gap: var(--space-3); }
+.intro p { margin: 0; }
+.meta, .context { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.active { font-weight: 600; color: var(--color-accent); }
+.tableWrap { max-inline-size: 100%; min-inline-size: 0; overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); margin-block-start: var(--space-2); }
+.scrollHint { margin-block: var(--space-4) 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.tableWrap:focus-visible, .editor input:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+.table { inline-size: 100%; border-collapse: collapse; text-align: start; table-layout: fixed; }
+.table th, .table td { padding: var(--space-3); vertical-align: top; border-block-end: 1px solid var(--color-border); overflow-wrap: anywhere; }
+.table thead th { color: var(--color-text-secondary); font-weight: 500; }
+.table th:first-child { inline-size: 125px; }
+.table tbody tr:last-child > * { border-block-end: 0; }
+.table input { box-sizing: border-box; inline-size: 90px; max-inline-size: 100%; min-block-size: var(--control-height); padding: var(--space-2); font: inherit; color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.table input[aria-invalid="true"] { border-color: var(--color-error); }
+.table input:disabled { opacity: .7; }
+.context { display: block; margin-block-start: var(--space-2); font-size: var(--font-size-meta); line-height: 1.5; }
+.context > span { display: block; }
+.fieldError { display: block; margin-block-start: var(--space-2); color: var(--color-error); font-size: var(--font-size-meta); }
+.optional { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-block-start: var(--space-3); }
+.optional p { flex: 1 1 240px; margin: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.actions a { display: inline-flex; align-items: center; min-block-size: var(--control-height); color: var(--color-accent); }
+.save { background: var(--color-accent); color: var(--color-accent-contrast); }
+.warning { margin: 0; color: var(--color-attention); }
+.notice { margin: 0; min-block-size: 1.5em; }
+.srOnly { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (max-width: 480px) { .table th, .table td { padding: var(--space-2); } .table th:first-child { inline-size: 100px; } }

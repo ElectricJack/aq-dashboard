@@ -3,7 +3,9 @@ import type { EntityRef, Total } from '../wire/proposed';
 import { ContractError, isRecord } from './contract';
 import { reference, timestamp } from './reference';
 import { adaptTotal, type TotalView } from './inspection';
-const KINDS = ['decision','question','blocked','failed','uncertain_operation','worker_offline'] as const;
+const KINDS = ['decision','question','blocked','failed','uncertain_operation','worker_offline','internal_work'] as const;
+/** Where an attention item comes from, for kinds whose title does not say. Internal work items open the affected item. */
+export const ATTENTION_SOURCE_LABEL: Partial<Record<AttentionView['kind'],string>> = {internal_work:'Internal work'};
 export type AttentionView = {
  id:string;kind:typeof KINDS[number]|'unsupported';title:string;project:{id:string;label:string}|null;reason:string;impact:string;since:string|null;subject:EntityRef;
  action:{kind:string;allowed:boolean;explanation:string|null;subject:EntityRef}|null;

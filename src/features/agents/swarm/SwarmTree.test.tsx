@@ -146,3 +146,23 @@ test("the selection centred at init is not centred a second time", async () => {
   await new Promise(r => setTimeout(r, 50));
   expect(flow.setCenter).toHaveBeenCalledTimes(1);
 });
+
+test("a deep stacked agent and a free slot remain individually selectable without resetting the viewport", async () => {
+  const fleet = structuredClone(view);
+  const worker = fleet.machines.find(m => m.nodes.some(n => n.agents.length))!.nodes.find(n => n.agents.length)!;
+  const sample = worker.agents[0]!;
+  worker.agents = Array.from({ length: 100 }, (_, i) => ({ ...sample, sessionId: `stacked-${i}` }));
+  worker.slots = { total: 102, occupied: 100, idle: 2 };
+  const onSelect = vi.fn();
+  const { container, rerender } = render(<SwarmTree view={fleet} ready={0} selected={null} onSelect={onSelect} />);
+  await waitFor(() => expect(container.querySelector('[data-id="agent:stacked-99"] button')).toBeInTheDocument());
+  await waitFor(() => expect(flow.fitView).toHaveBeenCalledTimes(1));
+  fireEvent.click(container.querySelector('[data-id="agent:stacked-99"] button')!);
+  expect(onSelect).toHaveBeenLastCalledWith({ kind: "agent", sessionId: "stacked-99" });
+  const free = container.querySelector(`[data-id="free:${worker.id}:1"]`)!;
+  fireEvent.keyDown(free, { key: "Enter" });
+  expect(onSelect).toHaveBeenLastCalledWith({ kind: "free", nodeId: worker.id, index: 1 });
+  rerender(<SwarmTree view={fleet} ready={0} selected={{ kind: "free", nodeId: worker.id, index: 1 }} onSelect={onSelect} />);
+  expect(flow.fitView).toHaveBeenCalledTimes(1);
+  expect(flow.setCenter).not.toHaveBeenCalled();
+});

@@ -66,6 +66,16 @@ test("item 2: ready, running and unknown readiness come from the server, never i
   expect(await within(region).findByText(/^Readiness unknown/, { selector: "[data-task-status] span" })).toHaveTextContent("Readiness unknown · relationships not fully read");
 });
 
+test("owner ruling 4b: a task completed with no file change reads as such, from AQ's no_change evidence", async () => {
+  let quiet = true;
+  server.use(http.get(`${graph}/${FIXTURE_IDS.approve}/work`, () => HttpResponse.json({ ...task, data: { task_id: FIXTURE_IDS.approve, task_state: "completed", version: "1", readiness: { state: "completed", blockers: [], complete: true, reasons: [] }, parent: null, execution: null, ...(quiet ? { completed_without_changes: true } : {}) } })));
+  const first = await open(FIXTURE_IDS.approve);
+  expect(await within(first.region).findByText("Completed, no changes", { selector: "[data-task-status] span" })).toBeVisible();
+  first.unmount(); quiet = false;
+  const { region } = await open(FIXTURE_IDS.approve);
+  expect(await within(region).findByText("Complete", { selector: "[data-task-status] span" })).toBeVisible();
+});
+
 test("item 3: the holding attempt links to its session's terminal; a task without one says so", async () => {
   const { region, unmount } = await open(FIXTURE_IDS.replay);
   const status = section(region, "Status");
@@ -520,7 +530,7 @@ test("P1-02: on a phone every action sits in one Task actions menu", async () =>
     expect(within(header).queryByRole("button", { name: "Edit task" })).toBeNull();
     await userEvent.click(within(header).getByRole("button", { name: "Task actions" }));
     const menu = screen.getByRole("menu", { name: "Task actions" });
-    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Cancel task", "Delete task", "Retry attempt", "Add dependency", "Remove dependency"]);
+    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Cancel task", "Delete task", "Retry attempt", "Add dependency", "Remove dependency", "Set route"]);
   } finally { vi.unstubAllGlobals(); }
 });
 

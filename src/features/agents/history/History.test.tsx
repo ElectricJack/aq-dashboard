@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -69,4 +69,24 @@ test('changing the find text cancels an in-flight search without showing stale m
 test('a protected refusal while paging removes previously visible transcript text',async()=>{
  handlers();server.use(http.get('/api/manual-agents/:id/transcript',({request})=>{const after=new URL(request.url).searchParams.get('after');if(after)return new HttpResponse(null,{status:403});return HttpResponse.json({session,chunks:chunks.slice(0,32),next_after:32,has_more:true,through_sequence:40,server_time_ms:2000});}));
  const view=setup();const user=userEvent.setup();try{await screen.findByText('line 1',{exact:false});await user.click(screen.getByRole('button',{name:'Next output page'}));expect(await screen.findByRole('alert')).toHaveTextContent('access was refused');expect(screen.queryByLabelText('Terminal transcript')).not.toBeInTheDocument();}finally{view.dispose();}
+});
+
+const internalRun={id:'00000000-0000-4000-8000-0000000000a1',purpose:'playbook_call',status:'answered',affected:{kind:'task',id:'T-7',project_id:null},instructions:'i',input:'x',answer:{ok:true},attempts:[],provider:'openai',model:'gpt-x',way:'api',elapsed_ms:1500,created_at_ms:1000,finished_at_ms:2500,escalation:'none'};
+test('Internal is off by default: sessions show and no internal runs are requested',async()=>{
+ handlers();let runRequests=0;server.use(http.get('/api/internal-work/runs',()=>{runRequests++;return HttpResponse.json({runs:[internalRun],next_cursor:null});}));
+ const router=createMemoryRouter([{path:'/agents/history',Component}],{initialEntries:['/agents/history']});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<App router={router} queryClient={client}/>);
+ try{const list=await screen.findByRole('list',{name:'Session history'});await waitFor(()=>expect(within(list).getByText(/anthropic · fixture/)).toBeVisible());expect(screen.getByLabelText('Internal')).not.toBeChecked();expect(runRequests).toBe(0);}finally{router.dispose();client.clear();}
+});
+test('?internal=1 opens History with Internal on, as an internal work attention item links it',async()=>{
+ handlers();let runRequests=0;server.use(http.get('/api/internal-work/runs',()=>{runRequests++;return HttpResponse.json({runs:[internalRun],next_cursor:null});}));
+ const router=createMemoryRouter([{path:'/agents/history',Component}],{initialEntries:['/agents/history?internal=1']});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<App router={router} queryClient={client}/>);
+ try{const list=await screen.findByRole('list',{name:'Internal work'});expect(await within(list).findByText('playbook call')).toBeVisible();expect(screen.getByLabelText('Internal')).toBeChecked();expect(runRequests).toBe(1);}finally{router.dispose();client.clear();}
+});
+test('turning Internal on lists internal runs instead of sessions',async()=>{
+ handlers();const search:string[]=[];server.use(http.get('/api/internal-work/runs',({request})=>{search.push(new URL(request.url).search);return HttpResponse.json({runs:[internalRun],next_cursor:null});}));
+ const router=createMemoryRouter([{path:'/agents/history',Component}],{initialEntries:['/agents/history']});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<App router={router} queryClient={client}/>);const user=userEvent.setup();
+ try{await screen.findByText(/anthropic · fixture/);await user.click(screen.getByLabelText('Internal'));
+ const list=await screen.findByRole('list',{name:'Internal work'});expect(within(list).getByText('playbook call')).toBeVisible();expect(within(list).getByText(/task T-7 · answered/)).toBeVisible();expect(within(list).getByText(/openai · gpt-x · 1\.5 s/)).toBeVisible();
+ expect(screen.queryByText(/anthropic · fixture/)).not.toBeInTheDocument();expect(search).toEqual(['?limit=50']);
+ await user.click(screen.getByLabelText('Internal'));expect(await screen.findByText(/anthropic · fixture/)).toBeVisible();expect(screen.queryByRole('list',{name:'Internal work'})).not.toBeInTheDocument();}finally{router.dispose();client.clear();}
 });

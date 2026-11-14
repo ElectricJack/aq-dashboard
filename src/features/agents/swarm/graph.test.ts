@@ -112,3 +112,61 @@ describe("buildSwarmGraph", () => {
     expect(labels).toEqual(["claude · standard", "anthropic · fast"]);
   });
 });
+
+it("shows the routing profile while retaining the legacy palette", () => {
+  const v = view();
+  v.machines[0]!.nodes[0]!.agents[0]!.routingProfile = { id: "complex", displayName: "Complex" };
+  const card = byId(build(v), "agent:s1")!;
+  expect(card.data.label).toBe("claude · Complex");
+  expect(card.data.intelligenceClass).toBe("standard");
+});
+
+it.each([100, 200])("stacks %i agents per worker in two columns and reserves the complete fleet footprint", count => {
+  const v = view();
+  v.machines = Array.from({ length: 2 }, (_, m) => machine(`fleet-${m}`, "online", {
+    nodes: Array.from({ length: 2 }, (_, w) => worker(`fleet-${m}-${w}`, count + 3, count, 3,
+      Array.from({ length: count }, (_, a) => agent(m * count * 2 + w * count + a, "codex", "fast")))),
+  }));
+  v.waiting.agents = Array.from({ length: count }, (_, i) => ({ taskId: `waiting-${i}`, title: "Waiting task", project: { id: "p", label: "proj" }, provider: "codex", intelligenceClass: "fast" as const, reasons: [], since: null }));
+  const graph = build(v), placed = layoutSwarm(graph.nodes, graph.edges);
+  expect(placed.map(n => n.id)).toEqual(graph.nodes.map(n => n.id));
+  expect(new Set(placed.map(n => n.id)).size).toBe(placed.length);
+  for (const parent of placed.filter(n => n.data.kind === "node" || n.data.kind === "waiting")) {
+    const childIds = new Set(graph.edges.filter(e => e.source === parent.id).map(e => e.target));
+    const children = placed.filter(n => childIds.has(n.id));
+    // Free pills share the same column centres as the wider agent pills.
+    expect(new Set(children.map(n => n.position.x + n.width! / 2)).size).toBe(2);
+    expect(new Set(children.map(n => n.position.y)).size).toBe(Math.ceil(children.length / 2));
+    expect(Math.max(...children.map(n => n.position.x + n.width!)) - Math.min(...children.map(n => n.position.x))).toBeLessThanOrEqual(parent.data.kind === "waiting" ? 474 : 274);
+    for (const child of children) {
+      expect(child.position.y).toBeGreaterThan(parent.position.y + parent.height!);
+      expect(graph.edges.find(e => e.source === parent.id && e.target === child.id)).toBeDefined();
+    }
+  }
+  for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+    const a = placed[i]!, b = placed[j]!;
+    expect(a.position.x + a.width! <= b.position.x || b.position.x + b.width! <= a.position.x || a.position.y + a.height! <= b.position.y || b.position.y + b.height! <= a.position.y, `${a.id} overlaps ${b.id}`).toBe(true);
+  }
+});
+
+it("top-aligns heterogeneous branches without letting a long waiting queue push workers down", () => {
+  const v = view();
+  v.machines = [machine("large", "online", { nodes: [
+    worker("large-worker", 200, 200, 0, Array.from({ length: 200 }, (_, i) => agent(i, "codex", "fast"))),
+    worker("small-sibling", 1, 1, 0, [agent(200, "codex", "fast")]),
+  ] }), machine("small", "online", { nodes: [worker("small-worker", 1, 1, 0, [agent(201, "codex", "fast")])] })];
+  v.waiting.agents = Array.from({ length: 200 }, (_, i) => ({ taskId: `waiting-${i}`, title: "Waiting task", project: { id: "p", label: "proj" }, provider: "codex", intelligenceClass: "fast" as const, reasons: [], since: null }));
+  const graph = build(v), placed = layoutSwarm(graph.nodes, graph.edges);
+  const card = (id: string) => placed.find(n => n.id === id)!;
+  for (const edge of graph.edges) {
+    const parent = card(edge.source), child = card(edge.target);
+    if (["agent", "free", "waitingAgent"].includes(child.data.kind)) continue;
+    expect(child.position.y).toBe(parent.position.y + parent.height! + 46);
+  }
+  expect(card("node:large-worker").position.y).toBe(card("node:small-sibling").position.y);
+  expect(card("node:large-worker").position.y).toBe(card("node:small-worker").position.y);
+  for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+    const a = placed[i]!, b = placed[j]!;
+    expect(a.position.x + a.width! <= b.position.x || b.position.x + b.width! <= a.position.x || a.position.y + a.height! <= b.position.y || b.position.y + b.height! <= a.position.y, `${a.id} overlaps ${b.id}`).toBe(true);
+  }
+});

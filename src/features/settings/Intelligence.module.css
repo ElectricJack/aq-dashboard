@@ -4,7 +4,7 @@
 .provider select { min-inline-size: 220px; }
 .meta { color: var(--color-text-secondary); margin: 0; overflow-wrap: anywhere; }
 .tableWrap { overflow-x: auto; max-inline-size: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
-.table { inline-size: 100%; min-inline-size: 1000px; border-collapse: collapse; text-align: start; }
+.table { inline-size: 100%; min-inline-size: 1100px; border-collapse: collapse; text-align: start; }
 .table th { color: var(--color-text-secondary); font-weight: 500; padding: var(--space-3); border-block-end: 1px solid var(--color-border); white-space: nowrap; }
 .table td { padding: var(--space-3); border-block-end: 1px solid var(--color-border); vertical-align: top; }
 .table tr:last-child td { border-block-end: 0; }
@@ -17,3 +17,31 @@
 .catalog summary { cursor: pointer; min-block-size: var(--control-height); align-content: center; }
 .catalog summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .confirmDelete { display: grid; gap: var(--space-2); inline-size: 100%; min-inline-size: 0; overflow-wrap: anywhere; }
+
+.limitCell { display: grid; gap: var(--space-2); min-inline-size: 110px; max-inline-size: 170px; }
+
+.descriptions, .profileRows { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.descriptions h3 { margin: 0; font-size: var(--font-size-h3, 16px); }
+.descriptionRows { border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
+.descriptionRows > section + section { border-block-start: 1px solid var(--color-border); }
+.parentHeader { display: grid; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+.parentDescription { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.parentStatus:empty { display: none; }
+.parentStatus { margin: 0; }
+.addVariation { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); }
+.addVariation > label { display: grid; gap: var(--space-2); min-inline-size: 200px; }
+.variationTable { min-inline-size: 850px; }
+.variationTable th:nth-child(1) { inline-size: 17%; }.variationTable th:nth-child(2) { inline-size: 28%; }.variationTable th:nth-child(3) { inline-size: 20%; }.variationTable th:nth-child(4) { inline-size: 15%; }.variationTable th:nth-child(5) { inline-size: 20%; }
+.identities { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.identities summary { cursor: pointer; color: var(--color-text); }.identities span { display: block; margin-block-start: var(--space-2); }
+.otherProfiles { display: grid; gap: var(--space-3); min-inline-size: 0; }.otherProfiles h3 { margin: 0; }
+
+.scrollHint { display: none; margin: 0; padding: 0; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+@media (max-width: 900px) { .scrollHint { display: block; } }
+
+.table .rowActions { min-inline-size: 100px; }
+.unsavedDialog { box-sizing: border-box; inline-size: min(460px, calc(100vw - 32px)); padding: var(--space-5); color: var(--color-text); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-panel); }
+.unsavedDialog::backdrop { background: rgb(0 0 0 / 65%); }
+.unsavedDialog h3 { margin-block-start: 0; }
+.unsavedDialog p { color: var(--color-text-secondary); }
+.unsavedDialog .rowActions { justify-content: flex-end; }

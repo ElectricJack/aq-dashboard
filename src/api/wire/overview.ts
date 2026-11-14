@@ -4,7 +4,7 @@ export type { ReferenceRevision } from './proposed';
 export type EntityRef = { type: string; id: string; revision?: ReferenceRevision | null };
 export type SourceObservation = { source: string; project?: ProjectRef | null; observation?: Observation | null; coverage: Coverage; total: Total };
 export type AttentionItem = {
- id: string; kind: 'decision'|'question'|'blocked'|'failed'|'uncertain_operation'|'worker_offline';
+ id: string; kind: 'decision'|'question'|'blocked'|'failed'|'uncertain_operation'|'worker_offline'|'internal_work';
  title: string; project?: ProjectRef|null; reason: string; impact: string; since?: string|null;
  subject: EntityRef; action?: {kind:string;label:string;subject:EntityRef}|null;
 };
@@ -18,9 +18,14 @@ export type QuotaWindow = {
  id:string;label:string;starts_at?:string|null;resets_at?:string|null;used_percent?:number|null;
  used?:number|null;limit?:number|null;unit:string|null;state:'known'|'unknown'|'unavailable';observation:Observation;
 };
+export type ResetCredits = {
+ state:'known'|'unknown'|'unavailable'; available_count:number|null;
+ grants:{label:string;remaining_count:number|null;expires_at:string|null;usable_now:boolean|null;clears:string[]}[]|null;
+ observation:Observation;
+};
 export type ProviderUsage = {
  provider_id:string;account_ref:string;account_label:string;scope:'provider_account';windows:QuotaWindow[];
- preferred_window_id?:string|null;availability_ref?:EntityRef|null;
+ preferred_window_id?:string|null;availability_ref?:EntityRef|null;reset_credits?:ResetCredits|null;
 };
 export type ProviderUsageEnvelope = Envelope<ProviderUsage[]>;
 export type Search = {groups:{type:'task'|'session'|'result'|'playbook'|'knowledge';hits:{ref:{kind:string;id:string;revision:ReferenceRevision};title:string;excerpt:string;project:ProjectRef}[];has_more:boolean;next_cursor?:string|null}[];sources:SourceObservation[];snapshot_id:string};

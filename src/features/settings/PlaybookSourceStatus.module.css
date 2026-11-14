@@ -1,0 +1,37 @@
+.status { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.status p, .status h4, .status h5, .status ul, .status ol { margin: 0; }
+.status h4 { font-size: var(--font-size-body); }
+.meta { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+/* Text from a run: shown exactly as sent, line breaks kept, long words wrapped. */
+.text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.notice, .problem, .question, .active { display: grid; gap: var(--space-2); min-inline-size: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); }
+.problem { border-color: var(--color-error); }
+.problem h4 { color: var(--color-error); }
+.question { border-color: var(--color-attention); }
+.question h4 { color: var(--color-attention); }
+.sentences, .unable { padding-inline-start: 0; list-style: none; display: grid; gap: var(--space-2); }
+.sentences li, .unable li { display: grid; gap: var(--space-1); padding: var(--space-2); background: var(--color-canvas); border-inline-start: 3px solid var(--color-attention); border-radius: var(--radius-control); min-inline-size: 0; }
+.line { display: inline-block; margin-inline-end: var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); font-weight: 600; white-space: nowrap; }
+.confirm { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-attention); border-radius: var(--radius-control); background: var(--color-canvas); }
+.confirm h5 { font-size: var(--font-size-body); }
+.change { overflow-wrap: anywhere; }
+.passed { color: var(--color-success); white-space: nowrap; }
+.failed { color: var(--color-error); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.table { inline-size: 100%; border-collapse: collapse; table-layout: fixed; }
+.table th { text-align: start; color: var(--color-text-secondary); font-size: var(--font-size-xs); font-weight: 600; }
+.table th, .table td { padding: var(--space-2); vertical-align: top; border-block-end: 1px solid var(--color-border); min-inline-size: 0; }
+.table th:last-child, .table td:last-child { inline-size: 9em; }
+.groups { display: grid; gap: var(--space-3); }
+.group { display: grid; gap: var(--space-1); padding-block-end: var(--space-2); border-block-end: 1px solid var(--color-border); min-inline-size: 0; }
+.group h5 { font-size: var(--font-size-body); }
+.group ul { padding-inline-start: 0; list-style: none; display: grid; gap: var(--space-1); }
+.group li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+/* A phone: each case stacks, with its column name above each part. */
+@media (max-width: 40rem) {
+  .table, .table tbody, .table tr, .table td { display: block; inline-size: auto; }
+  .table thead { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+  .table tr { padding-block: var(--space-2); border-block-end: 1px solid var(--color-border); }
+  .table td, .table th:last-child, .table td:last-child { inline-size: auto; border: 0; padding-block: var(--space-1); }
+  .table td::before { content: attr(data-label); display: block; color: var(--color-text-secondary); font-size: var(--font-size-xs); font-weight: 600; }
+}

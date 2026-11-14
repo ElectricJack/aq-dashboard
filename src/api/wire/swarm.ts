@@ -11,6 +11,8 @@ export type HostProbe = "not_applicable" | "fresh" | "stale" | "missing";
 export type ServiceState = "running" | "stopped" | "draining" | "unreported";
 export type ReportedState = "ready" | "unavailable" | "unreported";
 export type IntelligenceClass = "fast" | "standard" | "deep";
+// "history_rate_limited" is unused: no server sends it since the offer and worker report
+// rate limits were removed (2026-11-13). It stays because the pinned schema lists it.
 export type HoldCode =
   | "worker_offline" | "worker_revoked" | "worker_stopped" | "worker_draining"
   | "capability_unreported" | "capability_expired"
@@ -35,6 +37,7 @@ export type NodeSlots = { total: number | null; occupied: number; idle: number |
 export type SwarmAgent = {
   session_id: string; attempt_id: string; task: TitledRef | null; project: ProjectRef;
   provider: string | null; model: string | null; harness: string | null; intelligence_class: IntelligenceClass | null;
+  routing_profile?: { id: string; display_name: string } | null;
   terminal: EntityRef | null; started_at: Timestamp | null;
 };
 export type SwarmNode = {

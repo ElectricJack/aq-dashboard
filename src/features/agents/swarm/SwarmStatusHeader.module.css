@@ -1,0 +1,9 @@
+.status { min-width: 0; margin-block: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); padding: 8px 12px; font-size: var(--font-size-xs); }
+.providerGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+.provider { min-width: 0; }
+.heading { display: flex; justify-content: space-between; gap: 6px; overflow-wrap: anywhere; }
+.provider input { width: 100%; min-width: 0; margin: 4px 0; }
+.burn { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.notice { display: block; margin-top: 6px; }
+.status button { border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-raised); color: var(--color-text); padding: 4px 9px; font: inherit; cursor: pointer; }
+.status :is(button, input):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }

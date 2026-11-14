@@ -6,6 +6,7 @@ import { handlersFor } from "../../../mocks/handlers";
 import { SWARM_MOCKUP, SWARM_STOPPED, swarmEnvelope } from "../../../mocks/swarm";
 import { renderApp } from "../../../test/renderApp";
 import { stubReactFlowDom } from "../../../test/reactFlow";
+import confirmed from "../../../../contracts/live/dashboard-actions/fixtures/operation-confirmed.json";
 
 const server = setupServer(...handlersFor("default"));
 let restore: () => void;
@@ -136,6 +137,26 @@ test("conflict shows reload guidance", async () => {
   const dialog = await confirmAndSubmit("Drain", /Drain desktop/);
   expect(await within(dialog).findByRole("status")).toHaveTextContent("Reload to see its current state");
   expect(within(dialog).getByRole("button", { name: "Reload current state" })).toBeInTheDocument();
+});
+
+test("a machine action AQ refuses as busy says nothing changed and can be tried again (M1 residual)", async () => {
+  const ids: string[] = [];
+  server.use(http.post("/api/v1/actions", async ({ request }) => {
+    const id = (await request.json() as { operation_id: string }).operation_id; ids.push(id);
+    const busy = ids.length === 1;
+    return HttpResponse.json({ ...confirmed, data: { ...confirmed.data, operation_id: id, subject_refs: [{ type: "machine", id: "desktop" }],
+      disposition: busy ? "rejected" : "confirmed", recovery: busy ? "refresh_and_review" : "none",
+      receipt_refs: busy ? [] : [{ type: "machine_control", id, revision: "2" }], affected_entities: busy ? [] : [{ type: "machine", id: "desktop", revision: "2" }],
+      ...(busy ? { reason: "busy" } : {}) } });
+  }));
+  await openMachine();
+  await userEvent.click(await button("Drain"));
+  const dialog = await confirmAndSubmit("Drain", /Drain desktop/);
+  expect(await within(dialog).findByRole("status")).toHaveTextContent("The machine was busy; nothing changed. Try again.");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Try again" }));
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  expect(await within(dialog).findByText("Worker drain confirmed.")).toBeInTheDocument();
+  expect(new Set(ids).size).toBe(2);
 });
 
 test("confirmation is required", async () => {
