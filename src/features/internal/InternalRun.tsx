@@ -6,6 +6,8 @@ import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
 import styles from "./InternalRun.module.css";
 
+/** The purpose of a run by an authoring agent, the only kind that has steps worth reading. */
+const AGENT_PURPOSE = "playbook_compilation";
 const WAY: Record<string, string> = { api: "API", login: "logged-in harness" };
 export function duration(ms: number) { return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`; }
 const reasonText = (reason: string | null) => (reason ?? "").replaceAll("_", " ");
@@ -38,10 +40,12 @@ function Step({ item }: { item: TranscriptItem }) {
     default: return <li className={styles.meta}>A step this view does not know how to show.</li>;
   }
 }
-function Steps({ transcript }: { transcript: InternalRunTranscript }) {
-  const label = `Agent steps, candidate ${transcript.candidate_index + 1}`;
+/** One transcript is "What the agent did"; several are numbered by position ("run 1 of 2"), which does not imply any pairing with the attempts list. */
+function Steps({ transcript, position, total }: { transcript: InternalRunTranscript; position: number; total: number }) {
+  const which = total > 1 ? `run ${position} of ${total}` : "";
+  const label = which ? `Agent steps, ${which}` : "Agent steps";
   return <details>
-    <summary>What the agent did (candidate {transcript.candidate_index + 1})</summary>
+    <summary>What the agent did{which && ` (${which})`}</summary>
     <ol className={styles.steps} aria-label={label}>
       {transcript.events.map((item, index) => <Step key={index} item={item} />)}
       {transcript.omitted > 0 && <li className={styles.meta}>{transcript.omitted} more steps are not shown.</li>}
@@ -59,9 +63,11 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
     refetchInterval: current => ["queued", "running"].includes(current.state.data?.runs[0]?.status ?? "") ? pollMs : false });
   const retry = useMutation({ mutationFn: retryInternalRun, onSuccess: () => client.invalidateQueries({ queryKey: key }) });
   const run = query.data?.runs[0];
-  // The list never carries transcripts; the read of one run does, once the run has ended.
+  // The list never carries transcripts; the read of one run does, once the run has ended. It is read only for an agent run, or when the owner opens the run's details, never eagerly for every run.
+  const [asked, setAsked] = useState(false);
   const ended = run?.status === "answered" || run?.status === "failed";
-  const detail = useQuery({ queryKey: queryKey(queryContext, "internal-run-read", { id: run?.id ?? "" }), queryFn: ({ signal }) => readInternalRun(run!.id, signal), enabled: ended, retry: false });
+  const detail = useQuery({ queryKey: queryKey(queryContext, "internal-run-read", { id: run?.id ?? "" }), queryFn: ({ signal }) => readInternalRun(run!.id, signal),
+    enabled: ended && (run?.purpose === AGENT_PURPOSE || asked), retry: false });
   const transcripts = detail.data?.transcripts ?? [];
   if (query.isError) return <p className={styles.meta} role="status">Internal work could not be loaded.</p>;
   if (!run) return null;
@@ -70,7 +76,7 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
       <h4>Internal work</h4>
       <span className={styles.meta}>{run.purpose.replaceAll("_", " ")} · {run.status}{run.retry_of ? " · retry" : ""}</span>
     </div>
-    <details>
+    <details onToggle={event => { if (event.currentTarget.open) setAsked(true); }}>
       <summary>What was asked</summary>
       <pre className={styles.pre}>{run.instructions}</pre>
       <pre className={styles.pre}>{run.input}</pre>
@@ -81,7 +87,7 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
     </>}
     {run.status === "failed" && <p className={styles.failed} role="alert">Failed: {reasonText(run.reason ?? null)}{run.detail ? ` - ${run.detail}` : ""}</p>}
     {(run.status === "queued" || run.status === "running") && <p className={styles.meta}>{run.status === "queued" ? "Waiting for a model." : "A model is working on it."}</p>}
-    {transcripts.map(transcript => <Steps key={transcript.candidate_index} transcript={transcript} />)}
+    {transcripts.map((transcript, index) => <Steps key={transcript.candidate_index} transcript={transcript} position={index + 1} total={transcripts.length} />)}
     {run.attempts.length > 0 && <ul className={styles.attempts} aria-label="Attempts">{run.attempts.map((attempt, index) => <Attempt key={index} attempt={attempt} />)}</ul>}
     {run.status === "failed" && <div className={styles.actions}>
       <ActionButton disabled={retry.isPending} onClick={() => retry.mutate(run.id)}>Retry</ActionButton>

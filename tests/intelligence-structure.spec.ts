@@ -19,8 +19,8 @@ for (const width of [1440, 390, 320]) {
     await expect(page.getByRole("table", { name: "Intelligence variations", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
     await expect(page.getByRole("combobox", { name: "Variation to add" })).toContainText("Standard · Medium");
-    await expect(page.getByText("Saved changes are compiled and take effect when they compile.")).toBeVisible();
-    await expect(page.getByRole("switch", { name: "Route tasks with this policy" })).toBeDisabled();
+    await expect(page.getByText(/An agent turns each saved version into a playbook/)).toBeVisible();
+    await expect(page.getByRole("switch", { name: "Route tasks with this playbook" })).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map(v => v.id)).toEqual([]);
@@ -42,32 +42,43 @@ test("parent description and routing markdown persist across reload", async ({ p
   await expect(page.getByLabel("Markdown")).toHaveValue("# Saved routing\n\nUse Standard for ordinary work.");
 });
 
-test("a saved policy compiles, shows how it routes, and routing can be turned on", async ({ page }) => {
+test("a saved document is written into a playbook, shows what it does, and routing can be turned on", async ({ page }) => {
   await page.goto("/settings?tab=intelligence");
   const policy = page.getByRole("region", { name: "Routing policy" });
-  const toggle = policy.getByRole("switch", { name: "Route tasks with this policy" });
+  const toggle = policy.getByRole("switch", { name: "Route tasks with this playbook" });
   // The first read waits for the mock network and every Settings panel to load.
   await expect(toggle).toBeDisabled({ timeout: 15_000 });
   await policy.getByLabel("Markdown").fill("# Routing\n\nBug fixes are Standard, high effort.");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(policy.getByText("Compiling…")).toBeVisible();
-  const summary = policy.getByRole("region", { name: "How this policy routes" });
-  await expect(summary).toContainText("Fixture: Bug fixes: Standard, high effort; Complex, high effort after 1 failed attempt.", { timeout: 10_000 });
-  await expect(policy.getByText("Compiling…")).toHaveCount(0);
+  await expect(policy.getByText("Writing the playbook…")).toBeVisible();
+  const cases = policy.getByRole("region", { name: "What the playbook does" });
+  await expect(cases).toContainText("Fixture: a bug fix that failed once", { timeout: 10_000 });
+  await expect(cases.getByRole("table")).toContainText("Claude or Codex");
+  await expect(policy.getByText("Writing the playbook…")).toHaveCount(0);
   await toggle.click();
   await expect(toggle).toBeChecked();
   await page.reload();
-  await expect(page.getByRole("switch", { name: "Route tasks with this policy" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Route tasks with this playbook" })).toBeChecked();
 });
 
-test("a failed compile keeps the previous policy and says what could not be resolved", async ({ page }) => {
-  await page.goto("/settings?tab=intelligence&scenario=routing-compile-failed");
+test("a question from the agent is shown beside the document with each sentence's line", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence&scenario=playbook-question");
   const policy = page.getByRole("region", { name: "Routing policy" });
-  await expect(policy.getByText("This version did not compile. The previous policy is still routing.")).toBeVisible({ timeout: 15_000 });
-  await expect(policy.getByRole("list", { name: "Unresolved sentences" })).toContainText("Fixture: Art and visual design go to the plotter.");
-  await expect(policy.getByRole("list", { name: "Compile problems" })).toContainText("kinds.docs.class");
-  await expect(policy.getByRole("region", { name: "How this policy routes" })).toBeVisible();
+  const asking = policy.getByRole("region", { name: "The playbook needs an answer" });
+  await expect(asking).toContainText("Which one wins?", { timeout: 15_000 });
+  await expect(asking.getByRole("listitem").first()).toContainText("Line 3");
+  await expect(policy.getByLabel("Markdown")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+});
+
+test("a sentence that cannot be carried out and a refusal are shown with their reasons", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence&scenario=playbook-unable");
+  const policy = page.getByRole("region", { name: "Routing policy" });
+  await expect(policy.getByText("This sentence cannot be carried out")).toBeVisible({ timeout: 15_000 });
+  await expect(policy.getByText("Fixture: Art and visual design go to the plotter.")).toBeVisible();
+  await page.goto("/settings?tab=intelligence&scenario=playbook-refused");
+  await expect(page.getByRole("region", { name: "Routing policy" }).getByText(/Fixture: The document asks to send task text/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: "Routing policy" }).getByText("The previous playbook is still in effect.")).toBeVisible();
 });
 
 test("variation limits save independently", async ({ page }) => {

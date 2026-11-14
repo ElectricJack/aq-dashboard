@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -14,10 +14,15 @@ const snapshot = () => ({ revision: "1", catalog_revision: "2", routing_markdown
   { id: "simple", description: "Simple" }, { id: "standard", description: "Standard" }, { id: "complex", description: "Complex" }, { id: "deep", description: "Deep" },
 ], assignments: [{ profile_id: "profile", parent_id: "simple", effort: "low" }] });
 const routingPath = "/api/settings/intelligence/routing";
-const none = { enabled: false, active: null, latest: null };
+const sourcePath = "/api/playbooks/sources/routing";
+/** What the routing endpoint still answers after the decision table was removed: the switch, and nothing else. */
+const switchState = (enabled = false) => ({ enabled, active: null, latest: null });
+const bare = { id: "routing", kind: "builtin", binding: "aq.routing", active: null, latest: null };
 const server = setupServer(
   http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: "2", active_digest: null, profiles: [], model_choices: [] })),
-  http.get(routingPath, () => HttpResponse.json(none)),
+  http.get(routingPath, () => HttpResponse.json(switchState())),
+  http.get(sourcePath, () => HttpResponse.json(bare)),
+  http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [], next_cursor: null })),
 );
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
@@ -90,75 +95,112 @@ test("combines description and policy drafts and clears a reverted field", async
   expect(submitted).toMatchObject({ routing_markdown: "policy", parents: expect.arrayContaining([expect.objectContaining({ id: "standard", description: "Updated" })]) });
 });
 
-const active = (problems: { path: string; message: string }[] = []) => ({
-  digest: "sha256:" + "a".repeat(64), structure_revision: 1, created_at_ms: 1_000, took_effect_at_ms: 2_000, problems,
-  summary: ["Bug fixes: Standard, high effort; Complex, high effort after 1 failed attempt.", "High risk: at least Standard, high effort; Claude or Codex only."],
-});
-const latest = (status: string, extra: Record<string, unknown> = {}) => ({
-  status, structure_revision: 1, error: null, problems: [], unresolved: [], internal_task_id: "00000000-0000-4000-8000-000000000001", created_at_ms: 1_000, finished_at_ms: status === "compiling" ? null : 2_000, ...extra,
-});
+const kase = (situation: string, result: string, passed = true) => ({ name: "steps.classify", situation, result, passed });
+const active = (extra: Record<string, unknown> = {}) => ({ artifact: "sha256:" + "a".repeat(64), since_ms: 2_000, comparison: { change: "behaviour" },
+  cases: [kase("a bug fix that failed once", "class: complex\neffort: high"), kase("a documentation fix", "class: simple\neffort: low")], ...extra });
+const latest = (status: string, extra: Record<string, unknown> = {}) => ({ run: "r1", status, question: null, unable: null, refusal: null, internal_task_id: null, created_at_ms: Date.now() - 5_000, finished_at_ms: status === "running" ? null : Date.now(), ...extra });
+const source = (extra: Record<string, unknown> = {}) => ({ ...bare, ...extra });
+const useSource = (view: () => Record<string, unknown>) => server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json(view())));
 
-test("says saved changes are compiled", async () => {
+test("says an agent turns saved changes into a playbook, and that the newest save wins", async () => {
   server.use(http.get(path, () => HttpResponse.json(snapshot()))); open();
-  expect(await screen.findByText("Saved changes are compiled and take effect when they compile.")).toBeVisible();
-  expect(screen.queryByText(/playbook execution will be connected later/)).toBeNull();
+  expect(await screen.findByText(/An agent turns each saved version into a playbook/)).toBeVisible();
+  expect(screen.getByText(/Saving again replaces a run still in progress/)).toBeVisible();
+  expect(await screen.findByText("There is no playbook yet. Save the document and an agent will write one from it.")).toBeVisible();
+  expect(screen.queryByText(/compile/i)).toBeNull();
 });
 
-test("shows Compiling… until the compile finishes, then how the policy routes", async () => {
+test("a routing source that does not exist yet is the no playbook state, not an error", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json({ error: "not_found", message: "Source not found" }, { status: 404 }))); open();
+  expect(await screen.findByText(/There is no playbook yet/)).toBeVisible();
+  expect(screen.queryByText(/could not be loaded/)).toBeNull();
+});
+
+test("a source that cannot be read says so and leaves the document editable", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json({ error: "boom", message: "x" }, { status: 500 }))); open();
+  expect(await screen.findByText("What the agent made of the document could not be loaded.")).toBeVisible();
+  expect(screen.getByLabelText("Markdown")).toBeEnabled();
+});
+
+test("shows Writing the playbook… until the run finishes, then what the playbook does, and stops polling", async () => {
   let reads = 0;
-  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(routingPath, () => {
-    reads++;
-    return HttpResponse.json(reads < 3 ? { ...none, latest: latest("compiling") } : { enabled: false, active: active(), latest: latest("active") });
-  }));
+  useSource(() => { reads++; return reads < 3 ? source({ latest: latest("running") }) : source({ active: active({ comparison: null }), latest: latest("saved") }); });
   open(20);
-  expect(await screen.findByText("Compiling…")).toBeVisible();
-  const summary = await screen.findByRole("region", { name: "How this policy routes" });
-  expect(summary).toHaveTextContent("Bug fixes: Standard, high effort; Complex, high effort after 1 failed attempt.");
-  expect(summary).toHaveTextContent("High risk: at least Standard, high effort; Claude or Codex only.");
-  expect(summary).toHaveTextContent("In effect since");
-  expect(screen.queryByText("Compiling…")).toBeNull();
+  expect(await screen.findByText("Writing the playbook…")).toBeVisible();
+  const section = await screen.findByRole("region", { name: "What the playbook does" });
+  expect(within(section).getByRole("table")).toHaveTextContent("a bug fix that failed once");
+  expect(section).toHaveTextContent("class: complex effort: high");
+  expect(section).toHaveTextContent("In effect since");
+  expect(screen.queryByText("Writing the playbook…")).toBeNull();
   const settled = reads;
   await new Promise(resolve => setTimeout(resolve, 100));
   expect(reads).toBe(settled);
 });
 
-test("a failed compile keeps the previous policy and lists its problems, unresolved sentences and the run", async () => {
-  const run = { id: "00000000-0000-4000-8000-000000000001", purpose: "playbook_compilation", status: "answered", affected: { kind: "routing_policy", id: "2", project_id: null },
-    instructions: "Compile the policy.", input: "# Routing", answer: { policy: {} }, attempts: [], provider: "openai", model: "fixture-model", way: "api", elapsed_ms: 900, created_at_ms: 1, escalation: "none" };
+test("the agent's question is shown beside the editor, each sentence with its line, and the document stays editable", async () => {
+  const question = { question: "Which sentence wins?", sentences: [{ line: 3, text: "Research is Standard." }, { line: 9, text: "Research is always Complex." }] };
+  useSource(() => source({ active: active(), latest: latest("question", { question }) }));
+  open();
+  const asking = await screen.findByRole("region", { name: "The playbook needs an answer" });
+  expect(asking).toHaveTextContent("Which sentence wins?");
+  const items = within(asking).getAllByRole("listitem");
+  expect(items[0]).toHaveTextContent("Line 3Research is Standard.");
+  expect(items[1]).toHaveTextContent("Line 9Research is always Complex.");
+  const editor = screen.getByLabelText("Markdown");
+  expect(asking.parentElement).toBe(editor.closest("div")!.parentElement);
+  expect(screen.getAllByText("The playbook needs an answer")).toHaveLength(1);
+  fireEvent.change(editor, { target: { value: "# Fixed" } });
+  expect(editor).toHaveValue("# Fixed");
+  expect(screen.getByText("The previous playbook is still in effect.")).toBeVisible();
+});
+
+test("a sentence that cannot be carried out, and a refusal, are shown in plain words", async () => {
+  useSource(() => source({ latest: latest("unable", { unable: [{ sentence: "Art goes to the plotter.", line: 12, reason: "There is no plotter." }] }) }));
+  const first = open();
+  expect(await screen.findByText("This sentence cannot be carried out")).toBeVisible();
+  expect(screen.getByText("Art goes to the plotter.")).toBeVisible();
+  expect(screen.getByText("There is no plotter.")).toBeVisible();
+  expect(screen.getByText("No playbook is in effect yet.")).toBeVisible();
+  first.unmount();
+  useSource(() => source({ active: active(), latest: latest("refused", { refusal: "The document asks for something that is not allowed." }) }));
+  open();
+  expect(await screen.findByText("The document asks for something that is not allowed.")).toBeVisible();
+  expect(screen.getByText("The previous playbook is still in effect.")).toBeVisible();
+});
+
+test("the run is looked up by the source, and a superseded run is said to have been replaced", async () => {
   let asked: URLSearchParams | undefined;
-  server.use(http.get(path, () => HttpResponse.json(snapshot())),
-    http.get(routingPath, () => HttpResponse.json({ enabled: true, active: active(), latest: latest("failed", {
-      structure_revision: 2, error: "kinds.docs.class: Standard, high effort is above the highest level for this kind\nCould not be resolved: Art goes to the plotter.",
-      problems: [{ path: "kinds.docs.class", message: "Standard, high effort is above the highest level for this kind" }], unresolved: ["Art goes to the plotter."] }) })),
-    http.get("/api/internal-work/runs", ({ request }) => { asked = new URL(request.url).searchParams; return HttpResponse.json({ runs: [run], next_cursor: null }); }));
+  useSource(() => source({ active: active(), latest: latest("superseded") }));
+  server.use(http.get("/api/internal-work/runs", ({ request }) => { asked = new URL(request.url).searchParams; return HttpResponse.json({ runs: [], next_cursor: null }); }));
   open();
-  const failure = await screen.findByText(/This version did not compile/);
-  expect(failure).toHaveTextContent("This version did not compile. The previous policy is still routing.");
-  expect(screen.getByRole("list", { name: "Compile problems" })).toHaveTextContent("Standard, high effort is above the highest level for this kind kinds.docs.class");
-  expect(screen.getByRole("list", { name: "Unresolved sentences" })).toHaveTextContent("Art goes to the plotter.");
-  expect(await screen.findByRole("region", { name: "Internal work" })).toBeVisible();
-  expect(asked?.get("affected_kind")).toBe("routing_policy");
-  expect(asked?.get("affected_id")).toBe("2");
-  expect(screen.getByRole("region", { name: "How this policy routes" })).toBeVisible();
+  expect(await screen.findByText(/A newer save replaced this run/)).toBeVisible();
+  await waitFor(() => expect(asked?.get("affected_kind")).toBe("playbook_source"));
+  expect(asked?.get("affected_id")).toBe("routing");
 });
 
-test("a failed first compile says no policy routes yet and shows the error when there are no problems", async () => {
-  server.use(http.get(path, () => HttpResponse.json(snapshot())),
-    http.get(routingPath, () => HttpResponse.json({ ...none, latest: latest("failed", { error: "The compile did not finish (no candidate): no internal work profile configured" }) })),
-    http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [], next_cursor: null })));
-  open();
-  expect(await screen.findByText(/This version did not compile/)).toHaveTextContent("This version did not compile. No policy is routing yet.");
-  expect(screen.getByText("The compile did not finish (no candidate): no internal work profile configured")).toBeVisible();
+test("saving while a run is in flight shows the newer run: the newest save wins", async () => {
+  let saved = false; const saves: unknown[] = [];
+  server.use(http.get(path, () => HttpResponse.json({ ...snapshot(), revision: saved ? "2" : "1" })), http.post(path, async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>; saves.push(body); saved = true;
+    return HttpResponse.json({ ...snapshot(), revision: "2", routing_markdown: body.routing_markdown, operation_id: body.operation_id, disposition: "saved" });
+  }), http.get(sourcePath, () => HttpResponse.json(source({ latest: latest("running", { run: saved ? "new" : "old", created_at_ms: saved ? Date.now() : Date.now() - 3_600_000 }) }))));
+  open(20);
+  expect(await screen.findByText(/Running for 60 min/)).toBeVisible();
+  fireEvent.change(screen.getByLabelText("Markdown"), { target: { value: "# Newer" } });
+  await userEvent.click(screen.getByRole("button", { name: "Save page" }));
+  await waitFor(() => expect(saves).toHaveLength(1));
+  expect(await screen.findByText(/Running for [0-5] s\./)).toBeVisible();
+  expect(screen.queryByText(/Running for 60 min/)).toBeNull();
 });
 
-test("the switch is disabled until a policy is active, then turns routing on", async () => {
-  let state: Record<string, unknown> = none; let posted: unknown;
-  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(routingPath, () => HttpResponse.json(state)),
-    http.post(routingPath, async ({ request }) => { posted = await request.json(); state = { ...state, enabled: true }; return HttpResponse.json(state); }));
+test("the switch is disabled until a playbook is active, then turns routing on", async () => {
+  let view: Record<string, unknown> = bare; let enabled = false; let posted: unknown;
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json(view)), http.get(routingPath, () => HttpResponse.json(switchState(enabled))),
+    http.post(routingPath, async ({ request }) => { posted = await request.json(); enabled = true; return HttpResponse.json(switchState(true)); }));
   const client = open();
-  const toggle = await screen.findByRole("switch", { name: "Route tasks with this policy" });
+  const toggle = await screen.findByRole("switch", { name: "Route tasks with this playbook" });
   expect(toggle).toBeDisabled(); expect(toggle).not.toBeChecked();
-  state = { enabled: false, active: active(), latest: latest("active") };
+  view = source({ active: active(), latest: latest("saved") });
   await client.invalidateQueries();
   await waitFor(() => expect(toggle).toBeEnabled());
   await userEvent.click(toggle);
@@ -166,22 +208,50 @@ test("the switch is disabled until a policy is active, then turns routing on", a
   expect(posted).toEqual({ enabled: true });
 });
 
-test("lists what the active policy no longer fits in Settings", async () => {
-  server.use(http.get(path, () => HttpResponse.json(snapshot())),
-    http.get(routingPath, () => HttpResponse.json({ enabled: true, active: active([{ path: "reserved[0].classes[1]", message: "Deep, high effort has no assigned profile in Settings" }]), latest: latest("active") })));
+test("when the server refuses to turn routing on, its own message is shown", async () => {
+  useSource(() => source({ active: active(), latest: latest("saved") }));
+  server.use(http.post(routingPath, () => HttpResponse.json({ error: "conflict", message: "Routing can be turned on once a routing playbook is active" }, { status: 409 })));
   open();
-  expect(await screen.findByRole("list", { name: "Active policy problems" })).toHaveTextContent("Deep, high effort has no assigned profile in Settings");
-  expect(screen.getByRole("switch", { name: "Route tasks with this policy" })).toBeChecked();
+  await userEvent.click(await screen.findByRole("switch", { name: "Route tasks with this playbook" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Routing can be turned on once a routing playbook is active");
+  expect(screen.getByRole("switch", { name: "Route tasks with this playbook" })).not.toBeChecked();
 });
 
-test("a failed compile with a very large error still shows the policy and the switch", async () => {
-  server.use(http.get(path, () => HttpResponse.json(snapshot())),
-    http.get(routingPath, () => HttpResponse.json({ enabled: true, active: active(), latest: latest("failed", { structure_revision: 2, error: "e".repeat(300_000),
-      unresolved: Array.from({ length: 5000 }, (_, i) => `Sentence ${i}.`) }) })),
-    http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [], next_cursor: null })));
+test("the switch can always be turned off", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(routingPath, () => HttpResponse.json(switchState(true))), http.post(routingPath, () => HttpResponse.json(switchState(false))));
   open();
-  expect(await screen.findByText(/This version did not compile/)).toBeVisible();
-  expect(screen.getByRole("list", { name: "Unresolved sentences" }).children.length).toBeLessThanOrEqual(100);
-  expect(screen.getByRole("switch", { name: "Route tasks with this policy" })).toBeChecked();
-  expect(screen.getByRole("region", { name: "How this policy routes" })).toBeVisible();
+  const toggle = await screen.findByRole("switch", { name: "Route tasks with this playbook" });
+  await waitFor(() => expect(toggle).toBeChecked());
+  expect(toggle).toBeEnabled();
+  await userEvent.click(toggle);
+  await waitFor(() => expect(toggle).not.toBeChecked());
+});
+
+test("rollback calls the API and refreshes the view", async () => {
+  let rolledBack = 0;
+  server.use(http.get(path, () => HttpResponse.json(snapshot())),
+    http.get(sourcePath, () => HttpResponse.json(source({ active: active(rolledBack ? { comparison: null } : {}), latest: latest("saved") }))),
+    http.post(`${sourcePath}/rollback`, () => { rolledBack++; return HttpResponse.json(bare); }));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
+  await waitFor(() => expect(rolledBack).toBe(1));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Roll back to the previous playbook" })).toBeNull());
+  expect(screen.getByText("There is no earlier playbook to compare it with.")).toBeVisible();
+});
+
+test("a refused rollback shows the server's words", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get(sourcePath, () => HttpResponse.json(source({ active: active(), latest: latest("saved") }))),
+    http.post(`${sourcePath}/rollback`, () => HttpResponse.json({ error: "conflict", message: "There is no previous playbook to roll back to." }, { status: 409 })));
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Roll back to the previous playbook" }));
+  expect(await screen.findByText("There is no previous playbook to roll back to.")).toBeVisible();
+});
+
+test("a very large report still shows the document, the playbook and the switch", async () => {
+  const many = Array.from({ length: 5000 }, (_, i) => kase(`Situation ${i}`, "class: simple"));
+  useSource(() => source({ active: active({ cases: many }), latest: latest("refused", { refusal: "e".repeat(300_000) }) }));
+  open();
+  expect(await screen.findByRole("region", { name: "What the playbook does" })).toBeVisible();
+  expect(screen.getByRole("switch", { name: "Route tasks with this playbook" })).toBeEnabled();
+  expect(screen.getByLabelText("Markdown")).toBeVisible();
 });

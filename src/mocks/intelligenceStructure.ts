@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { IntelligenceProfile, IntelligenceSaved, SaveIntelligence } from "../api/intelligenceSettings";
-import type { RoutingActive, RoutingLatest, RoutingPolicyState } from "../api/routing";
+import type { ActivePlaybook, LatestRun, PlaybookChange, SourceView } from "../api/playbookSources";
+import { ROUTING_BINDING, ROUTING_SOURCE_ID } from "../api/routing";
 
 type ParentId = "simple" | "standard" | "complex" | "deep";
 type Effort = "low" | "medium" | "high" | "max";
@@ -27,26 +28,38 @@ const initial = (): Snapshot => ({
   ],
 });
 
-/** How long a labelled fixture compile takes. */
-const COMPILE_MS = 800;
-const FIXTURE_SUMMARY = [
-  "Fixture: Bug fixes: Standard, high effort; Complex, high effort after 1 failed attempt.",
-  "Fixture: High risk: at least Standard, high effort; Claude or Codex only.",
-  "Fixture: Low risk: no minimum level; any offered harness may take it.",
+/** How long a labelled fixture authoring run takes. */
+const RUN_MS = 800;
+const FIXTURE_CASES: ActivePlaybook["cases"] = [
+  { name: "bug-fix-first-try", situation: "Fixture: a bug fix on its first attempt", result: "class: standard\neffort: high", passed: true },
+  { name: "bug-fix-failed-once", situation: "Fixture: a bug fix that failed once", result: "class: complex\neffort: high\nharness: Claude or Codex", passed: true },
+  { name: "docs", situation: "Fixture: a documentation fix", result: "class: simple\neffort: low", passed: true },
+  { name: "research", situation: "Fixture: research that is not clearly harder than usual", result: "class: standard\neffort: high", passed: true },
+  { name: "high-risk", situation: "Fixture: very high risk work, not covered by a test", result: "class: complex\neffort: high", passed: true },
+  { name: "high-risk-covered", situation: "Fixture: very high risk work that is narrow and covered by a test", result: "class: standard\neffort: high", passed: true },
 ];
-const fixtureActive = (revision: number, at: number): RoutingActive => ({ digest: `sha256:${"f".repeat(64)}`, structure_revision: revision, summary: FIXTURE_SUMMARY, created_at_ms: at - COMPILE_MS, took_effect_at_ms: at, problems: [] });
-const FIXTURE_PROBLEM = { path: "kinds.docs.class", message: "Fixture: Standard, high effort is above the highest level for this kind, Standard, medium effort" };
-const FIXTURE_UNRESOLVED = "Fixture: Art and visual design go to the plotter.";
-/** Shaped like GET /api/settings/intelligence/routing for a compile that failed validation and named a sentence it could not resolve. */
-const fixtureFailed = (revision: number, at: number): RoutingLatest => ({
-  status: "failed", structure_revision: revision, problems: [FIXTURE_PROBLEM], unresolved: [FIXTURE_UNRESOLVED],
-  error: `${FIXTURE_PROBLEM.path}: ${FIXTURE_PROBLEM.message}\nCould not be resolved: ${FIXTURE_UNRESOLVED}`, internal_task_id: null, created_at_ms: at - COMPILE_MS, finished_at_ms: at,
+const fixtureActive = (at: number, change: PlaybookChange | null, artifact = "fixture-artifact"): ActivePlaybook => ({ artifact, since_ms: at, comparison: change ? { change } : null, cases: FIXTURE_CASES });
+const fixtureRun = (status: LatestRun["status"], at: number, extra: Partial<LatestRun> = {}): LatestRun => ({
+  run: "fixture-run", status, question: null, unable: [], refusal: null, internal_task_id: null, created_at_ms: at, finished_at_ms: status === "running" ? null : at + RUN_MS, ...extra,
 });
-/** `routing-compile-failed` starts with an active fixture policy and a failed later compile, and fails every compile; otherwise nothing has compiled yet and every compile succeeds. */
-const initialRouting = (scenario?: string | null): RoutingPolicyState => {
-  const at = Date.UTC(2026, 10, 12, 9, 0, 0);
-  return scenario === "routing-compile-failed" ? { enabled: true, active: fixtureActive(0, at), latest: fixtureFailed(1, at) } : { enabled: false, active: null, latest: null };
-};
+const FIXTURE_QUESTION = { question: "Fixture: These two sentences ask for opposite things for research that is only a little harder than usual. Which one wins?", sentences: [
+  { line: 3, text: "Fixture: Research is Standard, high effort, unless it is clearly harder." },
+  { line: 9, text: "Fixture: Research is always Complex." },
+] };
+const at0 = Date.UTC(2026, 10, 12, 9, 0, 0);
+/** Labelled fixture sources by scenario (`running`, `saved`, `question`, `unable` and `refused` each stand for one state the owner can see); with none, nothing has been authored yet. */
+function initialSource(scenario?: string | null): SourceView {
+  const base = { id: ROUTING_SOURCE_ID, kind: "builtin", binding: ROUTING_BINDING };
+  const now = Date.now();
+  switch (scenario) {
+    case "playbook-running": return { ...base, active: null, latest: fixtureRun("running", now - 95_000) };
+    case "playbook-saved": return { ...base, active: fixtureActive(at0, "behaviour"), latest: fixtureRun("saved", at0 - RUN_MS) };
+    case "playbook-question": return { ...base, active: fixtureActive(at0, "wording"), latest: fixtureRun("question", at0, { question: FIXTURE_QUESTION }) };
+    case "playbook-unable": return { ...base, active: null, latest: fixtureRun("unable", at0, { unable: [{ sentence: "Fixture: Art and visual design go to the plotter.", line: 12, reason: "Fixture: There is no plotter among the abilities this playbook can use." }] }) };
+    case "playbook-refused": return { ...base, active: fixtureActive(at0, "none"), latest: fixtureRun("refused", at0, { refusal: "Fixture: The document asks to send task text to an outside address, which routing may not do." }) };
+    default: return { ...base, active: null, latest: null };
+  }
+}
 
 /** Isolated fixture state survives a page reload in the same browser tab. */
 export function intelligenceStructureHandlers(scenario?: string | null) {
@@ -61,17 +74,20 @@ export function intelligenceStructureHandlers(scenario?: string | null) {
   const profileOperations = new Map<string, { request: string; response: IntelligenceSaved }>();
   const operations = new Map<string, { request: string; response: Snapshot & { operation_id: string; disposition: string } }>();
   const fail = (status: number, message: string) => HttpResponse.json({ error: "intelligence_structure", message }, { status });
-  let routing: RoutingPolicyState = (() => { try { return JSON.parse(sessionStorage.getItem(`${key}-routing`) || "null") || initialRouting(scenario); } catch { return initialRouting(scenario); } })();
-  const keepRouting = () => sessionStorage.setItem(`${key}-routing`, JSON.stringify(routing));
-  /** A fixture compile finishes `COMPILE_MS` after it started. */
+  let source: SourceView = (() => { try { return JSON.parse(sessionStorage.getItem(`${key}-source`) || "null") || initialSource(scenario); } catch { return initialSource(scenario); } })();
+  let enabled: boolean = (() => { try { return JSON.parse(sessionStorage.getItem(`${key}-enabled`) || "false") === true; } catch { return false; } })();
+  /** The playbook that was in effect before the newest one, kept so a rollback can put it back. */
+  let previous: ActivePlaybook | null = (() => { try { return JSON.parse(sessionStorage.getItem(`${key}-previous`) || "null"); } catch { return null; } })();
+  const keepSource = () => { sessionStorage.setItem(`${key}-source`, JSON.stringify(source)); sessionStorage.setItem(`${key}-enabled`, JSON.stringify(enabled)); sessionStorage.setItem(`${key}-previous`, JSON.stringify(previous)); };
+  /** A fixture run finishes `RUN_MS` after it started and saves a playbook. */
   const settle = () => {
-    const latest = routing.latest, now = Date.now();
-    if (latest?.status !== "compiling" || now - latest.created_at_ms < COMPILE_MS) return;
-    routing = scenario === "routing-compile-failed"
-      ? { ...routing, latest: { ...fixtureFailed(latest.structure_revision, now), created_at_ms: latest.created_at_ms } }
-      : { ...routing, active: fixtureActive(latest.structure_revision, now), latest: { ...latest, status: "active", finished_at_ms: now } };
-    keepRouting();
+    const latest = source.latest, now = Date.now();
+    if (latest?.status !== "running" || now - latest.created_at_ms < RUN_MS || scenario === "playbook-running") return;
+    previous = source.active;
+    source = { ...source, active: fixtureActive(now, source.active ? "behaviour" : null), latest: { ...latest, status: "saved", finished_at_ms: now } };
+    keepSource();
   };
+  const routingView = () => ({ enabled, active: null, latest: null });
   return [
     http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: String(profileRevision), active_digest: "a".repeat(64), profiles, model_choices: [{ provider: "fixture-provider", model: "fixture-model", reasoning_configuration_reference: "fixture-balanced@1", reasoning: "Fixture balanced", harness: "fixture-harness" }] })),
     http.get("/api/settings/intelligence/operations/:id", ({ params }) => {
@@ -99,16 +115,33 @@ export function intelligenceStructureHandlers(scenario?: string | null) {
       return HttpResponse.json(response);
     }),
     http.get("/api/settings/intelligence/structure", () => HttpResponse.json(snapshot)),
-    http.get("/api/settings/intelligence/routing", () => { settle(); return HttpResponse.json(routing); }),
+    http.get("/api/settings/intelligence/routing", () => HttpResponse.json(routingView())),
     http.post("/api/settings/intelligence/routing", async ({ request }) => {
       const body = await request.json().catch(() => null) as { enabled?: unknown } | null;
       if (!body || typeof body.enabled !== "boolean") return fail(400, "Invalid routing switch.");
       settle();
-      if (body.enabled && !routing.active) return fail(409, "Routing can be turned on once a routing policy has compiled");
-      routing = { ...routing, enabled: body.enabled };
-      keepRouting();
-      return HttpResponse.json(routing);
+      if (body.enabled && !source.active) return fail(409, "Routing can be turned on once a routing playbook is active");
+      enabled = body.enabled;
+      keepSource();
+      return HttpResponse.json(routingView());
     }),
+    http.get("/api/playbooks/sources", () => { settle(); return HttpResponse.json({ items: [source] }); }),
+    http.get("/api/playbooks/sources/:id", ({ params }) => { settle(); return params.id === ROUTING_SOURCE_ID ? HttpResponse.json(source) : fail(404, "Source not found."); }),
+    http.post("/api/playbooks/sources/:id/rollback", ({ params }) => {
+      settle();
+      if (params.id !== ROUTING_SOURCE_ID || !source.active || !previous) return fail(409, "There is no previous playbook to roll back to.");
+      source = { ...source, active: { ...previous, comparison: null } };
+      previous = null;
+      keepSource();
+      return HttpResponse.json(source);
+    }),
+    http.post("/api/playbooks/sources/:id/runs", ({ params }) => {
+      if (params.id !== ROUTING_SOURCE_ID) return fail(404, "Source not found.");
+      source = { ...source, latest: fixtureRun("running", Date.now()) };
+      keepSource();
+      return HttpResponse.json(source);
+    }),
+    http.delete("/api/playbooks/sources/:id", () => fail(409, "The routing source cannot be deleted.")),
     http.get("/api/settings/intelligence/structure/operations/:id", ({ params }) => {
       const operation = operations.get(String(params.id));
       return operation ? HttpResponse.json(operation.response) : fail(404, "Operation not found.");
@@ -123,9 +156,10 @@ export function intelligenceStructureHandlers(scenario?: string | null) {
       const compile = body.routing_markdown !== snapshot.routing_markdown;
       snapshot = { revision: String(Number(snapshot.revision) + 1), catalog_revision: snapshot.catalog_revision, routing_markdown: body.routing_markdown, parents: body.parents, assignments: body.assignments };
       sessionStorage.setItem(key, JSON.stringify(snapshot));
+      // The server starts an authoring run for a changed document; a newer save replaces a run still in flight.
       if (compile) {
-        routing = { ...routing, latest: { status: "compiling", structure_revision: Number(snapshot.revision), error: null, problems: [], unresolved: [], internal_task_id: null, created_at_ms: Date.now(), finished_at_ms: null } };
-        keepRouting();
+        source = { ...source, latest: fixtureRun("running", Date.now()) };
+        keepSource();
       }
       const response = { ...snapshot, operation_id: body.operation_id, disposition: "saved" };
       operations.set(body.operation_id, { request: serialized, response });

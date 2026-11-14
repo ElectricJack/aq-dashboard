@@ -1,62 +1,30 @@
-import { apiGet, apiSend } from "./client";
+import { apiGet, apiSend, ApiError } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
+import { readPlaybookSource, type SourceView } from "./playbookSources";
 
-/** The routing policy's compile state and the routing switch (spec 0011 §6, §8). */
+/** The routing switch (spec 0013 §7) and the routing playbook source it depends on. */
 export const ROUTING_POLICY_PATH = "/api/settings/intelligence/routing";
-export const ROUTING_COMPILE_STATUSES = ["compiling", "active", "superseded", "failed"] as const;
-export type RoutingCompileStatus = typeof ROUTING_COMPILE_STATUSES[number];
-/** Where in the compiled policy, and what is wrong there, in words. */
-export type RoutingProblem = { path: string; message: string };
-/** The compiled policy that routes, in the owner's words, and what in Settings it no longer fits. */
-export type RoutingActive = {
-  digest: string; structure_revision: number; summary: string[]; created_at_ms: number; took_effect_at_ms: number | null; problems: RoutingProblem[];
-};
-/** The newest compile, whatever its outcome. */
-export type RoutingLatest = {
-  status: RoutingCompileStatus; structure_revision: number; error: string | null; problems: RoutingProblem[]; unresolved: string[];
-  internal_task_id: string | null; created_at_ms: number; finished_at_ms: number | null;
-};
-export type RoutingPolicyState = { enabled: boolean; active: RoutingActive | null; latest: RoutingLatest | null };
+/** The id of the routing document's playbook source, and the playbook id it is bound to (plan, Global Constraints). */
+export const ROUTING_SOURCE_ID = "routing";
+export const ROUTING_BINDING = "aq.routing";
+export type RoutingPolicyState = { enabled: boolean; source: SourceView };
 
-/** How much of one compile's report is kept for display. A larger report is shortened, never refused, so it cannot hide the rest of the panel. */
-export const ROUTING_DISPLAY_LIMITS = { items: 100, textChars: 1024, errorChars: 4096 } as const;
-function ensure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid routing policy response"); }
-const text = (value: unknown, max = 64 * 1024): value is string => typeof value === "string" && value.length <= max;
-const count = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
-const texts = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 1024 && value.every(item => text(item));
-/** `value` within `max` characters, ending in "…" when shortened. */
-const clip = (value: string, max: number) => value.length <= max ? value : `${value.slice(0, max - 1)}…`;
-function strings(value: unknown): string[] {
-  ensure(Array.isArray(value));
-  return value.slice(0, ROUTING_DISPLAY_LIMITS.items).map(item => { ensure(typeof item === "string"); return clip(item, ROUTING_DISPLAY_LIMITS.textChars); });
+/** The switch endpoint still answers `active` and `latest` (always null after D1); only `enabled` is read. */
+export function adaptRoutingSwitch(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.enabled !== "boolean") throw new ContractError("Invalid routing switch response");
+  return value.enabled;
 }
-function problems(value: unknown): RoutingProblem[] {
-  ensure(Array.isArray(value));
-  return value.slice(0, ROUTING_DISPLAY_LIMITS.items).map(item => {
-    ensure(isRecord(item) && typeof item.path === "string" && typeof item.message === "string");
-    return { path: clip(item.path, ROUTING_DISPLAY_LIMITS.textChars), message: clip(item.message, ROUTING_DISPLAY_LIMITS.textChars) };
-  });
+/** Before the routing document has been saved once, there is no source to read (A6): that is "no playbook yet", not an error. */
+const NO_SOURCE: SourceView = { id: ROUTING_SOURCE_ID, kind: "builtin", binding: ROUTING_BINDING, active: null, latest: null };
+export async function readRoutingSource(signal?: AbortSignal): Promise<SourceView> {
+  try { return await readPlaybookSource(ROUTING_SOURCE_ID, signal); } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return NO_SOURCE;
+    throw error;
+  }
 }
-function active(value: unknown): RoutingActive | null {
-  if (value === null) return null;
-  ensure(isRecord(value) && text(value.digest, 128) && count(value.structure_revision) && texts(value.summary) && count(value.created_at_ms));
-  ensure(value.took_effect_at_ms === null || count(value.took_effect_at_ms));
-  return { digest: value.digest, structure_revision: value.structure_revision, summary: value.summary, created_at_ms: value.created_at_ms,
-    took_effect_at_ms: value.took_effect_at_ms as number | null, problems: problems(value.problems) };
+export async function readRoutingPolicy(signal?: AbortSignal): Promise<RoutingPolicyState> {
+  const [enabled, source] = await Promise.all([apiGet<unknown>(ROUTING_POLICY_PATH, signal).then(adaptRoutingSwitch), readRoutingSource(signal)]);
+  return { enabled, source };
 }
-function latest(value: unknown): RoutingLatest | null {
-  if (value === null) return null;
-  ensure(isRecord(value) && ROUTING_COMPILE_STATUSES.includes(value.status as RoutingCompileStatus) && count(value.structure_revision) && count(value.created_at_ms));
-  ensure(value.error === null || typeof value.error === "string");
-  ensure((value.internal_task_id === null || text(value.internal_task_id, 64)) && (value.finished_at_ms === null || count(value.finished_at_ms)));
-  return { status: value.status as RoutingCompileStatus, structure_revision: value.structure_revision,
-    error: value.error === null ? null : clip(value.error, ROUTING_DISPLAY_LIMITS.errorChars), problems: problems(value.problems),
-    unresolved: strings(value.unresolved), internal_task_id: value.internal_task_id as string | null, created_at_ms: value.created_at_ms, finished_at_ms: value.finished_at_ms as number | null };
-}
-export function adaptRoutingPolicy(value: unknown): RoutingPolicyState {
-  ensure(isRecord(value) && typeof value.enabled === "boolean");
-  return { enabled: value.enabled, active: active(value.active), latest: latest(value.latest) };
-}
-export async function readRoutingPolicy(signal?: AbortSignal) { return adaptRoutingPolicy(await apiGet<unknown>(ROUTING_POLICY_PATH, signal)); }
-/** Turns routing on (only while a compiled policy is active) or off. */
-export async function setRouting(enabled: boolean) { return adaptRoutingPolicy(await apiSend<unknown>("POST", ROUTING_POLICY_PATH, { enabled })); }
+/** Turns routing on (the server refuses with 409 and its own words until a playbook is active) or off. */
+export async function setRouting(enabled: boolean): Promise<boolean> { return adaptRoutingSwitch(await apiSend<unknown>("POST", ROUTING_POLICY_PATH, { enabled })); }

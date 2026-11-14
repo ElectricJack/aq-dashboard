@@ -125,7 +125,7 @@ const agentAnswered = { ...agentBase, status: "answered", answer: { question: "W
 test("shows the agent's steps for an agent run", async () => {
   server.use(...runs(agentAnswered));
   open();
-  const steps = await screen.findByLabelText("Agent steps, candidate 1");
+  const steps = await screen.findByLabelText("Agent steps");
   const items = within(steps).getAllByRole("listitem");
   expect(items[0]!).toHaveTextContent("I will read the document.");
   expect(items[1]!).toHaveTextContent("Tool: shell");
@@ -142,7 +142,7 @@ test("shows the agent's steps for an agent run", async () => {
 test("clips long tool output, marks server clipping, and expands to the server text", async () => {
   server.use(...runs(agentAnswered));
   open();
-  const steps = await screen.findByLabelText("Agent steps, candidate 1");
+  const steps = await screen.findByLabelText("Agent steps");
   const result = within(steps).getAllByRole("listitem")[2]!;
   expect(result).toHaveTextContent("clipped by the server");
   expect(result).not.toHaveTextContent("END-OF-CLIPPED-TEXT");
@@ -156,7 +156,7 @@ test("transcript text is shown as text, never as markup or links", async () => {
   const html = '<img src=x onerror="alert(1)"> <a href="javascript:alert(1)">go</a>';
   server.use(...runs({ ...agentAnswered, transcripts: [{ candidate_index: 0, events: [{ kind: "text", text: html }] }] }));
   open();
-  const steps = await screen.findByLabelText("Agent steps, candidate 1");
+  const steps = await screen.findByLabelText("Agent steps");
   expect(steps).toHaveTextContent(html);
   expect(steps.querySelector("img, a")).toBeNull();
 });
@@ -170,7 +170,7 @@ test("an agent run that saved nothing shows the server's reason and message", as
   const attempts = within(screen.getByLabelText("Attempts")).getAllByRole("listitem");
   expect(attempts[0]!).toHaveTextContent("login busy - codex login busy");
   expect(attempts[1]!).toHaveTextContent("codex did not finish within 3 s");
-  expect(await screen.findByLabelText("Agent steps, candidate 2")).toHaveTextContent("Working.");
+  expect(await screen.findByLabelText("Agent steps")).toHaveTextContent("Working.");
 });
 
 test("a run with no transcript shows no agent steps", async () => {
@@ -186,4 +186,31 @@ test("when the steps cannot be read the run still shows its outcome", async () =
   open();
   expect(await screen.findByText(/Answered by anthropic/)).toBeVisible();
   await waitFor(() => expect(screen.queryByLabelText(/Agent steps/)).not.toBeInTheDocument());
+});
+
+test("one transcript is labelled without a number, several by position", async () => {
+  server.use(...runs({ ...agentAnswered, transcripts: [{ candidate_index: 0, events: [{ kind: "text", text: "First." }] }, { candidate_index: 3, events: [{ kind: "text", text: "Second." }] }] }));
+  open();
+  expect(await screen.findByLabelText("Agent steps, run 1 of 2")).toHaveTextContent("First.");
+  expect(screen.getByLabelText("Agent steps, run 2 of 2")).toHaveTextContent("Second.");
+  expect(screen.getByText("What the agent did (run 2 of 2)")).toBeVisible();
+});
+
+test("a run that is not an agent run reads its detail only when the owner opens it", async () => {
+  let reads = 0;
+  server.use(http.get(`/api/internal-work/runs/${ID}`, () => { reads++; return HttpResponse.json(answered); }), ...runs(answered));
+  open();
+  await screen.findByText(/Answered by openai/);
+  await new Promise(resolve => setTimeout(resolve, 50));
+  expect(reads).toBe(0);
+  await userEvent.click(screen.getByText("What was asked"));
+  await waitFor(() => expect(reads).toBe(1));
+});
+
+test("an agent run reads its detail without being opened", async () => {
+  let reads = 0;
+  server.use(http.get(`/api/internal-work/runs/${ID}`, () => { reads++; return HttpResponse.json(agentAnswered); }), ...runs(agentAnswered));
+  open();
+  await screen.findByLabelText("Agent steps");
+  expect(reads).toBe(1);
 });
