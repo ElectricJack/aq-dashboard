@@ -1,0 +1,8 @@
+{
+  "path": ["src", "tests", "scripts"],
+  "gitignore": true,
+  "ignore": ["**/node_modules/**", "**/dist/**", "**/tests/fixtures/**"],
+  "threshold": 0,
+  "minLines": 5,
+  "minTokens": 50
+}

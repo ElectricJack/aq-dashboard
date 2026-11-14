@@ -1,0 +1,3 @@
+# Project transformer: keep only findings in code this branch changed.
+# See changed-lines.cjs. Habit Hooks runs parts from the project root.
+argv = ["node", ".habit-hooks/generic/transformers/changed-lines.cjs"]

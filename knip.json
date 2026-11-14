@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "scripts/*.mjs",
+    "tests/**/*.spec.ts",
+    "playwright*.config.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.mjs"],
+  "playwright": false,
+  "ignoreDependencies": [
+    "eslint",
+    "knip",
+    "ts-morph",
+    "@typescript-eslint/parser",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript/native"
+  ]
+}
