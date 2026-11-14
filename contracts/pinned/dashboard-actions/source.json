@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "9aed4436cfeb8d7f635385f780d8348b6a91f4f1",
+  "commit": "3f249fc80715431b7bcb5a46c9ea58fdd58487ff",
   "status": "Published on aq-server main at 7529e623",
   "sha256": {
-    "dashboard-actions/v1/README.md": "334006676715f26d4c63bcecbc7856d43b51e1c9bd348ca44805c5ea4b4c283f",
-    "dashboard-actions/v1/check.py": "55dcae48248bffacc6577b28808cb231763c2f7941739ddd4f7af007335da704",
-    "dashboard-actions/v1/fixtures/compatibility.json": "82d1f87964814b1a6610d17439de4f7855f2fe61297fb85e439ab6bc78c998c9",
+    "dashboard-actions/v1/README.md": "1106e37bc73e7767271de8c4ee477ca34e14400e3906ef949fc02f05998b6df6",
+    "dashboard-actions/v1/check.py": "baa15bce0b073c8dc665b0b0fe8a850d1ccd0cacec5128f82752dfdbf1b6897c",
+    "dashboard-actions/v1/fixtures/compatibility.json": "95ca9da5e26c23f05aeef67356cb13bc7011f42ca2bebbe15ea69595ac84c11c",
     "dashboard-actions/v1/fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "dashboard-actions/v1/fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "dashboard-actions/v1/fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -22,6 +22,7 @@
     "dashboard-actions/v1/fixtures/operation-conflict-current-versions.json": "baa1b625034e1005eaeb6a82f7367769393595ba60ae092c696d2a209147e000",
     "dashboard-actions/v1/fixtures/operation-conflict.json": "d5a7167ec55064893b8c8911bb3d7d190d22f903e37ddb46932fe17a57a57cfe",
     "dashboard-actions/v1/fixtures/operation-pending.json": "d25e55f8a16384c86caafd0d38373d1c08e58fc291be9619b5aa7e64f34d0830",
+    "dashboard-actions/v1/fixtures/operation-rejected-busy.json": "dd8e0dc1caabca5da1f2928328794932a7dbc55c58e4184324c5b4bef0f62745",
     "dashboard-actions/v1/fixtures/operation-rejected.json": "90e120fbd98d8eeac943b87920839ad990d350fb92373a1e638b6f191b9da3e5",
     "dashboard-actions/v1/fixtures/operation-task-comment-conflict.json": "e10d62b43b45245189ac61f278ce95e2db02eba6e359c6b66f353666bd528cfd",
     "dashboard-actions/v1/fixtures/operation-unknown.json": "2806bcf51dcb2c537e5f28400cddc8962ee22072348ed1cfd828c9bff80dd594",
@@ -59,6 +60,6 @@
     "dashboard-actions/v1/fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
-    "dashboard-actions/v1/schema.json": "3cacd5d2ea0cf55d6f012eda5a8ae129b55e703d7f11c3bbaa1afc4558538a69"
+    "dashboard-actions/v1/schema.json": "78cdbab13735a4a1c9b0aef7856f2163d514af1564a690b91e29612d09d40d1f"
   }
 }

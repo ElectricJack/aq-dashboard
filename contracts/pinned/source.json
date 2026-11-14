@@ -2,9 +2,9 @@
   "repository": "ElectricJack/aq-server",
   "commit": "75534d05b0e61ee6dd9cfe69136f004a0b6c3662",
   "sha256": {
-    "dashboard-actions/v1/README.md": "334006676715f26d4c63bcecbc7856d43b51e1c9bd348ca44805c5ea4b4c283f",
-    "dashboard-actions/v1/check.py": "55dcae48248bffacc6577b28808cb231763c2f7941739ddd4f7af007335da704",
-    "dashboard-actions/v1/fixtures/compatibility.json": "82d1f87964814b1a6610d17439de4f7855f2fe61297fb85e439ab6bc78c998c9",
+    "dashboard-actions/v1/README.md": "1106e37bc73e7767271de8c4ee477ca34e14400e3906ef949fc02f05998b6df6",
+    "dashboard-actions/v1/check.py": "baa15bce0b073c8dc665b0b0fe8a850d1ccd0cacec5128f82752dfdbf1b6897c",
+    "dashboard-actions/v1/fixtures/compatibility.json": "95ca9da5e26c23f05aeef67356cb13bc7011f42ca2bebbe15ea69595ac84c11c",
     "dashboard-actions/v1/fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "dashboard-actions/v1/fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "dashboard-actions/v1/fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -21,6 +21,7 @@
     "dashboard-actions/v1/fixtures/operation-conflict-current-versions.json": "baa1b625034e1005eaeb6a82f7367769393595ba60ae092c696d2a209147e000",
     "dashboard-actions/v1/fixtures/operation-conflict.json": "d5a7167ec55064893b8c8911bb3d7d190d22f903e37ddb46932fe17a57a57cfe",
     "dashboard-actions/v1/fixtures/operation-pending.json": "d25e55f8a16384c86caafd0d38373d1c08e58fc291be9619b5aa7e64f34d0830",
+    "dashboard-actions/v1/fixtures/operation-rejected-busy.json": "dd8e0dc1caabca5da1f2928328794932a7dbc55c58e4184324c5b4bef0f62745",
     "dashboard-actions/v1/fixtures/operation-rejected.json": "90e120fbd98d8eeac943b87920839ad990d350fb92373a1e638b6f191b9da3e5",
     "dashboard-actions/v1/fixtures/operation-task-comment-conflict.json": "e10d62b43b45245189ac61f278ce95e2db02eba6e359c6b66f353666bd528cfd",
     "dashboard-actions/v1/fixtures/operation-unknown.json": "2806bcf51dcb2c537e5f28400cddc8962ee22072348ed1cfd828c9bff80dd594",
@@ -58,9 +59,9 @@
     "dashboard-actions/v1/fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
     "dashboard-actions/v1/fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "dashboard-actions/v1/fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
-    "dashboard-actions/v1/schema.json": "3cacd5d2ea0cf55d6f012eda5a8ae129b55e703d7f11c3bbaa1afc4558538a69",
-    "dashboard-read/v1/README.md": "cb29e11726c31f6fd0ccb58b8d904c6ed285cdc3288f4d0785d285dac0adaa64",
-    "dashboard-read/v1/check.py": "e9b92a35253223bed0089a6975141f86cadaeaf0e2bc4c2163e2ee6ae07cb9a7",
+    "dashboard-actions/v1/schema.json": "78cdbab13735a4a1c9b0aef7856f2163d514af1564a690b91e29612d09d40d1f",
+    "dashboard-read/v1/README.md": "863ab379233e8196c2dcc837c108eb702510bb32cfcaf09ddbace0991840ce5d",
+    "dashboard-read/v1/check.py": "c427107e3c148749d3ac25f15c1a47de005a69c3ba0c2ee461ebb3f5db09aa0b",
     "dashboard-read/v1/fixtures/bootstrap.json": "743bdb6b04bc1da16f238ae1a6652d48dfa0b6904b11c4d564d1ae5642b51da1",
     "dashboard-read/v1/fixtures/capacity.json": "150ef4d1eb2a0f4d8a6ce24541929a7ae8ca3b5622a6d040ec412a1fc101e507",
     "dashboard-read/v1/fixtures/overview-empty.json": "e31e0e8321a1269b73a06d6dfeadaf9598ed7d165e1c06da040af58521104409",
@@ -70,7 +71,7 @@
     "dashboard-read/v1/fixtures/overview.json": "ecf68ff0b67e47169ed22b1fd716729d47f935b3493d0a9231212040b7b90bb9",
     "dashboard-read/v1/fixtures/projects.json": "730b0236aa495c5098e716ef458dd8868853792798f28c0780e84beb1f008b80",
     "dashboard-read/v1/fixtures/provider-usage-empty.json": "0ba28f14d7c4ca656528e9f937dd8cab4929dcd1013d77c7bb10de6cf9f42775",
-    "dashboard-read/v1/fixtures/provider-usage-nonempty.json": "f9073f9036c5c7d2bca0efac18f25fb8bb81d73df23b9641618791a1ad04229f",
+    "dashboard-read/v1/fixtures/provider-usage-nonempty.json": "42b474c886de8bfbf71259599c26dc33896598b6d2696a5cedf332dc9d41ad2f",
     "dashboard-read/v1/fixtures/provider-usage-partial.json": "9c8c394d0a1a4723f1e9939fc1de9c71cf4b255e12eb11245354debc873c1ef0",
     "dashboard-read/v1/fixtures/provider-usage-stale.json": "3e313faa8570fe574b1761fefcff3944c6f8f492308708eea372d0d5d33a7c07",
     "dashboard-read/v1/fixtures/provider-usage-unknown.json": "3374f417c3905802279a4e2734f61dc184c36bb60de1628ca07765527d760e11",
@@ -85,10 +86,10 @@
     "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
     "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
     "dashboard-read/v1/fixtures/swarm.json": "0c513d2d2b82aa460b188f9f58e6b28f042134850196274a50c11b335cb5a7b8",
-    "dashboard-read/v1/schema.json": "f4e5dc3aeff563b69af203cbb486bbc4636b6b47f2a6cf3a195e3bf96937dcb8",
+    "dashboard-read/v1/schema.json": "92b19f1ecee542b9424687e5b4db364e70b406620867dd695c5e6f39144405da",
     "results-feedback/v1/README.md": "c2592b78662f98c71bb736784fd0fe15d416cf073e797f798ed486f017d7ea8e",
     "results-feedback/v1/check.py": "3ad8537c7974f812689761e28c7522569b3e6386d669074db84aa227f9be3959",
-    "results-feedback/v1/fixtures/compatibility.json": "b5c8d86ab4b9392be0dfaeecbc979041cde89ad8142e5659eac1903e9a2aac6f",
+    "results-feedback/v1/fixtures/compatibility.json": "4a8388455cdcf0bf86f0cf1eddaa06a0388d59d8147b9704f7a587784e90901f",
     "results-feedback/v1/fixtures/invalid.json": "878fb9932ae318d1f0c079b9d881e559ea24df7e59360295350f3d2975bb4766",
     "results-feedback/v1/fixtures/replay.json": "b24d7e9d418b013c8ba01ad07e7dcf3b31b83afabfc531539b868a5efb24b592",
     "results-feedback/v1/fixtures/valid.json": "65c63b37d99bedc1d2ea8d4f6cbb57d00d1e9315e482cd3d28ce9d807a91f065",
@@ -99,8 +100,8 @@
     "dashboard-read": "dashboard-read/source.json"
   },
   "contract_commits": {
-    "results-feedback": "52cd05ef63126aeb2e8dae068ac835edb5de2b91",
-    "dashboard-actions": "9aed4436cfeb8d7f635385f780d8348b6a91f4f1",
-    "dashboard-read": "9f052091"
+    "results-feedback": "5e5b16e4566785d715b4e91a89aee1b7c783ffe4",
+    "dashboard-actions": "3f249fc80715431b7bcb5a46c9ea58fdd58487ff",
+    "dashboard-read": "3f249fc80715431b7bcb5a46c9ea58fdd58487ff"
   }
 }
