@@ -50,7 +50,7 @@ export function hostedWorkerCommand(origin: unknown, digest: unknown, controlsOn
     'f=$(mktemp)',
     `trap 'rm -f -- "$f"' EXIT`,
     'curl --proto "=https" --fail --silent --show-error --max-filesize 262144 --max-time 45 "$1/install/$2.sh" -o "$f"',
-    'printf "%s  %s\\n" "$2" "$f" | sha256sum --check --status || { echo "Installer changed. Copy a fresh command from Add machine." >&2; exit 4; }',
+    'printf "%s  %s\\n" "$2" "$f" | sha256sum --check --status || { echo "Installer changed. Copy a fresh command from Add or update machine." >&2; exit 4; }',
     controlsOnly ? 'bash "$f" "$1" --controls-only' : 'bash "$f" "$1"',
   ].join("; ");
   return `bash -c ${shellQuote(script)} _ ${shellQuote(origin)} ${shellQuote(digest)}`;
@@ -97,8 +97,8 @@ export function AddMachine() {
   const hosted = hostedWorkerCommand(installer.origin, installer.digest);
   const problem = workerUrlProblem(workerUrl);
   const command = problem ? null : `packaging/service/aq-install.sh --server ${shellQuote(workerUrl.trim())} --bundle ~/aq-bundle --slots 2`;
-  return <section aria-label="Add machine" className={styles.addMachine}>
-    <div className={styles.actions}><ActionButton disabled={busy || !!enrollment} onClick={() => void create()}>Add machine</ActionButton></div>
+  return <section aria-label="Add or update machine" className={styles.addMachine}>
+    <div className={styles.actions}><ActionButton disabled={busy || !!enrollment} onClick={() => void create()}>Add or update machine</ActionButton></div>
     {failed && <p role="alert">The enrollment code could not be created.</p>}
     {enrollment && <div>
       {!hosted && <label>Worker URL <input type="text" value={workerUrl} onChange={e => setWorkerUrl(e.target.value)} autoComplete="off" spellCheck={false} /></label>}
@@ -109,7 +109,7 @@ export function AddMachine() {
       </div> : command ? <p><code>{command}</code> <ActionButton onClick={() => void copy(command, "command")}>Copy command</ActionButton></p> : <p role="alert">{problem}</p>}
       <label>Enrollment code <input type="text" readOnly value={enrollment.code} autoComplete="off" spellCheck={false} aria-label="Enrollment code" /></label>{" "}
       <ActionButton onClick={() => void copy(enrollment.code, "code")}>Copy code</ActionButton>
-      <p className={styles.actionNote}>Paste this when the script asks for it. It works once and expires at <Timestamp iso={enrollment.expiresAt} />.</p>
+      <p className={styles.actionNote}>Paste this when the script asks for it. It works once and expires at <Timestamp iso={enrollment.expiresAt} />.{hosted ? " A PC that already has a worker keeps its enrollment and is not asked for the code." : ""}</p>
       {copied === "failed" ? <p role="status">Copy failed. Select the text and copy it by hand.</p> : copied && <p role="status">{copied === "code" ? "Code copied." : "Command copied."}</p>}
       <ActionButton onClick={() => { setEnrollment(null); setCopied(null); }}>Done</ActionButton>
     </div>}
