@@ -34,7 +34,7 @@ function enroll(status = 201, ttlMs = 15 * 60_000) {
 test("creates a code and shows it apart from the command", async () => {
   const seen = enroll();
   await openServerPane();
-  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
   const code = await screen.findByRole("textbox", { name: "Enrollment code" });
   expect(code).toHaveValue(CODE);
   expect(seen).toHaveLength(1);
@@ -56,7 +56,7 @@ test("offers one HTTPS command with a pinned installer and a separate code", asy
   try {
     enroll();
     await openServerPane();
-    await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
     expect(await screen.findByRole("textbox", { name: "Enrollment code" })).toHaveValue(CODE);
     const command = screen.getByText(/^bash -c /).textContent ?? "";
     expect(command).toContain("https://aq.tail.example:8443");
@@ -74,7 +74,7 @@ test("command never contains the code", async () => {
   enroll();
   const log = vi.spyOn(console, "log"), info = vi.spyOn(console, "info"), warn = vi.spyOn(console, "warn"), error = vi.spyOn(console, "error");
   await openServerPane();
-  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
   await screen.findByRole("textbox", { name: "Enrollment code" });
   await userEvent.clear(screen.getByRole("textbox", { name: /Worker URL/ })); await userEvent.type(screen.getByRole("textbox", { name: /Worker URL/ }), "https://aq.example");
   const command = screen.getByText(/^packaging\/service\/aq-install\.sh/);
@@ -98,27 +98,27 @@ test("hidden without swarm.worker.enroll", async () => {
     { name: "swarm.worker.enroll", version: "1", enabled: false, reason: "Adding a machine requires an owner account" }] } })));
   await openServerPane();
   await screen.findByText("Running agents", { selector: "dt" });
-  expect(screen.queryByRole("button", { name: "Add machine" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Add or update machine" })).toBeNull();
 });
 
 test("a failed request says so", async () => {
   enroll(500);
   await openServerPane();
-  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("The enrollment code could not be created.");
   expect(screen.queryByRole("textbox", { name: "Enrollment code" })).toBeNull();
 });
 
-test("settings offers Add machine too", async () => {
+test("settings offers Add or update machine too", async () => {
   renderApp("/settings?tab=connection");
-  const panel = await screen.findByRole("region", { name: "Add machine" });
-  expect(within(panel).getByRole("button", { name: "Add machine" })).toBeInTheDocument();
+  const panel = await screen.findByRole("region", { name: "Add or update machine" });
+  expect(within(panel).getByRole("button", { name: "Add or update machine" })).toBeInTheDocument();
 });
 
 test("the command quotes the Worker URL and is withheld for plain http off loopback", async () => {
   enroll();
   await openServerPane();
-  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
   const url = await screen.findByRole("textbox", { name: /Worker URL/ });
   const set = async (v: string) => { await userEvent.clear(url); await userEvent.click(url); await userEvent.paste(v); };
   await set("https://a.example/x; rm -rf ~ #");
@@ -136,12 +136,25 @@ test("the command quotes the Worker URL and is withheld for plain http off loopb
   expect(screen.getByRole("alert")).toHaveTextContent("Enter a full Worker URL");
 });
 
-test("Add machine is disabled while an unexpired code is shown and the code clears at expiry", async () => {
+test("Add or update machine is disabled while an unexpired code is shown and the code clears at expiry", async () => {
   enroll(201, 1500);
   await openServerPane();
-  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
   await screen.findByRole("textbox", { name: "Enrollment code" });
-  expect(screen.getByRole("button", { name: "Add machine" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Add or update machine" })).toBeDisabled();
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Enrollment code" })).toBeNull(), { timeout: 3000 });
-  expect(screen.getByRole("button", { name: "Add machine" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Add or update machine" })).toBeEnabled();
+});
+
+test("the command installs the worker the server publishes now, not the one fixed at build time", async () => {
+  enroll();
+  const digest = "a".repeat(64);
+  server.use(http.get("/api/status", () => HttpResponse.json({ version: {}, health: "ok", update: {}, worker_install: { origin: "https://aq.example", installer_sha256: digest, bundle_sha256: null, worker_revision: "0123456789abcdef" } })));
+  await openServerPane();
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
+  await screen.findByRole("textbox", { name: "Enrollment code" });
+  const command = await screen.findByText(new RegExp(`'https://aq.example' '${digest}'$`));
+  expect(command.textContent).toContain('"$1/install/$2.sh"');
+  expect(screen.getByText(/It downloads the worker \(0123456789ab\) and prompts for the code\./)).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /Worker URL/ })).toBeNull();
 });
