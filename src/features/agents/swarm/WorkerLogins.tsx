@@ -5,7 +5,7 @@ import {isRecord,ContractError} from '../../../api/adapters/contract';
 import {useSession,PANEL_READ} from '../../../app/session';
 import {queryKey} from '../../../api/queryKeys';
 import {ActionButton} from '../../../components/layout/Workspace';
-import {hostedWorkerCommand} from './AddMachine';
+import {hostedWorkerCommand,useWorkerInstaller} from './AddMachine';
 import styles from './Swarm.module.css';
 type Delivery={node_id:string;generation:string|null;providers:string[];status:'waiting'|'pending'|'applied'|'failed';receiver_seen_at_ms:number|null};
 function valid(raw:unknown):raw is Delivery{return isRecord(raw)&&typeof raw.node_id==='string'&&(raw.generation===null||typeof raw.generation==='string')&&Array.isArray(raw.providers)&&raw.providers.every(p=>p==='anthropic'||p==='openai')&&['waiting','pending','applied','failed'].includes(String(raw.status))&&(raw.receiver_seen_at_ms===null||typeof raw.receiver_seen_at_ms==='number');}
@@ -17,7 +17,7 @@ export function WorkerLogins({nodeId}:{nodeId:string}){
  const delivery=query.data?.deliveries.find(d=>d.node_id===nodeId);
  const hasReceiver=delivery?.receiver_seen_at_ms!==null&&delivery?.receiver_seen_at_ms!==undefined;
  const receiver=hasReceiver&&!!query.data&&query.data.server_time_ms-delivery!.receiver_seen_at_ms!<45000;
- const install=hostedWorkerCommand(import.meta.env.VITE_AQ_WORKER_INSTALL_URL,import.meta.env.VITE_AQ_WORKER_INSTALL_SHA256,true);
+ const installer=useWorkerInstaller();const install=hostedWorkerCommand(installer.origin,installer.digest,true);
  async function push(){if(lock.current||!claude&&!codex)return;lock.current=true;setBusy(true);setError(null);const request=pending??{operation_id:crypto.randomUUID(),providers:[...(claude?['anthropic']:[]),...(codex?['openai']:[])]};setPending(request);try{const receipt=await apiSend<unknown>('POST',`/api/worker-logins/${encodeURIComponent(nodeId)}`,request);if(!isRecord(receipt)||receipt.generation!==request.operation_id)throw new ContractError('Invalid login delivery receipt');setPending(null);await client.invalidateQueries({predicate:q=>q.queryKey.includes('worker-logins')});}catch(e){if(e instanceof ApiError&&(e.status??0)>=400&&(e.status??0)<500)setPending(null);setError(e instanceof ApiError?e.serverMessage??'Login delivery could not be requested.':'Confirmation is pending. Retry to check the same request.');}finally{setBusy(false);lock.current=false;}}
  return <section className={styles.launch} aria-label="Worker logins">
   <div className={`${styles.actions} ${styles.loginChoices}`}><span>Server logins</span><label><input type="checkbox" checked={claude} disabled={busy||!!pending} onChange={e=>setClaude(e.target.checked)}/>Claude</label><label><input type="checkbox" checked={codex} disabled={busy||!!pending} onChange={e=>setCodex(e.target.checked)}/>Codex</label><ActionButton onClick={()=>void push()} disabled={busy||!claude&&!codex}>{busy?'Sending…':pending?'Retry push':'Push logins'}</ActionButton></div>

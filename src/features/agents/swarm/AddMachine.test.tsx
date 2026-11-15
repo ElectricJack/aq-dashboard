@@ -145,3 +145,16 @@ test("Add machine is disabled while an unexpired code is shown and the code clea
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Enrollment code" })).toBeNull(), { timeout: 3000 });
   expect(screen.getByRole("button", { name: "Add machine" })).toBeEnabled();
 });
+
+test("the command installs the worker the server publishes now, not the one fixed at build time", async () => {
+  enroll();
+  const digest = "a".repeat(64);
+  server.use(http.get("/api/status", () => HttpResponse.json({ version: {}, health: "ok", update: {}, worker_install: { origin: "https://aq.example", installer_sha256: digest, bundle_sha256: null, worker_revision: "0123456789abcdef" } })));
+  await openServerPane();
+  await userEvent.click(await screen.findByRole("button", { name: "Add machine" }));
+  await screen.findByRole("textbox", { name: "Enrollment code" });
+  const command = await screen.findByText(new RegExp(`'https://aq.example' '${digest}'$`));
+  expect(command.textContent).toContain('"$1/install/$2.sh"');
+  expect(screen.getByText(/It downloads the worker \(0123456789ab\) and prompts for the code\./)).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /Worker URL/ })).toBeNull();
+});
