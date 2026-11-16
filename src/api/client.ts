@@ -22,6 +22,8 @@ export class ApiError extends Error {
       retryAfterMs?: number;
       /** A bounded `message` from a non-envelope error body (e.g. human API `{error, message}`), safe to show as text. */
       serverMessage?: string;
+      /** The parsed JSON body of an HTTP failure, for routes whose errors carry more than a message (e.g. a list of `problems`). */
+      body?: unknown;
     } = {},
   ) {
     super(message);
@@ -38,6 +40,9 @@ export class ApiError extends Error {
   /** The server's own explanation, when it sent one. */
   get serverMessage() {
     return this.details.serverMessage ?? this.details.envelope?.message;
+  }
+  get body() {
+    return this.details.body;
   }
   get retryAfterMs() {
     return this.details.retryAfterMs ?? this.details.envelope?.retry_after_ms;
@@ -64,6 +69,7 @@ export function httpError(response: Pick<Response, "status" | "headers">, payloa
     status: response.status,
     ...(envelope && { envelope }),
     ...(serverMessage !== undefined && { serverMessage }),
+    ...(isRecord(payload) && { body: payload }),
     ...(after !== undefined && { retryAfterMs: after }),
   });
 }
