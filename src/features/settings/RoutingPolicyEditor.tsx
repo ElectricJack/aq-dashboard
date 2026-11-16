@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../api/client";
-import { readIntelligenceStructure } from "../../api/intelligenceSettings";
-import { MAX_ROUTING_POLICY_BYTES } from "../../api/intelligenceStructure";
+import { MAX_ROUTING_POLICY_BYTES, readIntelligenceStructure } from "../../api/intelligenceStructure";
 import { authorPlaybookSourceAgain, rollBackPlaybookSource, SOURCE_GAP_SENTENCES, type SourceView } from "../../api/playbookSources";
 import { queryKey } from "../../api/queryKeys";
 import { readRoutingPolicy, setRouting, type RoutingPolicyState } from "../../api/routing";

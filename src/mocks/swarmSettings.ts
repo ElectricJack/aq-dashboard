@@ -33,7 +33,6 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   const fail = (status: number, message: string) => HttpResponse.json({ error: "swarm_settings", message }, { status });
   const valid = (value: unknown): value is SwarmCellLimit[] => Array.isArray(value) && value.length === catalog.length && catalog.every(c => value.filter(x => x && x.provider === c.provider && x.intelligence_class === c.intelligence_class && Number.isSafeInteger(x.limit) && x.limit >= 0).length === 1);
   return [
-    http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: "1", active_digest: "a".repeat(64), profiles: catalog.map(c => ({ id: c.intelligence_class, version: 1, name: c.display_name, description: "Labelled fixture profile", candidates: [{ id: c.intelligence_class, provider: c.provider, model: "fixture-model", reasoning_configuration_reference: "fixture-balanced@1", harnesses: ["fixture-harness"] }], projects: [] })), model_choices: [{ provider: "fixture-provider", model: "fixture-model", reasoning_configuration_reference: "fixture-balanced@1", reasoning: "Fixture balanced", harness: "fixture-harness" }] })),
     http.get("/api/settings/swarm", () => HttpResponse.json(result())),
     http.get("/api/settings/swarm/operations/:id", ({ params }) => {
       const entry = operations.get(String(params.id));

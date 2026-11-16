@@ -49,7 +49,7 @@ test("provider changes warn on navigation and reload", async ({ page }) => {
 
 test("one Save includes both Intelligence and provider edits", async ({ page }) => {
   await page.goto("/settings?tab=intelligence");
-  await page.getByLabel("Standard description", { exact: true }).fill("Use for ordinary implementation tasks");
+  await page.getByRole("region", { name: "Routing policy" }).getByLabel("Markdown").fill("# Routing\n\nUse Standard for ordinary implementation tasks.");
   await page.getByRole("tab", { name: "Providers", exact: true }).click();
   await page.getByRole("button", { name: "Remove OpenAI", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
@@ -59,10 +59,10 @@ test("one Save includes both Intelligence and provider edits", async ({ page }) 
   await page.reload();
   await expect(page.getByRole("button", { name: "Remove OpenAI", exact: true })).toHaveCount(0);
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  await expect(page.getByLabel("Standard description", { exact: true })).toHaveValue("Use for ordinary implementation tasks");
+  await expect(page.getByRole("region", { name: "Routing policy" }).getByLabel("Markdown")).toHaveValue("# Routing\n\nUse Standard for ordinary implementation tasks.");
 });
 
-test("Google is addable before setup and Intelligence lists only added providers", async ({ page }) => {
+test("Google is addable before setup", async ({ page }) => {
   await page.goto("/settings?tab=providers");
   const add = page.getByRole("combobox", { name: "Provider to add", exact: true });
   await expect(add.getByRole("option", { name: "Google", exact: true })).toHaveCount(1);
@@ -74,10 +74,4 @@ test("Google is addable before setup and Intelligence lists only added providers
   await page.getByRole("button", { name: "Remove Fixture provider", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status", { name: "Settings save status", exact: true })).toHaveText("Saved.");
-  await page.goto("/settings?tab=intelligence&provider=fixture-provider");
-  const provider = page.getByRole("combobox", { name: "Provider", exact: true });
-  await expect(provider).toHaveValue("anthropic");
-  await expect(provider.getByRole("option")).toHaveText(["Anthropic", "OpenAI", "Google"]);
-  await provider.selectOption("google");
-  await expect(page.getByText(/No Google models are configured yet/)).toBeVisible();
 });

@@ -37,3 +37,4 @@
 
 .pageToolbar { display: flex; align-items: start; justify-content: space-between; gap: var(--space-4); }
 .pageToolbar > button { flex: none; }
+.sections { display: grid; gap: var(--space-5); min-inline-size: 0; margin-block-start: var(--space-5); }

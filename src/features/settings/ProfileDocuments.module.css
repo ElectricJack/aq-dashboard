@@ -1,0 +1,71 @@
+.documents { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.documents + .documents, .documents + section, section + .documents { margin-block-start: var(--space-5); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-3); }
+.toolbar > div { display: grid; gap: var(--space-2); min-inline-size: 0; flex: 1 1 280px; }
+.toolbar :is(h2, h3) { margin: 0; }
+.toolbar h2 { font-size: var(--font-size-h2); }
+.documents p { margin: 0; }
+.meta { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.note { color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.warning { color: var(--color-attention); overflow-wrap: anywhere; }
+.success { color: var(--color-success); font-size: var(--font-size-meta); }
+.scrollHint { display: none; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+@media (max-width: 900px) { .scrollHint { display: block; } }
+.tableWrap { overflow-x: auto; max-inline-size: 100%; min-inline-size: 0; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
+.tableWrap:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.table { inline-size: 100%; min-inline-size: 760px; border-collapse: collapse; text-align: start; }
+.table th { color: var(--color-text-secondary); font-weight: 500; padding: var(--space-3); border-block-end: 1px solid var(--color-border); white-space: nowrap; text-align: start; }
+.table td { padding: var(--space-3); border-block-end: 1px solid var(--color-border); vertical-align: top; overflow-wrap: anywhere; }
+.table tr:last-child td { border-block-end: 0; }
+.table tr[data-open] td { background: var(--color-raised); }
+.name { display: grid; gap: var(--space-1); min-inline-size: 140px; }
+.name span { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.ordered { margin: 0; padding-inline-start: var(--space-5); display: grid; gap: var(--space-1); }
+.rowActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.confirm { display: grid; gap: var(--space-2); min-inline-size: 180px; }
+.switch { white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: var(--control-height); }
+.switch input { inline-size: 20px; block-size: 20px; margin: 0; accent-color: var(--color-accent); }
+.switch input:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.problems { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-attention); border-radius: var(--radius-control); overflow-wrap: anywhere; }
+.problems ul { margin: 0; padding-inline-start: var(--space-5); display: grid; gap: var(--space-1); }
+
+.editor { display: grid; gap: var(--space-3); min-inline-size: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
+.editor :is(h3, h4, h5) { margin: 0; font-size: var(--font-size-h3); }
+.summary :is(h4, h5) { font-size: var(--font-size-body); }
+.editor > :is(h3, h4):focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+/* The summary sits beside the text it describes, and stacks below it on a narrow screen. */
+.beside { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-4); align-items: start; }
+@media (max-width: 52rem) { .beside { grid-template-columns: minmax(0, 1fr); } }
+.document, .summary { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.label { font-weight: 500; }
+.text { box-sizing: border-box; inline-size: 100%; min-block-size: 320px; resize: vertical; padding: var(--space-3); color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: 14px/1.5 var(--font-mono); }
+.text[data-short] { min-block-size: 200px; }
+.text:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.summary dl { grid-template-columns: minmax(90px, max-content) minmax(0, 1fr); }
+.summary ul, .summary ol { margin: 0; padding-inline-start: var(--space-5); }
+.summary details summary { cursor: pointer; min-block-size: var(--control-height); align-content: center; color: var(--color-text-secondary); }
+.summary details summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.saved { margin: 0; max-block-size: 320px; overflow: auto; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: 13px/1.5 var(--font-mono); }
+.saved:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.primary { background: var(--color-accent); color: var(--color-accent-contrast); font-weight: 600; }
+
+.candidates { display: grid; gap: var(--space-3); min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.candidates legend { padding: 0; font-weight: 500; }
+.candidates .table { min-inline-size: 760px; }
+.candidates .rowActions { flex-wrap: nowrap; }
+.candidates :is(input, select), .form :is(input[type="number"], input[type="text"], select) { box-sizing: border-box; inline-size: 100%; min-inline-size: 0; min-block-size: var(--control-height); padding: var(--space-2); color: var(--color-text); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; }
+.candidates :is(input, select):focus-visible, .form :is(input, select):focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.candidates input[aria-invalid="true"], .form input[aria-invalid="true"] { border-color: var(--color-error); }
+.candidates td:first-child { inline-size: 48px; color: var(--color-text-secondary); }
+
+.form { display: grid; gap: var(--space-4); min-inline-size: 0; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--space-3) var(--space-4); align-items: start; }
+.field { display: grid; gap: var(--space-1); min-inline-size: 0; }
+.field > span:first-child, .field > label { font-weight: 500; }
+.group { margin: 0; padding: 0; border: 0; min-inline-size: 0; }
+.group legend { padding: 0; margin-block-end: var(--space-2); font-weight: 500; }
+.choices { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+.choices .switch { white-space: normal; }
+.snapshot { margin-block-start: var(--space-5); color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.snapshot code { font-family: var(--font-mono); }

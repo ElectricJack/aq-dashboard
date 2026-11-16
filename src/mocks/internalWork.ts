@@ -1,10 +1,9 @@
 import { http, HttpResponse } from "msw";
+import { FIXTURE_LEVELS } from "./roleSettings";
 import type { InternalRunData, InternalWorkPurpose, SaveInternalWork } from "../api/internalWork";
 
 type Snapshot = { revision: string; catalog_revision: string; default_profile_id: string | null; overrides: Partial<Record<InternalWorkPurpose, string>>; purposes: InternalWorkPurpose[] };
 const PURPOSES: InternalWorkPurpose[] = ["routing_classification", "playbook_compilation", "playbook_call", "decision_revision", "result_processing"];
-/** The fixture catalog served by GET /api/settings/intelligence (see intelligenceStructure.ts); like the real endpoint it holds no automatic router. */
-const FIXTURE_PROFILES = ["fixture-standard", "fixture-advanced", "fixture-standard-two"];
 
 const FIXTURE_NOW = Date.UTC(2026, 10, 12, 9, 0, 0);
 const FIXTURE_RUN_BASE: Pick<InternalRunData, "instructions" | "input" | "affected" | "escalation"> = {
@@ -70,7 +69,7 @@ export function internalWorkHandlers() {
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Save identity was reused with different changes.");
       if (body.expected_revision !== snapshot.revision || body.expected_catalog_revision !== snapshot.catalog_revision) return fail(409, "Internal work settings changed. Your draft is preserved; reload before saving.");
       const ids = [body.default_profile_id, ...Object.values(body.overrides)].filter(id => id !== null);
-      if (ids.some(id => !FIXTURE_PROFILES.includes(id as string)) || Object.keys(body.overrides).some(purpose => !PURPOSES.includes(purpose as InternalWorkPurpose))) return fail(400, "Choose an Intelligence profile that exists.");
+      if (ids.some(id => !FIXTURE_LEVELS.includes(id as string)) || Object.keys(body.overrides).some(purpose => !PURPOSES.includes(purpose as InternalWorkPurpose))) return fail(400, "Choose an Intelligence profile that exists.");
       const changed = JSON.stringify({ d: body.default_profile_id, o: body.overrides }) !== JSON.stringify({ d: snapshot.default_profile_id, o: snapshot.overrides });
       snapshot = { ...snapshot, revision: changed ? String(Number(snapshot.revision) + 1) : snapshot.revision, default_profile_id: body.default_profile_id, overrides: body.overrides };
       sessionStorage.setItem(key, JSON.stringify(snapshot));

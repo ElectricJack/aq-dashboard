@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../api/client";
-import { readIntelligence } from "../../api/intelligenceSettings";
 import { INTERNAL_WORK_PURPOSES, inspectInternalWorkSave, readInternalWorkSettings, saveInternalWorkSettings, type InternalWorkPurpose, type InternalWorkSettings as Settings, type SaveInternalWork } from "../../api/internalWork";
 import { queryKey } from "../../api/queryKeys";
+import { useDocuments } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -31,7 +31,7 @@ export function InternalWorkSettings() {
   const client = useQueryClient();
   const settingsKey = queryKey(queryContext, "internal-work-settings", {});
   const query = useQuery({ queryKey: settingsKey, queryFn: ({ signal }) => readInternalWorkSettings(signal), retry: false });
-  const catalog = useQuery({ queryKey: queryKey(queryContext, "intelligence-settings", {}), queryFn: ({ signal }) => readIntelligence(signal), retry: false });
+  const levels = useDocuments("intelligence");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -40,8 +40,8 @@ export function InternalWorkSettings() {
   const [retrySame, setRetrySame] = useState(false);
   const [conflict, setConflict] = useState(false);
   const saved = query.data;
-  // GET /api/settings/intelligence already omits automatic-router profiles (aq-profile-settings store.rs filters automatic_routing), so every listed profile may be chosen.
-  const profiles = (catalog.data?.profiles ?? []).map(p => ({ id: p.id, name: p.name || p.id }));
+  // Every saved level may be chosen; one whose text AQ cannot read is listed by its id.
+  const profiles = (levels.data?.documents ?? []).map(level => ({ id: level.id, name: level.fields?.name || level.id }));
   const current: Draft | null = draft ?? (saved ? { default_profile_id: saved.default_profile_id ?? "", overrides: saved.overrides } : null);
   const edit = (change: (value: Draft) => Draft) => { if (current && !unconfirmed) { setDraft(change(current)); setNotice(null); } };
   async function run(request: SaveInternalWork, inspect = false) {

@@ -2,35 +2,76 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 for (const width of [1440, 390, 320]) {
-  test(`intelligence structure is usable at ${width}px`, async ({ page }) => {
+  test(`the Intelligence tab is usable at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/settings");
     await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-    for (const name of ["Simple", "Standard", "Complex", "Deep"]) {
-      await expect(page.getByRole("region", { name: `${name} intelligence` })).toBeVisible();
-      await expect(page.getByLabel(`${name} description`, { exact: true })).toBeVisible();
-    }
-    const low = page.locator('tr[data-profile-id="fixture-standard"]');
-    const high = page.locator('tr[data-profile-id="fixture-advanced"]');
-    await expect(low.getByLabel("Model")).toBeVisible();
-    await expect(high.getByLabel("Reasoning effort")).toBeVisible();
-    await expect(low.getByLabel(/Max agents/)).toHaveValue("4");
-    await expect(high.getByLabel(/Max agents/)).toHaveValue("2");
-    await expect(page.getByRole("table", { name: "Intelligence variations", exact: true })).toBeVisible();
+    const levels = page.getByRole("table", { name: "Levels", exact: true });
+    await expect(levels.getByRole("row", { name: "Fixture standard, high" })).toContainText("anthropic · fixture-model-large · high · claude");
+    await page.getByRole("button", { name: "Edit Fixture standard, high" }).click();
+    const editor = page.getByRole("region", { name: "Edit Fixture standard, high" });
+    await expect(editor.getByLabel("Model of candidate 1")).toHaveValue("fixture-model");
+    await expect(editor.getByLabel("Markdown")).toHaveValue(/## Candidates/);
+    await expect(page.getByRole("region", { name: "Selection defaults" }).getByLabel("Attempts per task")).toHaveValue("2");
+    await expect(page.getByRole("region", { name: "Internal work" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("combobox", { name: "Variation to add" })).toContainText("Standard · Medium");
     await expect(page.getByText(/An agent turns each saved version into a playbook/)).toBeVisible();
     await expect(page.getByRole("switch", { name: "Route tasks with this playbook" })).toBeDisabled();
+    await expect(page.getByText(/^Active snapshot [0-9a-f]{12} · revision 1$/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map(v => v.id)).toEqual([]);
   });
+  for (const [tab, table, name] of [["Roles", "Roles", "Fixture developer"], ["Execution", "Execution profiles", "Fixture sandbox"]] as const) {
+    test(`the ${tab} tab is usable at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/settings");
+      await page.getByRole("tab", { name: tab, exact: true }).click();
+      await expect(page.getByRole("table", { name: table, exact: true }).getByRole("row", { name })).toBeVisible();
+      await page.getByRole("button", { name: `Edit ${name}` }).click();
+      const editor = page.getByRole("region", { name: `Edit ${name}` });
+      await expect(editor.getByLabel("Markdown")).toHaveValue(/^---\nid: /);
+      await expect(editor.getByRole("heading", { name: /^How AQ reads the saved/ })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map(v => v.id)).toEqual([]);
+    });
+  }
 }
 
-test("parent description and routing markdown persist across reload", async ({ page }) => {
+test("a reordered candidates table is saved and is still in that order after a reload", async ({ page }) => {
+  await page.goto("/settings?tab=intelligence");
+  await page.getByRole("button", { name: "Edit Fixture standard, high" }).click();
+  const editor = page.getByRole("region", { name: "Edit Fixture standard, high" });
+  await editor.getByRole("button", { name: "Move candidate 2 up" }).click();
+  await expect(editor.getByRole("button", { name: "Move candidate 1 down" })).toBeFocused();
+  await expect(editor.getByLabel("Markdown")).toHaveValue(/\| anthropic \| fixture-model-large \| high \| claude \|\n\| fixture-provider \| fixture-model \| high \| opencode \|\n$/);
+  await editor.getByRole("button", { name: "Save level" }).click();
+  await expect(editor.getByRole("status")).toHaveText("Saved.");
+  await page.reload();
+  const items = page.getByRole("table", { name: "Levels", exact: true }).getByRole("row", { name: "Fixture standard, high" }).getByRole("listitem");
+  await expect(items).toHaveText(["anthropic · fixture-model-large · high · claude", "fixture-provider · fixture-model · high · opencode"]);
+  await expect(page.getByText(/· revision 2$/)).toBeVisible();
+});
+
+test("an invalid role shows the server's problems beside the editor, and a referenced execution profile is not deleted", async ({ page }) => {
+  await page.goto("/settings?tab=roles");
+  await page.getByRole("button", { name: "Edit Fixture developer" }).click();
+  const editor = page.getByRole("region", { name: "Edit Fixture developer" });
+  const text = await editor.getByLabel("Markdown").inputValue();
+  await editor.getByLabel("Markdown").fill(text.replace("execution: fixture-sandbox", "execution: nowhere"));
+  await editor.getByRole("button", { name: "Save role" }).click();
+  await expect(editor.getByRole("alert")).toContainText("role `developer`: execution: no execution profile `nowhere` exists");
+  await page.getByRole("tab", { name: "Execution", exact: true }).click();
+  await page.getByRole("button", { name: "Delete Fixture sandbox" }).click();
+  await page.getByRole("button", { name: "Confirm delete Fixture sandbox" }).click();
+  await expect(page.getByRole("tabpanel", { name: "Execution" }).getByRole("alert")).toContainText("role `reviewer`: execution: no execution profile `fixture-sandbox` exists");
+  await expect(page.getByRole("row", { name: "Fixture sandbox" })).toBeVisible();
+});
+
+test("routing markdown persists across reload", async ({ page }) => {
   await page.goto("/settings");
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  await page.getByLabel("Standard description", { exact: true }).fill("Saved description");
   const policy = page.getByRole("region", { name: "Routing policy" });
   await policy.getByLabel("Markdown").fill("# Saved routing\n\nUse Standard for ordinary work.");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -38,7 +79,6 @@ test("parent description and routing markdown persist across reload", async ({ p
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   await page.reload();
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  await expect(page.getByLabel("Standard description", { exact: true })).toHaveValue("Saved description");
   await expect(page.getByLabel("Markdown")).toHaveValue("# Saved routing\n\nUse Standard for ordinary work.");
 });
 
@@ -109,57 +149,26 @@ test("rolling back asks first, names what comes back, and then the previous play
   await expect(policy.getByRole("button", { name: /Roll back/ })).toHaveCount(0);
 });
 
-test("variation limits save independently", async ({ page }) => {
-  await page.goto("/settings");
-  await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  const low = page.locator('tr[data-profile-id="fixture-standard"]');
-  const high = page.locator('tr[data-profile-id="fixture-advanced"]');
-  await low.getByLabel(/Max agents/).fill("7");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(low.getByRole("status")).toHaveText("Saved.");
-  await expect(high.getByLabel(/Max agents/)).toHaveValue("2");
-  await expect(low.getByLabel(/Max agents/)).toHaveValue("7");
-});
-
-test("a missing variation can be configured and remains assigned", async ({ page }) => {
-  await page.goto("/settings");
-  await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  await page.getByLabel("Variation to add", { exact: true }).selectOption("standard:medium");
-  await page.getByRole("button", { name: "Add variation: Standard Medium" }).click();
-  const row = page.getByRole("row", { name: "Standard Medium", exact: true });
-  await row.getByLabel("Model").selectOption({ label: "fixture-model" });
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Add variation: Standard Medium" })).toHaveCount(0);
-  await expect(row.getByLabel("Model")).toHaveValue("fixture-provider:fixture-model");
-  await page.reload();
-  await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  await expect(page.getByRole("row", { name: "Standard Medium", exact: true })).toBeVisible();
-});
-
-test("one Save includes multiple row edits, descriptions and Markdown", async ({ page }) => {
+test("one Save includes a level edit and the routing Markdown", async ({ page }) => {
   await page.goto("/settings?tab=intelligence");
-  const low = page.locator('tr[data-profile-id="fixture-standard"]');
-  const high = page.locator('tr[data-profile-id="fixture-advanced"]');
-  await low.getByLabel(/Max agents/).fill("6");
-  await high.getByLabel(/Max agents/).fill("3");
-  await page.getByLabel("Simple description", { exact: true }).fill("Small routine work");
-  await page.getByLabel("Standard description", { exact: true }).fill("Everyday work");
-  await page.getByLabel("Markdown").fill("# Routing\n\nChoose a parent type.");
+  await page.getByRole("button", { name: "Edit Fixture standard, low" }).click();
+  const editor = page.getByRole("region", { name: "Edit Fixture standard, low" });
+  await editor.getByLabel("Reasoning of candidate 1").selectOption("medium");
+  const policy = page.getByRole("region", { name: "Routing policy" });
+  await policy.getByLabel("Markdown").fill("# Routing\n\nChoose a level.");
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status", { name: "Intelligence save status", exact: true })).toHaveText("Saved.");
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   await page.reload();
-  await expect(low.getByLabel(/Max agents/)).toHaveValue("6");
-  await expect(high.getByLabel(/Max agents/)).toHaveValue("3");
-  await expect(page.getByLabel("Simple description", { exact: true })).toHaveValue("Small routine work");
-  await expect(page.getByLabel("Standard description", { exact: true })).toHaveValue("Everyday work");
-  await expect(page.getByLabel("Markdown")).toHaveValue("# Routing\n\nChoose a parent type.");
+  await expect(page.getByRole("row", { name: "Fixture standard, low" })).toContainText("fixture-provider · fixture-model · medium · opencode");
+  await expect(page.getByRole("region", { name: "Routing policy" }).getByLabel("Markdown")).toHaveValue("# Routing\n\nChoose a level.");
 });
 
 test("leaving Settings warns, staying and switching tabs retain drafts", async ({ page }) => {
   await page.goto("/settings?tab=intelligence");
-  await page.getByLabel("Standard description", { exact: true }).fill("Unsaved description");
+  const policy = page.getByRole("region", { name: "Routing policy" });
+  await policy.getByLabel("Markdown").fill("# Unsaved routing");
   await page.getByRole("tab", { name: "Display", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.getByRole("link", { name: "Overview", exact: true }).click();
@@ -167,7 +176,7 @@ test("leaving Settings warns, staying and switching tabs retain drafts", async (
   await expect(warning).toBeVisible();
   await warning.getByRole("button", { name: "Stay in Settings" }).click();
   await page.getByRole("tab", { name: "Intelligence", exact: true }).click();
-  await expect(page.getByLabel("Standard description", { exact: true })).toHaveValue("Unsaved description");
+  await expect(policy.getByLabel("Markdown")).toHaveValue("# Unsaved routing");
   await page.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(warning).toBeVisible();
   await warning.getByRole("button", { name: "Leave without saving" }).click();
@@ -199,12 +208,12 @@ test("internal work default and a purpose override persist across reload", async
   await page.goto("/settings?tab=intelligence");
   const panel = page.getByRole("region", { name: "Internal work" });
   await expect(panel.getByText("No profile is set. Internal work will fail until one is chosen.")).toBeVisible();
-  await panel.getByLabel("Default profile", { exact: true }).selectOption({ label: "Fixture standard" });
-  await panel.getByLabel("Playbook compilation", { exact: true }).selectOption({ label: "Fixture advanced" });
+  await panel.getByLabel("Default profile", { exact: true }).selectOption({ label: "Fixture standard, low" });
+  await panel.getByLabel("Playbook compilation", { exact: true }).selectOption({ label: "Fixture standard, high" });
   await panel.getByRole("button", { name: "Save internal work", exact: true }).click();
   await expect(panel.getByRole("status")).toHaveText("Saved.");
   await page.reload();
-  await expect(panel.getByLabel("Default profile", { exact: true })).toHaveValue("fixture-standard");
-  await expect(panel.getByLabel("Playbook compilation", { exact: true })).toHaveValue("fixture-advanced");
+  await expect(panel.getByLabel("Default profile", { exact: true })).toHaveValue("standard-low");
+  await expect(panel.getByLabel("Playbook compilation", { exact: true })).toHaveValue("standard-high");
   await expect(panel.getByLabel("Playbook calls", { exact: true })).toHaveValue("");
 });

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { ParentDescriptionEditor, StructureDraftProvider } from "./IntelligenceStructureControls";
+import { StructureDraftProvider } from "./IntelligenceStructureControls";
 import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 
 const registered = vi.hoisted(() => ({ entry: null as null | { save(): Promise<boolean>; locked: boolean; dirty: boolean } }));
@@ -19,7 +19,6 @@ const sourcePath = "/api/playbooks/sources/routing";
 const switchState = (enabled = false) => ({ enabled, source: null });
 const bare = { id: "routing", kind: "builtin", binding: "aq.routing", purpose: "Choose the intelligence level for each task", revision: 1, active: null, latest: null };
 const server = setupServer(
-  http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: "2", active_digest: null, profiles: [], model_choices: [] })),
   http.get(routingPath, () => HttpResponse.json(switchState())),
   http.get(sourcePath, () => HttpResponse.json(bare)),
   http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [], next_cursor: null })),
@@ -29,7 +28,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 function open(pollMs?: number) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><StructureDraftProvider><RoutingPolicyEditor pollMs={pollMs} /><ParentDescriptionEditor parent="standard" structure={snapshot() as Parameters<typeof ParentDescriptionEditor>[0]["structure"]} catalogRevision="2" busy={false} onBusy={() => {}} onSaved={async () => {}} onReload={async () => {}} /><button onClick={() => void registered.entry?.save()}>Save page</button></StructureDraftProvider></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><StructureDraftProvider><RoutingPolicyEditor pollMs={pollMs} /><button onClick={() => void registered.entry?.save()}>Save page</button></StructureDraftProvider></QueryClientProvider>);
   return client;
 }
 
@@ -80,19 +79,19 @@ test("enforces the UTF-8 byte limit", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent("128 KiB"); expect(registered.entry?.locked).toBe(true);
 });
 
-test("combines description and policy drafts and clears a reverted field", async () => {
+test("the routing draft sends the rest of the structure back as read, and a reverted edit is not a change", async () => {
   const data = snapshot(); let submitted: Record<string, unknown> | undefined;
   server.use(http.get(path, () => HttpResponse.json(data)), http.post(path, async ({ request }) => {
     submitted = await request.json() as Record<string, unknown>;
-    return HttpResponse.json({ ...data, revision: "2", parents: submitted.parents, routing_markdown: submitted.routing_markdown, operation_id: submitted.operation_id, disposition: "saved" });
+    return HttpResponse.json({ ...data, revision: "2", routing_markdown: submitted.routing_markdown, operation_id: submitted.operation_id, disposition: "saved" });
   }));
-  open(); const policy = await screen.findByLabelText("Markdown"); const description = screen.getByLabelText("Standard description");
+  open(); const policy = await screen.findByLabelText("Markdown");
   fireEvent.change(policy, { target: { value: "changed" } }); fireEvent.change(policy, { target: { value: data.routing_markdown } });
   expect(registered.entry?.dirty).toBe(false);
-  fireEvent.change(policy, { target: { value: "policy" } }); fireEvent.change(description, { target: { value: "Updated" } });
+  fireEvent.change(policy, { target: { value: "policy" } });
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   await waitFor(() => expect(submitted).toBeDefined());
-  expect(submitted).toMatchObject({ routing_markdown: "policy", parents: expect.arrayContaining([expect.objectContaining({ id: "standard", description: "Updated" })]) });
+  expect(submitted).toEqual({ operation_id: expect.any(String), expected_revision: "1", expected_catalog_revision: "2", routing_markdown: "policy", parents: data.parents, assignments: data.assignments });
 });
 
 const kase = (situation: string, result: string, passed = true) => ({ name: "steps.classify", situation, result, passed });
