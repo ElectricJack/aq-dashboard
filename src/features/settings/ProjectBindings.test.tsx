@@ -30,7 +30,8 @@ test("loading is explicit, then actual configuration and historical status label
   expect(list).toHaveTextContent("Revision 2"); expect(list).toHaveTextContent("Repository: Verified · Graph: Stale");
   expect(list).toHaveTextContent("None individually listed");
   expect(list).toHaveTextContent("Allowed worker groups");
-  expect(list).toHaveTextContent("reviewer@2"); expect(list).toHaveTextContent("Recorded external checks");
+  expect(list).toHaveTextContent("Default roledeveloper"); expect(list).toHaveTextContent("Default intelligence levelstandard-high");
+  expect(list).toHaveTextContent("Project notes for rolesreviewer"); expect(list).toHaveTextContent("Recorded external checks");
 });
 test("empty is distinct from unavailable; retry is an explicit read", async () => {
   capability(true); let calls = 0;

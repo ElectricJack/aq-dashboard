@@ -44,9 +44,9 @@ export function ProjectBindings() {
           <dl className={styles.facts}>
             <dt>Repository ID</dt><dd>{p.repositoryId}</dd>
             <dt>Graph workspace ID</dt><dd>{p.workspaceId}</dd>
-            <dt>Allowed agent profiles</dt><dd>{p.agents.join(", ")}</dd>
-            <dt>Allowed intelligence profiles</dt><dd>{p.intelligence.join(", ")}</dd>
-            <dt>Allowed execution profiles</dt><dd>{p.execution.join(", ")}</dd>
+            <dt>Default role</dt><dd>{p.defaultRole ?? "Not stated"}</dd>
+            <dt>Default intelligence level</dt><dd>{p.defaultIntelligence ?? "Not stated"}</dd>
+            <dt>Project notes for roles</dt><dd>{p.roleNotes.join(", ") || "None"}</dd>
             <dt>Allowed worker groups</dt><dd>{p.workerGroups.join(", ") || "None listed"}</dd>
             <dt>Allowed environments</dt><dd>{p.environments.join(", ")}</dd>
           </dl>
@@ -59,7 +59,6 @@ export function ProjectBindings() {
             <dt>Repository binding generation</dt><dd>{p.repositoryGeneration}</dd>
             <dt>Explicitly allowed worker node IDs</dt><dd>{p.nodeIds.join(", ") || "None individually listed"}</dd>
             <dt>Enrolled machines</dt><dd>{p.enrolledNodes ? "allowed" : "not allowed"}</dd>
-            <dt>Catalog digest</dt><dd>{p.catalogDigest}</dd>
             <dt>Check observed at</dt><dd><Timestamp iso={p.validation.observedAt} /></dd>
             <dt>Check expiry</dt><dd><Timestamp iso={p.validation.expiresAt} /></dd>
             <dt>Binding validated at</dt><dd><Timestamp iso={p.validation.recordedAt} /></dd>
