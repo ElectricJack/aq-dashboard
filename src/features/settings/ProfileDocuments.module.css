@@ -67,7 +67,14 @@
 .group legend { padding: 0; margin-block-end: var(--space-2); font-weight: 500; }
 .choices { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
 .choices .switch { white-space: normal; }
-.snapshot { margin-block-start: var(--space-5); color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+/* The store's footer: the snapshot line, and the limits behind a disclosure beside it. */
+.store { display: grid; gap: var(--space-2); margin-block-start: var(--space-5); min-inline-size: 0; }
+.store p { margin: 0; }
+.snapshot { color: var(--color-text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.limitsForm { min-inline-size: 0; }
+.limitsForm > summary { cursor: pointer; inline-size: fit-content; min-block-size: var(--control-height); align-content: center; color: var(--color-text-secondary); font-size: var(--font-size-meta); }
+.limitsForm > summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.limitsForm[open] > summary { margin-block-end: var(--space-3); }
 .snapshot code { font-family: var(--font-mono); }
 
 /* Max agents per level: one short number per provider, stacked when a level has several. */

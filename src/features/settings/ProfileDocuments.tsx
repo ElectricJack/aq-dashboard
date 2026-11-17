@@ -8,6 +8,7 @@ import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { useIntelligenceDraft } from "./IntelligenceDrafts";
 import { documentId, frontmatterValue, isDocumentId, setFrontmatterValue } from "./profileMarkdown";
+import { ProfileStoreLimits } from "./ProfileStoreLimits";
 import { Timestamp } from "./Timestamp";
 import styles from "./ProfileDocuments.module.css";
 
@@ -48,12 +49,14 @@ function ProblemList({ title, problems }: { title: string; problems: Problem[] }
 }
 const refusal = (error: unknown) => error instanceof ApiError && error.status !== undefined && error.status >= 400 && error.status < 500;
 
-/** The active snapshot the saved documents compile into: a short digest and the store revision. */
-export function ProfileSnapshotNote() {
+/** The active snapshot the saved documents compile into (a short digest and the store revision), and the store's limits beside it. `scope` is the tab it is on. */
+export function ProfileSnapshotNote({ scope }: { scope: string }) {
   const query = useProfileSnapshot();
-  if (!query.data) return null;
-  const { active_digest: digest, revision } = query.data;
-  return <p className={styles.snapshot}>{digest ? <>Active snapshot <code title={digest}>{digest.slice(0, 12)}</code></> : "No active snapshot yet"} · revision {revision}</p>;
+  const digest = query.data?.active_digest;
+  return <div className={styles.store}>
+    {query.data && <p className={styles.snapshot}>{digest ? <>Active snapshot <code title={digest}>{digest.slice(0, 12)}</code></> : "No active snapshot yet"} · revision {query.data.revision}</p>}
+    <ProfileStoreLimits scope={scope} />
+  </div>;
 }
 
 /** The list of one kind of document and the editor for one of them. The Markdown is what is saved; the summary is what the server made of it. */

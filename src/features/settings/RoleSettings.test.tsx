@@ -494,6 +494,56 @@ describe("Selection defaults", () => {
   });
 });
 
+describe("Store limits", () => {
+  const LIMITS = { documents: { max_document_bytes: 65_536, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200 };
+  async function openLimits(tab: "roles" | "intelligence" | "execution" = "roles", table = "Roles") {
+    await openTab(tab, table);
+    await userEvent.click(await screen.findByText("Limits"));
+    return screen.findByRole("group", { name: "Limits of roles, levels and execution profiles" });
+  }
+  test("the limits sit beside the snapshot line on each document tab and are saved as one set at their revision", async () => {
+    const form = await openLimits();
+    expect(screen.getByText(/^Active snapshot/).parentElement).toContainElement(form);
+    expect(within(form).getAllByRole("textbox").map(input => (input as HTMLInputElement).value)).toEqual(["65536", "1048576", "128", "128", "2000", "20", "200"]);
+    expect(within(form).getByRole("button", { name: "Save limits" })).toBeDisabled();
+    const one = within(form).getByRole("textbox", { name: "One document (bytes)" });
+    expect(one).toHaveAccessibleDescription("The largest a single role, level or execution profile may be.");
+    fireEvent.change(one, { target: { value: "131072" } });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Snapshots kept" }), { target: { value: "30" } });
+    await userEvent.click(within(form).getByRole("button", { name: "Save limits" }));
+    expect(await within(form).findByText("Saved.")).toBeVisible();
+    expect(sent).toEqual([{ method: "PUT", path: "/api/settings/profiles/limits", search: "", body: { limits: { documents: { ...LIMITS.documents, max_document_bytes: 131_072 }, snapshots_kept: 30, operations_kept: 200 }, expected_revision: "0", operation_id: expect.any(String) } }]);
+    expect(one).toHaveValue("131072");
+    // The editor's byte count follows the saved limit.
+    const editor = await edit("Fixture developer");
+    expect(await within(editor).findByText(/\/ 131,072 bytes$/)).toBeVisible();
+  });
+  test("an entry that is not a whole number is not sent, and Discard returns to the saved limits", async () => {
+    const form = await openLimits("execution", "Execution profiles");
+    const name = within(form).getByRole("textbox", { name: "A name (bytes)" });
+    fireEvent.change(name, { target: { value: "12.5" } });
+    expect(name).toBeInvalid();
+    await userEvent.click(within(form).getByRole("button", { name: "Save limits" }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent("Enter every limit as a whole number.");
+    expect(sent).toEqual([]);
+    await userEvent.click(within(form).getByRole("button", { name: "Discard changes" }));
+    expect(name).toHaveValue("128");
+  });
+  test("a refusal is shown in AQ's words, and limits changed elsewhere are reloaded without losing the entries", async () => {
+    const form = await openLimits("intelligence", "Levels");
+    const kept = within(form).getByRole("textbox", { name: "Documents of one kind" });
+    server.use(http.put("/api/settings/profiles/limits", () => HttpResponse.json({ error: "bad_request", message: "2 roles exist; the limit of documents of one kind cannot be 1", problems: [] }, { status: 400 })));
+    fireEvent.change(kept, { target: { value: "1" } });
+    await userEvent.click(within(form).getByRole("button", { name: "Save limits" }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent("2 roles exist; the limit of documents of one kind cannot be 1");
+    expect(kept).toHaveValue("1");
+    server.use(http.put("/api/settings/profiles/limits", () => HttpResponse.json({ error: "conflict", message: "changed" }, { status: 409 })));
+    await userEvent.click(within(form).getByRole("button", { name: "Save limits" }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent("The limits changed since you opened them. Your entries are kept.");
+    expect(kept).toHaveValue("1");
+  });
+});
+
 test("the page Save saves open documents, and the three document tabs keep their drafts while another tab is shown", async () => {
   await openTab("roles", "Roles");
   const editor = await edit("Fixture reviewer");

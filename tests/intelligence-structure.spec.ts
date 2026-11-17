@@ -32,6 +32,11 @@ for (const width of [1440, 390, 320]) {
       const editor = page.getByRole("region", { name: `Edit ${name}` });
       await expect(editor.getByLabel("Markdown")).toHaveValue(/^---\nid: /);
       await expect(editor.getByRole("heading", { name: /^How AQ reads the saved/ })).toBeVisible();
+      // The store's limits open beside the snapshot line, by keyboard.
+      const limits = page.getByRole("tabpanel", { name: tab }).locator("summary", { hasText: /^Limits$/ });
+      await limits.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("group", { name: "Limits of roles, levels and execution profiles" }).getByLabel("One document (bytes)")).toHaveValue("65536");
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(results.violations.map(v => v.id)).toEqual([]);

@@ -56,11 +56,11 @@ function SettingsContent() {
     {TABS.map(tab => <section key={tab.id} role="tabpanel" id={`settings-panel-${tab.id}`} aria-labelledby={`settings-tab-${tab.id}`} hidden={selected !== tab.id} className={styles.tabPanel}>
       {DRAFT_TABS.includes(tab.id) ? (selected === tab.id || visited.includes(tab.id)) && <>
         {tab.id === "providers" && <Providers />}
-        {tab.id === "roles" && <><Roles /><ProfileSnapshotNote /></>}
+        {tab.id === "roles" && <><Roles /><ProfileSnapshotNote scope="roles" /></>}
         {tab.id === "intelligence" && <><h2 className={styles.sectionTitle}>Intelligence</h2>
-          <IntelligenceLevels /><SelectionDefaults /><ProfileSnapshotNote />
+          <IntelligenceLevels /><SelectionDefaults /><ProfileSnapshotNote scope="intelligence" />
           <div className={styles.sections}><InternalWorkSettings /><RoutingDocumentDraftProvider><RoutingPolicyEditor /></RoutingDocumentDraftProvider></div></>}
-        {tab.id === "execution" && <><ExecutionProfiles /><ProfileSnapshotNote /></>}
+        {tab.id === "execution" && <><ExecutionProfiles /><ProfileSnapshotNote scope="execution" /></>}
       </> : selected === tab.id && <>
         {tab.id === "identity" && <Panel title="Identity" description="The account this dashboard is signed in with.">
           <DetailList><dt>Signed in as</dt><dd>{bootstrap.principal.displayName}</dd></DetailList>
