@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { handlersFor } from "../../mocks/handlers";
-import { intelligenceStructureHandlers } from "../../mocks/intelligenceStructure";
+import { routingDocumentHandlers } from "../../mocks/routingDocument";
 import { internalWorkHandlers } from "../../mocks/internalWork";
 import { roleSettingsHandlers } from "../../mocks/roleSettings";
 import { renderApp } from "../../test/renderApp";
@@ -14,7 +14,7 @@ let sent: Sent[] = [];
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 beforeEach(() => {
   sent = [];
-  server.use(...roleSettingsHandlers(), ...intelligenceStructureHandlers(), ...internalWorkHandlers());
+  server.use(...roleSettingsHandlers(), ...routingDocumentHandlers(), ...internalWorkHandlers());
   server.events.on("request:start", async ({ request }) => {
     const url = new URL(request.url);
     if (request.method !== "GET" && url.pathname.startsWith("/api/settings/")) sent.push({ method: request.method, path: url.pathname, search: url.search, body: await request.clone().json().catch(() => null) as Sent["body"] });

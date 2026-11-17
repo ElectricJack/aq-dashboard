@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { StructureDraftProvider } from "./IntelligenceStructureControls";
+import { RoutingDocumentDraftProvider } from "./RoutingDocumentDraft";
 import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 
 const registered = vi.hoisted(() => ({ entry: null as null | { save(): Promise<boolean>; locked: boolean; dirty: boolean } }));
@@ -12,7 +12,7 @@ vi.mock("../../app/session", () => ({ useSession: () => ({ queryContext: { princ
 const path = "/api/settings/intelligence/structure";
 const snapshot = () => ({ revision: "1", catalog_revision: "2", routing_markdown: "# Policy\n", parents: [
   { id: "simple", description: "Simple" }, { id: "standard", description: "Standard" }, { id: "complex", description: "Complex" }, { id: "deep", description: "Deep" },
-], assignments: [{ profile_id: "profile", parent_id: "simple", effort: "low" }] });
+], assignments: [] as unknown[] });
 const routingPath = "/api/settings/intelligence/routing";
 const sourcePath = "/api/playbooks/sources/routing";
 /** The routing read of a server that does not fill `source`: the source is then read from the sources API, which is what most tests here drive. */
@@ -28,7 +28,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 function open(pollMs?: number) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><StructureDraftProvider><RoutingPolicyEditor pollMs={pollMs} /><button onClick={() => void registered.entry?.save()}>Save page</button></StructureDraftProvider></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><RoutingDocumentDraftProvider><RoutingPolicyEditor pollMs={pollMs} /><button onClick={() => void registered.entry?.save()}>Save page</button></RoutingDocumentDraftProvider></QueryClientProvider>);
   return client;
 }
 
@@ -56,7 +56,7 @@ test("conflict preserves the draft until explicit reload", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("edits are preserved"); expect(editor).toHaveValue("draft");
   expect(registered.entry?.locked).toBe(true);
-  await userEvent.click(screen.getByRole("button", { name: "Reload structure settings" }));
+  await userEvent.click(screen.getByRole("button", { name: "Reload the routing document" }));
   await waitFor(() => expect(editor).toHaveValue("latest"));
 });
 
@@ -70,7 +70,7 @@ test("unknown save checks status then retries the exact operation", async () => 
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   await userEvent.click(await screen.findByRole("button", { name: "Check save status" }));
   await userEvent.click(await screen.findByRole("button", { name: "Retry same save" }));
-  await screen.findByText("Structure saved."); expect(requests).toHaveLength(2); expect(requests[1]).toEqual(requests[0]);
+  await screen.findByText("Routing document saved."); expect(requests).toHaveLength(2); expect(requests[1]).toEqual(requests[0]);
 });
 
 test("enforces the UTF-8 byte limit", async () => {

@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../api/client";
-import { MAX_ROUTING_POLICY_BYTES, readIntelligenceStructure } from "../../api/intelligenceStructure";
+import { MAX_ROUTING_DOCUMENT_BYTES, readRoutingDocument } from "../../api/routingDocument";
 import { authorPlaybookSourceAgain, rollBackPlaybookSource, SOURCE_GAP_SENTENCES, type SourceView } from "../../api/playbookSources";
 import { queryKey } from "../../api/queryKeys";
 import { readRoutingPolicy, setRouting, type RoutingPolicyState } from "../../api/routing";
 import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
-import { useStructureDraft } from "./IntelligenceStructureControls";
+import { ROUTING_DOCUMENT, useRoutingDocumentDraft } from "./RoutingDocumentDraft";
 import { PlaybookQuestion, PlaybookSourceStatus } from "./PlaybookSourceStatus";
 import styles from "./RoutingPolicyEditor.module.css";
 
@@ -14,11 +14,11 @@ import styles from "./RoutingPolicyEditor.module.css";
 export function RoutingPolicyEditor({ pollMs = 2000 }: { /** How often to re-read a run in progress; only tests change it. */ pollMs?: number }) {
   const { queryContext } = useSession();
   const client = useQueryClient();
-  const query = useQuery({ queryKey: queryKey(queryContext, "intelligence-structure", {}), queryFn: ({ signal }) => readIntelligenceStructure(signal), retry: false });
-  const draft = useStructureDraft();
-  const text = draft.policy?.value ?? query.data?.routing_markdown ?? "";
+  const query = useQuery({ queryKey: queryKey(queryContext, ROUTING_DOCUMENT, {}), queryFn: ({ signal }) => readRoutingDocument(signal), retry: false });
+  const draft = useRoutingDocumentDraft();
+  const text = draft.policy?.value ?? query.data?.markdown ?? "";
   const bytes = new TextEncoder().encode(text).length;
-  // Keyed by the structure revision, so a save reads the run it started (a newer save replaces a run in flight).
+  // Keyed by the document revision, so a save reads the run it started (a newer save replaces a run in flight).
   const key = queryKey(queryContext, "routing-policy", { revision: query.data?.revision ?? "" });
   const routing = useQuery({ queryKey: key, queryFn: ({ signal }) => readRoutingPolicy(signal), enabled: query.data !== undefined, retry: false, placeholderData: previous => previous,
     // A read that failed stops the polling; the error line below says so and a save reads again.
@@ -40,9 +40,9 @@ export function RoutingPolicyEditor({ pollMs = 2000 }: { /** How often to re-rea
       <div className={asking ? styles.beside : undefined}>
         <div className={styles.document}>
           <label className={styles.label} htmlFor="routing-policy-markdown">Markdown</label>
-          <textarea id="routing-policy-markdown" className={styles.editor} value={text} disabled={draft.locked} spellCheck={false} onChange={event => draft.setPolicy(query.data!.routing_markdown, event.target.value)} />
-          <p className={styles.meta}>{bytes.toLocaleString()} / {MAX_ROUTING_POLICY_BYTES.toLocaleString()} bytes</p>
-          {bytes > MAX_ROUTING_POLICY_BYTES && <p className={styles.warning} role="alert">Policy must be at most 128 KiB in UTF-8.</p>}
+          <textarea id="routing-policy-markdown" className={styles.editor} value={text} disabled={draft.locked} spellCheck={false} onChange={event => draft.setPolicy(query.data!.markdown, event.target.value)} />
+          <p className={styles.meta}>{bytes.toLocaleString()} / {MAX_ROUTING_DOCUMENT_BYTES.toLocaleString()} bytes</p>
+          {bytes > MAX_ROUTING_DOCUMENT_BYTES && <p className={styles.warning} role="alert">Policy must be at most 128 KiB in UTF-8.</p>}
         </div>
         {asking && <PlaybookQuestion question={asking} />}
       </div>

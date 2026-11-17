@@ -10,14 +10,16 @@ type WireRun = Omit<LatestRun, "question" | "unable"> & {
 type WireActive = Omit<ActivePlaybook, "previous"> & { previous: { since_ms: number } | null };
 type WireSource = Omit<SourceView, "active" | "latest"> & { active: WireActive | null; latest: WireRun | null };
 
-type ParentId = "simple" | "standard" | "complex" | "deep";
-type Effort = "low" | "medium" | "high" | "max";
+/**
+ * The record the server keeps the routing document in (`/api/settings/intelligence/structure`). The dashboard uses its
+ * revision and `routing_markdown`; the server requires the other fields back on every save, so the fixture checks them.
+ */
 type Snapshot = {
   revision: string;
   catalog_revision: string;
   routing_markdown: string;
-  parents: { id: ParentId; description: string }[];
-  assignments: { profile_id: string; parent_id: ParentId; effort: Effort }[];
+  parents: { id: string; description: string }[];
+  assignments: unknown[];
 };
 type Save = Snapshot & { operation_id: string; expected_revision: string; expected_catalog_revision: string };
 
@@ -29,10 +31,7 @@ const initial = (): Snapshot => ({
     { id: "complex", description: "Demanding work" },
     { id: "deep", description: "Deep analysis" },
   ],
-  assignments: [
-    { profile_id: "standard-low", parent_id: "standard", effort: "low" },
-    { profile_id: "standard-high", parent_id: "standard", effort: "high" },
-  ],
+  assignments: [],
 });
 
 /** How long a labelled fixture authoring run takes. */
@@ -83,7 +82,7 @@ function initialSource(scenario?: string | null): WireSource {
 }
 
 /** Isolated fixture state survives a page reload in the same browser tab. */
-export function intelligenceStructureHandlers(scenario?: string | null) {
+export function routingDocumentHandlers(scenario?: string | null) {
   const key = "aq-mock-intelligence-structure";
   let snapshot: Snapshot = (() => {
     try { return JSON.parse(sessionStorage.getItem(key) || "null") || initial(); } catch { return initial(); }

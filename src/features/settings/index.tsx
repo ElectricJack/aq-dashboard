@@ -13,7 +13,7 @@ import { ExecutionProfiles } from "./ExecutionProfiles";
 import { SelectionDefaults } from "./SelectionDefaults";
 import { InternalWorkSettings } from "./InternalWorkSettings";
 import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
-import { StructureDraftProvider } from "./IntelligenceStructureControls";
+import { RoutingDocumentDraftProvider } from "./RoutingDocumentDraft";
 import { ProfileSnapshotNote } from "./ProfileDocuments";
 import { Notifications } from "../notifications/Notifications";
 import { IntelligenceDraftProvider, useIntelligenceDrafts } from "./IntelligenceDrafts";
@@ -59,7 +59,7 @@ function SettingsContent() {
         {tab.id === "roles" && <><Roles /><ProfileSnapshotNote /></>}
         {tab.id === "intelligence" && <><h2 className={styles.sectionTitle}>Intelligence</h2>
           <IntelligenceLevels /><SelectionDefaults /><ProfileSnapshotNote />
-          <div className={styles.sections}><StructureDraftProvider><InternalWorkSettings /><RoutingPolicyEditor /></StructureDraftProvider></div></>}
+          <div className={styles.sections}><InternalWorkSettings /><RoutingDocumentDraftProvider><RoutingPolicyEditor /></RoutingDocumentDraftProvider></div></>}
         {tab.id === "execution" && <><ExecutionProfiles /><ProfileSnapshotNote /></>}
       </> : selected === tab.id && <>
         {tab.id === "identity" && <Panel title="Identity" description="The account this dashboard is signed in with.">

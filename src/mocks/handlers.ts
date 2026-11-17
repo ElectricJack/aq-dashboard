@@ -9,7 +9,7 @@ import { decisionHandlers } from "./decisions";
 import { swarmHandlers } from "./swarm";
 import { swarmSettingsHandlers } from "./swarmSettings";
 import { providerSettingsHandlers } from "./providerSettings";
-import { intelligenceStructureHandlers } from "./intelligenceStructure";
+import { routingDocumentHandlers } from "./routingDocument";
 import { internalWorkHandlers } from "./internalWork";
 import { roleSettingsHandlers } from "./roleSettings";
 import { withDecisionFixtures } from "./decisionFixtures";
@@ -104,7 +104,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...humanGraphHandlers(s.reads, s.graph),
     ...swarmHandlers(s.reads, name),
     ...providerSettingsHandlers(),
-    ...(fixtures ? [...intelligenceStructureHandlers(name), ...roleSettingsHandlers(), ...internalWorkHandlers(), ...swarmSettingsHandlers(name)] : []),
+    ...(fixtures ? [...routingDocumentHandlers(name), ...roleSettingsHandlers(), ...internalWorkHandlers(), ...swarmSettingsHandlers(name)] : []),
     ...swarmActionHandlers(),
     ...enrollmentHandlers(),
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),
