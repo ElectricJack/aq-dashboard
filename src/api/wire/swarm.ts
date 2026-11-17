@@ -12,7 +12,8 @@ export type ServiceState = "running" | "stopped" | "draining" | "unreported";
 export type ReportedState = "ready" | "unavailable" | "unreported";
 export type IntelligenceClass = "fast" | "standard" | "deep";
 // "history_rate_limited" is unused: no server sends it since the offer and worker report
-// rate limits were removed (2026-11-13). It stays because the pinned schema lists it.
+// rate limits were removed (2026-11-13). The "measurement_*" codes are unused since context
+// measurement was removed with the profile catalog (spec 0014). They stay because the pinned schema lists them.
 export type HoldCode =
   | "worker_offline" | "worker_revoked" | "worker_stopped" | "worker_draining"
   | "capability_unreported" | "capability_expired"

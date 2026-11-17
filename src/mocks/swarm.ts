@@ -9,7 +9,7 @@ const reason = (code: HoldReason["code"], message: string, remedy: string): Hold
 
 export const NO_MACHINE_ONLINE = reason("no_machine_online", "No machine is online", "Start a worker on any machine");
 const NO_FREE_SLOT = reason("no_free_slot", "Every slot on an eligible machine is busy", "Wait for a running agent to finish, or add a machine");
-const MEASUREMENT_EXPIRED = reason("measurement_expired", "Context measurement expired", "Measure this worker's runtime again");
+const CAPABILITY_EXPIRED = reason("capability_expired", "Capability report expired", "Wait for the next report; restart the worker if none arrives");
 
 function agent(i: number, provider: string, model: string, harness: string, cls: SwarmAgent["intelligence_class"]): SwarmAgent {
   const s = SESSIONS[i]!;
@@ -45,10 +45,10 @@ export const SWARM_MOCKUP: Swarm = {
       nodes: [worker(3, "laptop-1", "docker-local", 2, [], { health: "offline", last_seen_at: ago(2 * 3_600_000) })],
     },
     {
-      id: "studio", label: "studio", kind: "local", state: "holding", holding: [MEASUREMENT_EXPIRED], last_seen_at: ago(6_000),
+      id: "studio", label: "studio", kind: "local", state: "holding", holding: [CAPABILITY_EXPIRED], last_seen_at: ago(6_000),
       load: { source: "linux", host_probe: "not_applicable", cpu_busy_bps: 2350, memory_used_bps: 4000, cpu_avg_15m_bps: 2000, memory_avg_15m_bps: 3900, samples_15m: 58, observed_at: ago(6_000), fresh: true },
       hardware: { logical_cpus: 8, memory_total_bytes: 32 * 2 ** 30, disk_total_bytes: 1e12, disk_free_bytes: 600e9 }, agent_max: 2, cost: null, control: null,
-      nodes: [worker(4, "studio-1", "docker-local", 2, [], { holding: [MEASUREMENT_EXPIRED] })],
+      nodes: [worker(4, "studio-1", "docker-local", 2, [], { holding: [CAPABILITY_EXPIRED] })],
     },
     {
       id: "boat:vm-a", label: "boat vm-a", kind: "cloud", state: "booting", holding: [], last_seen_at: null, load: null, hardware: null, agent_max: null,

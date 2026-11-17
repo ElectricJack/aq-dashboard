@@ -23,7 +23,7 @@ function view(): SwarmView {
       machine("desktop", "online", { hardware: { logicalCpus: 24, memoryTotalBytes: 2 ** 36, diskTotalBytes: null, diskFreeBytes: null }, agentMax: 5, load: load(61, 58),
         nodes: [worker("local-1", 3, 3, 0, [agent(1, "claude", "standard"), agent(2, "claude", "deep"), agent(3, "codex", "fast")]), worker("local-2", 2, 1, 1, [agent(4, "claude", "fast")])] }),
       machine("laptop", "offline", { lastSeenAt: "2026-11-07T10:00:00.000Z", nodes: [worker("laptop-1", 2, 0, null)] }),
-      machine("studio", "holding", { holding: [{ code: "measurement_expired", message: "Context measurement expired", remedy: null }], nodes: [worker("studio-1", 2, 0, 2)], load: load(24, 40) }),
+      machine("studio", "holding", { holding: [{ code: "capability_expired", message: "Capability report expired", remedy: null }], nodes: [worker("studio-1", 2, 0, 2)], load: load(24, 40) }),
       machine("vm-a", "booting", { kind: "cloud" }),
     ],
     waiting: { reasons: [{ code: "no_free_slot", message: "Every slot on an eligible machine is busy", remedy: null }], agents: [] },
@@ -46,7 +46,7 @@ describe("buildSwarmGraph", () => {
     expect(byId(build(), "machine:laptop")!.data.sub).toBe("local · offline 2h ago");
   });
   it("holding reason line", () => {
-    expect(byId(build(), "machine:studio")!.data.reason).toBe("holding: Context measurement expired");
+    expect(byId(build(), "machine:studio")!.data.reason).toBe("holding: Capability report expired");
   });
   it("offline edge dashed and not animated", () => {
     const e = build().edges.find(x => x.target === "machine:laptop")!;

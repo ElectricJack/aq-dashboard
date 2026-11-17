@@ -47,7 +47,7 @@ describe("swarm tree", () => {
     tree();
     expect(await screen.findByRole("button", { name: /^desktop, local · 24 cores/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^laptop, local · offline/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /studio.*holding: Context measurement expired/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /studio.*holding: Capability report expired/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^boat vm-a, cloud · booting/ })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "free" })).toHaveLength(3);
     expect(screen.getAllByRole("button", { name: /^waiting/ })).toHaveLength(1);

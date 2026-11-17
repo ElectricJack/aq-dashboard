@@ -3,7 +3,7 @@ import { adaptSwarm } from "./swarm";
 import type { Swarm } from "../wire/swarm";
 import pinned from "../../../contracts/pinned/dashboard-read/v1/fixtures/swarm.json";
 
-const hold = { code: "measurement_expired", message: "Context measurement expired", remedy: "Measure this worker's runtime again" } as const;
+const hold = { code: "capability_expired", message: "Capability report expired", remedy: "Wait for the next report; restart the worker if none arrives" } as const;
 function fixture(): Swarm {
   return {
     server: { version: "0.1.0", source_revision: "85070006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", running_agents: 1 },
@@ -44,6 +44,18 @@ describe("slots an attempt holds and the facts a newer server adds", () => {
     expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]!.agents[0]).toMatchObject({ phase: "starting", lastOutputAt: "2026-11-07T10:00:03.000Z",
       ranWith: { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-sonnet-5", reasoning: "high", harness: "claude-code" } });
   });
+  it("reads the 09ee5e98 shape and the same read with fields it does not know (held-since times, a real title)", () => {
+    const today = adaptSwarm((pinned as unknown as { data: Swarm }).data, TIME);
+    const f = fixture();
+    const row = f.machines[0]!.nodes[0]!.agents[0]! as unknown as Record<string, unknown>;
+    Object.assign(row, { phase: "finishing", held_since: "2026-11-07T09:59:00.000Z", phase_since: "2026-11-07T10:00:01.000Z", last_output_at: null, ran_with: null, task: { id: "10000000-0000-4000-8000-000000000005", title: "A real title" } });
+    Object.assign(f.machines[0]!.nodes[0]!.slots, { held_since: ["2026-11-07T09:59:00.000Z"] });
+    Object.assign(f.machines[0]!, { held_since: "2026-11-07T09:59:00.000Z" });
+    const next = adaptSwarm(f, TIME).machines[0]!.nodes[0]!;
+    expect(next.agents[0]).toMatchObject({ phase: "finishing", task: { title: "A real title" }, ranWith: null, lastOutputAt: null });
+    expect(next.slots).toEqual({ total: 3, occupied: 1, idle: 2, held: 0 });
+    expect(today.machines.length).toBeGreaterThan(0);
+  });
   it("drops a phase it does not know and a ran_with with a part missing", () => {
     const f = fixture();
     Object.assign(f.machines[0]!.nodes[0]!.agents[0]!, { phase: "paused", ran_with: { role: "developer", level: "", model: "m" }, last_output_at: null });
@@ -69,7 +81,7 @@ describe("adaptSwarm", () => {
     expect(v.machines[0]!.label).toBe("desktop");
     expect(v.machines[0]!.load?.source).toBe("windows_host");
     expect(v.machines[0]!.nodes[0]!.agents[0]!.terminalId).toBe("10000000-0000-4000-8000-000000000001");
-    expect(v.machines[0]!.nodes[0]!.holding[0]!.remedy).toBe("Measure this worker's runtime again");
+    expect(v.machines[0]!.nodes[0]!.holding[0]!.remedy).toBe("Wait for the next report; restart the worker if none arrives");
     expect(v.server.runningAgents).toBeGreaterThanOrEqual(1);
   });
   it("unknown enum values degrade, never throw", () => {

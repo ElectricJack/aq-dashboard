@@ -67,7 +67,7 @@ test("machine pane shows Linux when the host probe is not applicable", async () 
 test("holding machine lists reason and remedy", async () => {
   renderApp("/agents/swarm");
   await click(/^studio, local/);
-  await waitFor(() => expect(fact("Holding")).toHaveTextContent("Context measurement expired — Measure this worker's runtime again"));
+  await waitFor(() => expect(fact("Holding")).toHaveTextContent("Capability report expired — Wait for the next report; restart the worker if none arrives"));
 });
 
 test("free slot on a holding machine explains why", async () => {
@@ -75,8 +75,8 @@ test("free slot on a holding machine explains why", async () => {
   await card(/^desktop/);
   const free = await screen.findAllByRole("button", { name: "free" });
   fireEvent.click(free[1]!);
-  await waitFor(() => expect(fact("Why")).toHaveTextContent("Free, but this machine is holding back: Context measurement expired"));
-  expect(fact("Fix")).toHaveTextContent("Measure this worker's runtime again");
+  await waitFor(() => expect(fact("Why")).toHaveTextContent("Free, but this machine is holding back: Capability report expired"));
+  expect(fact("Fix")).toHaveTextContent("Wait for the next report; restart the worker if none arrives");
 });
 
 test("waiting agent pane gives why and fix", async () => {
