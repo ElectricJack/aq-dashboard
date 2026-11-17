@@ -37,3 +37,14 @@ test("AQ overview does not turn unconnected domain facts into zero or no constra
   const page = adaptPage(projects.data as Page<ProjectRef>, (row) => row);
   expect(page.items[0]!.label).toBe("Synthetic authority fixture");
 });
+
+// aq-server 09ee5e98 (dashboard-read `SessionDetail.ran_with`, spec 0014 §7.1): optional; `snapshot_digest` is null for an
+// attempt recorded before roles. A session without the record, or with an incomplete one, shows none and still reads.
+test("a session detail carries what its attempt ran with, when the server has that record", () => {
+  const ran = { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-opus-5-5", reasoning: "high", harness: "claude-code", execution_profile: "sandbox", snapshot_digest: null };
+  const detail = (extra: Record<string, unknown>) => adaptSessionDetail({ ...session.data, ...extra } as SessionDetail, session.server_time);
+  expect(detail({ ran_with: ran }).ranWith).toEqual({ role: "developer", level: "standard-high", provider: "anthropic", model: "claude-opus-5-5", reasoning: "high", harness: "claude-code" });
+  expect(detail({}).ranWith).toBeNull();
+  expect(detail({ ran_with: null }).ranWith).toBeNull();
+  expect(detail({ ran_with: { ...ran, model: undefined } }).ranWith).toBeNull();
+});

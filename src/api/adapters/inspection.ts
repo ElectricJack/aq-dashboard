@@ -16,6 +16,7 @@ import { ContractError, isRecord, isStale } from "./contract";
 import { reference } from "./reference";
 import { adaptSources } from "./overview";
 import { adaptSessionUsageAnchor } from "./sessionUsage";
+import { adaptAgentRanWith, type RanWithView } from "./swarm";
 
 type Unsupported = "unsupported";
 
@@ -339,6 +340,8 @@ export type SessionDetailView = SessionView & {
   lastOutputAt: string | null;
   /** Assignment generation from `session_identity` (decimal string), the nudge's expected generation. */
   generation: string | null;
+  /** What the attempt ran with (`ran_with`); null when the session has no such record or it is incomplete. */
+  ranWith: RanWithView | null;
 };
 function identityGeneration(raw: unknown): string | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -356,6 +359,7 @@ export function adaptSessionDetail(s: SessionDetail, serverTime: string): Sessio
     lastActivityAt: s.last_activity_at,
     lastOutputAt: typeof s.last_output_at === "string" ? s.last_output_at : null,
     generation: identityGeneration(s.session_identity),
+    ranWith: adaptAgentRanWith(s.ran_with),
   };
 }
 
