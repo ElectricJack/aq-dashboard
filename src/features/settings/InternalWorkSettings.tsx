@@ -49,7 +49,7 @@ export function InternalWorkSettings() {
     setSaving(true); setNotice(null); setError(null);
     try {
       const result = await (inspect ? inspectInternalWorkSave(request.operation_id) : saveInternalWorkSettings(request));
-      client.setQueryData(settingsKey, { revision: result.revision, catalog_revision: result.catalog_revision, default_profile_id: result.default_profile_id, overrides: result.overrides, purposes: result.purposes });
+      client.setQueryData(settingsKey, { revision: result.revision, default_profile_id: result.default_profile_id, overrides: result.overrides, purposes: result.purposes });
       setDraft(null); setUnconfirmed(null); setConflict(false); setRetrySame(false);
       setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
     } catch (failure) {
@@ -69,7 +69,7 @@ export function InternalWorkSettings() {
   function save(base: Settings, value: Draft) {
     if (unconfirmed) return void run(unconfirmed);
     const overrides = Object.fromEntries(Object.entries(value.overrides).filter(([, id]) => id)) as Draft["overrides"];
-    void run({ operation_id: crypto.randomUUID(), expected_revision: base.revision, expected_catalog_revision: base.catalog_revision, default_profile_id: value.default_profile_id || null, overrides });
+    void run({ operation_id: crypto.randomUUID(), expected_revision: base.revision, default_profile_id: value.default_profile_id || null, overrides });
   }
   return <section className={styles.section} aria-labelledby="internal-work-heading">
     <h3 id="internal-work-heading">Internal work</h3>

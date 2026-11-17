@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { ApiError } from "../../../api/client";
 import { SwarmStatusHeader } from "./SwarmStatusHeader";
 
-const mock = vi.hoisted(() => ({ configured: undefined as undefined | { accounts: { provider: string; enabled: boolean }[] }, mutateAsync: vi.fn(), refetch: vi.fn(), settings: { revision: "1", catalog_revision: "2", provider_limits: [{ provider: "openai", limit: null }, { provider: "anthropic", limit: 48 }], cells: [{ provider: "openai", running: 1, waiting: 2 }, { provider: "anthropic", running: 2, waiting: 0 }, { provider: "unused", running: 0, waiting: 0 }], unclassified: [] } }));
+const mock = vi.hoisted(() => ({ configured: undefined as undefined | { accounts: { provider: string; enabled: boolean }[] }, mutateAsync: vi.fn(), refetch: vi.fn(), settings: { revision: "1", provider_limits: [{ provider: "openai", limit: null }, { provider: "anthropic", limit: 48 }], cells: [{ provider: "openai", running: 1, waiting: 2 }, { provider: "anthropic", running: 2, waiting: 0 }, { provider: "unused", running: 0, waiting: 0 }], unclassified: [] } }));
 vi.mock("../../../app/session", () => ({ useSession: () => ({ queryContext: { principalId: "test" }, bootstrap: { capability: () => ({ enabled: false }) } }) }));
 vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({ data: mock.configured, isError: false }) }));
 vi.mock("../../../api/swarmSettings", () => ({ useSwarmSettings: () => ({ data: mock.settings, isError: false, isPending: false, refetch: mock.refetch }), useUpdateSwarmLimits: () => ({ mutateAsync: mock.mutateAsync }) }));

@@ -9,7 +9,7 @@ vi.mock("../../app/session", () => ({ useSession: () => ({ queryContext: { princ
 const path = "/api/settings/internal-work";
 const purposes = ["routing_classification", "playbook_compilation", "playbook_call", "decision_revision", "result_processing"];
 const level = (id: string, name: string) => ({ kind: "intelligence", id, revision: "7", updated_at_ms: 1, markdown: "", fields: { id, name, description: "", candidates: [] }, problem: null });
-const snapshot = (over: Record<string, unknown> = {}) => ({ revision: "3", catalog_revision: "7", default_profile_id: "p1", overrides: {}, purposes, ...over });
+const snapshot = (over: Record<string, unknown> = {}) => ({ revision: "3", default_profile_id: "p1", overrides: {}, purposes, ...over });
 const server = setupServer(http.get("/api/settings/intelligence-profiles", () => HttpResponse.json({ revision: "7", active_digest: null, documents: [level("p1", "Fast"), level("p2", "Careful")] })));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
@@ -48,7 +48,7 @@ test("saves operation id, both revisions and only non-default overrides", async 
   await userEvent.selectOptions(screen.getByLabelText("Playbook compilation"), "p1");
   await userEvent.click(screen.getByRole("button", { name: "Save internal work" }));
   await waitFor(() => expect(body).toBeDefined());
-  expect(body).toEqual({ operation_id: expect.any(String), expected_revision: "3", expected_catalog_revision: "7", default_profile_id: "p2", overrides: { playbook_compilation: "p1" } });
+  expect(body).toEqual({ operation_id: expect.any(String), expected_revision: "3", default_profile_id: "p2", overrides: { playbook_compilation: "p1" } });
   expect(await screen.findByText("Saved.")).toBeVisible();
 });
 test("a conflict shows the reload message and keeps the draft", async () => {

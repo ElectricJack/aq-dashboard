@@ -76,7 +76,7 @@ describe("swarm tree", () => {
 
 test("swarm status shows provider controls", async () => {
   server.use(http.get("/api/settings/swarm", () => HttpResponse.json({
-    revision: "1", catalog_revision: "1", active_mode: "normal", normal: [{ provider: "codex", intelligence_class: "fast", limit: 2 }], reduced: [{ provider: "codex", intelligence_class: "fast", limit: 1 }],
+    revision: "1", active_mode: "normal", normal: [{ provider: "codex", intelligence_class: "fast", limit: 2 }], reduced: [{ provider: "codex", intelligence_class: "fast", limit: 1 }],
     cells: [{ provider: "codex", intelligence_class: "fast", display_name: "Fast", normal_limit: 2, reduced_limit: 1, effective_limit: 2, running: 2, waiting: 3 }],
     unclassified: [{ provider: "codex", running: 1, waiting: 4 }], provider_limits: [], cell_limits: [],
   })));

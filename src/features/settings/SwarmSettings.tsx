@@ -57,7 +57,7 @@ function SwarmEditor({ settings, refreshing, readFailed, reload }: { settings: S
   const profileFocus = useRef<"reduced" | "configure" | null>(null);
   const prefix = useId();
   const busy = save.isPending || reloading;
-  const stale = dirty && (settings.revision !== base.revision || settings.catalog_revision !== base.catalog_revision);
+  const stale = dirty && (settings.revision !== base.revision);
   function reset(snapshot: SettingsSnapshot) {
     setBase(snapshot); setNormal(values(snapshot, "normal")); setReduced(values(snapshot, "reduced"));
     setHasReduced(snapshot.reduced !== null); setDirty(false); setBlocked(false);
@@ -101,7 +101,7 @@ function SwarmEditor({ settings, refreshing, readFailed, reload }: { settings: S
   function submit(event: FormEvent) {
     event.preventDefault();
     if (lock.current || busy || blocked || stale || readFailed || invalid || !dirty || !base.cells.length) return;
-    void send({ operation_id: crypto.randomUUID(), expected_revision: base.revision, expected_catalog_revision: base.catalog_revision,
+    void send({ operation_id: crypto.randomUUID(), expected_revision: base.revision,
       normal: matrix(base.cells, normal), reduced: hasReduced ? matrix(base.cells, reduced) : null });
   }
   async function check() {

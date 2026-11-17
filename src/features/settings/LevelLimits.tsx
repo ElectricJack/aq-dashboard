@@ -48,7 +48,7 @@ export function LevelLimitsProvider({ children }: { children: ReactNode }) {
     try {
       for (const [cell, value] of dirty) {
         const [provider, level] = JSON.parse(cell) as [string, string];
-        current = await updateSwarmLimits({ operation_id: crypto.randomUUID(), expected_revision: current.revision, expected_catalog_revision: current.catalog_revision,
+        current = await updateSwarmLimits({ operation_id: crypto.randomUUID(), expected_revision: current.revision,
           cell: { provider, intelligence_class: level, limit: value === "" ? null : Number(value) } });
         const latest = current;
         client.setQueryData<SwarmSettings>(key, old => !old || BigInt(latest.revision) >= BigInt(old.revision) ? latest : old);

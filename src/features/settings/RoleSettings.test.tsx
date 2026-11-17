@@ -362,8 +362,8 @@ describe("Intelligence levels", () => {
       await userEvent.click(screen.getByRole("button", { name: "Save max agents" }));
       expect(await screen.findByText("Max agents saved.")).toBeVisible();
       expect(limits().map(request => request.body)).toEqual([
-        { operation_id: expect.any(String), expected_revision: "1", expected_catalog_revision: "1", cell: { provider: "fixture-provider", intelligence_class: "standard-low", limit: 3 } },
-        { operation_id: expect.any(String), expected_revision: "2", expected_catalog_revision: "1", cell: { provider: "anthropic", intelligence_class: "standard-high", limit: 0 } },
+        { operation_id: expect.any(String), expected_revision: "1", cell: { provider: "fixture-provider", intelligence_class: "standard-low", limit: 3 } },
+        { operation_id: expect.any(String), expected_revision: "2", cell: { provider: "anthropic", intelligence_class: "standard-high", limit: 0 } },
       ]);
       expect(low).toHaveValue("3"); expect(high).toHaveValue("0");
       expect(screen.queryByRole("button", { name: "Save max agents" })).toBeNull();

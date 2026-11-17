@@ -64,7 +64,7 @@ function StatusHeader({ configuredProviders, addedProviders }: { configuredProvi
     if (busy.current || errorRef.current || !base.current || settings.isError) return;
     const entry = Object.entries(draftsRef.current)[0];
     if (!entry) return;
-    void send({ operation_id: crypto.randomUUID(), expected_revision: base.current.revision, expected_catalog_revision: base.current.catalog_revision, provider: { provider: entry[0], limit: entry[1] } });
+    void send({ operation_id: crypto.randomUUID(), expected_revision: base.current.revision, provider: { provider: entry[0], limit: entry[1] } });
   }
   function change(provider: string, limit: number | null) {
     updateDrafts({ ...draftsRef.current, [provider]: limit });

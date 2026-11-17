@@ -26,7 +26,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       providerLimits.push(...(saved.provider_limits ?? [])); cellLimits.push(...(saved.cell_limits ?? []));
     }
   } catch { /* Fresh labelled fixture state. */ }
-  const result = (): SwarmSettings => ({ revision: String(revision), catalog_revision: "1", active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
+  const result = (): SwarmSettings => ({ revision: String(revision), active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
     cells: catalog.map(c => {
       const find = (list: SwarmCellLimit[] | null) => list?.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class)?.limit ?? null;
       const override = cellLimits.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class);
@@ -49,7 +49,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       if (!body || typeof body.operation_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.operation_id)) return fail(400, "Invalid operation ID.");
       const previous = operations.get(body.operation_id), serialized = JSON.stringify(["save", body]);
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision) || body.expected_catalog_revision !== "1") return fail(409, "Settings or catalog changed; reload and try again.");
+      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
       if (!valid(body.normal) || (body.reduced !== null && !valid(body.reduced)) || (activeMode === "reduced" && body.reduced === null) || body.reduced?.some(r => r.limit > body.normal.find(n => n.provider === r.provider && n.intelligence_class === r.intelligence_class)!.limit)) return fail(400, "Invalid settings matrix.");
       normal = body.normal; reduced = body.reduced; revision++;
       const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
@@ -63,7 +63,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       const body = await request.json() as UpdateSwarmLimits;
       const previous = operations.get(body.operation_id), serialized = JSON.stringify(["limits", body]);
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision) || body.expected_catalog_revision !== "1") return fail(409, "Settings or catalog changed; reload and try again.");
+      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
       if (!body.provider && !body.cell) return fail(400, "Choose a limit.");
       for (const item of [body.provider, body.cell].filter(Boolean)) {
         if (item!.limit !== null && (!Number.isInteger(item!.limit) || item!.limit! < 0 || item!.limit! > 4294967295)) return fail(400, "Invalid limit.");
