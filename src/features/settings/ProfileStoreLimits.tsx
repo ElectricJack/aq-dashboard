@@ -17,15 +17,17 @@ const FIELDS = [
   ["max_description_bytes", "A description (bytes)", "The longest description a document may have."],
   ["snapshots_kept", "Snapshots kept", "How many earlier snapshots AQ keeps besides those an attempt still uses."],
   ["operations_kept", "Saves remembered", "How many recent saves AQ remembers, so a repeated save is applied once."],
+  ["refusals_kept", "Refused offers kept", "For how many tasks AQ keeps why their last offer was refused, to show on the task."],
 ] as const;
 type Key = typeof FIELDS[number][0];
-type Draft = Record<Key, string>;
 const isDocumentKey = (key: Key): key is typeof DOCUMENT_LIMIT_KEYS[number] => (DOCUMENT_LIMIT_KEYS as readonly string[]).includes(key);
-const toDraft = (limits: ProfileLimits) => Object.fromEntries(FIELDS.map(([key]) => [key, String(isDocumentKey(key) ? limits.documents[key] : limits[key])])) as Draft;
+/** A limit the server did not answer is not shown and not sent. */
+type Draft = Partial<Record<Key, string>>;
+const toDraft = (limits: ProfileLimits) => Object.fromEntries(FIELDS.flatMap(([key]) => { const value = isDocumentKey(key) ? limits.documents[key] : limits[key]; return value === undefined ? [] : [[key, String(value)]]; })) as Draft;
 const whole = (value: string) => /^\d{1,15}$/.test(value);
 function toLimits(draft: Draft): ProfileLimits {
   const documents = Object.fromEntries(DOCUMENT_LIMIT_KEYS.map(key => [key, Number(draft[key])])) as ProfileLimits["documents"];
-  return { documents, snapshots_kept: Number(draft.snapshots_kept), operations_kept: Number(draft.operations_kept) };
+  return { documents, snapshots_kept: Number(draft.snapshots_kept), operations_kept: Number(draft.operations_kept), ...(draft.refusals_kept === undefined ? {} : { refusals_kept: Number(draft.refusals_kept) }) };
 }
 type Pending = Fence & { limits: ProfileLimits };
 
@@ -47,7 +49,8 @@ export function ProfileStoreLimits({ scope }: { scope: string }) {
   const saved = query.data;
   const current = draft ?? (saved ? toDraft(saved.limits) : null);
   const dirty = !!draft && !!saved && JSON.stringify(draft) !== JSON.stringify(toDraft(saved.limits));
-  const invalid = !!current && FIELDS.some(([key]) => !whole(current[key]));
+  const shown = FIELDS.filter(([key]) => current?.[key] !== undefined);
+  const invalid = !!current && shown.some(([key]) => !whole(current[key]!));
   const edit = (key: Key, value: string) => { if (current) { setDraft({ ...current, [key]: value }); setNotice(null); setError(null); setProblems([]); setRetry(null); } };
   async function send(request: Pending): Promise<boolean> {
     if (saving) return false;
@@ -81,9 +84,9 @@ export function ProfileStoreLimits({ scope }: { scope: string }) {
     <summary>Limits{dirty ? " · unsaved changes" : ""}</summary>
     <div className={styles.form} role="group" aria-label="Limits of roles, levels and execution profiles">
       <p className={styles.note}>These limits apply to roles, levels and execution profiles alike. AQ refuses a limit that the saved documents already exceed.</p>
-      <div className={styles.fields}>{FIELDS.map(([key, label, hint]) => <div key={key} className={styles.field}>
+      <div className={styles.fields}>{shown.map(([key, label, hint]) => <div key={key} className={styles.field}>
         <label htmlFor={`${id}-${key}`}>{label}</label>
-        <input id={`${id}-${key}`} type="text" inputMode="numeric" value={current[key]} disabled={locked} aria-describedby={`${id}-${key}-hint`} aria-invalid={!whole(current[key])} onChange={event => edit(key, event.target.value.trim())} />
+        <input id={`${id}-${key}`} type="text" inputMode="numeric" value={current[key]} disabled={locked} aria-describedby={`${id}-${key}-hint`} aria-invalid={!whole(current[key]!)} onChange={event => edit(key, event.target.value.trim())} />
         <span id={`${id}-${key}-hint`} className={styles.note}>{hint}</span>
       </div>)}</div>
       <div className={styles.actions}>

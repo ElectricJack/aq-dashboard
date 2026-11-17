@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { roleSettingsHandlers } from "../mocks/roleSettings";
 import { ContractError } from "./adapters/contract";
-import { adaptDocument, adaptDocumentList, adaptProfileLimits, adaptSelectionDefaults, deleteDocument, problemsOf, problemText, readDocument, readDocuments, readProfileLimits, readProfileSnapshot, readSelectionDefaults, saveDocument, saveProfileLimits, saveSelectionDefaults } from "./roleSettings";
+import { adaptDocument, adaptDocumentList, adaptModelSuggestions, adaptProfileLimits, adaptSelectionDefaults, deleteDocument, problemsOf, problemText, readDocument, readDocuments, readModelSuggestions, readProfileLimits, readProfileSnapshot, readSelectionDefaults, saveDocument, saveProfileLimits, saveSelectionDefaults } from "./roleSettings";
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
@@ -106,7 +106,7 @@ test("selection defaults and limits are read and replaced at their own revisions
   expect(await readSelectionDefaults()).toMatchObject({ revision: saved.revision, selection_defaults: { max_attempts: 3 } });
   await expect(saveSelectionDefaults({ selection_defaults: defaults.selection_defaults, expected_revision: "0", operation_id: operation(9) })).rejects.toMatchObject({ status: 409 });
   const limits = await readProfileLimits();
-  expect(limits.limits).toEqual({ documents: { max_document_bytes: 65536, max_set_bytes: 1048576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200 });
+  expect(limits.limits).toEqual({ documents: { max_document_bytes: 65536, max_set_bytes: 1048576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200, refusals_kept: 1000 });
   await saveProfileLimits({ limits: { ...limits.limits, snapshots_kept: 5 }, expected_revision: limits.revision, operation_id: operation(10) });
   expect((await readProfileLimits()).limits.snapshots_kept).toBe(5);
 });
@@ -115,4 +115,31 @@ test("a server error body without problems is not mistaken for them", async () =
   const refused = await saveDocument("role", "developer", { markdown: "x", expected_revision: "1", operation_id: operation(11) }).catch(error => error as unknown);
   expect(refused).toMatchObject({ status: 400, serverMessage: "Invalid settings request" });
   expect(problemsOf(refused)).toEqual([]);
+});
+
+test("the limits carry refusals_kept when the server has it, and a save sends it back", async () => {
+  // aq-server 09ee5e98 `aq-role-settings/src/lib.rs` `StoreLimits`: a PUT without the key would reset it to the default.
+  const documents = { max_document_bytes: 1, max_set_bytes: 2, max_documents_per_kind: 3, max_name_bytes: 4, max_description_bytes: 5 };
+  expect(adaptProfileLimits({ revision: "2", limits: { documents, snapshots_kept: 20, operations_kept: 200, refusals_kept: 1000 } }).limits.refusals_kept).toBe(1000);
+  expect(adaptProfileLimits({ revision: "2", limits: { documents, snapshots_kept: 20, operations_kept: 200 } }).limits).not.toHaveProperty("refusals_kept");
+  expect(() => adaptProfileLimits({ revision: "2", limits: { documents, snapshots_kept: 20, operations_kept: 200, refusals_kept: "many" } })).toThrow(ContractError);
+  const read = await readProfileLimits();
+  expect(read.limits.refusals_kept).toBe(1000);
+  let body: unknown;
+  server.use(http.put("/api/settings/profiles/limits", async ({ request }) => { body = await request.json(); return HttpResponse.json({ revision: "9", digest: "a".repeat(64) }); }));
+  await saveProfileLimits({ limits: { ...read.limits, refusals_kept: 50 }, expected_revision: read.revision, operation_id: operation(77) });
+  expect(body).toMatchObject({ limits: { refusals_kept: 50, snapshots_kept: 20 } });
+});
+test("model suggestions are read by harness as the server answers them, and nothing in them is an error", async () => {
+  // aq-server 09ee5e98 `it_access/role_settings.rs` `model_suggestions_are_read_from_the_discovery_cache_and_never_fail`.
+  const answer = { harnesses: [
+    { harness: "claude", models: [{ provider: "anthropic", model: "claude-y", source: null, observed_at: null }] },
+    { harness: "codex", models: [{ provider: "openai", model: "gpt-x", source: "Codex CLI", observed_at: "2026-11-16T00:00:00Z" }] },
+  ] };
+  expect(adaptModelSuggestions(answer)).toEqual({ claude: answer.harnesses[0]!.models, codex: answer.harnesses[1]!.models });
+  expect(adaptModelSuggestions({ harnesses: [] })).toEqual({});
+  expect(adaptModelSuggestions(null)).toEqual({});
+  expect(adaptModelSuggestions({ harnesses: [{ harness: "codex", models: [{ provider: "openai", model: "gpt-x" }, { provider: "openai", model: "gpt-x", extra: 1 }, { model: 7 }, "x"] }, { harness: 3 }] }))
+    .toEqual({ codex: [{ provider: "openai", model: "gpt-x", source: null, observed_at: null }] });
+  expect(Object.keys(await readModelSuggestions())).toEqual(["claude", "codex"]);
 });

@@ -286,6 +286,52 @@ describe("Intelligence levels", () => {
     expect(within(editor).getByRole("button", { name: "Add candidate" })).toHaveFocus();
   });
 
+  test("the model field suggests the models found for the row's harness, and any other model may still be typed and saved", async () => {
+    await openTab("intelligence", "Levels");
+    const editor = await edit("Fixture standard, high");
+    const model = (n: number) => within(editor).getByLabelText(`Model of candidate ${n}`) as HTMLInputElement;
+    const offered = (n: number) => Array.from(model(n).list?.querySelectorAll("option") ?? []).map(option => [option.value, option.label]);
+    // Candidate 2 runs on claude; candidate 1 on opencode, for which the fixture has no suggestions.
+    await waitFor(() => expect(offered(2)).toEqual([["fixture-model-large", "anthropic · Fixture discovery"], ["fixture-model-small", "anthropic"]]));
+    expect(model(1).list).toBeNull();
+    expect(within(editor).getByText(/The model field suggests the models AQ found for the row’s harness; any other model may be typed\./)).toBeVisible();
+    // The suggestions follow the harness.
+    await userEvent.selectOptions(within(editor).getByLabelText("Harness of candidate 1"), "codex");
+    expect(offered(1)).toEqual([["fixture-codex-model", "openai · Fixture discovery"]]);
+    // Not a gate: a model nobody suggested is accepted and saved.
+    fireEvent.change(model(2), { target: { value: "a-model-nobody-suggested" } });
+    expect(model(2)).toBeValid();
+    await userEvent.click(within(editor).getByRole("button", { name: "Save level" }));
+    expect(await within(editor).findByText("Saved.")).toBeVisible();
+    expect((sent[0]!.body as { markdown: string }).markdown).toContain("| anthropic | a-model-nobody-suggested | high | claude |");
+  });
+  test("a model suggested for one provider brings that provider where the harness does not fix it", async () => {
+    server.use(http.get("/api/settings/model-suggestions", () => HttpResponse.json({ harnesses: [{ harness: "opencode", models: [{ provider: "longcat", model: "long-one", source: null, observed_at: null }] }] })));
+    await openTab("intelligence", "Levels");
+    const editor = await edit("Fixture standard, low");
+    const model = within(editor).getByLabelText("Model of candidate 1") as HTMLInputElement;
+    await waitFor(() => expect(model.list).not.toBeNull());
+    fireEvent.change(model, { target: { value: "long-one" } });
+    expect(within(editor).getByLabelText("Provider of candidate 1")).toHaveValue("longcat");
+    expect(markdown(editor).value).toContain("| longcat | long-one | low | opencode |");
+  });
+  test("when the suggestions cannot be read, or there are none, the candidates are edited and saved as before", async () => {
+    for (const answer of [() => HttpResponse.json({ error: "internal", message: "no" }, { status: 500 }), () => HttpResponse.json({ harnesses: [] })]) {
+      server.use(http.get("/api/settings/model-suggestions", answer));
+      const { unmount } = await (async () => { const view = renderApp("/settings?tab=intelligence"); await screen.findByRole("table", { name: "Levels" }); return view; })();
+      const editor = await edit("Fixture standard, high");
+      const model = within(editor).getByLabelText("Model of candidate 2") as HTMLInputElement;
+      expect(await within(editor).findByText(/AQ has no model suggestions to offer here now\./)).toBeVisible();
+      expect(model.list).toBeNull();
+      expect(within(editor).queryByRole("alert")).toBeNull();
+      fireEvent.change(model, { target: { value: "typed-model" } });
+      await userEvent.click(within(editor).getByRole("button", { name: "Save level" }));
+      expect(await within(editor).findByText("Saved.")).toBeVisible();
+      unmount(); sessionStorage.clear(); sent = [];
+      server.resetHandlers(); server.use(...roleSettingsHandlers(), ...routingDocumentHandlers(), ...internalWorkHandlers());
+    }
+  });
+
   test("the Markdown stays editable, the table follows it, and a table that cannot be read is edited as text", async () => {
     await openTab("intelligence", "Levels");
     const editor = await edit("Fixture standard, low");
@@ -495,7 +541,7 @@ describe("Selection defaults", () => {
 });
 
 describe("Store limits", () => {
-  const LIMITS = { documents: { max_document_bytes: 65_536, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200 };
+  const LIMITS = { documents: { max_document_bytes: 65_536, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200, refusals_kept: 1000 };
   async function openLimits(tab: "roles" | "intelligence" | "execution" = "roles", table = "Roles") {
     await openTab(tab, table);
     await userEvent.click(await screen.findByText("Limits"));
@@ -504,7 +550,7 @@ describe("Store limits", () => {
   test("the limits sit beside the snapshot line on each document tab and are saved as one set at their revision", async () => {
     const form = await openLimits();
     expect(screen.getByText(/^Active snapshot/).parentElement).toContainElement(form);
-    expect(within(form).getAllByRole("textbox").map(input => (input as HTMLInputElement).value)).toEqual(["65536", "1048576", "128", "128", "2000", "20", "200"]);
+    expect(within(form).getAllByRole("textbox").map(input => (input as HTMLInputElement).value)).toEqual(["65536", "1048576", "128", "128", "2000", "20", "200", "1000"]);
     expect(within(form).getByRole("button", { name: "Save limits" })).toBeDisabled();
     const one = within(form).getByRole("textbox", { name: "One document (bytes)" });
     expect(one).toHaveAccessibleDescription("The largest a single role, level or execution profile may be.");
@@ -512,7 +558,7 @@ describe("Store limits", () => {
     fireEvent.change(within(form).getByRole("textbox", { name: "Snapshots kept" }), { target: { value: "30" } });
     await userEvent.click(within(form).getByRole("button", { name: "Save limits" }));
     expect(await within(form).findByText("Saved.")).toBeVisible();
-    expect(sent).toEqual([{ method: "PUT", path: "/api/settings/profiles/limits", search: "", body: { limits: { documents: { ...LIMITS.documents, max_document_bytes: 131_072 }, snapshots_kept: 30, operations_kept: 200 }, expected_revision: "0", operation_id: expect.any(String) } }]);
+    expect(sent).toEqual([{ method: "PUT", path: "/api/settings/profiles/limits", search: "", body: { limits: { documents: { ...LIMITS.documents, max_document_bytes: 131_072 }, snapshots_kept: 30, operations_kept: 200, refusals_kept: 1000 }, expected_revision: "0", operation_id: expect.any(String) } }]);
     expect(one).toHaveValue("131072");
     // The editor's byte count follows the saved limit.
     const editor = await edit("Fixture developer");

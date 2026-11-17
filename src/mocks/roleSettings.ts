@@ -192,7 +192,7 @@ const initial = (): State => ({
   revision: 1, documents: FIXTURE_DOCUMENTS.map(([kind, id, markdown]) => ({ kind, id, markdown, revision: 1, updated_at_ms: FIXTURE_AT })),
   defaults: { max_attempts: 2, fallback_on: [...FALLBACK_REASONS], max_lineage_elapsed_ms: 3_600_000, observation_max_age_ms: 30_000, allow_unknown_availability: false, unknown_cost: "allow_bounded", require_complete_accounting: false, require_hard_cost_enforcement: false, max_cost_microunits: null, currency: null },
   defaultsRevision: 0,
-  limits: { documents: { max_document_bytes: 65_536, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200 },
+  limits: { documents: { max_document_bytes: 65_536, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200, refusals_kept: 1000 },
   limitsRevision: 0,
 });
 /** A stand-in for the snapshot digest: 64 hex characters that change with the content. */
@@ -264,6 +264,11 @@ export function roleSettingsHandlers() {
       const limits = body.limits;
       return apply(["limits", body], body, state.limitsRevision, (next, revision) => { next.limits = limits; next.limitsRevision = revision; return []; });
     }),
+    // Labelled fixture suggestions, shaped as the server's discovery cache answers them.
+    http.get("/api/settings/model-suggestions", () => HttpResponse.json({ harnesses: [
+      { harness: "claude", models: [{ provider: "anthropic", model: "fixture-model-large", source: "Fixture discovery", observed_at: "2026-11-12T09:00:00Z" }, { provider: "anthropic", model: "fixture-model-small", source: null, observed_at: null }] },
+      { harness: "codex", models: [{ provider: "openai", model: "fixture-codex-model", source: "Fixture discovery", observed_at: "2026-11-12T09:00:00Z" }] },
+    ] })),
     http.get("/api/settings/profiles/snapshot", () => HttpResponse.json({ revision: String(state.revision), active_digest: digestOf(state) })),
   ]);
 }

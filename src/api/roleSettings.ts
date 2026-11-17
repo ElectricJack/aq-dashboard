@@ -39,7 +39,8 @@ export type SelectionDefaults = {
   max_cost_microunits: number | null; currency: string | null;
 };
 export const DOCUMENT_LIMIT_KEYS = ["max_document_bytes", "max_set_bytes", "max_documents_per_kind", "max_name_bytes", "max_description_bytes"] as const;
-export type ProfileLimits = { documents: Record<typeof DOCUMENT_LIMIT_KEYS[number], number>; snapshots_kept: number; operations_kept: number };
+/** `refusals_kept` (tasks whose last refused offer is kept for the task read) is absent on a server that does not have it. */
+export type ProfileLimits = { documents: Record<typeof DOCUMENT_LIMIT_KEYS[number], number>; snapshots_kept: number; operations_kept: number; refusals_kept?: number };
 
 /**
  * The order levels are shown in: easier work first (simple, standard, complex, deep) and, within each, lower effort
@@ -134,10 +135,11 @@ export function adaptSelectionDefaults(v: unknown): { revision: string; selectio
   } };
 }
 export function adaptProfileLimits(v: unknown): { revision: string; limits: ProfileLimits } {
-  ensure(isRecord(v) && revision(v.revision) && isRecord(v.limits) && isRecord(v.limits.documents) && count(v.limits.snapshots_kept) && count(v.limits.operations_kept));
+  ensure(isRecord(v) && revision(v.revision) && isRecord(v.limits) && isRecord(v.limits.documents) && count(v.limits.snapshots_kept) && count(v.limits.operations_kept) && (v.limits.refusals_kept === undefined || count(v.limits.refusals_kept)));
   const documents = {} as ProfileLimits["documents"];
   for (const key of DOCUMENT_LIMIT_KEYS) { const value = v.limits.documents[key]; ensure(count(value)); documents[key] = value; }
-  return { revision: v.revision, limits: { documents, snapshots_kept: v.limits.snapshots_kept, operations_kept: v.limits.operations_kept } };
+  // A save replaces the whole set, so a limit that is read is kept and sent back.
+  return { revision: v.revision, limits: { documents, snapshots_kept: v.limits.snapshots_kept, operations_kept: v.limits.operations_kept, ...(v.limits.refusals_kept === undefined ? {} : { refusals_kept: v.limits.refusals_kept }) } };
 }
 
 /** The problems of a refused save or delete (400), each naming its document and field; empty for any other failure. */
@@ -164,6 +166,26 @@ export async function readSelectionDefaults(signal?: AbortSignal) { return adapt
 export async function saveSelectionDefaults(request: Fence & { selection_defaults: SelectionDefaults }) { return adaptReceipt(await apiSend<unknown>("PUT", `${base}/selection-defaults`, request)); }
 export async function readProfileLimits(signal?: AbortSignal) { return adaptProfileLimits(await apiGet<unknown>(`${base}/profiles/limits`, signal)); }
 export async function saveProfileLimits(request: Fence & { limits: ProfileLimits }) { return adaptReceipt(await apiSend<unknown>("PUT", `${base}/profiles/limits`, request)); }
+
+/** One model a host tool discovered for a harness. A suggestion only: a level may name any model. */
+export type ModelSuggestion = { provider: string; model: string; source: string | null; observed_at: string | null };
+/** `GET /api/settings/model-suggestions` answers `{harnesses: [{harness, models}]}`; this is the models by harness. */
+export type ModelSuggestions = Record<string, ModelSuggestion[]>;
+/** Suggestions never gate anything, so an entry this page cannot read is left out instead of failing the read. */
+export function adaptModelSuggestions(v: unknown): ModelSuggestions {
+  const out: ModelSuggestions = {};
+  if (!isRecord(v) || !Array.isArray(v.harnesses)) return out;
+  for (const entry of v.harnesses.slice(0, 64)) {
+    if (!isRecord(entry) || !text(entry.harness, 128) || !Array.isArray(entry.models)) continue;
+    const models = out[entry.harness] ??= [];
+    for (const m of entry.models.slice(0, MAX_DOCUMENTS)) {
+      if (!isRecord(m) || !text(m.provider, 256) || !text(m.model, 256) || !m.model || models.some(known => known.provider === m.provider && known.model === m.model)) continue;
+      models.push({ provider: m.provider, model: m.model, source: text(m.source, 256) ? m.source : null, observed_at: text(m.observed_at, 64) ? m.observed_at : null });
+    }
+  }
+  return out;
+}
+export async function readModelSuggestions(signal?: AbortSignal) { return adaptModelSuggestions(await apiGet<unknown>(`${base}/model-suggestions`, signal)); }
 export async function readProfileSnapshot(signal?: AbortSignal) { return adaptSnapshot(await apiGet<unknown>(`${base}/profiles/snapshot`, signal)); }
 
 /** Every read of these routes shares this resource name, so one invalidation refreshes them all after a save. */
@@ -184,4 +206,9 @@ export function useProfileLimits() {
 export function useProfileSnapshot() {
   const { queryContext } = useSession();
   return useQuery({ queryKey: queryKey(queryContext, ROLE_SETTINGS, { value: "snapshot" }), queryFn: ({ signal }) => readProfileSnapshot(signal), retry: false });
+}
+/** Suggestions for the model of a candidate. A failed read stays quiet (`PANEL_READ`): the editor works without them. */
+export function useModelSuggestions(enabled = true) {
+  const { queryContext } = useSession();
+  return useQuery({ queryKey: queryKey(queryContext, "model-suggestions", {}), queryFn: ({ signal }) => readModelSuggestions(signal), retry: false, enabled, staleTime: 60_000, refetchOnWindowFocus: false, meta: PANEL_READ });
 }
