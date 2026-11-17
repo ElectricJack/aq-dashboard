@@ -45,7 +45,7 @@ function AttemptRow({ attempt: a, linkSearch, sessions, ranWith }: { attempt: Ta
     {/* Profile and times share one metadata line (v1 density, 2026-11-06). */}
     {sessions && <p className={styles.meta}>{profile
       ? <span data-attempt-profile="">{profile.map(([name, value], i) => <span key={name}>{i > 0 && " · "}{value ?? `${name} not reported`}</span>)}</span>
-      : session.isError ? "Session details unavailable." : "Reading session details…"}
+      : s ? null : session.isError ? "Session details unavailable." : "Reading session details…"}
       {s && <span data-attempt-times="">{profile && " · "}
         {s.lifecycle?.startedAt ? <>Started <Ago at={s.lifecycle.startedAt} /></> : "Start not recorded"}
         {" · "}{s.lifecycle?.stoppedAt ? <>Stopped <Ago at={s.lifecycle.stoppedAt} /></> : "No stop recorded"}
