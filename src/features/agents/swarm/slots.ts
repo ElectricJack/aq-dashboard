@@ -57,7 +57,7 @@ export function swarmCounts(view: SwarmView): SwarmCounts {
   return { ...all, machines, machinesRunning: machines.filter(m => m.running > 0).length, machinesBusy: machines.filter(m => occupied(m) > 0).length };
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** "7 agents running on 2 machines". */
 export function headline(c: SwarmCounts): string {
@@ -153,10 +153,10 @@ export function workerCounts(view: SwarmView): WorkerCounts {
   c.models = [...models.values()].sort((a, b) => b.count - a.count || a.model.localeCompare(b.model));
   return c;
 }
-/** "7 of 9 workers busy on 2 machines". */
+/** "7 of 9 slots busy on 2 workers": the board calls each tile a slot and each machine's service a worker. */
 export function workerHeadline(c: WorkerCounts): string {
-  if (c.workers === 0) return "No workers";
-  return `${c.busy} of ${plural(c.workers, "worker")} busy${c.busy > 0 ? ` on ${plural(c.machinesBusy, "machine")}` : ""}`;
+  if (c.workers === 0) return "No slots";
+  return `${c.busy} of ${plural(c.workers, "slot")} busy${c.busy > 0 ? ` on ${plural(c.machinesBusy, "worker")}` : ""}`;
 }
 /** The busy workers by phase. Zero parts are left out. */
 export function phaseParts(c: WorkerCounts): string[] {

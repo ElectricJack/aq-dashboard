@@ -128,9 +128,9 @@ describe("workers on the board", () => {
     expect(gone).toMatchObject({ state: "offline", agent: null, phase: null });
     expect(gone.others).toHaveLength(1);
   });
-  it("counts the demo as the live stack reads: seven of nine workers busy on two machines, by phase and by model", () => {
+  it("counts the demo as the live stack reads: seven of nine slots busy on two workers, by phase and by model", () => {
     const c = workerCounts(adaptSwarm(demoSwarm(NOW, true), NOW));
-    expect(workerHeadline(c)).toBe("7 of 9 workers busy on 2 machines");
+    expect(workerHeadline(c)).toBe("7 of 9 slots busy on 2 workers");
     expect(phaseParts(c)).toEqual(["1 starting", "5 running", "1 finishing"]);
     expect(c.machines.map(m => [m.label, m.busy, m.workers])).toEqual([["Fixture desktop", 6, 8], ["Fixture laptop", 1, 1]]);
     expect(c.models.map(m => `${m.model} ×${m.count}`)).toEqual(["claude-sonnet-5-5 ×4", "claude-haiku-5-5 ×2", "claude-opus-5-5 ×1"]);
@@ -142,11 +142,11 @@ describe("workers on the board", () => {
     expect(nodes.every(n => n.agents.length <= 1 && n.slots.occupied === n.agents.length)).toBe(true);
     expect(nodes.find(n => n.name === "Local Worker 1#3")!.slots).toEqual({ total: null, occupied: 1, idle: null });
   });
-  it("says one worker on one machine, and no machine when nothing is busy", () => {
+  it("says one slot on one worker, and no worker when nothing is busy", () => {
     const one = { serverTime: NOW, server: { version: "", sourceRevision: "", runningAgents: null, ownerAvailability: null }, waiting: { reasons: [], agents: [] } };
-    expect(workerHeadline(workerCounts({ ...one, machines: [machine([worker(8, 1, [agent(1)])])] }))).toBe("1 of 1 worker busy on 1 machine");
-    expect(workerHeadline(workerCounts({ ...one, machines: [machine([worker(8, 0, [])])] }))).toBe("0 of 1 worker busy");
-    expect(workerHeadline(workerCounts({ ...one, machines: [] }))).toBe("No workers");
+    expect(workerHeadline(workerCounts({ ...one, machines: [machine([worker(8, 1, [agent(1)])])] }))).toBe("1 of 1 slot busy on 1 worker");
+    expect(workerHeadline(workerCounts({ ...one, machines: [machine([worker(8, 0, [])])] }))).toBe("0 of 1 slot busy");
+    expect(workerHeadline(workerCounts({ ...one, machines: [] }))).toBe("No slots");
   });
 });
 

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-// Agents › Swarm on the demo fixtures (src/mocks/swarm.ts): the live stack's shape, two machines and nine workers.
+// Agents › Swarm on the demo fixtures (src/mocks/swarm.ts): the live stack's shape, two machines and nine nodes, which the board calls slots.
 // `swarm-demo-next` is what aq-server sends now; `swarm-demo` is an older server's rows.
 // SWARM_SHOTS=<directory> also saves a screenshot of each view at each size.
 const SIZES = [{ name: "1280x720", width: 1280, height: 720 }, { name: "1920x1080", width: 1920, height: 1080 }];
@@ -14,22 +14,29 @@ for (const size of SIZES) {
     test.use({ viewport: { width: size.width, height: size.height } });
 
     for (const scenario of ["swarm-demo", "swarm-demo-next"]) {
-      test(`${scenario}: the board shows nine workers as nine tiles on one screen`, async ({ page }) => {
+      test(`${scenario}: the board shows nine slots as nine tiles on one screen`, async ({ page }) => {
         await page.goto(`/agents/swarm?scenario=${scenario}&view=board`);
         const activity = page.getByRole("region", { name: "Swarm activity" });
-        await expect(activity.getByRole("status")).toContainText("7 of 9 workers busy on 2 machines", { timeout: FIRST_PAINT });
-        await expect(activity.getByRole("status")).not.toContainText(/free|slot/);
-        await expect(activity.getByRole("list", { name: "Machines" }).getByRole("listitem")).toHaveText(["Fixture desktop: 6 of 8 busy", "Fixture laptop: 1 of 1 busy"]);
+        await expect(activity.getByRole("status")).toContainText("7 of 9 slots busy on 2 workers", { timeout: FIRST_PAINT });
+        await expect(activity.getByRole("status")).not.toContainText(/free|machine/);
+        await expect(activity.getByRole("list", { name: "Machines" }).getByRole("listitem")).toHaveText(["Fixture desktop: 6 of 8 slots busy", "Fixture laptop: 1 of 1 slot busy"]);
         const board = page.getByRole("region", { name: "Swarm board" });
         // Titles come from the row (next) or from each task's own read (an older server).
-        await expect(board.getByRole("button", { name: /^Add retry backoff to the webhook sender/ })).toBeVisible();
-        await expect(board.getByRole("button", { name: /^Task 2000/ })).toHaveCount(0);
-        // One tile per worker: no tile per slot, and no free tiles.
+        await expect(board.getByRole("button", { name: /: Add retry backoff to the webhook sender/ })).toBeVisible();
+        await expect(board.getByRole("button", { name: /: Task 2000/ })).toHaveCount(0);
+        // One tile per node, each called a slot, numbered from one under its machine: no free tiles.
         const tiles = board.getByRole("listitem");
         await expect(tiles).toHaveCount(9);
         await expect(board.locator('li[data-state="running"]')).toHaveCount(5);
         await expect(board.locator('li[data-state="idle"]')).toHaveCount(2);
-        await expect(board.getByRole("button", { name: "Local Worker 1#5 idle" })).toBeVisible();
+        const idle = board.getByRole("button", { name: "Slot 4, Local Worker 1#5, idle" });
+        await expect(idle).toBeVisible();
+        await expect(idle).toHaveText(/^Slot 4 · idle$/);
+        await expect(idle).toHaveAttribute("title", "Local Worker 1#5");
+        await expect(board.getByRole("list", { name: "Fixture desktop slots" }).getByRole("listitem")).toHaveCount(8);
+        await expect(board.getByRole("button", { name: /^Fixture desktop/ })).toContainText("6 of 8 slots busy · CPU");
+        await expect(board.getByRole("button", { name: /^Fixture laptop/ })).toContainText("1 of 1 slot busy");
+        await expect(board).not.toContainText(/workers? busy|this worker/);
         await expect(board.getByRole("button", { name: "free" })).toHaveCount(0);
         const models = activity.getByRole("list", { name: "Models running now" }).getByRole("listitem");
         if (scenario === "swarm-demo") {
@@ -42,12 +49,15 @@ for (const size of SIZES) {
           await expect(activity.getByRole("status")).toContainText("1 starting · 5 running · 1 finishing");
           await expect(models).toHaveText(["claude-sonnet-5-5 ×4", "claude-haiku-5-5 ×2", "claude-opus-5-5 ×1"]);
         }
-        // Every busy tile carries its worker's name and the full facts at either size.
-        const first = board.getByRole("button", { name: /^Add retry backoff/ });
+        // Every busy tile carries its slot, its node's name (tooltip and accessible name) and the full facts at either size.
+        const first = board.getByRole("button", { name: /^Slot 1, Local Worker 1, running: Add retry backoff/ });
         await expect(first).toContainText("Fixture: billing service · developer · Standard, high");
         await expect(first).toContainText("Running · claude-sonnet-5-5 · high effort");
         const cell = board.getByRole("listitem").filter({ hasText: "Add retry backoff" });
-        await expect(cell.getByRole("button", { name: "Local Worker 1", exact: true })).toBeVisible();
+        const label = cell.getByRole("button", { name: "Slot 1, Local Worker 1", exact: true });
+        await expect(label).toBeVisible();
+        await expect(label).toHaveText("Slot 1");
+        await expect(label).toHaveAttribute("title", "Local Worker 1");
         // No page overflow, no tile wider than the board.
         expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
         const area = (await board.boundingBox())!;
@@ -57,7 +67,7 @@ for (const size of SIZES) {
           expect(box.x + box.width).toBeLessThanOrEqual(area.x + area.width + 1);
         }
         expect(await board.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-        // A dense grid: four tiles across at both sizes, so the desktop's eight workers are two rows.
+        // A dense grid: four tiles across at both sizes, so the desktop's eight slots are two rows.
         expect(new Set(boxes.map(box => Math.round(box.x))).size).toBe(4);
         expect(new Set(boxes.map(box => Math.round(box.y))).size).toBe(3);
         // Fits without scrolling: the board and every tile end inside the viewport, and neither the board nor the page scrolls.
@@ -78,7 +88,7 @@ for (const size of SIZES) {
         const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
         expect(axe.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(", ")}`)).toEqual([]);
         if (shots) await page.screenshot({ path: `${shots}/${scenario}-board-${size.name}.png` });
-        if (shots && scenario === "swarm-demo-next") await page.screenshot({ path: `${shots}/board-workers-${size.name}.png` });
+        if (shots && scenario === "swarm-demo-next") await page.screenshot({ path: `${shots}/board-slots-${size.name}.png` });
       });
     }
 
@@ -97,12 +107,12 @@ for (const size of SIZES) {
       await page.goto("/agents/swarm?view=board");
       const board = page.getByRole("region", { name: "Swarm board" });
       await expect(board.getByRole("button", { name: /^laptop(?!-)/ })).toContainText("offline", { timeout: FIRST_PAINT });
-      await expect(board.getByRole("button", { name: /^laptop-1 offline last seen/ })).toBeVisible();
+      await expect(board.getByRole("button", { name: /^Slot 1, laptop-1, offline: last seen/ })).toBeVisible();
       await expect(board.getByRole("button", { name: /^studio(?!-)/ })).toContainText("holding: Capability report expired");
-      await expect(board.getByRole("button", { name: "studio-1 holding Capability report expired" })).toBeVisible();
-      // Three agents on one worker are one tile; the other two are its "+2".
-      await expect(board.getByRole("listitem").filter({ hasText: "local-1" })).toContainText("+2 more on this worker");
-      await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("status")).toContainText("2 of 4 workers busy on 1 machine");
+      await expect(board.getByRole("button", { name: "Slot 1, studio-1, holding: Capability report expired" })).toBeVisible();
+      // Three agents on one node are one tile; the other two are its "+2".
+      await expect(board.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Slot 1, local-1", exact: true }) })).toContainText("+2 more on this slot");
+      await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("status")).toContainText("2 of 4 slots busy on 1 worker");
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).include('[aria-label="Swarm board"]').include('[aria-label="Swarm activity"]').analyze();
       expect(axe.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
