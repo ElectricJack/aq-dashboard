@@ -32,11 +32,11 @@ export type TaskExecution = { attempt_id: string; session_id: string; status: st
  * What an attempt ran with (aq-server spec 0014 §7.1): its role, the level (intelligence profile) it was given, and the
  * candidate AQ selected. Absent for an attempt from before roles.
  */
-export type RanWith = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile: string; snapshot_digest: string };
+export type RanWith = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile: string; /** Null for an attempt recorded before roles: its summary was filled from its launch record. */ snapshot_digest: string | null };
 const RAN_WITH_KEYS = ["role", "level", "provider", "model", "reasoning", "harness", "execution_profile", "snapshot_digest"] as const;
 export function adaptRanWith(v: unknown): RanWith | undefined {
   if (v === undefined || v === null) return undefined;
-  check(isRecord(v) && RAN_WITH_KEYS.every(key => text(v[key], 256)));
+  check(isRecord(v) && RAN_WITH_KEYS.every(key => text(v[key], 256) || (key === "snapshot_digest" && v[key] === null)));
   return Object.fromEntries(RAN_WITH_KEYS.map(key => [key, v[key]])) as RanWith;
 }
 /** The role a task runs as (spec 0014 §5.5): the one the task names, or the project's default when it names none. */

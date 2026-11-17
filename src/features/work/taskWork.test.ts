@@ -114,6 +114,8 @@ test("work read: the task's role and its source; role and level holds name no at
   const ranWith = { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-opus", reasoning: "high", harness: "claude", execution_profile: "sandbox", snapshot_digest: "a".repeat(64) };
   const execution = { task_id: id, attempt_id: uuid(20), session_id: uuid(21), status: "running" };
   expect(read({ execution: { ...execution, ran_with: ranWith } }).execution?.ran_with).toEqual(ranWith);
+  // An attempt from before roles: the server fills the summary from the launch record and sends a null digest.
+  expect(read({ execution: { ...execution, ran_with: { ...ranWith, snapshot_digest: null } } }).execution?.ran_with).toEqual({ ...ranWith, snapshot_digest: null });
   // An attempt from before roles has no such record.
   expect(read({ execution }).execution).toEqual({ attempt_id: uuid(20), session_id: uuid(21), status: "running" });
   for (const bad of ["developer", { ...ranWith, model: "" }, { ...ranWith, level: undefined }]) expect(() => read({ execution: { ...execution, ran_with: bad } }), JSON.stringify(bad)).toThrow();

@@ -44,7 +44,7 @@ export const humanize = (value: string) => value.replace(/[_-]+/g, " ").replace(
  * provider, execution profile and snapshot are in its title. Old attempts have no such record and show no line.
  */
 export function RanWithLine({ ranWith: r }: { ranWith: RanWith }) {
-  return <p className={styles.meta} data-ran-with="" title={`Provider ${r.provider} · execution profile ${r.execution_profile} · snapshot ${r.snapshot_digest.slice(0, 12)}`}>
+  return <p className={styles.meta} data-ran-with="" title={`Provider ${r.provider} · execution profile ${r.execution_profile}${r.snapshot_digest ? ` · snapshot ${r.snapshot_digest.slice(0, 12)}` : " · from before roles"}`}>
     <span>Ran as {r.role} · {levelLabel(r.level)} · {r.model} · {r.reasoning} reasoning · {r.harness}</span>
   </p>;
 }
