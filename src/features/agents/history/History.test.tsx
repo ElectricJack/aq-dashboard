@@ -28,11 +28,46 @@ function setup() {
 function handlers(options:{failExport?:boolean; status?:()=>string}={}) {
  const requests: string[]=[];
  server.use(
+  http.get('/api/manual-agents/:id/conversation',()=>HttpResponse.json({session_id:id,project_id:session.project_id,conversation:null})),
   http.get('/api/manual-agents/history',()=>HttpResponse.json({sessions:[session],next_cursor:null,server_time_ms:2000})),
   http.get('/api/manual-agents/:id/transcript/search',({request})=>{const u=new URL(request.url);requests.push(u.search);const after=u.searchParams.get('after');return HttpResponse.json({matches:[after===null?{offset:firstOffset,length:5,sequence:32,excerpt:'éhello🐈'}:{offset:secondOffset,length:5,sequence:38,excerpt:'hello'}],next_after:after===null?firstOffset:secondOffset,has_more:after===null,through_sequence:40,server_time_ms:2000});}),
   http.get('/api/manual-agents/:id/transcript',({request})=>{const u=new URL(request.url);requests.push(u.search);const after=Number(u.searchParams.get('after')??0);if(options.failExport && after===32)return new HttpResponse(null,{status:503});const end=Math.min(after+32,40);return HttpResponse.json({session:{...session,archive:{...session.archive,state:options.status?.()??'complete'}},chunks:chunks.slice(after,end),next_after:end,has_more:end<40,through_sequence:40,server_time_ms:2000});}),
  );return requests;
 }
+test('opens native messages by default and keeps the terminal archive available on demand',async()=>{
+ const requests=handlers();
+ server.use(http.get('/api/manual-agents/:id/conversation',()=>HttpResponse.json({
+  session_id:id,project_id:session.project_id,conversation:{partial:false,messages:[
+   {role:'user',text:'Explain [scope].'},
+   {role:'assistant',text:'The [scope] is project-specific.\nUse West.'},
+  ]},
+ })));
+ const view=setup();const user=userEvent.setup();
+ try{
+  const conversation=await screen.findByLabelText('Saved conversation');
+  expect(within(conversation).getByText('You')).toBeVisible();
+  expect(within(conversation).getByText('Agent')).toBeVisible();
+  expect(requests).toEqual([]);
+  await user.click(screen.getByLabelText('Find in conversation'));
+  await user.paste('[scope]');
+  await user.click(screen.getByRole('button',{name:'Find'}));
+  expect(conversation.querySelector('mark')).toHaveTextContent('[scope]');
+  expect(screen.getByRole('status')).toHaveTextContent('Match 1 of 2');
+  await user.click(screen.getByRole('button',{name:'Next'}));
+  expect(screen.getByRole('status')).toHaveTextContent('Match 2 of 2');
+  await user.click(screen.getByRole('button',{name:'Terminal transcript'}));
+  expect(await screen.findByLabelText('Terminal transcript')).toBeVisible();
+ }finally{view.dispose();}
+});
+test('an authorization refusal never falls back to loading a terminal transcript',async()=>{
+ const requests=handlers();
+ server.use(http.get('/api/manual-agents/:id/conversation',()=>new HttpResponse(null,{status:403})));
+ const view=setup();
+ try{
+  expect(await screen.findByRole('alert')).toHaveTextContent('access was refused');
+  expect(requests).toEqual([]);
+ }finally{view.dispose();}
+});
 test('find navigates unloaded cross-chunk UTF-8 matches and pages search by byte offset',async()=>{
  const requests=handlers();const view=setup();const user=userEvent.setup();
  try{const output=await screen.findByLabelText('Terminal transcript');await waitFor(()=>expect(output).toHaveTextContent('éhel'));expect(output).not.toHaveTextContent('éhello');

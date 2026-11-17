@@ -26,3 +26,9 @@
 @media(max-width:700px) { .layout[data-focused=true] .roster { display:none; } .layout:not([data-focused=true]) .workspace { display:none; } .back { display:block; align-self:flex-start; color:inherit; background:transparent; border:0; padding:8px; cursor:pointer; } .layout { display:flex; flex-direction:column; } .roster { max-height:40vh; } .workspace { min-height:55vh; } .output { max-height:55vh; } .header details { margin-left:0; } }
 .check { display:flex !important; grid-template-columns:none; align-items:center; gap:6px; }
 .check input { width:auto !important; }
+.messages { list-style:none; margin:0; padding:0 14px; }
+.messages li { padding:14px 0; }
+.messages li + li { border-top:1px solid var(--border, #29394b); }
+.messages strong { color:#aabbd2; font-size:13px; }
+.messages p { margin:6px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
+.toolbar button[aria-pressed=true] { background:#202e4b; border-color:#879cff; }
