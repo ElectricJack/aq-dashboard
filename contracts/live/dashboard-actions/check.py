@@ -17,7 +17,7 @@ def load(name):
     return json.loads((root / 'fixtures' / (name + '.json')).read_text())
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
-TYPED = ('task.graph.create', 'task.edit', 'task.cancel', 'task.retry', 'task.reprioritize', 'task.dependency.add',
+TYPED = ('task.graph.create', 'task.edit', 'task.activate', 'task.complete', 'task.reopen', 'task.cancel', 'task.delete', 'task.retry', 'task.reprioritize', 'task.role.set', 'task.route.set', 'task.route.clear', 'task.dependency.add',
          'task.dependency.remove', 'knowledge.author', 'knowledge.correct', 'knowledge.verify',
          'knowledge.retire', 'knowledge.restore')
 def validate_task(task):
@@ -29,7 +29,7 @@ def validate_task(task):
     assert all(s.strip() and len(s.encode()) <= 128 for s in labels)
     if task.get('priority') is not None:
         assert 1 <= task['priority'] <= 300
-    for field in ('profile_hint', 'intelligence_hint', 'task_type'):
+    for field in ('role', 'intelligence_hint', 'task_type'):
         if task.get(field) is not None:
             assert task[field].strip() and len(task[field].encode()) <= 128
             assert not any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in task[field])
@@ -124,10 +124,15 @@ def validate_request(value):
         assert UUID(payload['project_id']).int
         if kind == 'knowledge.author':
             assert subject['id'] == payload['project_id'] and payload['title'].strip() and payload['body'].strip()
-        if kind in ('task.cancel', 'knowledge.verify'):
+        if kind == 'knowledge.verify':
             assert value['reason'].strip()
         if kind == 'task.reprioritize':
             assert -1_000_000 <= payload['priority'] <= 1_000_000
+        if kind == 'task.role.set' and payload.get('role') is not None:
+            assert payload['role'].strip() and len(payload['role'].encode()) <= 128
+        if kind == 'task.route.set':
+            assert payload['class'].split('-')[0] in ('simple', 'standard', 'complex', 'deep')
+            assert payload['class'].split('-')[1] in ('low', 'medium', 'high', 'max')
     else:
         assert payload['decision_id'] == subject['id'] and payload['schema_version'] == 1
         assert payload['expected_subject']['version'] == '1'
@@ -159,6 +164,12 @@ for disposition in ('pending', 'confirmed', 'conflict', 'rejected', 'unknown'):
         assert not operation['receipt_refs'] and not operation['affected_entities']
     request = load('request-supervisor-message-send')
     assert operation['request_digest'] == 'sha256:' + hashlib.sha256(canonical({'request':request, 'scope':operation['scope']})).hexdigest()
+busy = load('operation-rejected-busy')
+validator.validate(busy)
+assert busy['data']['disposition'] == 'rejected' and busy['data']['reason'] == 'busy'
+assert busy['data']['recovery'] == 'refresh_and_review' and not busy['pending_operations']
+for disposition in ('pending', 'confirmed', 'conflict', 'unknown'):
+    assert 'reason' not in load('operation-' + disposition)['data']
 for status in (401,403,404,409,410,413,422,426,429,503):
     error = load('error-' + str(status))
     validator.validate(error)
@@ -192,4 +203,4 @@ for contract in compat['read']['data']['contracts']:
 assert len(compat['read']['data']['contracts']) == 2
 assert compat['read']['api_version'] == 'dashboard-read-1'
 validate_request(load('request-task-create-metadata'))
-print('25 requests, 5 dispositions, current-versions conflicts, 10 errors, cursor, replay, invalid and compatibility fixtures passed')
+print('28 requests, 5 dispositions, current-versions conflicts, 10 errors, cursor, replay, invalid and compatibility fixtures passed')
