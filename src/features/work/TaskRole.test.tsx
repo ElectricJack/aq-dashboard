@@ -206,3 +206,8 @@ test("a task with no route to show has its role on a line of its own", async () 
   const role = await waitFor(() => { const found = status(region).querySelector("[data-task-role]"); expect(found).toHaveTextContent("Role Fixture developer · project default"); return found!; });
   expect(role.closest("[data-task-route]")).toBeNull();
 });
+
+test("the fixture project's binding names its default role and level, as a stored binding does on aq-server 09ee5e98", async () => {
+  const response = await fetch(new URL(`/api/projects/${project}`, location.href));
+  expect((await response.json()).binding).toMatchObject({ project_id: project, default_role: "developer", default_intelligence: "standard-high" });
+});

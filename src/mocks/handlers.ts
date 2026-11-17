@@ -112,9 +112,9 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...(fixtures ? [...playbookHandlers(playbookMode(name)), ...playbookActionHandlers()] : []),
     http.get("/api/v1/projects", () => HttpResponse.json(envelope({items:[{id:fixtureProject.id,label:fixtureProject.name}],next_cursor:null,has_more:false,snapshot_id:"fixture-projects",total:{value:1,accuracy:"exact"}}))),
     http.get("/api/projects", () => HttpResponse.json({ items: [], next_cursor: null })),
-    // One project's binding, as far as the dashboard reads it. As the server, a default role of `developer` is not written.
+    // One project's binding, as far as the dashboard reads it. As aq-server 09ee5e98, a stored binding always names its default role and level.
     http.get("/api/projects/:id", ({ params }) => params.id === fixtureProject.id
-      ? HttpResponse.json({ revision: 1, binding: { schema_version: 1, project_id: fixtureProject.id, name: fixtureProject.name, enabled: true } })
+      ? HttpResponse.json({ revision: 1, binding: { schema_version: 1, project_id: fixtureProject.id, name: fixtureProject.name, enabled: true, default_role: "developer", default_intelligence: "standard-high" } })
       : HttpResponse.json({ error: "not_found", message: "project not found" }, { status: 404 })),
     // Grant the human-graph reads, the labelled playbook fixtures (fixture mode) and, unless the scenario declares otherwise, the fixture project list.
     http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"&&c.name!=="tasks.comments.read"&&!playbookNames.includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},{name:"tasks.comments.read",version:"1",enabled:true},...playbookCaps,...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
