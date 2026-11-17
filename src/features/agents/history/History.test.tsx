@@ -11,7 +11,7 @@ import { Component } from './index';
 // Values and shape are based on the server's manual-transcript-wire.json fixture.
 const id='00000000-0000-4000-8000-000000000001';
 const session={id,node_id:'00000000-0000-4000-8000-000000000002',project_id:'00000000-0000-4000-8000-000000000003',spec:{provider:'anthropic',model:'fixture'},status:'stopped',stage:'Ended',desired_running:false,created_at_ms:1000,updated_at_ms:2000,worker_seen_at_ms:2000,archive:{state:'complete',coverage:'complete',reason:null,first_sequence:1,last_sequence:40,bytes:100,updated_at_ms:2000}};
-const chunks=Array.from({length:40},(_,i)=>({sequence:i+1,text:i===31?'éhel':i===32?'lo🐈':i===37?'hello':`line ${i+1}\n`}));
+const chunks=Array.from({length:40},(_,i)=>({sequence:i+1,text:i===0?'line 1\n\n\n───\n▐▛█\n▝▜██ Agent ready\n':i===31?'éhel':i===32?'lo🐈':i===37?'hello':`line ${i+1}\n`}));
 const byteLength=(s:string)=>new TextEncoder().encode(s).length;
 const firstOffset=chunks.slice(0,31).reduce((n,c)=>n+byteLength(c.text),0)+byteLength('é');
 const secondOffset=chunks.slice(0,37).reduce((n,c)=>n+byteLength(c.text),0);
@@ -42,6 +42,27 @@ test('find navigates unloaded cross-chunk UTF-8 matches and pages search by byte
  expect(requests).toContain('?q=hello&through=40');expect(requests).toContain('?after=32&through=40&limit=32');
  await user.click(screen.getByRole('button',{name:'Next'}));await waitFor(()=>expect(screen.getByText('Match 2 of 2')).toBeVisible());expect(requests).toContain(`?q=hello&after=${firstOffset}&through=40`);
  await user.click(screen.getByRole('button',{name:'Previous'}));await waitFor(()=>expect(screen.getByText('Match 1 of 2')).toBeVisible());expect(output.querySelector('mark')).toHaveTextContent('hello');
+ }finally{view.dispose();}
+});
+test('terminal redraw fragments and blank runs are folded without hiding text or literal matches',async()=>{
+ handlers();
+ server.use(http.get('/api/manual-agents/:id/transcript/search',()=>HttpResponse.json({
+  matches:[{offset:byteLength('line 1\n\n\n───\n'),length:byteLength('▐▛█'),sequence:1,excerpt:'▐▛█'}],
+  next_after:null,has_more:false,through_sequence:40,server_time_ms:2000,
+ })));
+ const view=setup();const user=userEvent.setup();
+ try{
+  const output=await screen.findByLabelText('Terminal transcript');
+  await waitFor(()=>expect(output.textContent).toContain('line 1\n\nAgent ready\nline 2'));
+  expect(output.textContent).not.toContain('▐▛█');
+  const full=screen.getByRole('checkbox',{name:'Show full output'});
+  await user.click(full);
+  expect(output.textContent).toContain('line 1\n\n\n───\n▐▛█\n▝▜██ Agent ready\nline 2');
+  await user.click(full);
+  await user.type(screen.getByLabelText('Find'),'▐▛█');
+  await user.click(screen.getByRole('button',{name:'Find'}));
+  await waitFor(()=>expect(output.querySelector('mark')).toHaveTextContent('▐▛█'));
+  expect(output.textContent).not.toContain('───');
  }finally{view.dispose();}
 });
 test('failed multi-page export does not create or claim a complete download',async()=>{

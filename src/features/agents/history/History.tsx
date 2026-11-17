@@ -11,6 +11,7 @@ import { listInternalRuns, type InternalRunData } from '../../../api/internalWor
 import { duration } from '../../internal/InternalRun';
 import { byteIndex, downloadTranscript, history, searchTranscript, transcript, type Chunk, type HistorySession, type Match } from '../../../api/sessionHistory';
 import { AgentsTabs } from '../AgentsTabs';
+import { compactTranscript } from './compactTranscript';
 import styles from './History.module.css';
 
 type Window = { chunks: Chunk[]; startBytes: number; through: number; next: number; more: boolean };
@@ -46,6 +47,7 @@ export function History() {
 function InternalRow({run:r}:{run:InternalRunData}) { return <li><div className={styles.row}><strong>{r.purpose.replaceAll('_',' ')}</strong><span>{r.affected.kind} {r.affected.id} · {r.status}{r.retry_of?' · retry':''}</span><span>{r.provider ? `${r.provider} · ${r.model} · ${duration(r.elapsed_ms ?? 0)}` : 'No model answered'} · {new Date(r.created_at_ms).toLocaleString()}</span></div></li>; }
 function Native({session:s}:{session:SessionView}) { const [scope]=useScope(); return <><div className={styles.header}><strong>{s.label}</strong><span>{s.project.label} · {s.profile.provider ?? 'Provider unknown'}</span></div><p className={styles.notice}>A retained terminal transcript is not available through the native session API.</p><Link to={{pathname:`/agents/${encodeURIComponent(s.id)}`,search:scopeSearch(scope)}}>Open session inspection</Link></>; }
 function Reader({id,project}:{id:string;project?:string}) {
+ const [showFullOutput, setShowFullOutput] = useState(false);
  const {queryContext}=useSession(); const first=useQuery({queryKey:['history-transcript',queryContext.principalId,queryContext.authorizationRevision,id],queryFn:({signal})=>transcript(id,{},signal),retry:false,meta:PANEL_READ,refetchInterval:q=>q.state.data?.session.archive.state==='finalizing'?5000:false});
  const [window,setWindow]=useState<Window|null>(null),[query,setQuery]=useState(''),[matches,setMatches]=useState<Match[]>([]),[matchIndex,setMatchIndex]=useState(-1),[searchCursor,setSearchCursor]=useState<number|undefined>(),[searchMore,setSearchMore]=useState(false),[searchThrough,setSearchThrough]=useState<number|undefined>(),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[exportBytes,setExportBytes]=useState<number|null>(null); const abort=useRef<AbortController|null>(null); const operation=useRef<AbortController|null>(null); const [refused,setRefused]=useState(false); const scroller=useRef<HTMLDivElement>(null); const mark=useRef<HTMLElement>(null);
  useEffect(()=>{if(first.data) setWindow(w=>w ?? {chunks:first.data!.chunks,startBytes:0,through:first.data!.through_sequence,next:first.data!.next_after,more:first.data!.has_more});},[first.data]);
@@ -68,6 +70,50 @@ function Reader({id,project}:{id:string;project?:string}) {
  if(first.data && project && first.data.session.project_id!==project) return <p role="status">This session is outside the selected project.</p>;
  if(!first.data)return <p role={first.isError?'alert':'status'}>{first.isError ? 'Could not load transcript.' : 'Loading transcript…'} {first.isError && <button onClick={()=>void first.refetch()}>Retry</button>}</p>;
  const s=first.data.session, text=window?.chunks.map(c=>c.text).join('') ?? '', selected=matches[matchIndex], relative=selected && window ? selected.offset-window.startBytes : -1, start=relative>=0?byteIndex(text,relative):-1,end=selected && relative>=0?byteIndex(text,relative+selected.length):-1;
- return <><div className={styles.header}><strong>{s.spec.project_name || `Session ${id.slice(0,8)}`}</strong><span>{s.spec.provider} · {s.spec.model} · {s.status}</span><details><summary>Details</summary><p>Session {id}<br/>Worker {s.node_id}<br/>Created {new Date(s.created_at_ms).toLocaleString()}</p></details></div><div className={styles.notice}>{archiveLabel(s)}{s.archive.reason && <> · {s.archive.reason}</>}</div><div className={styles.toolbar}><label>Find<input value={query} maxLength={200} onChange={e=>{cancelOperation();setQuery(e.target.value);setMatches([]);setMatchIndex(-1);setSearchMore(false);}} onKeyDown={e=>{if(e.key==='Enter')void find();}} /></label><button onClick={()=>void find()} disabled={busy || !query.trim()}>Find</button><button onClick={()=>void navigateMatch(-1)} disabled={busy||matchIndex<=0}>Previous</button><button onClick={()=>void navigateMatch(1)} disabled={busy||matchIndex<0||(!searchMore&&matchIndex>=matches.length-1)}>Next</button><button onClick={()=>void copy()} disabled={!text}>Copy selection or loaded text</button><button onClick={()=>void download()} disabled={exportBytes!==null||s.archive.state==='not_recorded'}>Download retained output</button>{exportBytes!==null && <><span>Downloading {exportBytes.toLocaleString()} bytes…</span><button onClick={()=>abort.current?.abort()}>Cancel</button></>}</div>{message&&<p role="status" className={styles.notice}>{message}</p>}
- <div className={styles.output} ref={scroller} tabIndex={0} aria-label="Terminal transcript"><pre>{start>=0 && end>=start ? <>{text.slice(0,start)}<mark ref={mark}>{text.slice(start,end)}</mark>{text.slice(end)}</> : text || (s.archive.state==='not_recorded'?'No transcript was recorded.':'No retained output in this snapshot.')}</pre></div><div className={styles.footer}>{s.archive.state==='finalizing' && <button onClick={()=>void refreshOutput()} disabled={busy}>Refresh output</button>}{window && window.chunks[0] && window.chunks[0].sequence>1 && <button onClick={()=>void pagePrevious()} disabled={busy}>Earlier output</button>}{window?.more && <button onClick={()=>void pageNext()} disabled={busy}>Next output page</button>}<span>{selected ? `Match ${matchIndex+1}${searchMore?'+':` of ${matches.length}`}` : 'Terminal transcript'}</span></div></>;
+ const compact = compactTranscript(text, start, end);
+ const output = showFullOutput ? { text, start, end } : compact;
+ return <>
+   <div className={styles.header}>
+     <strong>{s.spec.project_name || `Session ${id.slice(0,8)}`}</strong>
+     <span>{s.spec.provider} · {s.spec.model} · {s.status}</span>
+     <details><summary>Details</summary><p>Session {id}<br/>Worker {s.node_id}<br/>Created {new Date(s.created_at_ms).toLocaleString()}</p></details>
+   </div>
+   <div className={styles.notice}>{archiveLabel(s)}{s.archive.reason && <> · {s.archive.reason}</>}</div>
+   <div className={styles.toolbar}>
+     <label>Find
+       <input value={query} maxLength={200} onChange={event=>{
+         cancelOperation();
+         setQuery(event.target.value);
+         setMatches([]);
+         setMatchIndex(-1);
+         setSearchMore(false);
+       }} onKeyDown={event=>{if(event.key==='Enter')void find();}} />
+     </label>
+     <button onClick={()=>void find()} disabled={busy || !query.trim()}>Find</button>
+     <button onClick={()=>void navigateMatch(-1)} disabled={busy || matchIndex<=0}>Previous</button>
+     <button onClick={()=>void navigateMatch(1)} disabled={busy || matchIndex<0 || (!searchMore && matchIndex>=matches.length-1)}>Next</button>
+     <button onClick={()=>void copy()} disabled={!text}>Copy selection or loaded text</button>
+     <button onClick={()=>void download()} disabled={exportBytes!==null || s.archive.state==='not_recorded'}>Download retained output</button>
+     {(compact.changed || showFullOutput) && <label className={styles.check}>
+       <input type="checkbox" checked={showFullOutput} onChange={event=>setShowFullOutput(event.target.checked)} />
+       Show full output
+     </label>}
+     {exportBytes!==null && <>
+       <span>Downloading {exportBytes.toLocaleString()} bytes…</span>
+       <button onClick={()=>abort.current?.abort()}>Cancel</button>
+     </>}
+   </div>
+   {message && <p role="status" className={styles.notice}>{message}</p>}
+   <div className={styles.output} ref={scroller} tabIndex={0} aria-label="Terminal transcript">
+     <pre>{output.start >= 0 && output.end >= output.start
+       ? <>{output.text.slice(0, output.start)}<mark ref={mark}>{output.text.slice(output.start, output.end)}</mark>{output.text.slice(output.end)}</>
+       : output.text || (text ? 'Only terminal decoration on this page.' : s.archive.state === 'not_recorded' ? 'No transcript was recorded.' : 'No retained output in this snapshot.')}</pre>
+   </div>
+   <div className={styles.footer}>
+     {s.archive.state==='finalizing' && <button onClick={()=>void refreshOutput()} disabled={busy}>Refresh output</button>}
+     {window && window.chunks[0] && window.chunks[0].sequence>1 && <button onClick={()=>void pagePrevious()} disabled={busy}>Earlier output</button>}
+     {window?.more && <button onClick={()=>void pageNext()} disabled={busy}>Next output page</button>}
+     <span>{selected ? `Match ${matchIndex+1}${searchMore?'+':` of ${matches.length}`}` : 'Terminal transcript'}</span>
+   </div>
+ </>;
 }
