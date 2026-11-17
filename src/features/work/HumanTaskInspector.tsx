@@ -23,6 +23,8 @@ import { TaskResults } from "./inspector/TaskResults";
 import styles from "./HumanTaskInspector.module.css";
 import parts from "./inspector/Inspector.module.css";
 
+/** Attempt statuses before a grant (aq-server `role_settings::granted`). */
+const NOT_STARTED = ["offered", "preparing", "declined", "never_granted"];
 const classes = (...names: (string | undefined | false)[]) => names.filter(Boolean).join(" ");
 /** Links out of the inspector open in list mode: graph view, graph root and Expand are inspector context only. */
 export function listSearch(search: string) {
@@ -112,7 +114,9 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
   const w = work.data?.data, parent = w?.parent, ended = endedHolder(w, attempts);
   const compact = useMediaQuery(COMPACT_HEADER_QUERY);
   const linkSearch = listSearch(search);
-  const facts = w ? { holding: !!w.execution, ...(w.routing ? { routing: w.routing } : {}), blockers: w.blockers.length, complete: w.complete, blockerIds: w.blockers.map(b => b.id), ...(attemptCount !== undefined ? { attempts: attemptCount } : {}) } : undefined;
+  // An attempt past being offered or prepared was granted; AQ then no longer changes the task's role.
+  const started = [w?.execution, ...(attempts ?? [])].some(a => a && !NOT_STARTED.includes(a.status));
+  const facts = w ? { holding: !!w.execution, ...(w.role ? { role: w.role, started } : {}), ...(w.routing ? { routing: w.routing } : {}), blockers: w.blockers.length, complete: w.complete, blockerIds: w.blockers.map(b => b.id), ...(attemptCount !== undefined ? { attempts: attemptCount } : {}) } : undefined;
   const link = typeof window === "undefined" ? "" : `${window.location.origin}/work/${encodeURIComponent(n.id)}?${new URLSearchParams({ scope: `project:${project}` })}`;
   return <ServerNow serverTime={record.observed_at}>
     <section ref={root} className={classes(styles.inspector, className)} aria-labelledby={titleId} data-task-inspector="" data-focused={focused || undefined}>
@@ -149,7 +153,7 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
       <Section id="comments" title="Comments" summary={commentCount}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
       <Section id="description" title="Description"><Description body={n.body} /></Section>
       <Section id="acceptance" title="Acceptance criteria">{n.acceptance_criteria ? <DocumentBody body={n.acceptance_criteria} /> : <p className={styles.meta}>No acceptance criteria recorded.</p>}</Section>
-      <Section id="attempts" title="Attempts" summary={attemptCount !== undefined ? `${attemptCount}${history.data?.pages[0]?.data.attempts_truncated ? "+" : ""}` : undefined}><TaskAttempts query={history} linkSearch={linkSearch} /></Section>
+      <Section id="attempts" title="Attempts" summary={attemptCount !== undefined ? `${attemptCount}${history.data?.pages[0]?.data.attempts_truncated ? "+" : ""}` : undefined}><TaskAttempts query={history} linkSearch={linkSearch} holding={w?.execution} /></Section>
       <Section id="results" title="Results"><TaskResults project={project} task={n.id} /></Section>
       <Section id="hierarchy" title="Dependencies and hierarchy"><TaskHierarchy project={project} node={n} work={w} search={search} /></Section>
       <Section id="history" title="History"><TaskHistory query={history} /></Section>

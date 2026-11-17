@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { ApiError } from "../../../api/client";
+import { levelLabel } from "../../../api/roleSettings";
 import { useTaskRoutes, type TaskRouteView, type TaskRouting } from "../taskWork";
 import { useServerClock } from "./common";
 import styles from "./Inspector.module.css";
 
-/** `standard-high` → "Standard · High", the owner's words for a class (Settings → Intelligence). */
-export function classLabel(value: string): string {
-  return value.split("-").map(part => part.replace(/^./, c => c.toUpperCase())).join(" · ");
-}
+/** `standard-high` → "Standard · High", the owner's words for a route's class: the level's id (Settings → Intelligence). */
+export const classLabel = levelLabel;
 /** How long ago `sinceMs` (epoch milliseconds) was by the server clock; null while that clock is unknown. */
 export function elapsed(now: string | null, sinceMs: number): string | null {
   const ms = now === null ? NaN : Date.parse(now) - sinceMs;

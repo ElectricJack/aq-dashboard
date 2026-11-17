@@ -86,14 +86,18 @@ test("item 3: the holding attempt links to its session's terminal; a task withou
   expect(await within(section(other.region, "Status")).findByText("No agent attempt holds this task.")).toBeVisible();
 });
 
-test("item 4: attempts list provider, model, harness and times from each session, with copyable IDs", async () => {
+test("item 4: attempts list what they ran with, or the session's provider, model and harness for an attempt without that record, with times and copyable IDs", async () => {
   const { region } = await open(FIXTURE_IDS.replay);
   const list = await within(section(region, "Attempts")).findByRole("list", { name: "Attempts" });
   const rows = within(list).getAllByRole("listitem");
   expect(rows).toHaveLength(2);
   expect(within(rows[0]!).getByText("Holds the task")).toBeVisible();
-  await waitFor(() => expect(rows[0]).toHaveTextContent("anthropic · claude-opus-5-5 · claude-code"));
-  expect(rows[0]).toHaveTextContent(/Started \d+[mh] ago · No stop recorded/);
+  // The holding attempt has a `ran_with` record (work read): role, level, model, reasoning, harness.
+  expect(await within(rows[0]!).findByText("Ran as developer · Standard · High · claude-opus-5-5 · high reasoning · claude-code")).toBeVisible();
+  expect(rows[0]!.querySelector("[data-attempt-profile]")).toBeNull();
+  await waitFor(() => expect(rows[0]).toHaveTextContent(/Started \d+[mh] ago · No stop recorded/));
+  // An older attempt has none: nothing is invented, and the session's profile is shown as before.
+  expect(rows[1]!.querySelector("[data-ran-with]")).toBeNull();
   await waitFor(() => expect(rows[1]).toHaveTextContent("openai · gpt-5.3-codex · codex"));
   expect(rows[1]).toHaveTextContent("Failed");
   expect(rows[1]).toHaveTextContent(/Started .* · Stopped .*ago/);
@@ -530,7 +534,7 @@ test("P1-02: on a phone every action sits in one Task actions menu", async () =>
     expect(within(header).queryByRole("button", { name: "Edit task" })).toBeNull();
     await userEvent.click(within(header).getByRole("button", { name: "Task actions" }));
     const menu = screen.getByRole("menu", { name: "Task actions" });
-    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Cancel task", "Delete task", "Retry attempt", "Add dependency", "Remove dependency", "Set route"]);
+    expect(within(menu).getAllByRole("menuitem").map(i => i.firstChild!.textContent)).toEqual(["Edit task", "Reprioritize", "Change role", "Cancel task", "Delete task", "Retry attempt", "Add dependency", "Remove dependency", "Set route"]);
   } finally { vi.unstubAllGlobals(); }
 });
 

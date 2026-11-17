@@ -38,8 +38,8 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       const actions = vp.name === "desktop" ? "More actions" : "Task actions";
       await panel.getByRole("button", { name: actions }).click();
       const menu = page.getByRole("menu");
-      // Includes Set route, offered because this fixture task is ready under an automatic router (spec 0011 §8).
-      await expect(menu.getByRole("menuitem")).toHaveCount(vp.name === "desktop" ? 7 : 8);
+      // Includes Change role (the server states the task's role) and Set route, offered because this fixture task is ready under an automatic router (spec 0011 §8).
+      await expect(menu.getByRole("menuitem")).toHaveCount(vp.name === "desktop" ? 8 : 9);
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-menu-${vp.name}.png` });
       await axe(page);
       await page.keyboard.press("Escape");
@@ -59,7 +59,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
         return page.getByRole("dialog", { name });
       };
       const set = await choose("Set route");
-      await set.getByLabel("Class").selectOption("standard-high");
+      await set.getByLabel("Level").selectOption("standard-high");
       await expect(set.getByRole("checkbox", { name: "fixture-provider" })).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-set-route-${vp.name}.png` });
       await axe(page);
@@ -76,6 +76,44 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(clear.getByText("Route cleared")).toBeVisible();
       await clear.getByRole("button", { name: "Close action" }).click();
       await expect(route).toContainText("Waiting for routing");
+      await axe(page);
+    });
+
+    test("Status shows the task's role; the owner changes it, and the change shows without leaving the task", async ({ page }) => {
+      await page.goto(`/work/${approve}?${scope}`);
+      const panel = inspector(page), role = panel.locator("[data-task-role]");
+      await expect(role).toHaveText("Role Fixture developer · project default");
+      await panel.getByRole("button", { name: vp.name === "desktop" ? "More actions" : "Task actions" }).click();
+      await page.getByRole("menuitem", { name: "Change role" }).click();
+      const dialog = page.getByRole("dialog", { name: "Change role" });
+      const select = dialog.getByLabel("Role");
+      await expect(select.locator("option")).toHaveText(["Fixture developer (project default)", "Fixture developer", "Fixture reviewer"]);
+      // By keyboard: the select takes focus, arrow keys choose, and Tab reaches Submit.
+      await select.focus();
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("ArrowDown");
+      await expect(select).toHaveValue("reviewer");
+      if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-change-role-${vp.name}.png` });
+      await axe(page);
+      await page.keyboard.press("Tab");
+      await expect(dialog.getByRole("button", { name: "Submit" })).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(dialog.getByText("Role set to Fixture reviewer")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close action" }).click();
+      await expect(role).toHaveText("Role Fixture reviewer · set on this task");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+      await axe(page);
+    });
+
+    test("a task whose attempt has started shows what it ran with and no longer offers Change role", async ({ page }) => {
+      await page.goto(`/work/00000000-0000-0000-0000-000000000105?${scope}`);
+      const panel = inspector(page);
+      await expect(panel.locator("[data-holding-attempt] [data-ran-with]")).toHaveText("Ran as developer · Standard · High · claude-opus-5-5 · high reasoning · claude-code");
+      await panel.getByRole("button", { name: vp.name === "desktop" ? "More actions" : "Task actions" }).click();
+      const item = page.getByRole("menuitem", { name: /^Change role/ });
+      await expect(item).toHaveAttribute("aria-disabled", "true");
+      await expect(item).toContainText("The role is fixed once an attempt has started");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
       await axe(page);
     });
 

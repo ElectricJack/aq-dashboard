@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "../app/session";
+import { PANEL_READ, useSession } from "../app/session";
 import { ContractError, isRecord } from "./adapters/contract";
 import { ApiError, apiGet, apiSend } from "./client";
 import { queryKey } from "./queryKeys";
@@ -40,6 +40,24 @@ export type SelectionDefaults = {
 };
 export const DOCUMENT_LIMIT_KEYS = ["max_document_bytes", "max_set_bytes", "max_documents_per_kind", "max_name_bytes", "max_description_bytes"] as const;
 export type ProfileLimits = { documents: Record<typeof DOCUMENT_LIMIT_KEYS[number], number>; snapshots_kept: number; operations_kept: number };
+
+/**
+ * The order levels are shown in: easier work first (simple, standard, complex, deep) and, within each, lower effort
+ * first (low, medium, high, max). A level's id is the class the router assigns. Any other id comes after, alphabetically.
+ */
+const LEVEL_TIERS = ["simple", "standard", "complex", "deep"], LEVEL_EFFORTS = ["low", "medium", "high", "max"];
+function levelRank(id: string): number {
+  const at = id.lastIndexOf("-"), tier = LEVEL_TIERS.indexOf(id.slice(0, Math.max(at, 0))), effort = LEVEL_EFFORTS.indexOf(id.slice(at + 1));
+  return tier < 0 || effort < 0 ? Number.POSITIVE_INFINITY : tier * LEVEL_EFFORTS.length + effort;
+}
+export function compareLevelIds(a: string, b: string): number {
+  const left = levelRank(a), right = levelRank(b);
+  return left === right ? (a < b ? -1 : a > b ? 1 : 0) : left < right ? -1 : 1;
+}
+/** `standard-high` → "Standard · High": a level's id in words. */
+export function levelLabel(id: string): string {
+  return id.split("-").map(part => part.replace(/^./, c => c.toUpperCase())).join(" · ");
+}
 
 const MAX_DOCUMENTS = 4096, MAX_MARKDOWN_CHARS = 8 * 1024 * 1024;
 const text = (v: unknown, max = 4096): v is string => typeof v === "string" && v.length <= max;
@@ -150,9 +168,10 @@ export async function readProfileSnapshot(signal?: AbortSignal) { return adaptSn
 
 /** Every read of these routes shares this resource name, so one invalidation refreshes them all after a save. */
 export const ROLE_SETTINGS = "role-settings";
-export function useDocuments<K extends DocumentKind>(kind: K) {
+/** `panel` is for a page outside Settings that only consults the documents: a failed read then stays inside that page's own section. */
+export function useDocuments<K extends DocumentKind>(kind: K, { enabled = true, panel = false }: { enabled?: boolean; panel?: boolean } = {}) {
   const { queryContext } = useSession();
-  return useQuery({ queryKey: queryKey(queryContext, ROLE_SETTINGS, { documents: kind }), queryFn: ({ signal }) => readDocuments(kind, signal), retry: false });
+  return useQuery({ queryKey: queryKey(queryContext, ROLE_SETTINGS, { documents: kind }), queryFn: ({ signal }) => readDocuments(kind, signal), retry: false, enabled, ...(panel ? { meta: PANEL_READ, staleTime: 60_000, refetchOnWindowFocus: false } : {}) });
 }
 export function useSelectionDefaults() {
   const { queryContext } = useSession();

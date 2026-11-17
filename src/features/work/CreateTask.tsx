@@ -13,9 +13,10 @@ import {adaptGraphPage,adaptGraphDetail,validGraphId,type GraphNode} from "../..
 import {adaptTaskOperation,freezeTaskCreate,validateTaskDraft,validateTitle,type FrozenTaskCreate,type TaskDraft,type TaskOperation} from "../../api/adapters/taskCreate";
 import {taskOperationRequest} from "../../api/taskCreateClient";
 import {ActionButton} from "../../components/layout/Workspace";
+import {RoleSelect} from "./taskRole";
 import styles from "./CreateTask.module.css";
 const blank:TaskDraft={title:"",body:"",acceptance_criteria:"",task_state:"draft"};
-function validDraft(value:unknown):value is TaskDraft{return isRecord(value)&&typeof value.title==="string"&&value.title.length<=1024&&typeof value.body==="string"&&typeof value.acceptance_criteria==="string"&&(value.task_state==="draft"||value.task_state==="active");}
+function validDraft(value:unknown):value is TaskDraft{return isRecord(value)&&typeof value.title==="string"&&value.title.length<=1024&&typeof value.body==="string"&&typeof value.acceptance_criteria==="string"&&(value.task_state==="draft"||value.task_state==="active")&&(value.role===undefined||(typeof value.role==="string"&&value.role.length<=128));}
 export function CreateTaskAction(){
  const {bootstrap,queryContext}=useSession();const [scope]=useScope();const capability=bootstrap.capability("tasks.create");
  const identity=`${queryContext.principalId}:${queryContext.authorizationRevision}`;const [revoked,setRevoked]=useState<string|null>(null);
@@ -112,6 +113,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
      <label>Description<textarea value={draft.body} rows={6} onChange={e=>setDraft(v=>({...v,body:e.target.value}))}/></label>
      <label>Acceptance criteria<textarea value={draft.acceptance_criteria} rows={4} onChange={e=>setDraft(v=>({...v,acceptance_criteria:e.target.value}))}/></label>
      <label>Initial task state<select value={draft.task_state} onChange={e=>setDraft(v=>({...v,task_state:e.target.value as TaskDraft["task_state"]}))}><option value="draft">Draft</option><option value="active">Active</option></select></label>
+     <RoleSelect project={project} value={draft.role??""} onChange={role=>setDraft(v=>({...v,role}))} hintClassName={styles.meta}/>
     </fieldset>
     {!operation&&<footer className={styles.footer}><p className={styles.meta}>{context.isError?"Project context unavailable. Refresh it before submitting.":!context.data||context.isFetching?"Checking project context…":"Creation uses the current project revision."}</p>{context.isError&&<ActionButton onClick={()=>void context.refetch()}>Refresh project context</ActionButton>}<ActionButton type="submit" className={styles.primary} disabled={busy||!context.data||context.isError||context.isFetching}>Create task</ActionButton></footer>}
    </form>}
@@ -122,6 +124,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
      <label>Description<textarea readOnly rows={6} value={draft.body}/></label>
      <label>Acceptance criteria<textarea readOnly rows={4} value={draft.acceptance_criteria}/></label>
      <p>Initial task state: {draft.task_state}</p>
+     <p>Role: {draft.role||"project default"}</p>
     </div>
    </section>}
    {operation&&<section className={styles.operation} aria-label="Task creation status">

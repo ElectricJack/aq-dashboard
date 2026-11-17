@@ -122,7 +122,8 @@
 .workCard { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); overflow-wrap: anywhere; }
 .workCard h3, .workCard p { margin: 0; }
 .workCard p, .workCard label { color: var(--color-text-secondary); font-size: var(--font-size-meta); }
-.workCard input, .workCard textarea { inline-size: 100%; min-inline-size: 0; color: var(--color-text); background: var(--color-canvas); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; padding: var(--space-2); }
+.workCard label:has(select) { display: grid; gap: var(--space-2); }
+.workCard input, .workCard textarea, .workCard select { inline-size: 100%; min-inline-size: 0; color: var(--color-text); background: var(--color-canvas); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; padding: var(--space-2); }
 
 /* Agents keeps the launcher beside its heading, leaving the viewport for output. */
 .surfaces[data-agents-compact]:not([data-docked]) { display: flex; flex-direction: column; flex: 1; min-block-size: 0; }

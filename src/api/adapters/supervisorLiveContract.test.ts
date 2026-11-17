@@ -6,7 +6,7 @@ import rawHistory from "../../../contracts/live/supervisor-conversation/history.
 import rawAttachmentHistory from "../../../contracts/live/supervisor-conversation/history-attachments.example.json";
 import rawMixed from "../../../contracts/live/supervisor-conversation/mixed-history.fixture.json";
 import rawReceipt from "../../../contracts/live/supervisor-conversation/receipt.example.json";
-import { adaptSupervisorDiscovery, adaptSupervisorHistory, adaptSupervisorReceipt, supervisorDigest, type Conversation, type FrozenSupervisorMessage, type SupervisorAttachment } from "./supervisor";
+import { adaptSupervisorDiscovery, adaptSupervisorHistory, adaptSupervisorReceipt, canonicalSupervisorJson, supervisorDigest, type Conversation, type FrozenSupervisorMessage, type ProposedTaskDraft, type SupervisorAttachment } from "./supervisor";
 
 test("consumes the frozen API07 public examples including independent canonical request/body digests", async () => {
   vi.stubGlobal("crypto", webcrypto);
@@ -44,6 +44,19 @@ test("consumes the published attachment history: A.R reply with proposed draft a
     const tampered = structuredClone(rawAttachmentHistory) as { items: { attachments?: { payload_digest?: string }[] }[] };
     tampered.items[1]!.attachments![0]!.payload_digest = `sha256:${"0".repeat(64)}`;
     await expect(adaptSupervisorHistory(tampered, conversation)).rejects.toThrow();
+    // A drafted task may name its role (aq-server spec 0014); `profile_hint` no longer exists and fails the read like any unknown key.
+    const drafted = async (extra: Record<string, unknown>) => {
+      const next = structuredClone(rawAttachmentHistory) as unknown as { items: { attachments?: { payload_digest: string; payload: { tasks: Record<string, unknown>[] } }[] }[] };
+      const draft = next.items[1]!.attachments![0]!;
+      Object.assign(draft.payload.tasks[0]!, extra);
+      draft.payload_digest = await supervisorDigest(canonicalSupervisorJson(draft.payload));
+      return adaptSupervisorHistory(next, conversation);
+    };
+    const withRole = (await drafted({ role: "reviewer" })).items[1]!.attachments![0] as ProposedTaskDraft;
+    expect(withRole.payload.tasks[0]!.role).toBe("reviewer");
+    await expect(drafted({ role: null })).resolves.toBeDefined();
+    await expect(drafted({ role: "" })).rejects.toThrow();
+    await expect(drafted({ profile_hint: "coding" })).rejects.toThrow();
     const foreign = structuredClone(rawAttachmentHistory) as { items: { attachments?: { message_id?: string }[] }[] };
     foreign.items[1]!.attachments![1]!.message_id = rawAttachmentHistory.items[0]!.message_id;
     await expect(adaptSupervisorHistory(foreign, conversation)).rejects.toThrow();

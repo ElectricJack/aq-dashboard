@@ -27,15 +27,38 @@ const time = (v: unknown): v is string => typeof v === "string" && v.length <= 4
 /* ----- Work: readiness, blockers, parent, holding attempt (X8, X9, X12) ----- */
 
 /** The attempt holding a task, from `GET …/tasks/{t}/work` (`execution`, null when none holds it). */
-export type TaskExecution = { attempt_id: string; session_id: string; status: string };
+export type TaskExecution = { attempt_id: string; session_id: string; status: string; ran_with?: RanWith };
+/**
+ * What an attempt ran with (aq-server spec 0014 §7.1): its role, the level (intelligence profile) it was given, and the
+ * candidate AQ selected. Absent for an attempt from before roles.
+ */
+export type RanWith = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile: string; snapshot_digest: string };
+const RAN_WITH_KEYS = ["role", "level", "provider", "model", "reasoning", "harness", "execution_profile", "snapshot_digest"] as const;
+export function adaptRanWith(v: unknown): RanWith | undefined {
+  if (v === undefined || v === null) return undefined;
+  check(isRecord(v) && RAN_WITH_KEYS.every(key => text(v[key], 256)));
+  return Object.fromEntries(RAN_WITH_KEYS.map(key => [key, v[key]])) as RanWith;
+}
+/** The role a task runs as (spec 0014 §5.5): the one the task names, or the project's default when it names none. */
+export type TaskRole = { id: string; source: "task" | "project_default" };
+/** Absent from a server that predates roles. */
+export function adaptTaskRole(v: unknown): TaskRole | undefined {
+  if (v === undefined) return undefined;
+  check(isRecord(v) && text(v.id, 128) && (v.source === "task" || v.source === "project_default"));
+  return { id: v.id, source: v.source };
+}
 /** The readiness states this bundle knows (human-graph-1 X8; `held` since aq-server #99, QA P1-01). */
 export const READINESS_STATES = ["draft", "completed", "canceled", "running", "held", "waiting", "unknown", "ready"] as const;
 /** A known readiness state, or `unrecognized` for a value a newer server sends that this bundle doesn't know (W77). */
 export type WorkReadiness = (typeof READINESS_STATES)[number] | "unrecognized";
 /** Codes AQ gives for a hold; a newer code is kept as reported and its message still shown. */
-export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held"] as const;
-/** Why a stopped or finished attempt still holds the task (`readiness.reasons`, at most 4). */
-export type HoldReason = { code: string; attempt_id: string; status: string; message: string; hold_reason?: string };
+export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held", "role_disabled", "role_missing", "level_missing"] as const;
+/**
+ * Why AQ is not running the task (`readiness.reasons`, at most 4). A stopped or finished attempt that still holds it
+ * names that attempt (`attempt_id`, `status`). A role hold (`role_disabled`, `role_missing`) names the `role` and a
+ * level hold (`level_missing`) the `level`; those have no attempt.
+ */
+export type HoldReason = { code: string; message: string; attempt_id?: string; status?: string; hold_reason?: string; role?: string; level?: string };
 /** `satisfied` is true only for a completed blocker, null when the blocker isn't in the read Context. */
 export type TaskBlocker = { edge_id: string; id: string; title: string | null; task_state: string | null; satisfied: boolean | null };
 /** The route on a task (`routing.route` of the work read; spec 0011 §3): its class, e.g. `standard-high`, and who may take the task. */
@@ -48,14 +71,15 @@ export type TaskRouteView = { class: string; harnesses: string[]; providers: str
  */
 export type TaskRouting = { state: "routed" | "waiting" | "unrouted"; route?: TaskRouteView; since_ms?: number };
 /** `reported` is the server's readiness value as sent: for `unrecognized`, the value to show. */
-export type TaskWork = { state: WorkReadiness; reported: string; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null; routing?: TaskRouting;
+export type TaskWork = { state: WorkReadiness; reported: string; role?: TaskRole; reasons: HoldReason[]; execution: TaskExecution | null; blockers: TaskBlocker[]; complete: boolean; parent: GraphParent | null; routing?: TaskRouting;
   /** AQ's default policy completed the task and found no file change (`completed_without_changes`, owner ruling 4b). */
   noChanges?: true };
 
-export const ROUTE_CLASS = /^(simple|standard|complex|deep)-(low|medium|high|max)$/;
+/** A route's class is the id of an intelligence profile (a level); the server decides which ids exist. */
+const levelId = (v: unknown): v is string => typeof v === "string" && /^[a-z][a-z0-9-]{0,127}$/.test(v);
 const names = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 32 && v.every(x => text(x, 128));
 function adaptRoute(r: unknown): TaskRouteView {
-  check(isRecord(r) && typeof r.class === "string" && ROUTE_CLASS.test(r.class) && names(r.harnesses) && names(r.providers) && names(r.prefer));
+  check(isRecord(r) && levelId(r.class) && names(r.harnesses) && names(r.providers) && names(r.prefer));
   check(r.lane === null || text(r.lane, 128));
   check(openEnumValue(r.provider_intent) && openEnumValue(r.source) && (r.policy_digest === null || text(r.policy_digest, 128)));
   return { class: r.class, harnesses: r.harnesses, providers: r.providers, prefer: r.prefer, lane: r.lane as string | null, provider_intent: r.provider_intent, source: r.source, policy_digest: r.policy_digest as string | null };
@@ -88,21 +112,26 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
     const rawReasons = value.readiness.reasons === undefined ? [] : value.readiness.reasons;
     check(Array.isArray(rawReasons) && rawReasons.length <= 4);
     const reasons = rawReasons.map((r): HoldReason => {
-      check(isRecord(r) && openEnumValue(r.code) && validGraphId(r.attempt_id) && text(r.status, 64) && text(r.message, 512));
+      check(isRecord(r) && openEnumValue(r.code) && text(r.message, 512));
+      // A reason either names the attempt that holds the task, or (role and level holds) has no attempt at all.
+      check(r.attempt_id === undefined ? r.status === undefined : validGraphId(r.attempt_id) && text(r.status, 64));
       check(r.hold_reason === undefined || (typeof r.hold_reason === "string" && r.hold_reason.length >= 1 && r.hold_reason.length <= 96));
-      return { code: r.code as string, attempt_id: r.attempt_id as string, status: r.status as string, message: r.message as string, ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }) };
+      check((r.role === undefined || text(r.role, 128)) && (r.level === undefined || text(r.level, 128)));
+      return { code: r.code as string, message: r.message as string, ...(r.attempt_id === undefined ? {} : { attempt_id: r.attempt_id as string, status: r.status as string }),
+        ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }), ...(r.role === undefined ? {} : { role: r.role as string }), ...(r.level === undefined ? {} : { level: r.level as string }) };
     });
-    const routing = adaptTaskRouting(value.routing);
+    const routing = adaptTaskRouting(value.routing), role = adaptTaskRole(value.role);
     check(value.completed_without_changes === undefined || value.completed_without_changes === true);
     const e = value.execution;
     check(e === null || (isRecord(e) && validGraphId(e.attempt_id) && validGraphId(e.session_id) && text(e.status, 64)));
+    const ranWith = e === null ? undefined : adaptRanWith(e.ran_with);
     const blockers = value.readiness.blockers.map((b): TaskBlocker => {
       check(isRecord(b) && validGraphId(b.edge_id) && validGraphId(b.id) && (b.satisfied === null || typeof b.satisfied === "boolean"));
       check(b.title === undefined || b.title === null || (typeof b.title === "string" && b.title.length <= 1024));
       check(b.task_state === undefined || b.task_state === null || TASK_STATES.includes(b.task_state as string));
       return { edge_id: b.edge_id, id: b.id, title: (b.title as string | null | undefined) ?? null, task_state: (b.task_state as string | null | undefined) ?? null, satisfied: b.satisfied as boolean | null };
     });
-    return { state, reported, reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent), ...(routing ? { routing } : {}), ...(value.completed_without_changes === true && state === "completed" ? { noChanges: true as const } : {}) };
+    return { state, reported, ...(role ? { role } : {}), reasons, execution: e === null ? null : { attempt_id: e.attempt_id as string, session_id: e.session_id as string, status: e.status as string, ...(ranWith ? { ran_with: ranWith } : {}) }, blockers, complete: value.readiness.complete, parent: adaptGraphParent(value.parent), ...(routing ? { routing } : {}), ...(value.completed_without_changes === true && state === "completed" ? { noChanges: true as const } : {}) };
   });
 }
 
@@ -145,7 +174,7 @@ export function useTaskWork(project: string, id: string) {
  */
 export type HistoryChange = { summary: string; fields: { field: string; from: string | null; to: string | null }[]; edge: { edge_type: string; direction: "incoming" | "outgoing"; node_id: string } | null; complete: boolean };
 export type HistoryEntry = { sequence: string; entry_id: string; category: "revision" | "lifecycle" | "edge"; operation: string; actor_id: string; reason: string | null; created_at: string; change: HistoryChange | null };
-export type TaskAttempt = { attempt_id: string; session_id: string; holds_task: boolean; status: string };
+export type TaskAttempt = { attempt_id: string; session_id: string; holds_task: boolean; status: string; ran_with?: RanWith };
 export type TaskHistoryPage = { items: HistoryEntry[]; next_cursor: string | null; attempts: TaskAttempt[]; attempts_truncated: boolean };
 
 const changeValue = (v: unknown) => v === null || (typeof v === "string" && v.length <= 64);
@@ -173,7 +202,8 @@ export function adaptTaskHistory(raw: unknown, project: string, id: string) {
     });
     const attempts = value.attempts.map((a): TaskAttempt => {
       check(isRecord(a) && validGraphId(a.attempt_id) && validGraphId(a.session_id) && typeof a.holds_task === "boolean" && text(a.status, 64));
-      return { attempt_id: a.attempt_id, session_id: a.session_id, holds_task: a.holds_task, status: a.status };
+      const ranWith = adaptRanWith(a.ran_with);
+      return { attempt_id: a.attempt_id, session_id: a.session_id, holds_task: a.holds_task, status: a.status, ...(ranWith ? { ran_with: ranWith } : {}) };
     });
     check(new Set(attempts.map(a => a.attempt_id)).size === attempts.length);
     return { items, next_cursor: value.next_cursor as string | null, attempts, attempts_truncated: value.attempts_truncated };

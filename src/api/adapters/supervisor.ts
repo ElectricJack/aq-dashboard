@@ -15,7 +15,7 @@ export const ATTACHMENT_MEDIA_TYPES = ["text/plain", "text/markdown", "text/csv"
 export type AttachmentMediaType = typeof ATTACHMENT_MEDIA_TYPES[number];
 export type AttachmentDescriptor = { id: string; name: string; media_type: AttachmentMediaType; size_bytes: number; digest: string };
 export type AttachmentUpload = AttachmentDescriptor & { conversation_id: string; created_at_ms: number } & ({ state: "staged"; message_id: null; expires_at_ms: number } | { state: "attached"; message_id: string; expires_at_ms: null });
-export type DraftTask = { id: string; title: string; body?: string; acceptance_criteria?: string; labels?: string[]; task_state?: "draft" | "active"; parent_id?: string | null; priority?: number | null; profile_hint?: string | null; intelligence_hint?: string | null; task_type?: string | null };
+export type DraftTask = { id: string; title: string; body?: string; acceptance_criteria?: string; labels?: string[]; task_state?: "draft" | "active"; parent_id?: string | null; priority?: number | null; role?: string | null; intelligence_hint?: string | null; task_type?: string | null };
 export type TaskGraphCreate = { operation_id: string; project_id: string; expected_version: string; tasks: DraftTask[]; edges?: { id: string; source: string; target: string }[] };
 export type ProposedTaskDraft = { type: "proposed_task_draft"; message_id: string; draft_id: string; project_id: string; revision: string; payload_digest: string; payload: TaskGraphCreate };
 export type ActionReceiptAttachment = { type: "action_receipt"; message_id: string; operation_id: string; kind: "task.create" | "task.graph.create"; project_id: string; project_revision: string | null; created_task_ids: string[]; created_edge_ids: string[]; receipt_refs: { type: string; id: string }[]; request_digest: string };
@@ -107,14 +107,14 @@ function validDescriptor(v: Record<string, unknown>): boolean {
   return supervisorId(v.id) && validAttachmentName(v.name) && (ATTACHMENT_MEDIA_TYPES as readonly unknown[]).includes(v.media_type) && integer(v.size_bytes, 1, 1048576) && digest(v.digest);
 }
 function validAttachmentDescriptor(v: unknown): v is AttachmentDescriptor { shape(v, "id name media_type size_bytes digest"); return validDescriptor(v); }
-const DRAFT_TASK_OPTIONAL = "body acceptance_criteria labels task_state parent_id priority profile_hint intelligence_hint task_type";
+const DRAFT_TASK_OPTIONAL = "body acceptance_criteria labels task_state parent_id priority role intelligence_hint task_type";
 function validDraftTask(v: unknown): boolean {
   shape(v, "id title", DRAFT_TASK_OPTIONAL);
   const hint = (h: unknown) => h === undefined || h === null || text(h, 1, 128);
   return supervisorId(v.id) && text(v.title, 1, 512) && (v.body === undefined || text(v.body, 0, 32768)) && (v.acceptance_criteria === undefined || text(v.acceptance_criteria, 0, 8192)) &&
     (v.labels === undefined || (list(v.labels, 0, 16) && v.labels.every(label => text(label, 1, 128)))) && (v.task_state === undefined || v.task_state === "draft" || v.task_state === "active") &&
     (v.parent_id === undefined || nullable(v.parent_id, supervisorId)) && (v.priority === undefined || v.priority === null || integer(v.priority, 1, 300)) &&
-    hint(v.profile_hint) && hint(v.intelligence_hint) && hint(v.task_type);
+    hint(v.role) && hint(v.intelligence_hint) && hint(v.task_type);
 }
 function validTaskGraphCreate(v: unknown): v is TaskGraphCreate {
   shape(v, "operation_id project_id expected_version tasks", "edges");

@@ -1,7 +1,8 @@
 import {ContractError,isRecord} from "./contract";
 import {validGraphId} from "./humanGraph";
-export type TaskDraft={title:string;body:string;acceptance_criteria:string;task_state:"draft"|"active"};
-export type TaskCreateRequest=TaskDraft&{operation_id:string;expected_project_revision:string;labels:string[]};
+/** `role` is the role the person picked; absent or empty, the task names none and runs as the project's default role. */
+export type TaskDraft={title:string;body:string;acceptance_criteria:string;task_state:"draft"|"active";role?:string};
+export type TaskCreateRequest=Omit<TaskDraft,"role">&{operation_id:string;expected_project_revision:string;labels:string[];role?:string};
 export type FrozenTaskCreate=Readonly<{project:string;actor:string;operationId:string;bytes:string;digest:string}>;
 export type TaskOperation={contract:"human-task-create-1";operation_id:string;project_id:string;actor_id:string;task_id:string;request_digest:string;state:"pending"|"unknown"|"confirmed"|"conflict"|"rejected";effect:"not_dispatched"|"possible"|"confirmed"|"not_applied";receipt:null|{workspace_id:string;change_set_id:string;task_id:string;version:string;content_revision:string};recovery:{allowed:boolean;reason:string|null};created_at_ms:number};
 function check(v:unknown):asserts v{if(!v)throw new ContractError("Invalid task operation");}
@@ -27,12 +28,13 @@ export function validateTaskDraft(draft:TaskDraft):string|null{
  if(draft.body.includes("\0")||draft.acceptance_criteria.includes("\0"))return "Task text cannot contain NUL characters.";
  if(new TextEncoder().encode(draft.body).length>32768)return "Description exceeds 32 KiB.";
  if(new TextEncoder().encode(draft.acceptance_criteria).length>8192)return "Acceptance criteria exceed 8 KiB.";
+ if(draft.role&&new TextEncoder().encode(draft.role).length>128)return "Role is too long.";
  return null;
 }
 export async function freezeTaskCreate(project:string,actor:string,projectRevision:string,draft:TaskDraft):Promise<FrozenTaskCreate>{
  check(validGraphId(project)&&validGraphId(actor)&&revision(projectRevision)&&!validateTaskDraft(draft));
  const operationId=crypto.randomUUID();
- const request:TaskCreateRequest={operation_id:operationId,expected_project_revision:projectRevision,title:draft.title.trim(),body:draft.body,acceptance_criteria:draft.acceptance_criteria,labels:[],task_state:draft.task_state};
+ const request:TaskCreateRequest={operation_id:operationId,expected_project_revision:projectRevision,title:draft.title.trim(),body:draft.body,acceptance_criteria:draft.acceptance_criteria,labels:[],task_state:draft.task_state,...(draft.role?{role:draft.role}:{})};
  const bytes=JSON.stringify(request),encoded=new TextEncoder().encode(bytes);check(encoded.length<=65536);
  const hash=await crypto.subtle.digest("SHA-256",encoded);
  const digest="sha256:"+Array.from(new Uint8Array(hash),v=>v.toString(16).padStart(2,"0")).join("");

@@ -6,8 +6,9 @@ import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../../components/QueryStatus/RetainedNotice";
 import { TASK_STATUS_LABEL, attemptEnded, unrecognizedLabel, type TaskStatus } from "../labels";
 import { StatusIcon } from "../StatusIcon";
-import type { HoldReason, TaskAttempt, TaskBlocker, TaskWork, WorkReadiness } from "../taskWork";
-import { IdValue, humanize } from "./common";
+import type { HoldReason, TaskAttempt, TaskBlocker, TaskRole, TaskWork, WorkReadiness } from "../taskWork";
+import { roleSourceLabel, useTaskRoles } from "../taskRole";
+import { IdValue, RanWithLine, humanize } from "./common";
 import { TaskRoute } from "./TaskRoute";
 import styles from "./Inspector.module.css";
 
@@ -42,6 +43,7 @@ const HOLD_SHORT: Record<string, string> = {
   cancelled_attempt_holds_task: "cancelled attempt holds it",
   attempt_stopped_not_released: "stopped attempt not released",
   attempt_finished_stop_unconfirmed: "stop not confirmed",
+  role_disabled: "its role is disabled", role_missing: "its role does not exist", level_missing: "its level does not exist",
 };
 
 /** The badge's short reason (spec 0004 item 2): only what the server said, most specific first. */
@@ -88,7 +90,9 @@ export function TaskStatusSection({ query, taskId, search, linkSearch, ended = n
     {work.state === "unknown" && <p className={styles.reasons}>AQ couldn't read every relationship of this task, so it can't say whether the task is ready.</p>}
     {work.state === "unrecognized" && <p className={styles.reasons} data-unrecognized-readiness="">AQ reported the readiness “{work.reported}”, which this dashboard version doesn't know, so it doesn't say whether the task is running or ready. Update the dashboard to see what it means.</p>}
     {work.state === "draft" && <p className={styles.reasons}>This task is a draft. AQ doesn't start attempts for drafts.</p>}
-    {work.state === "held" && <p className={styles.reasons}>AQ isn't running this task: an attempt that has stopped or finished still holds it, so no new attempt starts until that claim is released.</p>}
+    {work.role && <RoleLine role={work.role} />}
+    {/* A role or level hold says why in AQ's own words below; this sentence is for a claim an attempt still holds. */}
+    {work.state === "held" && (work.reasons.length === 0 || work.reasons.some(r => r.attempt_id)) && <p className={styles.reasons}>AQ isn't running this task: an attempt that has stopped or finished still holds it, so no new attempt starts until that claim is released.</p>}
     {work.reasons.length > 0 && <HoldReasons reasons={work.reasons} held={work.state === "held"} holder={work.execution?.attempt_id} />}
     {heldByFallback(work, ended) && <p className={styles.reasons} data-held-reason="">AQ reports this task as running because the attempt below still holds it, but that attempt is {humanize(ended!).toLowerCase()}, so no agent is working on the task now.</p>}
     {work.routing && <TaskRoute routing={work.routing} taskId={taskId} />}
@@ -96,13 +100,22 @@ export function TaskStatusSection({ query, taskId, search, linkSearch, ended = n
   </>;
 }
 
-/** AQ's reasons for a hold (`readiness.reasons`), each with the attempt it names unless that is the holder shown below. */
+/** The task's role and where it comes from: "Developer · project default" or "Reviewer · set on this task". The name is the one Settings gives the role. */
+function RoleLine({ role }: { role: TaskRole }) {
+  const roles = useTaskRoles();
+  return <p className={styles.reasons} data-task-role={role.id} data-role-source={role.source}><span><span className={styles.meta}>Role</span> <strong>{roles.name(role.id)}</strong> · {roleSourceLabel(role.source)}</span></p>;
+}
+
+/**
+ * AQ's reasons for a hold (`readiness.reasons`) in its own words. A reason about an attempt names it unless that is the
+ * holder shown below; a role or level hold (`role_disabled`, `role_missing`, `level_missing`) has no attempt.
+ */
 function HoldReasons({ reasons, held, holder }: { reasons: HoldReason[]; held: boolean; holder?: string }) {
   return <div className={styles.reasons}>
-    {!held && <p>A stopped attempt still holds this task:</p>}
-    <ul aria-label="Why the task is held" className={styles.holdReasons}>{reasons.map(r => <li key={`${r.code}:${r.attempt_id}`} data-hold-reason={r.code}>
+    {!held && reasons.some(r => r.attempt_id) && <p>A stopped attempt still holds this task:</p>}
+    <ul aria-label="Why the task is held" className={styles.holdReasons}>{reasons.map(r => <li key={`${r.code}:${r.attempt_id ?? r.role ?? r.level ?? ""}`} data-hold-reason={r.code}>
       <p>{r.message}</p>
-      {r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> <span className={styles.attemptStatus}>{humanize(r.status)}</span></p>}
+      {r.attempt_id && r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> <span className={styles.attemptStatus}>{humanize(r.status ?? "unknown")}</span></p>}
     </li>)}</ul>
   </div>;
 }
@@ -116,6 +129,7 @@ function TaskAgent({ work, linkSearch, ended: endedStatus }: { work: TaskWork; l
   // An ended attempt has no live terminal: the link opens its session record instead.
   return <div className={styles.agent} data-holding-attempt="">
     <p><span>{ended ? "Holding attempt" : "Agent attempt"}</span> <IdValue id={e.attempt_id} label="attempt ID" /> <span className={styles.attemptStatus}>{humanize(ended ?? e.status)}</span></p>
+    {e.ran_with && <RanWithLine ranWith={e.ran_with} />}
     <p className={styles.agentLinks}><span>Session</span> <IdValue id={e.session_id} label="session ID" />
       <Link className={styles.terminalLink} to={{ pathname: `/agents/${encodeURIComponent(e.session_id)}`, search: linkSearch }}>{ended ? "Open session" : "Open terminal"}</Link></p>
   </div>;

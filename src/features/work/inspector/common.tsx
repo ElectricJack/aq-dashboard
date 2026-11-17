@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { CopyValue, shortId } from "../../decisions/DecisionContext";
 import { formatAge } from "../../../components/time/relative";
 import { useServerNow } from "../../../components/time/useServerNow";
+import { levelLabel } from "../../../api/roleSettings";
+import type { RanWith } from "../taskWork";
 import styles from "./Inspector.module.css";
 
 /**
@@ -36,3 +38,13 @@ export function NotOffered({ what, reason }: { what: string; reason?: string }) 
 
 /** `cancel_requested` → "Cancel requested". */
 export const humanize = (value: string) => value.replace(/[_-]+/g, " ").replace(/^./, c => c.toUpperCase());
+
+/**
+ * What an attempt ran with, on one line: role, level, model, reasoning and harness (aq-server spec 0014 §7.1). The
+ * provider, execution profile and snapshot are in its title. Old attempts have no such record and show no line.
+ */
+export function RanWithLine({ ranWith: r }: { ranWith: RanWith }) {
+  return <p className={styles.meta} data-ran-with="" title={`Provider ${r.provider} · execution profile ${r.execution_profile} · snapshot ${r.snapshot_digest.slice(0, 12)}`}>
+    <span>Ran as {r.role} · {levelLabel(r.level)} · {r.model} · {r.reasoning} reasoning · {r.harness}</span>
+  </p>;
+}
