@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ApiError } from "../../../api/client";
 import { levelLabel } from "../../../api/roleSettings";
 import { useTaskRoutes, type TaskRouteView, type TaskRouting } from "../taskWork";
@@ -25,20 +25,23 @@ export function whoMayTake(route: Pick<TaskRouteView, "harnesses" | "providers" 
 
 /**
  * Where the task stands in routing (spec 0011 §8): "Waiting for routing" with how long it has waited, or its route:
- * class, lane, who may take it and why. Shown only when the work read has a `routing` object.
+ * class, lane, who may take it and why. Shown only when the work read has a `routing` object. `lead` (the task's role)
+ * shares the first line; who may take it, who set it and, where there is room, the "Why" disclosure share the second
+ * (density 2026-11-17).
  */
-export function TaskRoute({ routing, taskId }: { routing: TaskRouting; taskId: string }) {
+export function TaskRoute({ routing, taskId, lead }: { routing: TaskRouting; taskId: string; lead?: ReactNode }) {
   const now = useServerClock(), how = routing.since_ms === undefined ? null : elapsed(now, routing.since_ms), route = routing.route;
   if (routing.state === "unrouted") return null;
   if (routing.state === "waiting" || !route) return <div className={styles.reasons} data-task-route="waiting">
-    <p><strong>Waiting for routing</strong>{how && <> · <span>{how}</span></>}</p>
+    <div className={styles.statusLine}>{lead}<p><strong>Waiting for routing</strong>{how && <> · <span>{how}</span></>}</p></div>
     <p className={styles.meta}>AQ doesn't offer this task to an agent until it has a route.</p>
   </div>;
   return <div className={styles.reasons} data-task-route="routed">
-    <p><span className={styles.meta}>Route</span> <strong>{classLabel(route.class)}</strong>{route.lane && <span> · lane {route.lane}</span>}</p>
-    <p className={styles.meta}>{whoMayTake(route)}</p>
-    <p className={styles.meta}>Set by {route.source === "owner" ? "the owner" : "the router"}{how && ` · ${how} ago`}</p>
-    <RouteHistory taskId={taskId} />
+    <div className={styles.statusLine}>{lead}<p><span className={styles.meta}>Route</span> <strong>{classLabel(route.class)}</strong>{route.lane && <span> · lane {route.lane}</span>}</p></div>
+    <div className={styles.statusLine}>
+      <p className={styles.meta}>{whoMayTake(route)} · Set by {route.source === "owner" ? "the owner" : "the router"}{how && ` · ${how} ago`}</p>
+      <RouteHistory taskId={taskId} />
+    </div>
   </div>;
 }
 

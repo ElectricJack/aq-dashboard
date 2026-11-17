@@ -6,7 +6,7 @@ import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../../components/QueryStatus/RetainedNotice";
 import { TASK_STATUS_LABEL, attemptEnded, unrecognizedLabel, type TaskStatus } from "../labels";
 import { StatusIcon } from "../StatusIcon";
-import type { HoldReason, TaskAttempt, TaskBlocker, TaskRole, TaskWork, WorkReadiness } from "../taskWork";
+import type { HoldReason, StartupOverLimit, TaskAttempt, TaskBlocker, TaskRole, TaskWork, WorkReadiness } from "../taskWork";
 import { roleSourceLabel, useTaskRoles } from "../taskRole";
 import { IdValue, RanWithLine, humanize } from "./common";
 import { TaskRoute } from "./TaskRoute";
@@ -44,7 +44,13 @@ const HOLD_SHORT: Record<string, string> = {
   attempt_stopped_not_released: "stopped attempt not released",
   attempt_finished_stop_unconfirmed: "stop not confirmed",
   role_disabled: "its role is disabled", role_missing: "its role does not exist", level_missing: "its level does not exist",
+  startup_over_limit: "startup text over its limit", platform_text_missing: "no platform text for its environment",
 };
+const count = (n: number) => n.toLocaleString("en-US");
+/** "70,112 of 65,536 bytes": the startup text's size and the limit it is over. */
+export const startupNumbers = (s: StartupOverLimit) => `${count(s.bytes)} of ${count(s.limit)} bytes`;
+/** Which limit that is: the execution profile's, or the project's ceiling. */
+const startupLimit = (s: StartupOverLimit) => s.limiting === "project_context_bytes" ? "the project's context_bytes ceiling" : `startup_context_bytes of execution profile ${s.execution_profile}`;
 
 /** The badge's short reason (spec 0004 item 2): only what the server said, most specific first. */
 export function statusReason(state: WorkReadiness | undefined, work: TaskWork | undefined): string | null {
@@ -53,7 +59,10 @@ export function statusReason(state: WorkReadiness | undefined, work: TaskWork | 
     const open = unsatisfied(work);
     return open.length === 1 ? `blocked by “${blockerName(open[0]!)}”` : open.length ? `blocked by ${open.length} tasks` : null;
   }
-  if (state === "held") return HOLD_SHORT[work.reasons[0]?.code ?? ""] ?? null;
+  if (state === "held") {
+    const first = work.reasons[0], short = HOLD_SHORT[first?.code ?? ""] ?? null;
+    return short && first?.startup ? `${short} (${startupNumbers(first.startup)})` : short;
+  }
   if (state === "unknown") return "relationships not fully read";
   return null;
 }
@@ -90,12 +99,12 @@ export function TaskStatusSection({ query, taskId, search, linkSearch, ended = n
     {work.state === "unknown" && <p className={styles.reasons}>AQ couldn't read every relationship of this task, so it can't say whether the task is ready.</p>}
     {work.state === "unrecognized" && <p className={styles.reasons} data-unrecognized-readiness="">AQ reported the readiness “{work.reported}”, which this dashboard version doesn't know, so it doesn't say whether the task is running or ready. Update the dashboard to see what it means.</p>}
     {work.state === "draft" && <p className={styles.reasons}>This task is a draft. AQ doesn't start attempts for drafts.</p>}
-    {work.role && <RoleLine role={work.role} />}
+    {/* Role and route share a line; a task without a route to show has the role alone. */}
+    {work.routing && work.routing.state !== "unrouted" ? <TaskRoute routing={work.routing} taskId={taskId} lead={work.role && <RoleLine role={work.role} />} /> : work.role && <RoleLine role={work.role} />}
     {/* A role or level hold says why in AQ's own words below; this sentence is for a claim an attempt still holds. */}
     {work.state === "held" && (work.reasons.length === 0 || work.reasons.some(r => r.attempt_id)) && <p className={styles.reasons}>AQ isn't running this task: an attempt that has stopped or finished still holds it, so no new attempt starts until that claim is released.</p>}
     {work.reasons.length > 0 && <HoldReasons reasons={work.reasons} held={work.state === "held"} holder={work.execution?.attempt_id} />}
     {heldByFallback(work, ended) && <p className={styles.reasons} data-held-reason="">AQ reports this task as running because the attempt below still holds it, but that attempt is {humanize(ended!).toLowerCase()}, so no agent is working on the task now.</p>}
-    {work.routing && <TaskRoute routing={work.routing} taskId={taskId} />}
     <TaskAgent work={work} linkSearch={linkSearch} ended={ended} />
   </>;
 }
@@ -103,18 +112,20 @@ export function TaskStatusSection({ query, taskId, search, linkSearch, ended = n
 /** The task's role and where it comes from: "Developer · project default" or "Reviewer · set on this task". The name is the one Settings gives the role. */
 function RoleLine({ role }: { role: TaskRole }) {
   const roles = useTaskRoles();
-  return <p className={styles.reasons} data-task-role={role.id} data-role-source={role.source}><span><span className={styles.meta}>Role</span> <strong>{roles.name(role.id)}</strong> · {roleSourceLabel(role.source)}</span></p>;
+  return <p className={styles.roleLine} data-task-role={role.id} data-role-source={role.source}><span><span className={styles.meta}>Role</span> <strong>{roles.name(role.id)}</strong> · {roleSourceLabel(role.source)}</span></p>;
 }
 
 /**
  * AQ's reasons for a hold (`readiness.reasons`) in its own words. A reason about an attempt names it unless that is the
- * holder shown below; a role or level hold (`role_disabled`, `role_missing`, `level_missing`) has no attempt.
+ * holder shown below; a role or level hold (`role_disabled`, `role_missing`, `level_missing`) has no attempt, and neither
+ * has a refused offer (`startup_over_limit`, with its two numbers on a line of their own, and `platform_text_missing`).
  */
 function HoldReasons({ reasons, held, holder }: { reasons: HoldReason[]; held: boolean; holder?: string }) {
   return <div className={styles.reasons}>
     {!held && reasons.some(r => r.attempt_id) && <p>A stopped attempt still holds this task:</p>}
     <ul aria-label="Why the task is held" className={styles.holdReasons}>{reasons.map(r => <li key={`${r.code}:${r.attempt_id ?? r.role ?? r.level ?? ""}`} data-hold-reason={r.code}>
       <p>{r.message}</p>
+      {r.startup && <p className={styles.meta} data-startup-over-limit=""><span>Startup text <strong>{startupNumbers(r.startup)}</strong> · the limit is {startupLimit(r.startup)}</span></p>}
       {r.attempt_id && r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> <span className={styles.attemptStatus}>{humanize(r.status ?? "unknown")}</span></p>}
     </li>)}</ul>
   </div>;
@@ -126,11 +137,12 @@ function TaskAgent({ work, linkSearch, ended: endedStatus }: { work: TaskWork; l
   const e = work.execution;
   // A held task's attempt has stopped even when its status isn't an ended one (stop proof recorded).
   const ended = endedStatus ?? (work.state === "held" ? e.status : null);
-  // An ended attempt has no live terminal: the link opens its session record instead.
+  // An ended attempt has no live terminal: the link opens its session record instead. The attempt, its session and that
+  // link share one line (it wraps where the inspector is narrow), and what the attempt ran with has the next (density 2026-11-17).
   return <div className={styles.agent} data-holding-attempt="">
-    <p><span>{ended ? "Holding attempt" : "Agent attempt"}</span> <IdValue id={e.attempt_id} label="attempt ID" /> <span className={styles.attemptStatus}>{humanize(ended ?? e.status)}</span></p>
-    {e.ran_with && <RanWithLine ranWith={e.ran_with} />}
-    <p className={styles.agentLinks}><span>Session</span> <IdValue id={e.session_id} label="session ID" />
+    <p className={styles.agentHead}><span>{ended ? "Holding attempt" : "Agent attempt"}</span> <IdValue id={e.attempt_id} label="attempt ID" /> <span className={styles.attemptStatus}>{humanize(ended ?? e.status)}</span>
+      <span className={styles.agentSession}><span>Session</span> <IdValue id={e.session_id} label="session ID" /></span>
       <Link className={styles.terminalLink} to={{ pathname: `/agents/${encodeURIComponent(e.session_id)}`, search: linkSearch }}>{ended ? "Open session" : "Open terminal"}</Link></p>
+    {e.ran_with && <RanWithLine ranWith={e.ran_with} />}
   </div>;
 }

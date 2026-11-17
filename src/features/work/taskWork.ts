@@ -36,8 +36,10 @@ export type RanWith = { role: string; level: string; provider: string; model: st
 const RAN_WITH_KEYS = ["role", "level", "provider", "model", "reasoning", "harness", "execution_profile", "snapshot_digest"] as const;
 export function adaptRanWith(v: unknown): RanWith | undefined {
   if (v === undefined || v === null) return undefined;
-  check(isRecord(v) && RAN_WITH_KEYS.every(key => text(v[key], 256) || (key === "snapshot_digest" && v[key] === null)));
-  return Object.fromEntries(RAN_WITH_KEYS.map(key => [key, v[key]])) as RanWith;
+  // The server bounds none of these strings and fills an old attempt's from its launch record, so an empty one is kept
+  // as reported (shown as "unknown") instead of failing the whole Status or Attempts read.
+  check(isRecord(v) && RAN_WITH_KEYS.every(key => (typeof v[key] === "string" && (v[key] as string).length <= 256) || (key === "snapshot_digest" && v[key] === null)));
+  return Object.fromEntries(RAN_WITH_KEYS.map(key => [key, v[key] === "" && key === "snapshot_digest" ? null : v[key]])) as RanWith;
 }
 /** The role a task runs as (spec 0014 §5.5): the one the task names, or the project's default when it names none. */
 export type TaskRole = { id: string; source: "task" | "project_default" };
@@ -52,13 +54,26 @@ export const READINESS_STATES = ["draft", "completed", "canceled", "running", "h
 /** A known readiness state, or `unrecognized` for a value a newer server sends that this bundle doesn't know (W77). */
 export type WorkReadiness = (typeof READINESS_STATES)[number] | "unrecognized";
 /** Codes AQ gives for a hold; a newer code is kept as reported and its message still shown. */
-export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held", "role_disabled", "role_missing", "level_missing"] as const;
+export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held", "role_disabled", "role_missing", "level_missing", "startup_over_limit", "platform_text_missing"] as const;
+/**
+ * The startup text of a refused offer (`startup_over_limit`, aq-server spec 0014 §6.1): it is `bytes` long, over `limit`,
+ * the smaller of the execution profile's `startup_context_bytes` and the project's `context_bytes` ceiling; `limiting`
+ * says which of the two.
+ */
+export type StartupOverLimit = { bytes: number; limit: number; execution_profile: string; limiting: "startup_context_bytes" | "project_context_bytes" };
 /**
  * Why AQ is not running the task (`readiness.reasons`, at most 4). A stopped or finished attempt that still holds it
  * names that attempt (`attempt_id`, `status`). A role hold (`role_disabled`, `role_missing`) names the `role` and a
- * level hold (`level_missing`) the `level`; those have no attempt.
+ * level hold (`level_missing`) the `level`; those have no attempt. Nor has a refused offer: `startup_over_limit` carries
+ * its two numbers (`startup`), `platform_text_missing` the `environment`.
  */
-export type HoldReason = { code: string; message: string; attempt_id?: string; status?: string; hold_reason?: string; role?: string; level?: string };
+export type HoldReason = { code: string; message: string; attempt_id?: string; status?: string; hold_reason?: string; role?: string; level?: string; startup?: StartupOverLimit; environment?: string };
+const bytes = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+/** The numbers of a `startup_over_limit` reason; a reason without them all still shows its message. */
+function startupOverLimit(r: Record<string, unknown>): StartupOverLimit | undefined {
+  if (r.code !== "startup_over_limit" || !bytes(r.bytes) || !bytes(r.limit) || !text(r.execution_profile, 128)) return undefined;
+  return { bytes: r.bytes, limit: r.limit, execution_profile: r.execution_profile, limiting: r.limiting === "project_context_bytes" ? "project_context_bytes" : "startup_context_bytes" };
+}
 /** `satisfied` is true only for a completed blocker, null when the blocker isn't in the read Context. */
 export type TaskBlocker = { edge_id: string; id: string; title: string | null; task_state: string | null; satisfied: boolean | null };
 /** The route on a task (`routing.route` of the work read; spec 0011 §3): its class, e.g. `standard-high`, and who may take the task. */
@@ -117,8 +132,10 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
       check(r.attempt_id === undefined ? r.status === undefined : validGraphId(r.attempt_id) && text(r.status, 64));
       check(r.hold_reason === undefined || (typeof r.hold_reason === "string" && r.hold_reason.length >= 1 && r.hold_reason.length <= 96));
       check((r.role === undefined || text(r.role, 128)) && (r.level === undefined || text(r.level, 128)));
+      const startup = startupOverLimit(r);
       return { code: r.code as string, message: r.message as string, ...(r.attempt_id === undefined ? {} : { attempt_id: r.attempt_id as string, status: r.status as string }),
-        ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }), ...(r.role === undefined ? {} : { role: r.role as string }), ...(r.level === undefined ? {} : { level: r.level as string }) };
+        ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }), ...(r.role === undefined ? {} : { role: r.role as string }), ...(r.level === undefined ? {} : { level: r.level as string }),
+        ...(startup ? { startup } : {}), ...(r.code === "platform_text_missing" && text(r.environment, 512) ? { environment: r.environment } : {}) };
     });
     const routing = adaptTaskRouting(value.routing), role = adaptTaskRole(value.role);
     check(value.completed_without_changes === undefined || value.completed_without_changes === true);

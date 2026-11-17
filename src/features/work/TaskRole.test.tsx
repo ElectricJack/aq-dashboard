@@ -159,3 +159,50 @@ test("an attempt from before roles has no such record, and Status shows none", a
   await waitFor(() => expect(status(region).querySelector("[data-holding-attempt]")).not.toBeNull());
   expect(status(region).querySelector("[data-ran-with]")).toBeNull();
 });
+
+test("a refused offer reads Held with the startup text's two numbers, in the badge and under AQ's sentence", async () => {
+  const message = "AQ does not offer this task: its startup text is 70112 bytes, over the limit of 65536 bytes (startup_context_bytes of execution profile `sandbox`). Shorten the task, the role or the project's notes, or raise that limit.";
+  server.use(work(FIXTURE_IDS.approve, { role: { id: "developer", source: "project_default" }, readiness: { state: "held", blockers: [], complete: true, reasons: [
+    { code: "startup_over_limit", bytes: 70112, limit: 65536, execution_profile: "sandbox", profile_limit: 65536, project_ceiling: 262144, limiting: "startup_context_bytes", message, recorded_at_ms: 1794000000000 }] } }));
+  const region = await open(FIXTURE_IDS.approve);
+  expect(await within(region).findByText(/^Held/, { selector: "[data-task-status] span" })).toHaveTextContent("Held · startup text over its limit (70,112 of 65,536 bytes)");
+  const reason = within(status(region)).getByRole("list", { name: "Why the task is held" }).querySelector("[data-hold-reason=startup_over_limit]")!;
+  expect(within(reason as HTMLElement).getByText(message)).toBeVisible();
+  expect(reason.querySelector("[data-startup-over-limit]")).toHaveTextContent("Startup text 70,112 of 65,536 bytes · the limit is startup_context_bytes of execution profile sandbox");
+  expect(within(status(region)).queryByText(/an attempt that has stopped or finished still holds it/)).toBeNull();
+});
+
+test("an environment without platform text, and the project's ceiling as the limit, are said the same way", async () => {
+  const text = "AQ does not offer this task: the server has no platform text for environment `sandbox@3`, and an agent is not launched without it.";
+  const over = "AQ does not offer this task: its startup text is 40000 bytes, over the limit of 32768 bytes (the project's context_bytes ceiling). Shorten the task, the role or the project's notes, or raise that limit.";
+  server.use(work(FIXTURE_IDS.approve, { role: { id: "developer", source: "project_default" }, readiness: { state: "held", blockers: [], complete: true, reasons: [
+    { code: "platform_text_missing", environment: "sandbox@3", message: text, recorded_at_ms: 1794000000000 },
+    { code: "startup_over_limit", bytes: 40000, limit: 32768, execution_profile: "sandbox", profile_limit: 65536, project_ceiling: 32768, limiting: "project_context_bytes", message: over, recorded_at_ms: 1794000000000 }] } }));
+  const region = await open(FIXTURE_IDS.approve);
+  expect(await within(region).findByText(/^Held/, { selector: "[data-task-status] span" })).toHaveTextContent("Held · no platform text for its environment");
+  expect(within(status(region)).getByText(text)).toBeVisible();
+  expect(status(region).querySelector("[data-startup-over-limit]")).toHaveTextContent("Startup text 40,000 of 32,768 bytes · the limit is the project's context_bytes ceiling");
+});
+
+test("density: the role shares the route's line, and the holding attempt, its session and the terminal link share one", async () => {
+  const region = await open(FIXTURE_IDS.replay);
+  const role = await waitFor(() => { const found = status(region).querySelector("[data-task-role]"); expect(found).not.toBeNull(); return found!; });
+  const line = role.parentElement!;
+  expect(line.closest("[data-task-route]")).toHaveAttribute("data-task-route", "routed");
+  expect([...line.children].map(child => child.textContent)).toEqual(["Role Fixture developer · project default", "Route Standard · High · lane backend"]);
+  const agent = status(region).querySelector<HTMLElement>("[data-holding-attempt]")!;
+  const head = within(agent).getByText("Agent attempt").closest("p")!;
+  expect(within(head).getByRole("button", { name: "Copy attempt ID" })).toBeVisible();
+  expect(within(head).getByRole("button", { name: "Copy session ID" })).toBeVisible();
+  expect(within(head).getByRole("link", { name: "Open terminal" })).toBeVisible();
+  // What it ran with is the one line under it.
+  expect([...agent.children].map(child => child.tagName)).toEqual(["P", "P"]);
+  expect(agent.children[1]).toHaveAttribute("data-ran-with");
+});
+
+test("a task with no route to show has its role on a line of its own", async () => {
+  server.use(work(FIXTURE_IDS.approve, { role: { id: "developer", source: "project_default" }, routing: { state: "unrouted" } }));
+  const region = await open(FIXTURE_IDS.approve);
+  const role = await waitFor(() => { const found = status(region).querySelector("[data-task-role]"); expect(found).toHaveTextContent("Role Fixture developer · project default"); return found!; });
+  expect(role.closest("[data-task-route]")).toBeNull();
+});
