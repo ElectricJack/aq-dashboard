@@ -185,20 +185,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     }
   }
 
-  if (showWaiting(view, opts.ready)) {
-    const firstReason = view.waiting.reasons[0]?.message ?? "";
-    const sub = view.waiting.agents.length > 0 ? `${view.waiting.agents.length} agents · ${firstReason}` : `${opts.ready} ready tasks · ${firstReason}`;
-    // The first reason is on the sub line; every further reason gets its own line.
-    const more = view.waiting.reasons.slice(1).map(x => x.message).join("\n");
-    nodes.push(node({ ...base("waiting", { kind: "waiting" }, "waiting"), sub, reason: more || null }));
-    link("server", "waiting", { style: { strokeDasharray: "4 4", stroke: "#c7802e" } });
-    for (const w of view.waiting.agents) {
-      const s: Selection = { kind: "waitingAgent", taskId: w.taskId };
-      const label = `${w.provider ?? "task"} · ${w.intelligenceClass ?? w.title}${w.reasons[0] ? ` — ${w.reasons[0].message}` : ""}`;
-      nodes.push(node({ ...base("waitingAgent", s, label), intelligenceClass: w.intelligenceClass, provider: w.provider, tooltip: label }));
-      link("waiting", selectionId(s), { style: { strokeDasharray: "3 3" } });
-    }
-  }
+  // Work waiting for a slot is not drawn in the tree: the headline and the server pane report it.
   return { nodes, edges };
 }
 

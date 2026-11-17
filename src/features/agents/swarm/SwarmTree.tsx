@@ -12,7 +12,7 @@ const edgeTypes = { bus: BusEdge };
 // The colours the cards carry: an agent's level is the bar on its card.
 const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean; amber?: boolean }[] = [
   { label: "simple", color: "#2aa88a" }, { label: "standard", color: "#6f8fe0" }, { label: "complex", color: "#e0733d" }, { label: "deep", color: "#b96ad6" }, { label: "no level", color: "#6b7280" },
-  { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "starting or finishing", color: "transparent", dashed: true, amber: true }, { label: "slot held (starting or settling)", color: "#c7802e" }, { label: "free slot", color: "transparent", dashed: true }, { label: "waiting for a slot", color: "transparent", dashed: true },
+  { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "starting or finishing", color: "transparent", dashed: true, amber: true }, { label: "slot held (starting or settling)", color: "#c7802e" }, { label: "free slot", color: "transparent", dashed: true },
 ];
 
 /** The part of the React Flow instance the tree uses. */
@@ -52,7 +52,7 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect, onCl
   // place of one size, so attempts starting and finishing do not change it.
   const shape = useMemo(() => {
     const b = fitBounds(laidOut.nodes, graph.edges);
-    return `${Math.round(b.width)}x${Math.round(b.height)}|${laidOut.nodes.filter(n => n.data.kind === "machine" || n.data.kind === "node" || n.data.kind === "waiting").map(n => n.id).join(",")}`;
+    return `${Math.round(b.width)}x${Math.round(b.height)}|${laidOut.nodes.filter(n => n.data.kind === "machine" || n.data.kind === "node").map(n => n.id).join(",")}`;
   }, [laidOut, graph]);
   const size = () => ({ width: section.current?.clientWidth ?? 0, height: section.current?.clientHeight ?? 0 });
   /** Show the whole tree, as large as it fits. */

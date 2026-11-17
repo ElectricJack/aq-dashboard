@@ -55,7 +55,7 @@ describe("swarm tree", () => {
     // One card per slot: local-1's three are busy, local-2 has one of its two free, and the holding node offers none.
     expect(screen.getAllByRole("button", { name: /^Slot \d free$/ }).map(b => b.getAttribute("aria-label"))).toEqual(["Slot 2 free"]);
     expect(screen.getAllByRole("button").filter(b => b.getAttribute("data-kind") === "agent")).toHaveLength(4);
-    expect(screen.getAllByRole("button", { name: /^waiting/ })).toHaveLength(1);
+    expect(screen.queryAllByRole("button", { name: /^waiting/ })).toHaveLength(0);
     expect(screen.getByRole("list", { name: "Legend" })).toBeInTheDocument();
   });
   test("offline machine renders dashed and greyed without meters", async () => {
@@ -67,10 +67,9 @@ describe("swarm tree", () => {
   });
   test("codex pill has the provider ring", async () => {
     tree();
-    // One running agent and one waiting agent carry the same label.
-    const pills = [await screen.findByRole("button", { name: /^Refactor telemetry fast/ }), ...screen.getAllByRole("button", { name: /^codex · fast/ })];
-    expect(pills.length).toBeGreaterThanOrEqual(2);
-    for (const pill of pills) expect(pill).toHaveAttribute("data-provider", "codex");
+    expect(await screen.findByRole("button", { name: /^Refactor telemetry fast/ })).toHaveAttribute("data-provider", "codex");
+    // Waiting agents are not drawn in the tree.
+    expect(screen.queryAllByRole("button", { name: /^codex · fast/ })).toHaveLength(0);
   });
   test("clicking a card selects it", async () => {
     const onSelect = tree();

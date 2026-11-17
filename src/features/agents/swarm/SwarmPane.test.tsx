@@ -79,14 +79,11 @@ test("free slot on a holding machine explains why", async () => {
   expect(fact("Fix")).toHaveTextContent("Wait for the next report; restart the worker if none arrives");
 });
 
-test("waiting agent pane gives why and fix", async () => {
+test("the tree draws no waiting card and no waiting agents", async () => {
   renderApp("/agents/swarm");
-  await card(/^waiting/);
-  const pills = screen.getAllByRole("button", { name: /^claude · deep — / }).filter(b => b.getAttribute("data-kind") === "waitingAgent");
-  expect(pills[0]).toHaveAttribute("title", "claude · deep — Every slot on an eligible machine is busy");
-  fireEvent.click(pills[0]!);
-  await waitFor(() => expect(fact("Why")).toHaveTextContent("Every slot on an eligible machine is busy"));
-  expect(fact("Fix")).toHaveTextContent("Wait for a running agent to finish, or add a machine");
+  await card(/^AQ server/);
+  expect(screen.queryAllByRole("button", { name: /^waiting/ })).toHaveLength(0);
+  expect(screen.queryAllByRole("button").filter(b => (b.getAttribute("data-kind") ?? "").startsWith("waiting"))).toHaveLength(0);
 });
 
 test("agent pane opens a terminal with control requested", async () => {

@@ -23,7 +23,10 @@ for (const vp of VIEWPORTS) {
       await page.goto("/agents/swarm");
       // The tree opens fitted to the viewport; at phone width off-screen cards are attached, not necessarily in view.
       await expect(page.getByRole("button", { name: /^AQ server/ })).toBeInViewport();
-      for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/, /^waiting/]) await expect(page.getByRole("button", { name })).toBeAttached();
+      for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/]) await expect(page.getByRole("button", { name })).toBeAttached();
+      // Work waiting for a slot is not drawn in the tree.
+      await expect(page.getByRole("button", { name: /^waiting/ })).toHaveCount(0);
+      await expect(page.locator('[data-kind="waiting"], [data-kind="waitingAgent"]')).toHaveCount(0);
       // One card per slot. The holding node's two slots say holding, not free; the only free slot is local-2's second.
       await expect(page.getByRole("button", { name: /^Slot \d holding$/ })).toHaveCount(2);
       await expect(page.getByRole("button", { name: /^Slot \d free$/ })).toHaveCount(1);

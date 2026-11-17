@@ -98,10 +98,15 @@ describe("buildSwarmGraph", () => {
     // Within its slots a node is not flagged.
     expect(byId(build(), "node:local-1")!.data).toMatchObject({ sub: "3 of 3 slots busy", reason: null, over: false });
   });
-  it("waiting branch only with ready work and reasons", () => {
+  it("draws no waiting branch, whatever is ready or waiting", () => {
     expect(showWaiting(view(), 0)).toBe(false);
-    expect(byId(build(view(), 0), "waiting")).toBeUndefined();
-    expect(byId(build(view(), 3), "waiting")!.data.sub).toBe("3 ready tasks · Every slot on an eligible machine is busy");
+    expect(showWaiting(view(), 3)).toBe(true);
+    const v = view();
+    v.waiting.agents = [{ taskId: "t9", title: "Fix it", project: { id: "p", label: "proj" }, provider: "claude", intelligenceClass: "standard", reasons: [], since: null }];
+    for (const g of [build(view(), 0), build(view(), 3), build(v, 3)]) {
+      expect(g.nodes.filter(n => n.data.kind === "waiting" || n.data.kind === "waitingAgent")).toEqual([]);
+      expect(g.edges.filter(e => e.source === "waiting" || e.target === "waiting")).toEqual([]);
+    }
   });
   it("layout is top-down", () => {
     const g = build(); const placed = layoutSwarm(g.nodes, g.edges);
@@ -119,23 +124,6 @@ describe("buildSwarmGraph", () => {
   it("a stale view draws no animated edge", () => {
     expect(build().edges.some(e => e.animated)).toBe(true);
     expect(buildSwarmGraph(view(), { host: "h", ready: 0, now: NOW, stale: true }).edges.some(e => e.animated)).toBe(false);
-  });
-  it("waiting agent pills carry the first reason and a full-text tooltip", () => {
-    const v = view(); const reason = { code: "no_free_slot", message: "desktop compute-bound", remedy: null };
-    v.waiting.agents = [{ taskId: "t9", title: "Fix it", project: { id: "p", label: "proj" }, provider: "claude", intelligenceClass: "standard", reasons: [reason], since: null }];
-    const pill = byId(buildSwarmGraph(v, { host: "h", ready: 0, now: NOW }), "waiting-agent:t9")!;
-    expect(pill.data.label).toBe("claude · standard — desktop compute-bound");
-    expect(pill.data.tooltip).toBe(pill.data.label);
-  });
-  it("the waiting card is sized from its lines and dagre gets that height", () => {
-    const one = byId(build(view(), 3), "waiting")!;
-    const v = view(); v.waiting.reasons.push({ code: "no_machine_online", message: "No machine is online", remedy: null }, { code: "no_eligible_machine", message: "No machine can take work", remedy: null });
-    const many = byId(build(v, 3), "waiting")!;
-    expect(many.data.reason).toBe("No machine is online\nNo machine can take work");
-    expect(many.data.box.height).toBeGreaterThan(one.data.box.height);
-    expect(one.data.box.height).toBeGreaterThan(48);
-    const g = build(v, 3); const placed = layoutSwarm(g.nodes, g.edges);
-    expect(placed.find(n => n.id === "waiting")!.height).toBe(many.data.box.height);
   });
   it("an agent card leads with the task's title, then role and level, then model and effort, and carries its level's colour", () => {
     const v = view();
