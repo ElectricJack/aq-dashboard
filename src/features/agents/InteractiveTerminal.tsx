@@ -223,7 +223,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     : !allowControl ? controlCapability.enabled ? 'Terminal control is not offered by this AQ server' : controlCapability.reason
     : state.paused ? manual ? null : 'Input delivery is uncertain, so typing is paused. Reconnect to check this terminal again.'
     : !state.connected ? 'Connecting to the terminal for input.'
-    : 'This terminal does not accept input: its AQ terminal policy has input turned off.';
+    : "This terminal is view-only: this agent's harness runs one prompt and exits, so it takes no typed input.";
   const controlReasonId = `${ids}-control-reason`;
   const reconnect = () => { if (!inputAllowed.current) return; if(manual) uncertain.current=false; setWatching(true); setAttempt(n => n + 1); };
   const disconnect = () => { void connection.current?.release(); setWatching(false); setState({ message: 'Disconnected', controlling: false, connected: false, canControl: false, paused: state.paused }); };
