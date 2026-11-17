@@ -23,12 +23,12 @@ test("reads the exact Markdown and its revision", async () => {
   server.use(http.get(ROUTING_DOCUMENT_PATH, () => HttpResponse.json({ markdown: "", revision: "0" })));
   expect(await readRoutingDocument()).toEqual({ markdown: "", revision: "0" });
 });
-test("a malformed revision or a text over 128 KiB of UTF-8 fails the read", async () => {
-  for (const bad of [{ ...held(), revision: "01" }, { ...held(), markdown: 5 }, { ...held(), markdown: "🙂".repeat(40_000) }, { routing_markdown: "old shape", revision: "4" }, null]) {
+test("a malformed revision or a text over the transport bound fails the read; a document as large as the owner's limit allows is read", async () => {
+  for (const bad of [{ ...held(), revision: "01" }, { ...held(), markdown: 5 }, { ...held(), markdown: "a".repeat(8 * 1024 * 1024 + 1) }, { routing_markdown: "old shape", revision: "4" }, null]) {
     server.use(http.get(ROUTING_DOCUMENT_PATH, () => HttpResponse.json(bad)));
     await expect(readRoutingDocument()).rejects.toThrow(ContractError);
   }
-  server.use(http.get(ROUTING_DOCUMENT_PATH, () => HttpResponse.json({ ...held(), markdown: "a".repeat(128 * 1024) })));
+  server.use(http.get(ROUTING_DOCUMENT_PATH, () => HttpResponse.json({ ...held(), markdown: "a".repeat(512 * 1024) })));
   await expect(readRoutingDocument()).resolves.toMatchObject({ revision: "4" });
 });
 test("a save is one PUT of the text, the revision it read and its operation id, and nothing else", async () => {

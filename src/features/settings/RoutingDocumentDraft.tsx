@@ -3,7 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ApiError } from "../../api/client";
-import { inspectRoutingDocumentSave, MAX_ROUTING_DOCUMENT_BYTES, readRoutingDocument, saveRoutingDocument, type RoutingDocument, type SaveRoutingDocument } from "../../api/routingDocument";
+import { inspectRoutingDocumentSave, readRoutingDocument, saveRoutingDocument, type RoutingDocument, type SaveRoutingDocument } from "../../api/routingDocument";
+import { useProfileLimits } from "../../api/roleSettings";
 import { ActionButton } from "../../components/layout/Workspace";
 import { useIntelligenceDraft } from "./IntelligenceDrafts";
 import styles from "./Intelligence.module.css";
@@ -11,7 +12,7 @@ import styles from "./Intelligence.module.css";
 /** Every read of the routing document shares this resource name. */
 export const ROUTING_DOCUMENT = "routing-document";
 type FieldDraft = { base: string; value: string };
-type RoutingDraftContext = { policy: FieldDraft | null; locked: boolean; setPolicy(base: string, value: string): void; feedback: ReactNode };
+type RoutingDraftContext = { policy: FieldDraft | null; locked: boolean; /** The bytes one document may have (Settings → Limits); null while that is not known, and then only AQ checks the size. */ limit: number | null; setPolicy(base: string, value: string): void; feedback: ReactNode };
 const Context = createContext<RoutingDraftContext | null>(null);
 export function useRoutingDocumentDraft() {
   const context = useContext(Context);
@@ -31,7 +32,9 @@ export function RoutingDocumentDraftProvider({ children }: { children: ReactNode
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const dirty = !!policy;
-  const invalid = !!policy && new TextEncoder().encode(policy.value).length > MAX_ROUTING_DOCUMENT_BYTES;
+  // The server holds the routing document to the store's limit for one document.
+  const limit = useProfileLimits().data?.limits.documents.max_document_bytes ?? null;
+  const invalid = !!policy && limit !== null && new TextEncoder().encode(policy.value).length > limit;
   const locked = pending || !!unknown;
   function setPolicy(base: string, value: string) { setPolicyState(old => { const initial = old?.base ?? base; return value === initial ? null : { base: initial, value }; }); setNotice(null); }
   async function run(request: SaveRoutingDocument, inspect = false): Promise<boolean> {
@@ -68,5 +71,5 @@ export function RoutingDocumentDraftProvider({ children }: { children: ReactNode
   const feedback = <>{notice && <p className={styles.success} role="status">{notice}</p>}{error && <p className={styles.warning} role="alert">{error}</p>}
     {conflict && <ActionButton disabled={pending} onClick={() => { setPending(true); void readRoutingDocument().then(latest => { client.setQueryData(key, latest); setPolicyState(null); setConflict(false); setError(null); }).catch(() => setError("Could not reload settings. Your edits are preserved.")).finally(() => setPending(false)); }}>Reload the routing document</ActionButton>}
     {unknown && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void run(unknown, true)}>Check save status</ActionButton>{retrySame && <ActionButton disabled={pending} onClick={() => void run(unknown)}>Retry same save</ActionButton>}</div>}</>;
-  return <Context.Provider value={{ policy, locked: locked || coordinator.saving, setPolicy, feedback }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ policy, locked: locked || coordinator.saving, limit, setPolicy, feedback }}>{children}</Context.Provider>;
 }

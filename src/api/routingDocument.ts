@@ -13,13 +13,17 @@ import { ContractError, isRecord } from "./adapters/contract";
 export type RoutingDocument = { markdown: string; revision: string };
 export type SaveRoutingDocument = { markdown: string; expected_revision: string; operation_id: string };
 export type RoutingDocumentSaved = RoutingDocument & { disposition: "saved" | "unchanged" };
-export const MAX_ROUTING_DOCUMENT_BYTES = 128 * 1024;
+/**
+ * The most text a read may carry: the server's transport bound on these routes. What a save may hold is the store's
+ * `max_document_bytes` limit (Settings → Limits), which the server enforces in its own words.
+ */
+export const ROUTING_DOCUMENT_READ_BYTES = 8 * 1024 * 1024;
 
 export const ROUTING_DOCUMENT_PATH = "/api/settings/routing-document";
 const revision = (value: unknown): value is string => typeof value === "string" && value.length <= 128 && /^(0|[1-9]\d*)$/.test(value);
 function ensure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid routing document response"); }
 function shown(value: unknown): RoutingDocument {
-  ensure(isRecord(value) && revision(value.revision) && typeof value.markdown === "string" && new TextEncoder().encode(value.markdown).length <= MAX_ROUTING_DOCUMENT_BYTES);
+  ensure(isRecord(value) && revision(value.revision) && typeof value.markdown === "string" && value.markdown.length <= ROUTING_DOCUMENT_READ_BYTES);
   return { markdown: value.markdown, revision: value.revision };
 }
 /** The saves this page has sent, by operation id, so a retry or a status check sends exactly the same save. */

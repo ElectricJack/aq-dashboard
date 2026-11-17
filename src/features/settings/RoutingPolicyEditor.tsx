@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../api/client";
-import { MAX_ROUTING_DOCUMENT_BYTES, readRoutingDocument } from "../../api/routingDocument";
+import { readRoutingDocument } from "../../api/routingDocument";
 import { authorPlaybookSourceAgain, rollBackPlaybookSource, SOURCE_GAP_SENTENCES, type SourceView } from "../../api/playbookSources";
 import { queryKey } from "../../api/queryKeys";
 import { readRoutingPolicy, setRouting, type RoutingPolicyState } from "../../api/routing";
@@ -41,8 +41,8 @@ export function RoutingPolicyEditor({ pollMs = 2000 }: { /** How often to re-rea
         <div className={styles.document}>
           <label className={styles.label} htmlFor="routing-policy-markdown">Markdown</label>
           <textarea id="routing-policy-markdown" className={styles.editor} value={text} disabled={draft.locked} spellCheck={false} onChange={event => draft.setPolicy(query.data!.markdown, event.target.value)} />
-          <p className={styles.meta}>{bytes.toLocaleString()} / {MAX_ROUTING_DOCUMENT_BYTES.toLocaleString()} bytes</p>
-          {bytes > MAX_ROUTING_DOCUMENT_BYTES && <p className={styles.warning} role="alert">Policy must be at most 128 KiB in UTF-8.</p>}
+          <p className={styles.meta}>{bytes.toLocaleString()}{draft.limit === null ? "" : ` / ${draft.limit.toLocaleString()}`} bytes</p>
+          {draft.limit !== null && bytes > draft.limit && <p className={styles.warning} role="alert">The routing document must be at most {draft.limit.toLocaleString()} bytes in UTF-8, the limit for one document (Limits, on the Roles tab).</p>}
         </div>
         {asking && <PlaybookQuestion question={asking} />}
       </div>

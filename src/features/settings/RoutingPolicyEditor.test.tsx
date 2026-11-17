@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -22,6 +22,7 @@ const server = setupServer(
   http.get(routingPath, () => HttpResponse.json(switchState())),
   http.get(sourcePath, () => HttpResponse.json(bare)),
   http.get("/api/internal-work/runs", () => HttpResponse.json({ runs: [], next_cursor: null })),
+  http.get("/api/settings/profiles/limits", () => HttpResponse.json({ revision: "0", limits: { documents: { max_document_bytes: 65_536, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 }, snapshots_kept: 20, operations_kept: 200, refusals_kept: 1000 } })),
 );
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
@@ -73,10 +74,20 @@ test("checking an unknown save sends the exact operation again, which the server
   await screen.findByText("Routing document saved."); expect(requests).toHaveLength(2); expect(requests[1]).toEqual(requests[0]);
 });
 
-test("enforces the UTF-8 byte limit", async () => {
-  server.use(http.get(path, () => HttpResponse.json(snapshot()))); open();
-  fireEvent.change(await screen.findByLabelText("Markdown"), { target: { value: "é".repeat(65537) } });
-  expect(screen.getByRole("alert")).toHaveTextContent("128 KiB"); expect(registered.entry?.locked).toBe(true);
+test("enforces the store's limit for one document in UTF-8 bytes, and leaves the size to AQ when the limits cannot be read", async () => {
+  // aq-server 09ee5e98 `aq-role-settings/src/store.rs`: the routing document is held to `limits.documents.max_document_bytes`.
+  const documents = { max_document_bytes: 1000, max_set_bytes: 1_048_576, max_documents_per_kind: 128, max_name_bytes: 128, max_description_bytes: 2000 };
+  server.use(http.get(path, () => HttpResponse.json(snapshot())), http.get("/api/settings/profiles/limits", () => HttpResponse.json({ revision: "0", limits: { documents, snapshots_kept: 20, operations_kept: 200, refusals_kept: 1000 } })));
+  open();
+  expect(await screen.findByText("9 / 1,000 bytes")).toBeVisible();
+  fireEvent.change(screen.getByLabelText("Markdown"), { target: { value: "é".repeat(501) } });
+  expect(screen.getByRole("alert")).toHaveTextContent("at most 1,000 bytes"); expect(registered.entry?.locked).toBe(true);
+  cleanup();
+  server.use(http.get("/api/settings/profiles/limits", () => HttpResponse.json({ error: "internal", message: "no" }, { status: 500 })));
+  open();
+  fireEvent.change(await screen.findByLabelText("Markdown"), { target: { value: "é".repeat(100_000) } });
+  expect(await screen.findByText("200,000 bytes")).toBeVisible();
+  expect(screen.queryByRole("alert")).toBeNull(); expect(registered.entry?.locked).toBe(false);
 });
 
 test("the routing draft sends only its text, revision and operation id, and a reverted edit is not a change", async () => {
