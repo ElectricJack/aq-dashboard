@@ -50,10 +50,10 @@ describe("swarm tree", () => {
     // The hold is the node's own: its card gives the reason, its slot says holding rather than free, and the machine names it.
     expect(screen.getByRole("button", { name: /^studio-1, .*holding: Capability report expired/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^studio, local · .*holding: Capability report expired/ })).toHaveAttribute("data-state", "holding");
-    expect(screen.getByRole("button", { name: "holding" })).toHaveAttribute("data-kind", "free");
+    expect(screen.getAllByRole("button", { name: /^Slot \d holding$/ }).map(b => b.getAttribute("data-kind"))).toEqual(["free", "free"]);
     expect(screen.getByRole("button", { name: /^boat vm-a, cloud · booting/ })).toBeInTheDocument();
-    // One card per real slot: no node here reports a real total, so none draws spare "free" cards for its interactive-session cap.
-    expect(screen.queryAllByRole("button", { name: "free" })).toHaveLength(0);
+    // One card per slot: local-1's three are busy, local-2 has one of its two free, and the holding node offers none.
+    expect(screen.getAllByRole("button", { name: /^Slot \d free$/ }).map(b => b.getAttribute("aria-label"))).toEqual(["Slot 2 free"]);
     expect(screen.getAllByRole("button").filter(b => b.getAttribute("data-kind") === "agent")).toHaveLength(4);
     expect(screen.getAllByRole("button", { name: /^waiting/ })).toHaveLength(1);
     expect(screen.getByRole("list", { name: "Legend" })).toBeInTheDocument();

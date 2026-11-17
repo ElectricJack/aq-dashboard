@@ -20,7 +20,18 @@
 .card[data-kind="node"] .title { font-size: 15px; line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card[data-kind="machine"] .title, .card[data-kind="server"] .title { font-size: 15px; line-height: 19px; }
 .card[data-kind="free"] { background: transparent; color: var(--color-text-secondary); border: 1px dashed var(--color-text-secondary); }
-.card[data-kind="free"] .title, .card[data-kind="held"] .title { font-size: 17px; line-height: 22px; font-weight: 600; }
+.card[data-kind="held"] .title { font-size: 17px; line-height: 22px; font-weight: 600; }
+/* A free slot is a smaller, quieter card in the middle of its slot's place, so the busy slots are what the eye finds. */
+.card[data-kind="free"] { padding: 14px 8px 4px; }
+.card[data-kind="free"] .title { font-size: 15px; line-height: 19px; font-weight: 500; }
+/* A worker node and its slots are one box: the frame behind them. */
+.frameNode { pointer-events: none !important; cursor: default; }
+.frame { box-sizing: border-box; inline-size: 100%; block-size: 100%; border: 1px solid var(--color-border); border-radius: 12px; background: color-mix(in srgb, var(--color-panel) 55%, transparent); }
+/* An agent card's slot is its first line, so the title keeps the card's width. */
+.card[data-kind="agent"] .slot { position: static; order: -1; display: block; text-align: start; line-height: 13px; }
+/* More attempts than slots: the node and each row beyond its slots say so. */
+.card[data-over] { border-color: #c7802e; }
+.card[data-over] .slot { color: var(--color-attention); }
 .card[data-kind="free"][data-state="holding"], .card[data-kind="free"][data-state="booting"] { border-color: #c7802e; color: var(--color-attention); opacity: 1; }
 /* Held: occupied, so a solid amber border; no agent yet, so no level colour. */
 .card[data-kind="held"] { background: var(--color-panel); color: var(--color-attention); border: 1px solid #c7802e; border-inline-start-width: 6px; }

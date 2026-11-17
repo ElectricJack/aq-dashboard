@@ -21,7 +21,7 @@ export type AgentView = { manual?: import("../../features/agents/swarm/manualAge
   ranWith?: RanWithView | null;
   /** Last terminal output, when the read carries it. Output is not progress. */
   lastOutputAt?: string | null;
-  /** The node slot the attempt holds, from one, when the server numbers slots. */
+  /** The node slot the attempt holds, from one; absent from a row that names none. */
   slot?: number };
 export type RanWithView = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string };
 export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
@@ -29,7 +29,7 @@ export type NodeView = { id: string; name: string; health: "online" | "offline" 
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
   /** `held`: slots an attempt holds for which the read names no agent (occupied minus the agents listed). */
   slots: { total: number | null; occupied: number; idle: number | null; held?: number; scope?: string; target?:number };
-  /** The node's real slot count: set only when the server marks `slots.total` as that count, or numbers its agents' slots. */
+  /** The node's slot count as the server reports it (`slots.total`); absent when it reports none. The interactive fleet's per-project limits never replace it. */
   capacity?: number;
   holding: HoldReasonView[]; agents: AgentView[] };
 export type MachineControlView = { desired: "running" | "draining" | "stopped"; generation: string; since: string | null; pendingHandoffs: number };
@@ -102,13 +102,12 @@ export function adaptAgentRanWith(v: unknown): RanWithView | null {
 
 const slotIndex = (v: unknown): number | null => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 4096 ? v : null);
 /**
- * The node's real slot count, or null. Today `slots.total` is the cap on interactive sessions and a node runs one queued
- * task, so the total is believed only when the server marks it (`slots.basis: "attempts"`) or numbers its agents' slots.
+ * The node's slot count, or null when the server does not report one (an old worker). `slots.total` is the node's one
+ * slot count, a per-node Setting, shared by queued tasks and hand-started sessions.
  */
-function realCapacity(slots: Record<string, unknown>, agents: AgentView[]): number | null {
+function slotCount(slots: Record<string, unknown>): number | null {
   const total = num(slots.total);
-  if (total === null || !Number.isInteger(total) || total < 0) return null;
-  return slots.basis === "attempts" || agents.some(a => a.slot !== undefined) ? total : null;
+  return total === null || !Number.isInteger(total) || total < 0 ? null : total;
 }
 
 function agent(a: SwarmAgent): AgentView {
@@ -130,7 +129,7 @@ function agent(a: SwarmAgent): AgentView {
 function node(n: SwarmNode): NodeView {
   const slots = isRecord(n.slots) ? n.slots : { total: null, occupied: 0, idle: null };
   const agents = list<SwarmAgent>(n.agents).filter(isRecord).map(agent);
-  const capacity = realCapacity(slots as Record<string, unknown>, agents);
+  const capacity = slotCount(slots as Record<string, unknown>);
   return {
     ...(capacity === null ? {} : { capacity }),
     id: String(n.node?.id ?? ""), name: String(n.name ?? ""),
@@ -140,7 +139,7 @@ function node(n: SwarmNode): NodeView {
     sandboxTemplates: list<unknown>(n.sandbox_templates).filter((t): t is string => typeof t === "string"),
     agentChannel: oneOf(n.agent_channel, ["ready", "unavailable", "unreported"] as const, "unreported"),
     lastSeenAt: text(n.last_seen_at),
-    // The server counts every attempt that holds the worker's slot; it lists an agent only while that agent runs.
+    // `held`: slots the server counts as occupied for which it lists no agent row.
     slots: { total: num(slots.total), occupied: num(slots.occupied) ?? 0, idle: num(slots.idle), held: Math.max(0, (num(slots.occupied) ?? 0) - agents.length) },
     holding: holds(n.holding), agents,
   };

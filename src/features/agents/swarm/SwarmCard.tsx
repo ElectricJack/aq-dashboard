@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import { BaseEdge, Handle, Position, type EdgeProps, type Node, type NodeProps } from "@xyflow/react";
-import type { SwarmCardData } from "./graph";
+import { NO_SLOT, type SwarmCardData } from "./graph";
 import { SLOT_LABEL, clock } from "./slots";
 import styles from "./Swarm.module.css";
 
@@ -25,11 +25,11 @@ export function SwarmCard({ data }: NodeProps<Node<SwarmCardData>>) {
           meters are), so no name changes every second. */}
       <button type="button" className={pill ? `${styles.card} ${styles.pill}` : styles.card} data-kind={data.kind} data-state={data.state ?? undefined}
         data-machine-kind={data.machineKind ?? undefined} data-class={pill ? data.intelligenceClass ?? "none" : undefined} data-level={agent ? agent.level ?? "none" : undefined}
-        data-phase={agent?.phase} data-provider={pill || agent ? data.provider ?? undefined : undefined}
+        data-phase={agent?.phase} data-over={data.over || undefined} data-provider={pill || agent ? data.provider ?? undefined : undefined}
         tabIndex={-1} title={data.tooltip ?? (pill ? data.label : undefined)}
         {...(agent ? {} : { "aria-label": data.meters ? `${data.ariaLabel}, ${data.meters.map(m => `${m.label} ${m.percent}%`).join(", ")}` : data.ariaLabel })}>
-        {data.slot !== null && <><span className={styles.slot} aria-hidden={agent ? undefined : true}>{`Slot ${data.slot}`}</span>{agent && " "}</>}
-        <span className={styles.title} aria-hidden={agent ? undefined : true}>{data.label}</span>
+        {!agent && (data.slot !== null || (data.over && data.kind !== "node")) && <><span className={styles.slot} aria-hidden="true">{data.slot !== null ? `Slot ${data.slot}` : NO_SLOT}</span>{" "}</>}
+        <span className={styles.title} data-part="title" aria-hidden={agent ? undefined : true}>{data.label}</span>
         {agent ? <>
           {/* Title first and large, then role and level with the phase and the clock, then model and effort. */}
           {" "}<span className={styles.foot}>
@@ -38,6 +38,8 @@ export function SwarmCard({ data }: NodeProps<Node<SwarmCardData>>) {
             {elapsed && <span className={styles.clock} data-clock={elapsed} aria-hidden="true" />}
           </span>
           {" "}<span className={styles.sub}>{agent.what}</span>
+          {/* The slot is the card's first line on screen and the last words of its name. */}
+          {(data.slot !== null || data.over) && <>{" "}<span className={styles.slot}>{data.slot !== null ? `Slot ${data.slot}` : NO_SLOT}</span></>}
         </> : <>
           {data.sub && <>{" "}<span className={styles.sub} aria-hidden="true">{data.sub}</span></>}
           {data.reason && <>{" "}<span className={styles.reason} aria-hidden="true">{data.reason}</span></>}
@@ -55,6 +57,11 @@ export function SwarmCard({ data }: NodeProps<Node<SwarmCardData>>) {
       {!["agent", "free", "held", "waitingAgent"].includes(data.kind) && <Handle type="source" position={Position.Bottom} isConnectable={false} style={handle} />}
     </>
   );
+}
+
+/** React Flow custom node "frame": the box behind a worker node and its slot cards. Decoration only. */
+export function SlotFrame() {
+  return <div className={styles.frame} aria-hidden="true" />;
 }
 
 /**

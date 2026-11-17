@@ -2,7 +2,7 @@ import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { agentClassLabel, type AgentView, type MachineView, type NodeView, type SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
-import { SLOT_LABEL, agentLines, agentState, heldCount, holdingNodes, levelKey, machineSlots, nodeSlots, nodeStanding, plural, shownMachineState, slotCapacity, taskLabel, type Level } from "./slots";
+import { SLOT_LABEL, agentLines, agentState, busyOf, busyOnWorkers, heldCount, holdingNodes, levelKey, machineSlots, nodeBusy, nodeSlots, nodeStanding, overSlots, shownMachineState, slotCapacity, slotColumns, taskLabel, type Level } from "./slots";
 
 export type Selection =
   | { kind: "server" } | { kind: "machine"; machineId: string } | { kind: "node"; nodeId: string }
@@ -18,8 +18,10 @@ interface CardFields {
   intelligenceClass: "fast" | "standard" | "deep" | null; provider: string | null; ariaLabel: string;
   /** An agent card's facts; null for every other card. */
   agent: AgentCard | null;
-  /** The slot's number on its node, when the server numbers slots. */
+  /** The slot's number on its node, from one; null for a card that is not a slot, or a row that has none. */
   slot: number | null;
+  /** An attempt beyond its node's slots: drawn, and flagged. */
+  over: boolean;
   /** Full text for a truncated pill (title attribute). */
   tooltip: string | null;
   /** Layout box; the height follows the text lines so no card overflows. */
@@ -28,12 +30,12 @@ interface CardFields {
 export interface SwarmCardData extends CardFields, Record<string, unknown> {}
 export const CARD_SIZE: Record<CardKind | "machineMeters", { width: number; height: number }> = {
   server: { width: 160, height: 48 }, machine: { width: 240, height: 52 }, machineMeters: { width: 240, height: 88 },
-  // One size for every slot card, so the tree keeps its shape as attempts start and finish.
-  node: { width: 264, height: 48 }, agent: { width: 264, height: 98 }, free: { width: 264, height: 98 }, held: { width: 264, height: 98 },
+  // A busy slot is a full card; a free slot is a smaller, quieter one in the same place (`SLOT_CELL`).
+  node: { width: 264, height: 48 }, agent: { width: 264, height: 110 }, free: { width: 168, height: 56 }, held: { width: 264, height: 110 },
   waiting: { width: 190, height: 48 }, waitingAgent: { width: 230, height: 26 },
 };
-export const MAX_FREE_PILLS = 8;
-export const MAX_HELD_PILLS = 8;
+/** The place every slot card of a node takes, busy or free, so the tree keeps its shape as attempts start and finish. */
+export const SLOT_CELL = CARD_SIZE.agent;
 export const HELD_TEXT = "An attempt holds this slot and no agent is listed for it: the agent is starting, or it stopped and its result is being settled.";
 
 export function selectionId(s: Selection): string {
@@ -69,7 +71,7 @@ function node(card: Card): Node<SwarmCardData> {
   return { id: selectionId(card.selection), type: "card", position: { x: 0, y: 0 }, ariaLabel, data: { ...card, tooltip: card.tooltip ?? null, ariaLabel, box: boxFor(card) } };
 }
 const base = (kind: CardKind, selection: Selection, label: string): Card => ({
-  kind, selection, label, sub: null, reason: null, state: null, machineKind: null, meters: null, stale: false, intelligenceClass: null, provider: null, agent: null, slot: null,
+  kind, selection, label, sub: null, reason: null, state: null, machineKind: null, meters: null, stale: false, intelligenceClass: null, provider: null, agent: null, slot: null, over: false,
 });
 
 const NO_CHILDREN = new Set<MachineView["state"]>(["offline", "stopped", "booting"]);
@@ -80,7 +82,7 @@ function machineSub(m: MachineView, now: string): string {
     case "stopped": return `${m.kind} · stopped`;
     case "booting": return `${m.kind} · booting`;
     case "unknown": return `${m.kind} · state unknown`;
-    default: { const { slots, busy } = machineSlots(m); return `${m.kind} · ${m.hardware?.logicalCpus ?? "?"} cores · ${busy} of ${plural(slots, "slot")} busy`; }
+    default: return `${m.kind} · ${m.hardware?.logicalCpus ?? "?"} cores · ${busyOnWorkers(machineSlots(m))}`;
   }
 }
 /** A hold is the node's own: the machine names the nodes that hold in this response, and nothing when none does. */
@@ -92,6 +94,20 @@ function machineHold(m: MachineView): string | null {
 }
 const STANDING_TEXT = { holding: "holding", draining: "draining", stopped: "stopped", offline: "offline", booting: "booting", revoked: "revoked", unknown: "state unknown" } as const;
 const STANDING_STATE = { holding: "holding", draining: "holding", stopped: "stopped", offline: "offline", booting: "booting", revoked: "offline", unknown: "unknown" } as const;
+
+/** The tag on a row that has no slot of its node. */
+export const NO_SLOT = "No slot";
+/** What a worker node says under its name: what it is doing instead of taking work, or "3 of 8 slots busy". */
+export function nodeLine(m: MachineView, w: NodeView, now: string): string {
+  const why = nodeStanding(m, w), seen = w.lastSeenAt ?? m.lastSeenAt;
+  if (why.standing === "offline") return `offline${seen ? ` · last seen ${formatAge(now, seen)}` : ""}`;
+  if (why.standing && why.standing !== "holding") return STANDING_TEXT[why.standing];
+  return busyOf(nodeBusy(m, w), slotCapacity(w));
+}
+/** The flag on a node that holds more attempts than it has slots. */
+export function overText(m: MachineView, w: NodeView): string {
+  return `more agents than slots: ${nodeBusy(m, w)} on ${slotCapacity(w)}`;
+}
 
 /** The facts on an agent card: title first, then role and level, then model and effort. */
 export function agentCard(a: AgentView): AgentCard {
@@ -134,40 +150,36 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
   function addWorker(m: MachineView, w: NodeView, machineId: string) {
     const selection: Selection = { kind: "node", nodeId: w.id };
     const id = selectionId(selection);
-    const why = nodeStanding(m, w), cards = nodeSlots(m, w);
-    const busy = cards.filter(c => c.kind === "held" || (c.kind === "agent" && agentState(c.agent) !== "stopped")).length;
-    // The node says what it is doing instead of taking work, or how many of its real slots are busy.
-    const seen = w.lastSeenAt ?? m.lastSeenAt;
-    const sub = why.standing === "offline" ? `offline${seen ? ` · last seen ${formatAge(opts.now, seen)}` : ""}`
-      : why.standing && why.standing !== "holding" ? STANDING_TEXT[why.standing]
-      : `${busy} of ${plural(slotCapacity(w), "slot")} busy`;
-    nodes.push(node({ ...base("node", selection, w.name), sub, reason: w.holding[0] ? `holding: ${w.holding[0].message}` : null, state: why.standing ? STANDING_STATE[why.standing] : null }));
+    const why = nodeStanding(m, w), over = overSlots(m, w);
+    // The node says what it is doing instead of taking work, or how many of its slots are busy; and when it holds more than it has.
+    const reason = [w.holding[0] ? `holding: ${w.holding[0].message}` : null, over > 0 ? overText(m, w) : null].filter(Boolean).join("\n");
+    nodes.push(node({ ...base("node", selection, w.name), sub: nodeLine(m, w, opts.now), reason: reason || null, over: over > 0, state: why.standing ? STANDING_STATE[why.standing] : null }));
     link(machineId, id, { type: "bus" });
-    // One card per real slot, and one for every attempt the node holds: an agent, an attempt the read does not name, or a free slot.
-    const free = cards.filter(c => c.kind === "free").length, held = cards.filter(c => c.kind === "held").length;
-    for (const c of cards) {
+    // One card per slot, in slot order: an agent, an attempt the read does not name, or a free slot. Then any row beyond the slots.
+    for (const c of nodeSlots(m, w)) {
+      const place = c.slot === null ? null : `Slot ${c.slot}`;
       if (c.kind === "agent") {
         const a = c.agent, s: Selection = { kind: "agent", sessionId: a.sessionId }, card = agentCard(a);
-        // The card is named by the words it draws, in the order drawn.
+        const beyond = c.slot === null && card.phase !== "stopped";
+        // The card is named by the words it draws: the task first, its slot last (the slot is drawn as the card's first line).
         const phase = card.phase === "running" ? null : SLOT_LABEL[card.phase];
-        nodes.push(node({ ...base("agent", s, card.title), agent: card, slot: c.slot, intelligenceClass: a.intelligenceClass, provider: a.provider,
-          ariaLabel: [c.slot === null ? null : `Slot ${c.slot}`, card.title, card.who, phase, card.what].filter(Boolean).join(" "),
+        nodes.push(node({ ...base("agent", s, card.title), agent: card, slot: c.slot, over: beyond, intelligenceClass: a.intelligenceClass, provider: a.provider,
+          ariaLabel: [card.title, card.who, phase, card.what, beyond ? NO_SLOT : place].filter(Boolean).join(" "),
           tooltip: [card.title, a.project.label, card.who, phase, card.what].filter(Boolean).join(" · "),
           ...(card.phase === "starting" || card.phase === "finishing" ? { state: "booting" as const } : {}),
           ...(a.manual ? { state: a.manual.status === "running" ? "online" as const : ["stopped", "failed"].includes(a.manual.status) ? "stopped" as const : "booting" as const } : {}) }));
         link(id, selectionId(s));
       } else if (c.kind === "held") {
         // A slot an attempt holds with no agent listed is drawn as held, never left out and never free.
-        if (c.index >= MAX_HELD_PILLS) continue;
-        const s: Selection = { kind: "held", nodeId: w.id, index: c.index }, rest = held - MAX_HELD_PILLS + 1;
-        nodes.push(node({ ...base("held", s, c.index === MAX_HELD_PILLS - 1 && rest > 1 ? `+${rest} held` : "slot held"), slot: c.slot, sub: "starting or settling", tooltip: HELD_TEXT }));
+        const s: Selection = { kind: "held", nodeId: w.id, index: c.index };
+        nodes.push(node({ ...base("held", s, "slot held"), slot: c.slot, over: c.slot === null, sub: "starting or settling", tooltip: HELD_TEXT,
+          ariaLabel: `${place ?? NO_SLOT} slot held starting or settling` }));
         link(id, selectionId(s));
       } else {
-        if (c.index >= MAX_FREE_PILLS) continue;
         const s: Selection = { kind: "free", nodeId: w.id, index: c.index };
         // A slot on a node that takes no work is not offered as free: it says what the node is doing instead.
-        const label = c.standing ? STANDING_TEXT[c.standing] : c.index === MAX_FREE_PILLS - 1 && free > MAX_FREE_PILLS ? `+${free - MAX_FREE_PILLS + 1} free` : "free";
-        nodes.push(node({ ...base("free", s, label), slot: c.slot, state: c.standing ? STANDING_STATE[c.standing] : null }));
+        const label = c.standing ? STANDING_TEXT[c.standing] : "free";
+        nodes.push(node({ ...base("free", s, label), slot: c.slot, state: c.standing ? STANDING_STATE[c.standing] : null, ariaLabel: `${place} ${label}` }));
         link(id, selectionId(s));
       }
     }
@@ -190,7 +202,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
   return { nodes, edges };
 }
 
-/** Slots grow downwards within a bounded footprint, rather than becoming dagre siblings. */
+/** Waiting agents grow downwards in two columns within a bounded footprint, rather than becoming dagre siblings. A node's slot cards take `slotColumns`. */
 export const SLOT_COLUMNS = 2;
 const SLOT_GAP = 14, SLOT_ROW_GAP = 14, SLOT_HEADER_GAP = 46;
 /** A node's slot cards sit close under it: the two read as one unit. */
@@ -212,19 +224,21 @@ export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir
     const children = groups.get(parent.id) ?? [];
     children.push(child); groups.set(parent.id, children); owner.set(child.id, parent.id);
   }
-  const footprints = new Map<string, { width: number; height: number; columnWidth: number; rowHeight: number }>();
+  const footprints = new Map<string, { width: number; height: number; columnWidth: number; rowHeight: number; columns: number }>();
   const g = new dagre.graphlib.Graph(); g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir, nodesep: 28, ranksep: 46 });
   for (const n of nodes) {
     if (owner.has(n.id)) continue;
     const children = groups.get(n.id) ?? [];
-    const columnWidth = Math.max(0, ...children.map(c => c.data.box.width));
-    const rowHeight = Math.max(0, ...children.map(c => c.data.box.height));
-    const columns = Math.min(SLOT_COLUMNS, children.length), rows = Math.ceil(children.length / SLOT_COLUMNS);
+    // Under a node every slot takes one cell of one size, whatever it holds; a free card is smaller and sits in the middle of its cell.
+    const cell = n.data.kind === "node" && children.length ? SLOT_CELL : { width: 0, height: 0 };
+    const columnWidth = Math.max(cell.width, ...children.map(c => c.data.box.width));
+    const rowHeight = Math.max(cell.height, ...children.map(c => c.data.box.height));
+    const columns = n.data.kind === "node" ? slotColumns(children.length) : Math.min(SLOT_COLUMNS, children.length), rows = columns ? Math.ceil(children.length / columns) : 0;
     const footprint = {
       width: Math.max(n.data.box.width, columns * columnWidth + Math.max(0, columns - 1) * SLOT_GAP),
       height: n.data.box.height + (rows ? slotGap(n) + rows * rowHeight + (rows - 1) * SLOT_ROW_GAP : 0),
-      columnWidth, rowHeight,
+      columnWidth, rowHeight, columns,
     };
     footprints.set(n.id, footprint); g.setNode(n.id, footprint);
   }
@@ -269,11 +283,11 @@ export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir
       const card = byId.get(id)!, branch = branches.get(id)!, own = footprints.get(id)!;
       positions.set(id, { x: left + (width - card.data.box.width) / 2, y: top });
       const slots = groups.get(id) ?? [];
-      const columns = Math.min(SLOT_COLUMNS, slots.length);
+      const columns = Math.max(1, own.columns);
       const gridWidth = columns * own.columnWidth + Math.max(0, columns - 1) * SLOT_GAP;
       slots.forEach((slot, index) => positions.set(slot.id, {
-        x: left + (width - gridWidth) / 2 + (index % SLOT_COLUMNS) * (own.columnWidth + SLOT_GAP) + (own.columnWidth - slot.data.box.width) / 2,
-        y: top + card.data.box.height + slotGap(card) + Math.floor(index / SLOT_COLUMNS) * (own.rowHeight + SLOT_ROW_GAP),
+        x: left + (width - gridWidth) / 2 + (index % columns) * (own.columnWidth + SLOT_GAP) + (own.columnWidth - slot.data.box.width) / 2,
+        y: top + card.data.box.height + slotGap(card) + Math.floor(index / columns) * (own.rowHeight + SLOT_ROW_GAP) + (own.rowHeight - slot.data.box.height) / 2,
       }));
       const descendants = children.get(id) ?? [];
       const wrap = Math.max(1, branch.columns.length);
@@ -301,11 +315,11 @@ export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir
     let x = left + (footprint.width - n.data.box.width) / 2, y = top;
     if (parentId) {
       const children = groups.get(parentId)!;
-      const index = children.indexOf(n), column = index % SLOT_COLUMNS, row = Math.floor(index / SLOT_COLUMNS);
-      const columns = Math.min(SLOT_COLUMNS, children.length);
+      const columns = Math.max(1, footprint.columns);
+      const index = children.indexOf(n), column = index % columns, row = Math.floor(index / columns);
       const gridWidth = columns * footprint.columnWidth + (columns - 1) * SLOT_GAP;
       x = left + (footprint.width - gridWidth) / 2 + column * (footprint.columnWidth + SLOT_GAP) + (footprint.columnWidth - n.data.box.width) / 2;
-      y += byId.get(parentId)!.data.box.height + slotGap(byId.get(parentId)!) + row * (footprint.rowHeight + SLOT_ROW_GAP);
+      y += byId.get(parentId)!.data.box.height + slotGap(byId.get(parentId)!) + row * (footprint.rowHeight + SLOT_ROW_GAP) + (footprint.rowHeight - n.data.box.height) / 2;
     }
     return { ...n, position: { x, y }, width: n.data.box.width, height: n.data.box.height };
   });
@@ -333,9 +347,9 @@ export function fitZoom(bounds: { width: number; height: number }, canvas: { wid
  * The viewport that shows the whole tree centred in the canvas, as large as it fits (never above `FIT.maxZoom`). A tree
  * that cannot fit at the smallest opening zoom opens at that zoom with the server root at the top centre; the user pans.
  */
-export function fitViewport(placed: Node<SwarmCardData>[], canvas: { width: number; height: number }): { x: number; y: number; zoom: number } | null {
+export function fitViewport(placed: Node<SwarmCardData>[], canvas: { width: number; height: number }, edges: Edge[] = []): { x: number; y: number; zoom: number } | null {
   if (placed.length === 0 || canvas.width <= 0 || canvas.height <= 0) return null;
-  const bounds = treeBounds(placed), wanted = fitZoom(bounds, canvas);
+  const bounds = fitBounds(placed, edges), wanted = fitZoom(bounds, canvas);
   const least = minFitZoom(canvas);
   if (wanted < least) {
     const root = placed.find(n => n.id === "server") ?? placed[0]!;
@@ -363,7 +377,7 @@ export function layoutForCanvas(nodes: Node<SwarmCardData>[], edges: Edge[], can
     const columns = Math.ceil(most / rows);
     if (tried.has(columns)) continue;
     tried.add(columns);
-    const placed = layoutSwarm(nodes, edges, "TB", columns), zoom = fitZoom(treeBounds(placed), canvas);
+    const placed = layoutSwarm(nodes, edges, "TB", columns), zoom = fitZoom(fitBounds(placed, edges), canvas);
     if (!best || zoom > best.zoom + 1e-9) best = { nodes: placed, columns, zoom };
   }
   return { nodes: best!.nodes, columns: best!.columns };
@@ -384,6 +398,8 @@ export function routeEdges(placed: Node<SwarmCardData>[], edges: Edge[]): Edge[]
   };
   return edges.map(e => {
     const source = byId.get(e.source), target = byId.get(e.target);
+    // A node's slots sit in its frame (`slotFrames`): the frame says whose they are, so no line is drawn to each.
+    if (source?.data.kind === "node" && target) return { ...e, hidden: true };
     if (!source || !target || source.data.kind !== "machine" || target.data.kind !== "node") return e;
     const siblings = (kids.get(e.source) ?? []).map(id => byId.get(id)!).filter(n => n && n.data.kind === "node");
     const firstRow = Math.min(...siblings.map(n => n.position.y));
@@ -395,4 +411,32 @@ export function routeEdges(placed: Node<SwarmCardData>[], edges: Edge[]): Edge[]
     const gutter = leftOf.length ? Math.max(...leftOf) + SIBLING_GAP / 2 : Math.min(footprint(target.id).left, ...above.map(f => f.left)) - SIBLING_GAP / 2;
     return { ...e, type: "bus", data: { lane, upper: source.position.y + source.data.box.height + 10, gutter } };
   });
+}
+
+/** How far a worker's frame stands off its cards. */
+export const FRAME_PAD = 7;
+/**
+ * The box around each worker node and the places of its slots: drawn behind them, so a worker and its slots read as
+ * one thing. It follows the slots' places, not the cards in them, so it does not change as attempts start and finish.
+ */
+export function slotFrames(placed: Node<SwarmCardData>[], edges: Edge[]): { id: string; x: number; y: number; width: number; height: number }[] {
+  const frames: { id: string; x: number; y: number; width: number; height: number }[] = [];
+  const count = new Map<string, number>();
+  for (const e of edges) count.set(e.source, (count.get(e.source) ?? 0) + 1);
+  for (const worker of placed) {
+    const slots = count.get(worker.id) ?? 0;
+    if (worker.data.kind !== "node" || slots === 0) continue;
+    const columns = slotColumns(slots), rows = Math.ceil(slots / columns);
+    const gridWidth = columns * SLOT_CELL.width + (columns - 1) * SLOT_GAP, gridHeight = rows * SLOT_CELL.height + (rows - 1) * SLOT_ROW_GAP;
+    const centre = worker.position.x + worker.data.box.width / 2, left = Math.min(worker.position.x, centre - gridWidth / 2), right = Math.max(worker.position.x + worker.data.box.width, centre + gridWidth / 2);
+    frames.push({ id: `frame:${worker.id}`, x: left - FRAME_PAD, y: worker.position.y - FRAME_PAD, width: right - left + 2 * FRAME_PAD, height: worker.data.box.height + NODE_SLOT_GAP + gridHeight + 2 * FRAME_PAD });
+  }
+  return frames;
+}
+/** The box the tree is fitted to: every card and every worker's frame. It keeps its size as attempts start and finish. */
+export function fitBounds(placed: Node<SwarmCardData>[], edges: Edge[] = []): { x: number; y: number; width: number; height: number } {
+  const b = treeBounds(placed), frames = slotFrames(placed, edges);
+  if (frames.length === 0) return b;
+  const x = Math.min(b.x, ...frames.map(f => f.x)), y = Math.min(b.y, ...frames.map(f => f.y));
+  return { x, y, width: Math.max(b.x + b.width, ...frames.map(f => f.x + f.width)) - x, height: Math.max(b.y + b.height, ...frames.map(f => f.y + f.height)) - y };
 }

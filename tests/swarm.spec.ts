@@ -24,9 +24,9 @@ for (const vp of VIEWPORTS) {
       // The tree opens fitted to the viewport; at phone width off-screen cards are attached, not necessarily in view.
       await expect(page.getByRole("button", { name: /^AQ server/ })).toBeInViewport();
       for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/, /^waiting/]) await expect(page.getByRole("button", { name })).toBeAttached();
-      // The holding node's slot says holding, not free; no node here reports a real slot total, so none draws spare free cards.
-      await expect(page.getByRole("button", { name: "holding", exact: true })).toBeAttached();
-      await expect(page.getByRole("button", { name: "free", exact: true })).toHaveCount(0);
+      // One card per slot. The holding node's two slots say holding, not free; the only free slot is local-2's second.
+      await expect(page.getByRole("button", { name: /^Slot \d holding$/ })).toHaveCount(2);
+      await expect(page.getByRole("button", { name: /^Slot \d free$/ })).toHaveCount(1);
       await expect(page.locator('[data-kind="agent"]')).toHaveCount(4);
       await expect(page.getByRole("list", { name: "Legend" })).toBeVisible();
       const tree = page.getByRole("region", { name: "Swarm tree" });

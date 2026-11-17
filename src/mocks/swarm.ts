@@ -18,7 +18,9 @@ function agent(i: number, provider: string, model: string, harness: string, cls:
     provider, model, harness, intelligence_class: cls, terminal: { id: fixtureTerminalId(i), type: "terminal" }, started_at: ago(12 * 60_000),
   };
 }
-function worker(n: number, name: string, backend: string, total: number | null, agents: SwarmAgent[], extra: Partial<SwarmNode> = {}): SwarmNode {
+/** A worker node as the server lists it: `total` is its one slot count, and each agent row carries its slot, from one. */
+function worker(n: number, name: string, backend: string, total: number | null, rows: SwarmAgent[], extra: Partial<SwarmNode> = {}): SwarmNode {
+  const agents = rows.map((row, i): SwarmAgent => ({ slot: i + 1, ...row }));
   return {
     node: { id: uuid(n), type: "worker" }, name, health: "online", service: { state: "unreported", since: null }, backend_kind: backend,
     worker_version: "0.1.0", sandbox_templates: [`sha256:${String(n).repeat(64).slice(0, 64)}`], agent_channel: "unreported", last_seen_at: ago(4_000),
@@ -88,8 +90,6 @@ export const SWARM_LARGE_FLEET: Swarm = {
     reasons: [NO_FREE_SLOT], since: ago(2 * 60_000),
   })) },
 };
-// Its totals are real slot counts, as a server that reports them marks them; the other fixtures' totals are the interactive-session cap.
-for (const node of SWARM_LARGE_FLEET.machines[0]!.nodes) node.slots = { ...node.slots, basis: "attempts" };
 
 const stoppedService = { state: "stopped", since: ago(60_000) } as const;
 /** The desktop machine after the owner stopped its worker; one handoff is still pending. */
@@ -103,16 +103,16 @@ export const SWARM_STOPPED: Swarm = {
 
 /*
  * Demo fixtures (`?scenario=swarm-demo` and `?scenario=swarm-demo-next`): the shape of the live stack. A desktop with
- * eight workers and a laptop with one; a worker runs one queued task at a time, so each holds one attempt at most.
- * Seven are busy (five running, one starting, one finishing) and two are idle. `slots` is what the server sends: a
- * total of 8 or 4 on the first workers, and `total: null` on the ones added beside them. Explicitly synthetic: the
- * tasks, sessions and attempts refer to nothing real, and mock mode's banner says so on screen.
+ * two worker nodes of eight slots each and a laptop with one worker node of four: twenty slots on three workers. Each
+ * node runs as many agents at once as it has slots, and each agent row carries its `slot` on its node. Seven slots are
+ * busy (five running, one starting, one finishing) and thirteen are free. Explicitly synthetic: the tasks, sessions
+ * and attempts refer to nothing real, and mock mode's banner says so on screen.
  *
- * `swarm-demo-next` is the shape aq-server sends now (feat/role-catalog 4544f870): every attempt that holds a worker is
- * listed with its `phase`, real `title`, `ran_with` and `last_output_at`.
+ * `swarm-demo-next` is the shape aq-server sends now: every attempt that holds a slot is listed with its `slot`,
+ * `phase`, real `title`, `ran_with` and `last_output_at`.
  *
- * `swarm-demo` is the shape of an older server (58a95b99): an agent is listed only while it runs, its task `title` is
- * the task's id, and the row has no role, reasoning effort or output time. A worker an attempt holds before its agent
+ * `swarm-demo` is the same nodes with an older server's rows: an agent is listed only while it runs, its task `title`
+ * is the task's id, and the row has no role, reasoning effort or output time. A slot an attempt holds before its agent
  * starts (or after it stops) is only counted in `slots.occupied`. The page fills titles, roles and effort from each
  * task's own reads, which the demo handlers below serve.
  */
@@ -134,17 +134,11 @@ const DEMO_AGENTS: Demo[] = [
   demo("Tidy the release notes template", 2, "writer", SIMPLE, "claude-haiku-5-5", "high", 3 * 60_000),
 ];
 const DEMO_RUNNING = 5, DEMO_STARTING = 5, DEMO_FINISHING = 6;
-/** The nine workers as the live server lists them, with the slot total it sends and the demo agent each holds (null: idle). */
-const DEMO_WORKERS: { machine: 0 | 1; name: string; total: number | null; agent: number | null }[] = [
-  { machine: 0, name: "Local Worker 1", total: 8, agent: 0 },
-  { machine: 0, name: "Local Worker 1#3", total: null, agent: 1 },
-  { machine: 0, name: "Local Worker 1#4", total: null, agent: 2 },
-  { machine: 0, name: "Local Worker 1#5", total: null, agent: null },
-  { machine: 0, name: "Local Worker 1#6", total: null, agent: 3 },
-  { machine: 0, name: "Local Worker 1#7", total: null, agent: 4 },
-  { machine: 0, name: "Local Worker 1#8", total: null, agent: null },
-  { machine: 0, name: "Local Worker 2", total: 8, agent: DEMO_STARTING },
-  { machine: 1, name: "Local Worker 3", total: 4, agent: DEMO_FINISHING },
+/** The three worker nodes as the live server lists them, with their slot counts and which demo agent holds which slot. */
+const DEMO_WORKERS: { machine: 0 | 1; name: string; total: number; agents: [slot: number, agent: number][] }[] = [
+  { machine: 0, name: "Local Worker 1", total: 8, agents: [[1, 0], [2, 1], [4, 2]] },
+  { machine: 0, name: "Local Worker 2", total: 8, agents: [[1, 3], [2, DEMO_STARTING], [3, 4]] },
+  { machine: 1, name: "Local Worker 3", total: 4, agents: [[1, DEMO_FINISHING]] },
 ];
 const demoTask = (i: number) => uuid(7100 + i), demoAttempt = (i: number) => uuid(7200 + i), demoSession = (i: number) => uuid(7300 + i);
 const demoRanWith = (d: Demo) => ({ role: d.role, level: d.level[0], provider: d.provider, model: d.model, reasoning: d.reasoning, harness: d.harness, execution_profile: "fixture-sandbox", snapshot_digest: "d".repeat(64) });
@@ -159,9 +153,9 @@ export function demoSwarm(now: string, next = false): Swarm {
     ...(next ? { phase: i < DEMO_RUNNING ? "running" as const : i === DEMO_STARTING ? "starting" as const : "finishing" as const, ran_with: demoRanWith(d), last_output_at: i === DEMO_STARTING ? null : at(i === DEMO_FINISHING ? 20_000 : d.outputAgoMs) } : {}),
   });
   const nodes = (machine: 0 | 1): SwarmNode[] => DEMO_WORKERS.map((w, index) => ({ w, index })).filter(x => x.w.machine === machine).map(({ w, index }) => {
-    const held = w.agent === null ? 0 : 1;
-    const agents = w.agent !== null && (next || w.agent < DEMO_RUNNING) ? [row(DEMO_AGENTS[w.agent]!, w.agent)] : [];
-    return { ...worker(7400 + index, w.name, "docker-local", w.total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total: w.total, occupied: held, idle: w.total === null ? null : w.total - held } };
+    const held = w.agents.length;
+    const agents = w.agents.filter(([, i]) => next || i < DEMO_RUNNING).map(([slot, i]): SwarmAgent => ({ ...row(DEMO_AGENTS[i]!, i), slot }));
+    return { ...worker(7400 + index, w.name, "docker-local", w.total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total: w.total, occupied: held, idle: w.total - held } };
   });
   const machine = (id: string, label: string, cpus: number, cpu: number, ram: number, agentMax: number, list: SwarmNode[]): Swarm["machines"][number] => ({
     id, label, kind: "local", state: "online", holding: [], last_seen_at: at(1_500),

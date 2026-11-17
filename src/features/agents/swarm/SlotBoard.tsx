@@ -1,16 +1,17 @@
-import type { MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
+import type { CSSProperties } from "react";
+import type { AgentView, MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
 import { useServerNow, type ServerAnchor } from "../../../components/time/useServerNow";
-import { HELD_TEXT, selectionId, type Selection } from "./graph";
-import { SLOT_LABEL, agentLines, agentState, clock, holdingNodes, machineShare, machineSlots, modelLabel, outputActivity, phaseParts, plural, shownMachineState, taskLabel, workerCounts, workerHeadline, workerTile, type WorkerTile } from "./slots";
+import { HELD_TEXT, NO_SLOT, nodeLine, overText, selectionId, type Selection } from "./graph";
+import { SLOT_LABEL, agentLines, agentState, busyOnWorkers, clock, holdingNodes, machineShare, machineSlots, nodeSlots, nodeStanding, outputActivity, overSlots, phaseParts, shownMachineState, taskLabel, workerCounts, workerHeadline, type NodeSlot, type Standing } from "./slots";
 import styles from "./SlotBoard.module.css";
 
 export type SwarmViewMode = "tree" | "board";
 type Tick = { now?: () => number };
 
 /**
- * The count line above the tree and above the board, the same for both: real slots busy of real slots on how many
- * workers (a machine's worker service), in which phase, each machine's share, and what runs by model. One count
+ * The count line above the tree and above the board, the same for both: slots busy of all slots on how many workers
+ * (a worker is a worker node), in which phase, each machine's share, and what runs by model. One count
  * (`workerCounts`) feeds it, from the rows the page draws. The age of the last update is real: it restarts when a poll
  * succeeds and keeps counting when one does not.
  */
@@ -38,10 +39,9 @@ export function SwarmSummary({ view, anchor, mode, onMode, stale = false, now }:
 }
 
 /**
- * Every node as one tile, grouped by machine: readable at a distance and without zooming. A tile is called a slot of
- * its machine's worker, numbered in the order the read lists the machine's nodes; the node's own name is the tile's
- * tooltip and part of its accessible name. A busy tile is the same object as the tree's agent card and selects the same
- * properties pane; any other tile selects its node.
+ * The tree's model as tiles, readable at a distance and without zooming: machine, then each of its worker nodes, then
+ * one tile per slot of that node in slot order. A busy tile is the same object as the tree's agent card and selects
+ * the same properties pane; a free tile selects its free slot, and a worker's name its node.
  */
 export function SlotBoard({ view, anchor, selected, onSelect, now }: { view: SwarmView; anchor: ServerAnchor | undefined; selected: Selection | null; onSelect(s: Selection): void } & Tick) {
   const time = useServerNow(anchor, { tickMs: 1000, ...(now ? { now } : {}) });
@@ -62,9 +62,8 @@ function machineLine(m: MachineView, time: string): string {
     case "stopped": return "stopped";
     case "booting": return "booting";
     default: {
-      const { slots, busy } = machineSlots(m);
       const load = m.load ? ` · CPU ${m.load.cpuPercent}% · RAM ${m.load.memoryPercent}%${m.load.fresh ? "" : " (stale)"}` : "";
-      return `${busy} of ${plural(slots, "slot")} busy${load}`;
+      return `${busyOnWorkers(machineSlots(m))}${load}`;
     }
   }
 }
@@ -83,72 +82,76 @@ function Machine({ m, time, chosen, onSelect }: { m: MachineView } & Drawn) {
         <span className={styles.line}>{machineLine(m, time)}</span>
         {hold && <span className={styles.hold}>{`holding: ${hold.message}`}</span>}
       </button>
-      {m.nodes.length > 0 && <ul className={styles.tiles} aria-label={`${m.label} slots`}>
-        {m.nodes.map((n, i) => <Worker key={n.id} slot={i + 1} tile={workerTile(m, n)} lastSeenAt={n.lastSeenAt ?? m.lastSeenAt} time={time} chosen={chosen} onSelect={onSelect} />)}
-      </ul>}
+      {m.nodes.length > 0 && <div className={styles.workers}>
+        {m.nodes.map(n => <Worker key={n.id} m={m} n={n} time={time} chosen={chosen} onSelect={onSelect} />)}
+      </div>}
     </div>
   );
 }
 
 export { agentLines };
 
-const STANDING_LABEL: Record<NonNullable<WorkerTile["standing"]>, string> = {
+const STANDING_LABEL: Record<Standing, string> = {
   holding: "holding", draining: "draining", stopped: "stopped", offline: "offline", booting: "booting", revoked: "revoked", unknown: "state unknown",
 };
-/** What else a slot holds besides the attempt its tile shows, one per line. */
-export function othersText(t: WorkerTile): string {
-  const named = t.others.map(a => `${taskLabel(a)} (${[SLOT_LABEL[agentState(a)].toLowerCase(), a.manual ? "interactive" : null, modelLabel(a)].filter(Boolean).join(", ")})`);
-  return [...named, ...(t.heldMore > 0 ? [`${t.heldMore} more starting or settling`] : [])].join("\n");
-}
 
-function More({ tile }: { tile: WorkerTile }) {
-  const more = tile.others.length + tile.heldMore;
-  if (more === 0) return null;
-  const text = othersText(tile);
-  return <span className={styles.more} title={text}>{`+${more}`}<span className="visually-hidden">{` more on this slot: ${text.replaceAll("\n", "; ")}`}</span></span>;
-}
-
-function Worker({ slot, tile, lastSeenAt, time, chosen, onSelect }: { /** The tile's 1-based place under its machine. */ slot: number; tile: WorkerTile; lastSeenAt: string | null } & Drawn) {
-  const n: NodeView = tile.node, a = tile.agent;
+/** A worker node: its name with how many of its slots are busy (or what it is doing instead), then one tile per slot. */
+function Worker({ m, n, time, chosen, onSelect }: { m: MachineView; n: NodeView } & Drawn) {
   const node: Selection = { kind: "node", nodeId: n.id };
-  const label = `Slot ${slot}`, named = `${label}, ${n.name}`;
-  if (tile.state !== "busy") {
-    // Not busy: one calm tile that says so, or says why the slot takes no work, and selects its node.
-    const why = tile.reason ?? (tile.state === "offline" && lastSeenAt ? `last seen ${formatAge(time, lastSeenAt)}` : null);
-    const standing = tile.state === "idle" ? "idle" : STANDING_LABEL[tile.state];
+  const why = nodeStanding(m, n), cards = nodeSlots(m, n), over = overSlots(m, n);
+  return (
+    <section className={styles.worker} aria-label={n.name} data-state={why.standing ?? undefined} data-over={over > 0 || undefined} style={{ "--across": Math.max(1, Math.min(4, cards.length)) } as CSSProperties}>
+      <button type="button" className={styles.workerHead} aria-pressed={chosen === selectionId(node)} onClick={() => onSelect(node)}>
+        <strong>{n.name}</strong>
+        <span className={styles.line}>{nodeLine(m, n, time)}</span>
+        {why.reason && <span className={styles.hold}>{`holding: ${why.reason}`}</span>}
+        {over > 0 && <span className={styles.hold}>{overText(m, n)}</span>}
+      </button>
+      {cards.length > 0 && <ul className={styles.tiles} aria-label={`${n.name} slots`}>
+        {cards.map(card => <Slot key={card.kind === "agent" ? `agent:${card.agent.sessionId}` : `${card.kind}:${card.index}`} n={n} card={card} time={time} chosen={chosen} onSelect={onSelect} />)}
+      </ul>}
+    </section>
+  );
+}
+
+/** One slot of a worker node: "Slot k", and the attempt that holds it or that it is free. */
+function Slot({ n, card, time, chosen, onSelect }: { n: NodeView; card: NodeSlot } & Drawn) {
+  const label = card.slot === null ? NO_SLOT : `Slot ${card.slot}`;
+  if (card.kind === "free") {
+    // Free: a small, quiet tile. On a node that takes no work it says what the node is doing instead, and selects the node.
+    const selection: Selection = card.standing ? { kind: "node", nodeId: n.id } : { kind: "free", nodeId: n.id, index: card.index };
+    const standing = card.standing ? STANDING_LABEL[card.standing] : "free";
     return (
-      <li className={styles.cell} data-state={tile.state}>
-        <button type="button" className={styles.tile} aria-pressed={chosen === selectionId(node)} title={n.name} aria-label={`${[label, standing, why].filter(Boolean).join(" ")}, ${n.name}`} onClick={() => onSelect(node)}>
-          {/* The tile reads "Slot 4 · idle"; its name is the words drawn ("Slot 4 idle"), then its node's name. */}
+      <li className={styles.cell} data-state={card.standing ?? "free"}>
+        <button type="button" className={styles.tile} aria-pressed={!card.standing && chosen === selectionId(selection)} aria-label={`${label} ${standing}, ${n.name}`} onClick={() => onSelect(selection)}>
+          {/* The tile reads "Slot 4 · free"; its name is the words drawn ("Slot 4 free"), then its worker's name. */}
           <span className={styles.name}>{label}</span>
           <span className="visually-hidden">{" ·"}</span>{" "}<span className={styles.standing}>{standing}</span>
-          {why && <>{" "}<span className={styles.meta}>{why}</span></>}
         </button>
-        <span className={styles.corner}><More tile={tile} /></span>
       </li>
     );
   }
-  const phase = tile.phase!;
-  const selection: Selection = a ? { kind: "agent", sessionId: a.sessionId } : { kind: "held", nodeId: n.id, index: 0 };
+  const a: AgentView | null = card.kind === "agent" ? card.agent : null;
+  const phase = a ? agentState(a) : "held";
+  const selection: Selection = a ? { kind: "agent", sessionId: a.sessionId } : { kind: "held", nodeId: n.id, index: (card as Extract<NodeSlot, { kind: "held" }>).index };
   const title = a ? taskLabel(a) : SLOT_LABEL.held, lines = a ? agentLines(a) : null;
   const elapsed = a ? clock(time, a.startedAt) : null;
   const output = a && phase === "running" ? outputActivity(time, a.lastOutputAt) : null;
-  // The tile's name is its slot, its node's name and its phase (not drawn: the slot is the label above), then its text. The clock and the output age are drawn by CSS
-  // from attributes (as the tree's meters are), so the name does not change every second.
+  // The tile's name is its slot, its worker's name and its phase, then its text. The clock and the output age are drawn
+  // by CSS from attributes (as the tree's meters are), so the name does not change every second.
   const held = "An attempt holds this slot; no agent is listed yet";
   const facts = a ? [title, lines!.who, lines!.what].filter(Boolean).join(", ") : held;
   // The words the tile draws, in order, so the name contains what is seen.
   const drawn = a ? [title, lines!.who, [SLOT_LABEL[phase], lines!.what].filter(Boolean).join(" · ")].filter(Boolean).join(" ") : `${title} ${held}`;
   return (
-    <li className={styles.cell} data-state={phase} data-class={a?.intelligenceClass ?? "none"} data-output={output?.state}>
-      <div className={styles.head}>
-        <button type="button" className={styles.name} aria-pressed={chosen === selectionId(node)} title={n.name} aria-label={named} onClick={() => onSelect(node)}>{label}</button>
-        {tile.standing && <span className={styles.also} title={tile.reason ?? undefined}>{STANDING_LABEL[tile.standing]}</span>}
-        <More tile={tile} />
-        {elapsed && <span className={styles.clock} data-clock={elapsed} aria-hidden="true" />}
-      </div>
-      <button type="button" className={styles.tile} aria-pressed={chosen === selectionId(selection)} title={`${n.name}: ${a ? facts : HELD_TEXT}`} aria-label={`${named}, ${SLOT_LABEL[phase].toLowerCase()}: ${drawn}`} onClick={() => onSelect(selection)}>
-        <span className={styles.top}><i className={styles.dot} aria-hidden="true" /><span className={styles.title}>{title}</span></span>
+    <li className={styles.cell} data-state={phase} data-class={a?.intelligenceClass ?? "none"} data-output={output?.state} data-over={(card.slot === null && phase !== "stopped") || undefined}>
+      <button type="button" className={styles.tile} aria-pressed={chosen === selectionId(selection)} title={`${n.name}: ${a ? facts : HELD_TEXT}`} aria-label={`${label}, ${n.name}, ${SLOT_LABEL[phase].toLowerCase()}: ${drawn}`} onClick={() => onSelect(selection)}>
+        <span className={styles.head} aria-hidden="true">
+          {/* Drawn by CSS from attributes, as the clock is: the tile's name already starts with its slot. */}
+          <span className={styles.name} data-label={label} />
+          {elapsed && <span className={styles.clock} data-clock={elapsed} />}
+        </span>
+        <span className={styles.top}><i className={styles.dot} aria-hidden="true" /><span className={styles.title} data-part="title">{title}</span></span>
         {/* The spaces keep the words apart in the tile's name; the spans are blocks on screen. */}
         {lines ? <>
           {" "}<span className={styles.meta}>{lines.who}</span>

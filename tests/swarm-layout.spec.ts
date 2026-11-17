@@ -28,13 +28,17 @@ for (const width of [1440, 390]) {
       expect(new Set(positions.map(p => p.y)).size).toBe(count / 2);
       expect(Math.max(...positions.map(p => p.x)) - Math.min(...positions.map(p => p.x))).toBeLessThanOrEqual(280);
       const workerId = id(worker);
-      const free = await tree.locator(`[data-id^="free:${workerId}:"]`).evaluateAll(elements => elements.map(el => {
+      // A card's centre in graph coordinates: its transform is its corner, its box (unscaled by the tree's zoom) its size.
+      const centres = (selector: string) => tree.locator(selector).evaluateAll(elements => elements.map(el => {
         const transform = new DOMMatrixReadOnly((el as HTMLElement).style.transform);
-        return { x: transform.m41, y: transform.m42 };
+        return { x: transform.m41 + (el as HTMLElement).offsetWidth / 2, y: transform.m42 + (el as HTMLElement).offsetHeight / 2 };
       }));
+      const free = await centres(`[data-id^="free:${workerId}:"]`);
       expect(free).toHaveLength(2);
-      // Every slot card is one size, so free cards sit in the agent cards' columns.
-      expect(new Set(free.map(p => p.x))).toEqual(new Set(positions.map(p => p.x)));
+      // Every slot has a place of one size: a free card is smaller and sits in the middle of its place, in the agent cards' columns.
+      const agents = (await centres(".react-flow__node[data-id^='agent:']"));
+      for (const f of free) expect(agents.some(a => Math.abs(a.x - f.x) < 1)).toBe(true);
+      expect(new Set(free.map(p => Math.round(p.x))).size).toBe(2);
       expect(free[0]!.y).toBe(free[1]!.y);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

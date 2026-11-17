@@ -74,7 +74,7 @@ test("free slot on a holding machine explains why", async () => {
   renderApp("/agents/swarm");
   await card(/^desktop/);
   // The slot of a holding node is not offered as free: its card says holding.
-  fireEvent.click(await screen.findByRole("button", { name: "holding" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Slot 1 holding" }));
   await waitFor(() => expect(fact("Why")).toHaveTextContent("Free, but this machine is holding back: Capability report expired"));
   expect(fact("Fix")).toHaveTextContent("Wait for the next report; restart the worker if none arrives");
 });

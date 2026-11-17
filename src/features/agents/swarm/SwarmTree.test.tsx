@@ -69,7 +69,7 @@ test("focusing a card fully inside the viewport does not pan", async () => {
 /** The viewport that shows this view's whole tree in a canvas of this size. */
 const fitted = (v: typeof view, width: number, height: number, ready = 6) => {
   const graph = buildSwarmGraph(v, { host: window.location.host, ready, now: v.serverTime, stale: false });
-  return fitViewport(layoutForCanvas(graph.nodes, graph.edges, { width, height }).nodes, { width, height })!;
+  return fitViewport(layoutForCanvas(graph.nodes, graph.edges, { width, height }).nodes, { width, height }, graph.edges)!;
 };
 const canvas = (width: number, height: number) => {
   Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => width });
@@ -198,12 +198,12 @@ test("an agent card shows the task's title first, then role and level, then mode
   let mono = 0;
   vi.useFakeTimers({ shouldAdvanceTime: true });
   render(<SwarmTree view={fleet} ready={6} selected={null} onSelect={vi.fn()} anchor={{ serverTime: SERVER_TIME, receivedAt: 0 }} now={() => mono} />);
-  const card = await screen.findByRole("button", { name: "Write an architecture overview writer · Complex, low Finishing claude-opus-5-5 · low effort" });
+  const card = await screen.findByRole("button", { name: "Write an architecture overview writer · Complex, low Finishing claude-opus-5-5 · low effort Slot 1" });
   expect(card).toHaveAttribute("data-kind", "agent");
   expect(card).toHaveAttribute("data-level", "complex");
   expect(card).toHaveAttribute("data-phase", "finishing");
   // Title, then role and level with the phase, then model and effort.
-  expect(card).toHaveTextContent(/^Write an architecture overview writer · Complex, low Finishing claude-opus-5-5 · low effort$/);
+  expect(card).toHaveTextContent(/^Write an architecture overview writer · Complex, low Finishing claude-opus-5-5 · low effort Slot 1$/);
   expect(card.getAttribute("title")).toBe(`Write an architecture overview · ${agent.project.label} · writer · Complex, low · Finishing · claude-opus-5-5 · low effort`);
   const clock = () => card.querySelector("[data-clock]")!.getAttribute("data-clock");
   expect(clock()).toBe("1:03");
@@ -263,7 +263,7 @@ test("a deep stacked agent and a free slot remain individually selectable withou
   const sample = worker.agents[0]!;
   worker.agents = Array.from({ length: 100 }, (_, i) => ({ ...sample, sessionId: `stacked-${i}` }));
   worker.slots = { total: 102, occupied: 100, idle: 2 };
-  // A real count of 102 slots, as a server that numbers slots reports it.
+  // The node's slot count, as the adapter reads it from `slots.total`.
   worker.capacity = 102;
   const onSelect = vi.fn();
   const { container, rerender } = render(<SwarmTree view={fleet} ready={0} selected={null} onSelect={onSelect} />);
@@ -279,4 +279,22 @@ test("a deep stacked agent and a free slot remain individually selectable withou
   rerender(<SwarmTree view={fleet} ready={0} selected={{ kind: "free", nodeId: worker.id, index: 1 }} onSelect={onSelect} />);
   expect(flow.setViewport).toHaveBeenCalledTimes(fits);
   expect(flow.setCenter).not.toHaveBeenCalled();
+});
+
+test("each worker node and its slots sit in one frame: decoration behind the cards, never a card, a focus stop or a click target", async () => {
+  const onSelect = vi.fn();
+  const { container } = render(<SwarmTree view={view} ready={6} selected={null} onSelect={onSelect} />);
+  await wrapperOf(/^desktop, local/);
+  const frames = Array.from(container.querySelectorAll<HTMLElement>('.react-flow__node[data-id^="frame:"]'));
+  // One per worker node drawn: local-1, local-2 and studio-1 (the offline laptop draws no nodes).
+  expect(frames.map(f => f.dataset.id)).toEqual(view.machines.filter(m => m.state !== "offline" && m.state !== "booting").flatMap(m => m.nodes).map(n => `frame:node:${n.id}`));
+  for (const frame of frames) {
+    expect(frame).not.toHaveAttribute("tabindex");
+    expect(frame.querySelector("button")).toBeNull();
+    expect(frame.firstElementChild).toHaveAttribute("aria-hidden", "true");
+  }
+  (flow.props.onNodeClick as (e: unknown, n: unknown) => void)({}, (flow.props.nodes as { id: string; type: string }[]).find(n => n.type === "frame"));
+  expect(onSelect).not.toHaveBeenCalled();
+  // Every slot card carries its slot: local-1's three agents are slots 1 to 3.
+  expect(screen.getAllByRole("button").filter(b => b.getAttribute("data-kind") === "agent").map(b => b.textContent!.match(/Slot \d$/)![0])).toEqual(["Slot 1", "Slot 2", "Slot 3", "Slot 1"]);
 });
