@@ -2,10 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
 import { installPreloadErrorHandler } from "./app/chunkReload";
+import { installInsecureContextCrypto } from "./app/insecureContext";
 import { applyPreferences, readPreferences } from "./app/preferences";
 import "./components/tokens.css";
 import "./components/base.css";
 
+// Opened by LAN address the browser withholds randomUUID and SHA-256; supply them before anything runs.
+installInsecureContextCrypto();
 // Display preferences apply before first paint so text size and motion never flash.
 applyPreferences(readPreferences());
 installPreloadErrorHandler();
