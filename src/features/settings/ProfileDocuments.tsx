@@ -31,6 +31,10 @@ export type DocumentsConfig<K extends DocumentKind> = {
   enabledSwitch?: boolean;
   /** Where the page-level Save takes this section, among the others. */
   order: number;
+  /** The order of the list by document id; without it the documents stay in the server's order. */
+  compare?(a: string, b: string): number;
+  /** Shown directly under the list: what belongs to a column of it (for example a column's unsaved entries). */
+  belowList?: ReactNode;
 };
 
 /** The key of the one new, unsaved document; never a valid id. */
@@ -69,7 +73,8 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
   const headingId = useId(), editorId = useId();
   const editorHeading = useRef<HTMLHeadingElement>(null), newButton = useRef<HTMLButtonElement>(null), confirmButton = useRef<HTMLButtonElement>(null);
   const focusEditor = useRef(false);
-  const documents = query.data?.documents ?? [];
+  const { compare } = config;
+  const documents = compare ? [...query.data?.documents ?? []].sort((a, b) => compare(a.id, b.id)) : query.data?.documents ?? [];
   const find = (id: string) => documents.find(document => document.id === id);
   const nameOf = (document: SettingsDocument<K> | undefined, id: string) => document?.fields?.name || id;
   const isDirty = (key: string) => drafts[key] !== undefined && (key === NEW || drafts[key] !== find(key)?.markdown);
@@ -204,6 +209,7 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
             })}</tbody>
           </table>
         </div>
+        {config.belowList}
       </>}
       {notice && <p className={styles.success} role="status">{notice}</p>}
       {alert && (alert.problems.length ? <ProblemList title={alert.title} problems={alert.problems} /> : <p className={styles.warning} role="alert">{alert.title} {alert.error}</p>)}

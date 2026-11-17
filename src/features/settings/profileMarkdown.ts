@@ -56,6 +56,28 @@ export function setFrontmatterValue(markdown: string, key: string, value: string
   lines.splice(front.end, 0, `${key}: ${value}`);
   return lines.join("\n");
 }
+/**
+ * A frontmatter key's text as a person reads it: a quoted value is unquoted. Empty when the key is absent, and null
+ * when the document has no frontmatter to read (the text then has to be edited as Markdown).
+ */
+export function frontmatterText(markdown: string, key: string): string | null {
+  if (frontmatter(markdown.split("\n")) === null) return null;
+  const written = frontmatterValue(markdown, key) ?? "";
+  if (!written.startsWith("\"")) return written;
+  try { const parsed: unknown = JSON.parse(written); return typeof parsed === "string" ? parsed : written; } catch { return written; }
+}
+/**
+ * The document with a frontmatter key set to free text on one line: line breaks become spaces, and text the grammar would
+ * read as something else (it starts with a quote or a bracket) is quoted. Empty text removes the key, since a key cannot
+ * be empty. Null when there is no frontmatter to edit.
+ */
+export function setFrontmatterText(markdown: string, key: string, text: string): string | null {
+  const lines = markdown.split("\n"), front = frontmatter(lines);
+  if (!front) return null;
+  const line = text.replace(/[\r\n]+/g, " ");
+  if (line.trim() !== "") return setFrontmatterValue(markdown, key, /^\s|\s$|^["[]/.test(line) ? JSON.stringify(line) : line);
+  return lines.filter((candidate, i) => !(i > 0 && i < front.end && keyOf(lineOf(candidate)) === key)).join("\n");
+}
 /** The id a document states. */
 export const documentId = (markdown: string) => frontmatterValue(markdown, "id");
 

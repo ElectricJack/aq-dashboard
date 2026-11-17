@@ -6,6 +6,7 @@ import { handlersFor } from "../../mocks/handlers";
 import { routingDocumentHandlers } from "../../mocks/routingDocument";
 import { internalWorkHandlers } from "../../mocks/internalWork";
 import { roleSettingsHandlers } from "../../mocks/roleSettings";
+import { swarmSettingsHandlers } from "../../mocks/swarmSettings";
 import { renderApp } from "../../test/renderApp";
 
 const server = setupServer(...handlersFor("default"));
@@ -306,6 +307,124 @@ describe("Intelligence levels", () => {
     expect(within(within(editor).getByLabelText("Reasoning of candidate 1")).getAllByRole("option")[0]).toHaveTextContent("xhigh (not accepted by opencode)");
     await userEvent.click(within(editor).getByRole("button", { name: "Save level" }));
     expect(await within(editor).findByRole("alert")).toHaveTextContent("intelligence profile `standard-low`: candidates:");
+  });
+
+  test("levels are listed simple to deep and, within each, low to max; any other id comes after, by id", async () => {
+    const level = (id: string) => ({ kind: "intelligence", id, revision: "1", updated_at_ms: 1, markdown: `---\nid: ${id}\nname: ${id}\n---\n## Candidates\n${TABLE}`, problem: null, fields: { id, name: id, description: "", candidates: [], selection: {} } });
+    const ids = ["deep-high", "research", "standard-medium", "complex-max", "simple-high", "deep-low", "standard-low", "simple-low", "architect", "complex-low", "standard-high", "simple-max"];
+    server.use(http.get("/api/settings/intelligence-profiles", () => HttpResponse.json({ revision: "1", active_digest: null, documents: ids.map(level) })));
+    const table = await openTab("intelligence", "Levels");
+    expect([...table.querySelectorAll("tbody tr")].map(row => row.getAttribute("data-document-id"))).toEqual(
+      ["simple-low", "simple-high", "simple-max", "standard-low", "standard-medium", "standard-high", "complex-low", "complex-max", "deep-low", "deep-high", "architect", "research"]);
+  });
+
+  test("the description leads the editor, says the router reads it, and is written into the document's description line", async () => {
+    const table = await openTab("intelligence", "Levels");
+    expect(within(table).getByRole("row", { name: "Fixture standard, high" })).toHaveTextContent("Labelled fixture level");
+    const editor = await edit("Fixture standard, high");
+    const description = within(editor).getByRole("textbox", { name: "Description" });
+    expect(description).toHaveValue("Labelled fixture level");
+    expect(description).toHaveAccessibleDescription("The router reads this text when it chooses a level for a task. Say what kind of work belongs on this level.");
+    // It comes before the candidates and the Markdown.
+    expect(description.compareDocumentPosition(within(editor).getByRole("table", { name: "Candidates" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.change(description, { target: { value: "Work that touches several parts.\nCheck it carefully." } });
+    expect(markdown(editor).value).toMatch(/^---\nid: standard-high\nname: Fixture standard, high\ndescription: Work that touches several parts\. Check it carefully\.\n---\n/);
+    await userEvent.click(within(editor).getByRole("button", { name: "Save level" }));
+    expect(await within(editor).findByText("Saved.")).toBeVisible();
+    expect(sent[0]!.body!.markdown).toContain("\ndescription: Work that touches several parts. Check it carefully.\n");
+    await waitFor(() => expect(within(screen.getByRole("table", { name: "Levels" })).getByRole("row", { name: "Fixture standard, high" })).toHaveTextContent("Work that touches several parts. Check it carefully."));
+    // Text the grammar would read as a list or a quote is quoted; no text removes the line; the field follows the Markdown.
+    fireEvent.change(description, { target: { value: "[draft] \"hard\" work" } });
+    expect(markdown(editor).value).toContain("\ndescription: \"[draft] \\\"hard\\\" work\"\n");
+    expect(description).toHaveValue("[draft] \"hard\" work");
+    fireEvent.change(description, { target: { value: "" } });
+    expect(markdown(editor).value).toMatch(/^---\nid: standard-high\nname: Fixture standard, high\n---\n/);
+    type(editor, markdown(editor).value.replace("name: Fixture standard, high\n", "name: Fixture standard, high\ndescription: Typed in the Markdown\n"));
+    expect(description).toHaveValue("Typed in the Markdown");
+  });
+
+  describe("Max agents", () => {
+    const limits = () => sent.filter(request => request.path === "/api/settings/swarm/limits");
+    const input = (name: string) => screen.findByRole("textbox", { name });
+    beforeEach(() => server.use(...swarmSettingsHandlers("level-limits")));
+
+    test("each level has a Max agents entry per provider the swarm limits; Save sends the changed cells with the level's id", async () => {
+      const table = await openTab("intelligence", "Levels");
+      expect(within(table).getAllByRole("columnheader").map(th => th.textContent)).toEqual(["Name", "Description", "Candidates (provider · model · reasoning · harness)", "Max agents", "Actions"]);
+      const low = await input("Max agents for Fixture standard, low on fixture-provider");
+      // The fixture limits every listed level to 2.
+      expect(low).toHaveValue("2"); expect(low).toHaveAttribute("placeholder", "Unlimited");
+      expect(within(table).getByRole("row", { name: "Fixture standard, high" })).toHaveTextContent("fixture-provider");
+      const high = await input("Max agents for Fixture standard, high on anthropic");
+      expect(screen.queryByRole("button", { name: "Save max agents" })).toBeNull();
+      await userEvent.clear(low); await userEvent.type(low, "3"); await userEvent.clear(high); await userEvent.type(high, "0");
+      expect(screen.getByText(/Blank means unlimited; 0 pauses new launches\. Running agents finish\./)).toBeVisible();
+      await userEvent.click(screen.getByRole("button", { name: "Save max agents" }));
+      expect(await screen.findByText("Max agents saved.")).toBeVisible();
+      expect(limits().map(request => request.body)).toEqual([
+        { operation_id: expect.any(String), expected_revision: "1", expected_catalog_revision: "1", cell: { provider: "fixture-provider", intelligence_class: "standard-low", limit: 3 } },
+        { operation_id: expect.any(String), expected_revision: "2", expected_catalog_revision: "1", cell: { provider: "anthropic", intelligence_class: "standard-high", limit: 0 } },
+      ]);
+      expect(low).toHaveValue("3"); expect(high).toHaveValue("0");
+      expect(screen.queryByRole("button", { name: "Save max agents" })).toBeNull();
+      // Blank again removes the limit.
+      await userEvent.clear(low);
+      await userEvent.click(screen.getByRole("button", { name: "Save max agents" }));
+      await waitFor(() => expect(limits()).toHaveLength(3));
+      expect(limits()[2]!.body).toMatchObject({ cell: { provider: "fixture-provider", intelligence_class: "standard-low", limit: null } });
+    });
+
+    test("the page Save saves Max agents too, and an entry that is not a whole number is not sent", async () => {
+      await openTab("intelligence", "Levels");
+      const low = await input("Max agents for Fixture standard, low on fixture-provider");
+      await userEvent.clear(low); await userEvent.type(low, "2.5");
+      expect(low).toBeInvalid();
+      expect(screen.getByRole("alert")).toHaveTextContent("Max agents is a whole number from 0 to 4,294,967,295, or blank for unlimited.");
+      expect(screen.getByRole("button", { name: "Save max agents" })).toBeDisabled();
+      await userEvent.clear(low); await userEvent.type(low, "5");
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(limits()).toHaveLength(1));
+      expect(limits()[0]!.body).toMatchObject({ cell: { provider: "fixture-provider", intelligence_class: "standard-low", limit: 5 } });
+    });
+
+    test("limits changed elsewhere keep the entry and offer a reload; discarding returns to what AQ holds", async () => {
+      await openTab("intelligence", "Levels");
+      const low = await input("Max agents for Fixture standard, low on fixture-provider");
+      await userEvent.clear(low); await userEvent.type(low, "7");
+      server.use(http.post("/api/settings/swarm/limits", () => HttpResponse.json({ error: "swarm_settings", message: "Settings changed; reload and try again." }, { status: 409 })));
+      await userEvent.click(screen.getByRole("button", { name: "Save max agents" }));
+      expect(await screen.findByText("The agent limits changed elsewhere. Your entries are kept; reload the limits, then save again.")).toBeVisible();
+      expect(low).toHaveValue("7");
+      expect(screen.getByRole("button", { name: "Save max agents" })).toBeDisabled();
+      await userEvent.click(screen.getByRole("button", { name: "Reload limits" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save max agents" })).toBeEnabled());
+      await userEvent.click(screen.getByRole("button", { name: "Discard max agents changes" }));
+      expect(low).toHaveValue("2");
+    });
+
+    test("a refusal is shown in AQ's words; without the limits the levels stay editable", async () => {
+      server.use(http.post("/api/settings/swarm/limits", () => HttpResponse.json({ error: "swarm_settings", message: "Unknown class." }, { status: 400 })));
+      await openTab("intelligence", "Levels");
+      const low = await input("Max agents for Fixture standard, low on fixture-provider");
+      await userEvent.clear(low); await userEvent.type(low, "1");
+      await userEvent.click(screen.getByRole("button", { name: "Save max agents" }));
+      expect(await screen.findByText("AQ did not save max agents: Unknown class.. Your entries are kept.")).toBeVisible();
+    });
+
+    test("a level whose providers the swarm does not limit says so, and unreadable limits do not block the levels", async () => {
+      server.use(...swarmSettingsHandlers());
+      const table = await openTab("intelligence", "Levels");
+      expect(await within(table).findAllByText("No limit to set until one of this level’s providers is connected")).toHaveLength(2);
+      expect(screen.queryByRole("textbox", { name: /^Max agents for/ })).toBeNull();
+    });
+
+    test("when the limits cannot be read the levels are still listed and editable", async () => {
+      server.use(http.get("/api/settings/swarm", () => HttpResponse.json({ error: "swarm_settings", message: "down" }, { status: 503 })));
+      const table = await openTab("intelligence", "Levels");
+      expect(await screen.findByText(/The agent limits are unavailable, so max agents cannot be shown or changed\./)).toBeVisible();
+      expect(within(table).getAllByText("Unavailable")).toHaveLength(2);
+      expect(await edit("Fixture standard, high")).toBeVisible();
+    });
   });
 
   test("Internal work chooses among the saved levels", async () => {

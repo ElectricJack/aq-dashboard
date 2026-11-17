@@ -7,6 +7,9 @@ export function swarmSettingsHandlers(scenario?: string | null) {
     { provider: "fixture-provider", intelligence_class: "fixture-standard", display_name: "Fixture standard" },
     { provider: "fixture-provider", intelligence_class: "fixture-advanced", display_name: "Fixture advanced" },
   ];
+  // `level-limits`: the swarm also lists the labelled fixture levels of Settings → Intelligence (src/mocks/roleSettings.ts), so their Max agents can be set.
+  if (scenario === "level-limits") catalog.push({ provider: "fixture-provider", intelligence_class: "standard-low", display_name: "Fixture standard, low" },
+    { provider: "fixture-provider", intelligence_class: "standard-high", display_name: "Fixture standard, high" }, { provider: "anthropic", intelligence_class: "standard-high", display_name: "Fixture standard, high" });
   if (scenario === "swarm-two-providers") catalog.push({ provider: "fixture-provider-two", intelligence_class: "fixture-standard-two", display_name: "Fixture second standard" });
   const storageKey = `aq-mock-swarm-settings:${scenario ?? "default"}`;
   const operations = new Map<string, { request: string; response: SwarmSettings }>();

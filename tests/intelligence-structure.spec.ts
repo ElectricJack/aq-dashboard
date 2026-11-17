@@ -39,6 +39,42 @@ for (const width of [1440, 390, 320]) {
   }
 }
 
+for (const width of [1440, 390, 320]) {
+  test(`a level's description and Max agents are edited on the Levels page at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    // `level-limits`: the labelled swarm fixture lists the fixture levels, so their limits can be set.
+    await page.goto("/settings?tab=intelligence&scenario=level-limits");
+    const levels = page.getByRole("table", { name: "Levels", exact: true });
+    await expect(levels.getByRole("columnheader")).toHaveText(["Name", "Description", "Candidates (provider · model · reasoning · harness)", "Max agents", "Actions"]);
+    // Low before high.
+    await expect(levels.locator("tbody tr")).toHaveCount(2);
+    expect(await levels.locator("tbody tr").evaluateAll(rows => rows.map(row => row.getAttribute("data-document-id")))).toEqual(["standard-low", "standard-high"]);
+    const limit = page.getByRole("textbox", { name: "Max agents for Fixture standard, low on fixture-provider" });
+    await expect(limit).toHaveValue("2");
+    await limit.fill("3");
+    const save = page.getByRole("button", { name: "Save max agents" });
+    await save.scrollIntoViewIfNeeded();
+    await save.press("Enter");
+    await expect(page.getByText("Max agents saved.")).toBeVisible();
+    await expect(limit).toHaveValue("3");
+    await page.getByRole("button", { name: "Edit Fixture standard, high" }).click();
+    const editor = page.getByRole("region", { name: "Edit Fixture standard, high" });
+    const description = editor.getByRole("textbox", { name: "Description" });
+    await expect(description).toHaveValue("Labelled fixture level");
+    await expect(editor.getByText("The router reads this text when it chooses a level for a task.", { exact: false })).toBeVisible();
+    await description.fill("Fixture: work that touches several parts.");
+    await expect(editor.getByLabel("Markdown")).toHaveValue(/\ndescription: Fixture: work that touches several parts\.\n/);
+    await editor.getByRole("button", { name: "Save level" }).click();
+    await expect(editor.getByRole("status")).toHaveText("Saved.");
+    await expect(levels.getByRole("row", { name: "Fixture standard, high" })).toContainText("Fixture: work that touches several parts.");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(results.violations.map(v => v.id)).toEqual([]);
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Max agents for Fixture standard, low on fixture-provider" })).toHaveValue("3");
+  });
+}
+
 test("a reordered candidates table is saved and is still in that order after a reload", async ({ page }) => {
   await page.goto("/settings?tab=intelligence");
   await page.getByRole("button", { name: "Edit Fixture standard, high" }).click();
