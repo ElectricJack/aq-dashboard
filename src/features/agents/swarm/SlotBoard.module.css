@@ -1,0 +1,75 @@
+/* Count line: the one sentence a watcher reads first. */
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-block: 0 10px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); min-inline-size: 0; }
+.headline { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; min-inline-size: 0; }
+.headline strong { font-size: 20px; line-height: 26px; }
+.rest { color: var(--color-text-secondary); font-size: var(--font-size-body); }
+.machines { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--font-size-xs); min-inline-size: 0; }
+.machines li { padding: 2px 8px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-raised); overflow-wrap: anywhere; }
+.machines li[data-busy] { border-color: #1b7f6c; }
+.machines li[data-state="holding"] { border-color: #c7802e; }
+.machines li[data-state="offline"], .machines li[data-state="stopped"] { border-style: dashed; color: var(--color-text-secondary); }
+.updated { margin-inline-start: auto; color: var(--color-text-secondary); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
+.updated[data-stale] { color: var(--color-attention); font-weight: 600; }
+.modes { display: inline-flex; }
+.modes button { min-block-size: 30px; padding: 2px 12px; border: 1px solid var(--color-border); background: var(--color-raised); color: var(--color-text); font: inherit; font-size: var(--font-size-xs); cursor: pointer; }
+.modes button:first-child { border-radius: var(--radius-control) 0 0 var(--radius-control); }
+.modes button:last-child { border-radius: 0 var(--radius-control) var(--radius-control) 0; border-inline-start: 0; }
+/* #57c with white text fails AA; this is the same blue, darker. */
+.modes button[aria-pressed="true"] { background: #3d5aa8; border-color: #3d5aa8; color: #fff; font-weight: 600; }
+.modes button:focus-visible, .board button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+@media (pointer: coarse) { .modes button { min-block-size: 44px; } }
+
+/* Board: the same box as the tree canvas; it scrolls instead of zooming. */
+.board { box-sizing: border-box; height: 540px; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); }
+.note { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.machine { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--color-border); border-inline-start: 4px solid #6a8; border-radius: 8px; background: var(--color-panel); min-inline-size: 0; }
+.machine[data-state="holding"] { border-color: #c7802e; }
+.machine[data-state="offline"], .machine[data-state="stopped"], .machine[data-state="booting"], .machine[data-state="unknown"] { border-style: dashed; }
+.machine[data-state="offline"] > .machineHead, .machine[data-state="stopped"] > .machineHead { opacity: .7; }
+.machineHead, .workerHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; inline-size: 100%; padding: 2px 4px; border: 0; border-radius: 6px; background: none; color: var(--color-text); font: inherit; text-align: start; cursor: pointer; min-inline-size: 0; }
+.machineHead strong { font-size: 16px; }
+.workerHead strong { font-size: 13px; }
+.machineHead[aria-pressed="true"], .workerHead[aria-pressed="true"], .tile[aria-pressed="true"] { outline: 2px solid #57c; outline-offset: 1px; }
+.state { padding: 0 8px; border-radius: 10px; border: 1px solid var(--color-border); font-size: var(--font-size-xs); font-weight: 600; }
+.state[data-state="online"] { border-color: #1b7f6c; }
+.state[data-state="holding"], .state[data-state="booting"] { border-color: #c7802e; color: var(--color-attention); }
+.line { color: var(--color-text-secondary); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
+.hold { color: var(--color-attention); font-size: var(--font-size-xs); font-weight: 600; overflow-wrap: anywhere; }
+.worker { display: flex; flex-direction: column; gap: 6px; min-inline-size: 0; }
+.worker[data-health="offline"], .worker[data-health="revoked"] { opacity: .6; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-items: start; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.tiles li { min-inline-size: 0; display: flex; }
+/* Free slots: small chips sharing one grid row, so empty capacity is seen without taking a tile's room. */
+.tiles li[data-free] { grid-column: span 1; }
+.tiles li[data-free] .tile { min-block-size: 26px; padding: 2px 8px; }
+.tile { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1px; inline-size: 100%; min-block-size: 58px; padding: 5px 8px; border: 1px solid var(--color-border); border-inline-start: 4px solid #6b7280; border-radius: 8px; background: var(--color-raised); color: var(--color-text); font: inherit; font-size: var(--font-size-xs); line-height: 16px; text-align: start; cursor: pointer; min-inline-size: 0; }
+.top { display: flex; align-items: center; gap: 6px; min-inline-size: 0; }
+.top { align-items: flex-start; }
+.top .dot { margin-block-start: 5px; }
+/* Two lines of title before it is cut; the full text is the tile's tooltip and accessible name. */
+.title { flex: 1; min-inline-size: 0; font-weight: 700; font-size: 14px; line-height: 18px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.clock { font-weight: 700; font-size: 14px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.clock::after { content: attr(data-clock); }
+.output::after { content: attr(data-output-age); }
+.meta { display: block; min-inline-size: 0; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phase { font-weight: 600; color: var(--color-text); }
+.dot { flex: none; inline-size: 9px; block-size: 9px; border-radius: 50%; background: #6b7280; }
+/* The level's palette hint, as on the tree's pills. */
+.tile[data-class="fast"] { border-inline-start-color: #1b7f6c; } .tile[data-class="standard"] { border-inline-start-color: #57c; } .tile[data-class="deep"] { border-inline-start-color: #a5c; }
+.tile[data-state="running"] .dot { background: #2aa88a; }
+.tile[data-state="starting"], .tile[data-state="finishing"], .tile[data-state="held"] { border-color: #c7802e; border-inline-start-color: #c7802e; }
+.tile[data-state="starting"] .dot, .tile[data-state="held"] .dot { background: transparent; border: 2px solid #c7802e; box-sizing: border-box; }
+.tile[data-state="finishing"] .dot { background: #c7802e; }
+.tile[data-state="held"] .title, .tile[data-state="starting"] .phase, .tile[data-state="finishing"] .phase { color: var(--color-attention); }
+.tile[data-state="stopped"] { opacity: .6; border-style: dashed; }
+.tile[data-state="free"] { background: transparent; border: 1px dashed var(--color-text-secondary); color: var(--color-text-secondary); }
+.tile[data-state="free"] .dot { display: none; }
+.tile[data-state="free"] .title { font-weight: 400; font-size: var(--font-size-xs); text-align: center; }
+/* The dot moves only while the read reports terminal output in the last seconds. */
+.tile[data-output="active"] .dot { animation: pulse 1.2s ease-in-out infinite; }
+.tile[data-output="quiet"] .dot { background: #6b7280; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(42,168,138,.7); } 50% { box-shadow: 0 0 0 5px rgba(42,168,138,0); } }
+@media (prefers-reduced-motion: reduce) { .tile[data-output="active"] .dot { animation: none; box-shadow: 0 0 0 3px rgba(42,168,138,.35); } }
+@media (min-width: 1600px) { .tiles { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); } .title, .clock { font-size: 16px; line-height: 20px; } .tile { font-size: 13px; line-height: 18px; min-block-size: 66px; } .headline strong { font-size: 24px; line-height: 30px; } }
+/* Phones: one compact line above the tree; each machine's share is on its card or its board section. */
+@media (max-width: 1023px) { .board { height: auto; max-block-size: none; } .updated, .machines { display: none; } .summary { padding: 6px 10px; gap: 4px 10px; } .headline strong { font-size: 16px; line-height: 22px; } .rest { font-size: var(--font-size-xs); } .modes { margin-inline-start: auto; } }

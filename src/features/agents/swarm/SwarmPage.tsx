@@ -16,11 +16,13 @@ import {ManualAgentsProvider,useManualAgents,mergeManual} from "./manualAgents";
 import { SwarmPane } from "./SwarmPane";
 import { SwarmTree } from "./SwarmTree";
 import { SwarmStatusHeader } from "./SwarmStatusHeader";
+import { SlotBoard, SwarmSummary, type SwarmViewMode } from "./SlotBoard";
+import { useAgentFacts } from "./useAgentFacts";
 import { useWorkerSettings, applyWorkerSettings } from "./WorkerManagement";
 import styles from "./Swarm.module.css";
 
-/** Polls an object may be missing from the swarm before the pane lets go of its last known state. */
-export const HOLD_POLLS = 3;
+/** Polls an object may be missing from the swarm before the pane lets go of its last known state: about thirty seconds. */
+export const HOLD_POLLS = Math.round(30_000 / SWARM_POLL_MS);
 
 export function SwarmPage() { return <ManualAgentsProvider><SwarmPageBody /></ManualAgentsProvider>; }
 function SwarmPageBody() {
@@ -36,8 +38,10 @@ function SwarmPageBody() {
   const manual=useManualAgents();
   const settings = useWorkerSettings();
   const selectParam = params.get("select");
-  const view = useMemo(() => swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view, manual?.fleet, manual?.project ?? null, selectParam), settings.data) : undefined,
+  const merged = useMemo(() => swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view, manual?.fleet, manual?.project ?? null, selectParam), settings.data) : undefined,
     [swarm.data?.view, manual?.fleet, manual?.project, selectParam, settings.data]);
+  // Task titles and role, level, model and effort the swarm read does not carry yet, from each task's own reads.
+  const view = useAgentFacts(merged);
   const ready = overview.data?.view.counts.ready.value ?? null;
   // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.
   const pane = useRef<HTMLElement>(null);
@@ -77,6 +81,18 @@ function SwarmPageBody() {
   const drag = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const focused = shown.selection?.kind === "agent" && params.get("focus") === "terminal";
+  // Tree (the default) or board. The address wins, so a link opens the view it names; otherwise the viewer's last choice.
+  const modeKey = `aq.swarm.view:${queryContext.principalId}`;
+  const [storedMode, setStoredMode] = useState<SwarmViewMode | null>(null);
+  useEffect(() => { try { const v = localStorage.getItem(modeKey); setStoredMode(v === "board" || v === "tree" ? v : null); } catch { setStoredMode(null); } }, [modeKey]);
+  const viewParam = params.get("view");
+  const mode: SwarmViewMode = viewParam === "board" || viewParam === "tree" ? viewParam : storedMode ?? "tree";
+  const boardOnly = mode === "board" && !shown.selection && !!view;
+  const setMode = (next: SwarmViewMode) => {
+    setStoredMode(next);
+    try { localStorage.setItem(modeKey, next); } catch { /* The view still switches when storage is unavailable. */ }
+    setParams(prev => { const p = new URLSearchParams(prev); p.set("view", next); return p; }, { replace: true });
+  };
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
@@ -131,9 +147,12 @@ function SwarmPageBody() {
     {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
     <SwarmStatusHeader />
-    <div ref={stage} className={styles.stage} style={desktop && !focused ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    {view && <SwarmSummary view={view} anchor={anchor} mode={mode} onMode={setMode} stale={stale} />}
+    <div ref={stage} className={styles.stage} style={desktop && !focused && !boardOnly ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-board-only={boardOnly || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
-        ? <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
+        ? mode === "board"
+          ? <SlotBoard view={view} anchor={anchor} selected={shown.selection} onSelect={select} />
+          : <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}
       <div className={styles.divider} role="separator" aria-label="Resize swarm tree and properties" aria-orientation="vertical"
         aria-valuemin={Math.round(minPercent)} aria-valuemax={Math.round(maxPercent)} aria-valuenow={Math.round(treePercent)} aria-valuetext={`${Math.round(treePercent)}% tree width`}

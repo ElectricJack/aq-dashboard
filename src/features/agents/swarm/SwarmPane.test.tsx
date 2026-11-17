@@ -1,4 +1,5 @@
 import { usageLabel } from "./SwarmPane";
+import { HOLD_POLLS } from "./SwarmPage";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
@@ -159,12 +160,12 @@ test("a data flap keeps the terminal mounted and never retakes control", async (
   expect(kinds.filter(k => k === "control")).toHaveLength(1);
 });
 
-test("the last known agent is dropped after three polls without it", async () => {
+test("the last known agent is dropped after the hold polls without it", async () => {
   FIXTURE_HANDLERS();
   const { queryClient } = renderApp("/agents?select=agent:sess-07");
   await screen.findByRole("region", { name: "Agent terminal" });
   serve(withoutAgent("sess-07"));
-  for (let i = 0; i < 3; i++) { await queryClient.invalidateQueries({ queryKey: [] }); await screen.findByText(/not in the latest update/); }
+  for (let i = 0; i < HOLD_POLLS; i++) { await queryClient.invalidateQueries({ queryKey: [] }); await screen.findByText(/not in the latest update/); }
   await queryClient.invalidateQueries({ queryKey: [] });
   await waitFor(() => expect(screen.queryByRole("region", { name: "Agent terminal" })).toBeNull());
   expect(screen.getByText("Select anything in the tree")).toBeInTheDocument();
