@@ -49,7 +49,7 @@ export function InternalWorkSettings() {
     setSaving(true); setNotice(null); setError(null);
     try {
       const result = await (inspect ? inspectInternalWorkSave(request.operation_id) : saveInternalWorkSettings(request));
-      client.setQueryData(settingsKey, { revision: result.revision, default_profile_id: result.default_profile_id, overrides: result.overrides, purposes: result.purposes });
+      client.setQueryData(settingsKey, { revision: result.revision, default_profile_id: result.default_profile_id, overrides: result.overrides, purposes: result.purposes, missing: result.missing });
       setDraft(null); setUnconfirmed(null); setConflict(false); setRetrySame(false);
       setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
     } catch (failure) {
@@ -76,6 +76,9 @@ export function InternalWorkSettings() {
     <p className={styles.meta}>The intelligence profile used for AQ's own background work. A purpose can override the default.</p>
     {!saved || !current ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="internal work settings" onRetry={() => void query.refetch()} /> : <>
       {!current.default_profile_id && <p className={styles.warning}>No profile is set. Internal work will fail until one is chosen.</p>}
+      {saved.missing.length > 0 && <p className={styles.warning} role="status">{saved.missing.map(item => item.purpose === null
+        ? `The default names the level “${item.profile_id}”, which no longer exists: internal work fails until another is chosen.`
+        : `${PURPOSE_LABELS[item.purpose]} names the level “${item.profile_id}”, which no longer exists: it runs on the default.`).join(" ")}</p>}
       <div className={styles.fields}>
         <ProfileSelect id="internal-work-default" label="Default profile" value={current.default_profile_id} profiles={profiles} first="Choose a profile"
           onChange={id => edit(value => ({ ...value, default_profile_id: id }))} />

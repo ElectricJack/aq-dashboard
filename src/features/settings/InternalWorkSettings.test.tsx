@@ -95,3 +95,11 @@ test("an unconfirmed save keeps the draft and retries with the same operation id
   expect(ids).toHaveLength(2);
   expect(ids[1]).toBe(ids[0]);
 });
+
+test("a saved choice whose level no longer exists is named, with what happens to it", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot({ default_profile_id: "old", overrides: { playbook_call: "older" }, missing: [{ purpose: null, profile_id: "old" }, { purpose: "playbook_call", profile_id: "older" }] }))));
+  open();
+  const note = await screen.findByText(/The default names the level “old”, which no longer exists/);
+  expect(note).toHaveTextContent("Playbook calls names the level “older”, which no longer exists: it runs on the default.");
+  expect(within(screen.getByLabelText("Default profile")).getByRole("option", { name: "old (unavailable)" })).toBeInTheDocument();
+});

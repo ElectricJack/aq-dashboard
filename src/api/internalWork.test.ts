@@ -11,7 +11,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 test("adapts a server snapshot, including an unset default", () => {
-  expect(adaptInternalWork(snapshot())).toEqual(snapshot());
+  expect(adaptInternalWork(snapshot())).toEqual({ ...snapshot(), missing: [] });
   expect(adaptInternalWork({ ...snapshot(), default_profile_id: null, overrides: {} }).default_profile_id).toBeNull();
 });
 test("rejects malformed revisions, unknown purposes and bad profile ids", () => {
@@ -85,4 +85,12 @@ test("adapts a run's transcripts, bounded and without trusting unknown items", (
   expect(many.transcripts![0]!.omitted).toBe(5000 - 2000);
   for (const bad of [{ transcripts: "x" }, { transcripts: [{ candidate_index: -1, events: [] }] }, { transcripts: [{ candidate_index: 0, events: {} }] }, { transcripts: [{ candidate_index: 0, events: [{ kind: "text", text: 1 }] }] }])
     expect(() => adaptInternalRun({ ...run(), ...bad })).toThrow(ContractError);
+});
+
+test("reads the saved choices whose level no longer exists, and refuses a malformed list", () => {
+  // aq-server 09ee5e98 `aq-internal-work/src/settings.rs` `snapshot`: no `catalog_revision`, and `missing` with a null purpose for the default.
+  const missing = [{ purpose: null, profile_id: "gone" }, { purpose: "playbook_call", profile_id: "also-gone" }];
+  expect(adaptInternalWork({ ...snapshot(), missing }).missing).toEqual(missing);
+  expect(() => adaptInternalWork({ ...snapshot(), missing: [{ purpose: "nope", profile_id: "x" }] })).toThrow();
+  expect(() => adaptInternalWork({ ...snapshot(), missing: "none" })).toThrow();
 });
