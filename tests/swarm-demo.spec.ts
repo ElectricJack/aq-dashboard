@@ -36,7 +36,26 @@ for (const size of SIZES) {
           expect(box.x + box.width).toBeLessThanOrEqual(area.x + area.width + 1);
         }
         expect(await board.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-        // The clock counts: a running tile's time changes within a few seconds.
+        // 1280×720 gets the compact density: all twenty slots on one screen, nothing to scroll. 1920×1080 keeps the full tiles.
+        const first = board.getByRole("button", { name: /^Add retry backoff/ });
+        if (size.height < 900) {
+          await expect(board).toHaveAttribute("data-density", "compact");
+          await expect(first).toContainText("Fixture: billing service · developer · Standard, high · claude-sonnet-5");
+          for (const tile of await board.getByRole("listitem").all()) {
+            const box = (await tile.boundingBox())!;
+            expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+          }
+          expect((await board.boundingBox())!.y + (await board.boundingBox())!.height).toBeLessThanOrEqual(size.height);
+          expect(await page.evaluate(() => { const main = document.scrollingElement!; return main.scrollHeight <= main.clientHeight; })).toBe(true);
+          // Two lines: the title with its clock, then one line of facts.
+          expect((await first.boundingBox())!.height).toBeLessThanOrEqual(44);
+          expect(await first.locator("span").first().evaluate(el => parseFloat(getComputedStyle(el.querySelector("span")!).fontSize))).toBeGreaterThanOrEqual(14);
+        } else {
+          await expect(board).not.toHaveAttribute("data-density", "compact");
+          await expect(first).toContainText("Running · claude-sonnet-5 · high effort");
+          expect((await first.boundingBox())!.height).toBeGreaterThanOrEqual(58);
+        }
+
         const clock = board.getByRole("button", { name: /^Add retry backoff/ }).locator("[data-clock]");
         const before = await clock.getAttribute("data-clock");
         await expect(clock).not.toHaveAttribute("data-clock", before!, { timeout: 4000 });
@@ -62,7 +81,7 @@ for (const size of SIZES) {
       await page.goto("/agents/swarm?view=board");
       const board = page.getByRole("region", { name: "Swarm board" });
       await expect(board.getByRole("button", { name: /^laptop(?!-)/ })).toContainText("offline", { timeout: FIRST_PAINT });
-      await expect(board.getByRole("button", { name: /^studio(?!-)/ })).toContainText("holding: Context measurement expired");
+      await expect(board.getByRole("button", { name: /^studio(?!-)/ })).toContainText("holding: Capability report expired");
       await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("status")).toContainText("4 agents running on 1 machine");
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
       if (shots) await page.screenshot({ path: `${shots}/design-fixture-board-${size.name}.png` });

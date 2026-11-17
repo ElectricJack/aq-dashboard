@@ -70,6 +70,22 @@
 .tile[data-output="quiet"] .dot { background: #6b7280; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(42,168,138,.7); } 50% { box-shadow: 0 0 0 5px rgba(42,168,138,0); } }
 @media (prefers-reduced-motion: reduce) { .tile[data-output="active"] .dot { animation: none; box-shadow: 0 0 0 3px rgba(42,168,138,.35); } }
+/*
+ * Compact density (SlotBoard sets it on a desktop window under 900px tall): two-line tiles, the worker's name beside its
+ * slots, and no fixed height, so twenty slots fit on one 1280×720 screen. The title keeps its size to stay readable.
+ */
+.summary[data-density="compact"] { margin-block-end: 6px; padding-block: 5px; }
+.board[data-density="compact"] { height: auto; padding: 6px; gap: 6px; }
+.board[data-density="compact"] .machine { gap: 4px; padding: 4px 6px 6px; }
+.board[data-density="compact"] .machineHead { padding-block: 0; }
+.board[data-density="compact"] .worker { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: start; gap: 4px; }
+.board[data-density="compact"] .workerHead strong { font-size: 12px; max-inline-size: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board[data-density="compact"] .workerHead { flex-direction: column; align-items: flex-start; gap: 0; padding-block: 3px; }
+.board[data-density="compact"] .tiles { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 4px; }
+.board[data-density="compact"] .tile { min-block-size: 40px; padding: 2px 8px; gap: 0; line-height: 15px; }
+.board[data-density="compact"] .tiles li[data-free] .tile { min-block-size: 24px; padding-block: 1px; }
+/* One line cut at the tile's edge, not at a word, so the title uses all the room beside the clock. */
+.board[data-density="compact"] .title { display: block; white-space: nowrap; text-overflow: ellipsis; overflow-wrap: normal; }
 @media (min-width: 1600px) { .tiles { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); } .title, .clock { font-size: 16px; line-height: 20px; } .tile { font-size: 13px; line-height: 18px; min-block-size: 66px; } .headline strong { font-size: 24px; line-height: 30px; } }
 /* Phones: one compact line above the tree; each machine's share is on its card or its board section. */
 @media (max-width: 1023px) { .board { height: auto; max-block-size: none; } .updated, .machines { display: none; } .summary { padding: 6px 10px; gap: 4px 10px; } .headline strong { font-size: 16px; line-height: 22px; } .rest { font-size: var(--font-size-xs); } .modes { margin-inline-start: auto; } }

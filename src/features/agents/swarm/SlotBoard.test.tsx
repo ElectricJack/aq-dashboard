@@ -8,11 +8,57 @@ import { handlersFor } from "../../../mocks/handlers";
 import { SERVER_TIME } from "../../../mocks/inspectionData";
 import { demoSwarm, SWARM_MOCKUP } from "../../../mocks/swarm";
 import { renderApp } from "../../../test/renderApp";
-import { SlotBoard, SwarmSummary } from "./SlotBoard";
+import { COMPACT_BOARD_QUERY, SlotBoard, SwarmSummary, compactLine } from "./SlotBoard";
 
 const NOW = "2026-11-17T12:00:00.000Z";
 const anchor = { serverTime: NOW, receivedAt: 0 };
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+/** A window the compact query matches (1280×720), or one it does not (1920×1080). */
+const windowIs = (short: boolean) => vi.spyOn(window, "matchMedia").mockImplementation((query: string) =>
+  Object.assign(new EventTarget(), { matches: short && query === COMPACT_BOARD_QUERY, media: query, onchange: null, addListener() {}, removeListener() {} }) as unknown as MediaQueryList);
+
+describe("compact density", () => {
+  const draw = (swarm: Swarm) => render(<SlotBoard view={adaptSwarm(swarm, NOW)} anchor={anchor} selected={null} onSelect={vi.fn()} now={() => 0} />);
+
+  test("the query is a desktop window under 900px tall, so 1280×720 is compact and 1920×1080 is not", () => {
+    expect(COMPACT_BOARD_QUERY).toBe("(min-width: 1024px) and (max-height: 899px)");
+  });
+
+  test("a short window draws two-line tiles: the title with its clock, then project, role, level and model", () => {
+    windowIs(true);
+    draw(demoSwarm(NOW, true));
+    expect(screen.getByRole("region", { name: "Swarm board" })).toHaveAttribute("data-density", "compact");
+    const tile = screen.getByRole("button", { name: /^Add retry backoff to the webhook sender/ });
+    expect(tile).toHaveAccessibleName("Add retry backoff to the webhook sender Fixture: billing service · developer · Standard, high · claude-sonnet-5");
+    expect(tile.querySelector("[data-clock]")).toHaveAttribute("data-clock", "9:12");
+    // A slot that is not running says so first; all twenty slots are still drawn.
+    expect(screen.getByRole("button", { name: /^Add rate limiting/ })).toHaveAccessibleName(/ Starting · Fixture: storefront · developer · Standard, high · claude-sonnet-5$/);
+    expect(screen.getByRole("button", { name: /^Tidy the release notes template/ })).toHaveAccessibleName(/ Finishing · Fixture: docs site · writer · Fast · claude-haiku-5$/);
+    expect(screen.getAllByRole("listitem")).toHaveLength(20);
+  });
+
+  test("a tall window keeps the full three-line tiles", () => {
+    windowIs(false);
+    draw(demoSwarm(NOW, true));
+    expect(screen.getByRole("region", { name: "Swarm board" })).not.toHaveAttribute("data-density");
+    expect(screen.getByRole("button", { name: /^Add retry backoff to the webhook sender/ })).toHaveAccessibleName(/Running · claude-sonnet-5 · high effort$/);
+  });
+
+  test("the compact line shows only what the read gave: no role on today's rows", () => {
+    const a = adaptSwarm(demoSwarm(NOW), NOW).machines[0]!.nodes[0]!.agents[0]!;
+    expect(compactLine(a, "running")).toBe("Fixture: billing service · Standard, high · claude-sonnet-5");
+  });
+
+  test("the count line gives the machine chips' row to a compact board, and keeps them above the tree", () => {
+    windowIs(true);
+    const view = adaptSwarm(demoSwarm(NOW), NOW);
+    const { rerender } = render(<SwarmSummary view={view} anchor={anchor} mode="board" onMode={vi.fn()} now={() => 0} />);
+    expect(screen.queryByRole("list", { name: "Machines" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("12 agents running on 2 machines");
+    rerender(<SwarmSummary view={view} anchor={anchor} mode="tree" onMode={vi.fn()} now={() => 0} />);
+    expect(screen.getByRole("list", { name: "Machines" })).toBeInTheDocument();
+  });
+});
 
 describe("board", () => {
   const board = (swarm: Swarm, onSelect = vi.fn(), now = () => 0) => { render(<SlotBoard view={adaptSwarm(swarm, NOW)} anchor={anchor} selected={null} onSelect={onSelect} now={now} />); return onSelect; };
@@ -85,7 +131,7 @@ describe("board", () => {
     const laptop = screen.getByRole("button", { name: /^laptop(?!-)/ });
     expect(laptop).toHaveTextContent(/offline · last seen/);
     expect(screen.queryByRole("list", { name: "laptop-1 slots" })).toBeNull();
-    expect(screen.getByRole("button", { name: /^studio(?!-)/ })).toHaveTextContent("holding: Context measurement expired");
+    expect(screen.getByRole("button", { name: /^studio(?!-)/ })).toHaveTextContent("holding: Capability report expired");
     expect(within(screen.getByRole("list", { name: "studio-1 slots" })).getAllByRole("button", { name: "free" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: /^boat vm-a/ })).toHaveTextContent("booting");
   });
