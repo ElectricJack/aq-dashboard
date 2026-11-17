@@ -61,7 +61,7 @@ test('launch immediately opens its pending pane and reports a refused request af
   const delayed = new Promise<void>(resolve => { release = resolve; });
   server.use(
     http.get('/api/v1/bootstrap', () => HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c => !['swarm.read','tasks.create'].includes(c.name)),{name:'swarm.read',version:'1',enabled:true},{name:'tasks.create',version:'1',enabled:true}]}})),
-    http.get('/api/manual-agents', () => HttpResponse.json({launch_profiles:[{profile_id:'standard-medium',profile_version:1,candidate_id:'one',name:'Standard',provider:'anthropic',model:'fixture-model',reasoning:'medium',harness:'claude'}],sessions:[],workers:[{node_id:node,max_slots:4,providers:['anthropic'],repositories:[repo],observed_at_ms:Date.now()}],slots:[],projects:[{id:graphProject,name:'Fixture project',repository_id:repo}],server_time_ms:Date.now()})),
+    http.get('/api/manual-agents', () => HttpResponse.json({launch_profiles:[{snapshot_digest:'sha256:fixture',profile_id:'standard-medium',candidate_id:'anthropic:fixture-model:medium',name:'Standard',provider:'anthropic',model:'fixture-model',reasoning:'medium',harness:'claude'}],sessions:[],workers:[{node_id:node,max_slots:4,providers:['anthropic'],repositories:[repo],observed_at_ms:Date.now()}],slots:[],projects:[{id:graphProject,name:'Fixture project',repository_id:repo}],server_time_ms:Date.now()})),
     http.post(`/api/manual-agents/workers/${node}/projects/${graphProject}`, async () => { await delayed; return new HttpResponse(null,{status:403}); }),
   );
   renderApp('/agents');

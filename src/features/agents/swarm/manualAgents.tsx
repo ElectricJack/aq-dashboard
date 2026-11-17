@@ -7,8 +7,13 @@ import {validGraphId} from '../../../api/adapters/humanGraph';
 import type {SwarmView} from '../../../api/adapters/swarm';
 import {useDraft} from '../../../app/useDraft';
 import {useSession,PANEL_READ} from '../../../app/session';
-export type IntelligenceSelection={profile_id:string;profile_version:number;candidate_id:string};
-export type LaunchProfile=IntelligenceSelection&{name:string;provider:string;model:string;reasoning:string;harness:string};
+/** A level (`profile_id` is the level's id) and one of its candidates (`provider:model:reasoning`). The server refuses any other field. */
+export type IntelligenceSelection={profile_id:string;candidate_id:string};
+/** One entry per level candidate a logged-in harness can run (aq-manual-sessions `intelligence::choices`). */
+export type LaunchProfile=IntelligenceSelection&{name:string;provider:string;model:string;reasoning:string;harness:string;snapshot_digest?:string};
+export const validLaunchProfile=(p:unknown):p is LaunchProfile=>isRecord(p)&&typeof p.profile_id==='string'&&typeof p.candidate_id==='string'&&typeof p.name==='string'&&typeof p.provider==='string'&&typeof p.model==='string'&&typeof p.reasoning==='string'&&typeof p.harness==='string'&&(p.snapshot_digest===undefined||typeof p.snapshot_digest==='string');
+export const launchProfileKey=(p:IntelligenceSelection)=>`${p.profile_id} ${p.candidate_id}`;
+export const selectionOf=(p:IntelligenceSelection):IntelligenceSelection=>({profile_id:p.profile_id,candidate_id:p.candidate_id});
 export type ManualAgent={id:string;node_id:string;project_id:string;spec:{project_name:string;repository_id:string;provider:string;model:string;reasoning?:string;harness?:string;intelligence_profile?:IntelligenceSelection;profile_name?:string};status:'pending'|'preparing'|'running'|'stopping'|'stopped'|'failed';stage:string;desired_running:boolean;created_at_ms:number;updated_at_ms:number;worker_seen_at_ms:number|null;uncertain?:boolean};
 export type ManualFleet={launch_profiles:LaunchProfile[];sessions:ManualAgent[];workers:{node_id:string;max_slots:number;repositories:string[];providers:string[];observed_at_ms:number}[];slots:{node_id:string;project_id:string;slots:number;revision:number}[];projects:{id:string;name:string;repository_id:string}[];server_time_ms:number};
 const states=['pending','preparing','running','stopping','stopped','failed'];
@@ -17,7 +22,7 @@ export function adaptManualFleet(raw:unknown):ManualFleet {
  if(!isRecord(raw)||!Array.isArray(raw.sessions)||raw.sessions.length>256||!raw.sessions.every(manualAgent)||!Array.isArray(raw.workers)||!Array.isArray(raw.slots)||!Array.isArray(raw.projects)||!Number.isSafeInteger(raw.server_time_ms))throw new ContractError('Invalid interactive agents');
  if(!raw.workers.every(w=>isRecord(w)&&validGraphId(w.node_id)&&Number.isInteger(w.max_slots)&&Number(w.max_slots)>=0&&Number(w.max_slots)<=8&&Array.isArray(w.repositories)&&w.repositories.length<=16&&w.repositories.every(validGraphId)&&Number.isSafeInteger(w.observed_at_ms))||!raw.slots.every(s=>isRecord(s)&&validGraphId(s.node_id)&&validGraphId(s.project_id)&&Number.isInteger(s.slots)&&Number(s.slots)>=0&&Number(s.slots)<=8&&Number.isSafeInteger(s.revision)&&Number(s.revision)>0)||!raw.projects.every(p=>isRecord(p)&&validGraphId(p.id)&&validGraphId(p.repository_id)&&typeof p.name==='string'))throw new ContractError('Invalid interactive capacity');
  const profiles=raw.launch_profiles??[];
- if(!Array.isArray(profiles)||profiles.length>2048||!profiles.every(p=>isRecord(p)&&typeof p.profile_id==='string'&&Number.isSafeInteger(p.profile_version)&&Number(p.profile_version)>0&&typeof p.candidate_id==='string'&&typeof p.name==='string'&&typeof p.provider==='string'&&typeof p.model==='string'&&typeof p.reasoning==='string'&&typeof p.harness==='string'))throw new ContractError('Invalid launch profiles');
+ if(!Array.isArray(profiles)||profiles.length>2048||!profiles.every(validLaunchProfile))throw new ContractError('Invalid launch profiles');
  if(!raw.workers.every(w=>!isRecord(w)||w.providers===undefined||(Array.isArray(w.providers)&&w.providers.every(p=>typeof p==='string'&&['anthropic','openai'].includes(p)))))throw new ContractError('Invalid worker providers');
  return {...raw,launch_profiles:profiles,workers:raw.workers.map(w=>({...w,providers:w.providers??['anthropic']}))} as ManualFleet;
 }
@@ -34,9 +39,9 @@ export function ManualAgentsProvider({children}:{children:ReactNode}){
  const fleet=query.data && !isProtectedReadFailure(query.error)?{...query.data,sessions:[...query.data.sessions,...drafts.filter(d=>(!project||d.project_id===project)&&!query.data.sessions.some(s=>s.id===d.id))]}:undefined;
  async function launch(node:string,p:string,id:string=crypto.randomUUID(),intelligence?:IntelligenceSelection){
   const item=query.data?.projects.find(v=>v.id===p);if(!item)throw Error('Select a started project');
-  const choice=query.data?.launch_profiles.find(c=>c.profile_id===intelligence?.profile_id&&c.profile_version===intelligence.profile_version&&c.candidate_id===intelligence.candidate_id);
-  if(!draftRef.current.some(v=>v.id===id))save([...draftRef.current,{id,node_id:node,project_id:p,spec:{project_name:item.name,repository_id:item.repository_id,provider:choice?.provider??'',model:choice?.model??'',...(choice?{reasoning:choice.reasoning,harness:choice.harness,profile_name:choice.name}:{}),...(intelligence?{intelligence_profile:intelligence}:{})},status:'pending',stage:'Requesting agent startup',desired_running:true,created_at_ms:Date.now(),updated_at_ms:Date.now(),worker_seen_at_ms:null}]);
-  try {const result=await apiSend<unknown>('POST',`/api/manual-agents/workers/${node}/projects/${p}`,{operation_id:id,...(intelligence?{intelligence_profile:intelligence}:{})});if(!manualAgent(result)||result.id!==id||result.node_id!==node||result.project_id!==p)throw new ContractError('Invalid launch receipt');save(draftRef.current.map(v=>v.id===id?result:v));await queryClient.invalidateQueries({queryKey:['manual-agents']});}
+  const choice=query.data?.launch_profiles.find(c=>c.profile_id===intelligence?.profile_id&&c.candidate_id===intelligence.candidate_id);
+  if(!draftRef.current.some(v=>v.id===id))save([...draftRef.current,{id,node_id:node,project_id:p,spec:{project_name:item.name,repository_id:item.repository_id,provider:choice?.provider??'',model:choice?.model??'',...(choice?{reasoning:choice.reasoning,harness:choice.harness,profile_name:choice.name}:{}),...(intelligence?{intelligence_profile:selectionOf(intelligence)}:{})},status:'pending',stage:'Requesting agent startup',desired_running:true,created_at_ms:Date.now(),updated_at_ms:Date.now(),worker_seen_at_ms:null}]);
+  try {const result=await apiSend<unknown>('POST',`/api/manual-agents/workers/${node}/projects/${p}`,{operation_id:id,...(intelligence?{intelligence_profile:selectionOf(intelligence)}:{})});if(!manualAgent(result)||result.id!==id||result.node_id!==node||result.project_id!==p)throw new ContractError('Invalid launch receipt');save(draftRef.current.map(v=>v.id===id?result:v));await queryClient.invalidateQueries({queryKey:['manual-agents']});}
   catch(e){const refused=e instanceof ApiError&&[400,403,404,409,422].includes(e.status??0);save(draftRef.current.map(v=>v.id===id?{...v,status:refused?'failed':'pending',stage:refused?(e.serverMessage??'Launch refused'):'Launch confirmation pending',uncertain:!refused}:v));throw e;}
   return id;
  }

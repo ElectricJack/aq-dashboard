@@ -2,7 +2,7 @@ import {useRef,useState} from 'react';
 import {useSearchParams,Link} from 'react-router';
 import {ActionButton} from '../../../components/layout/Workspace';
 import type {NodeView} from '../../../api/adapters/swarm';
-import {useManualAgents,capacity} from './manualAgents';
+import {useManualAgents,capacity,launchProfileKey as profileKey,selectionOf} from './manualAgents';
 import styles from './Swarm.module.css';
 export function WorkerLaunch({node}:{node:NodeView}){
  const manual=useManualAgents();const [,setParams]=useSearchParams();const [selected,setSelected]=useState('');const [provider,setProvider]=useState('anthropic');const [profile,setProfile]=useState('');const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState(false);const lock=useRef(false);
@@ -14,13 +14,12 @@ export function WorkerLaunch({node}:{node:NodeView}){
  const providers=worker?.providers??[];
  const activeProvider=providers.includes(provider)?provider:providers[0];
  const profiles=fleet?.launch_profiles.filter(p=>p.provider===activeProvider)??[];
- const profileKey=(p:typeof profiles[number])=>`${p.profile_id}@${p.profile_version}:${p.candidate_id}`;
  const intelligence=profiles.find(p=>profileKey(p)===profile)??profiles.find(p=>p.profile_id==='standard-medium')??profiles[0];
  const slots=chosen&&fleet?capacity(fleet,node.id,chosen.id):0;
  const available=!!worker&&!!fleet&&fleet.server_time_ms-worker.observed_at_ms<15000&&node.health==='online';
  async function launch(){if(!manual||!chosen||!intelligence||lock.current)return;lock.current=true;setBusy(true);setError(null);const id=crypto.randomUUID();
   setParams(previous=>{const p=new URLSearchParams(previous);p.set('select',`agent:${id}`);return p;},{replace:true});
-  try{await manual.launch(node.id,chosen.id,id,{profile_id:intelligence.profile_id,profile_version:intelligence.profile_version,candidate_id:intelligence.candidate_id});}catch(e){setError(e instanceof Error?e.message:'Launch could not be confirmed');}finally{lock.current=false;setBusy(false);}
+  try{await manual.launch(node.id,chosen.id,id,selectionOf(intelligence));}catch(e){setError(e instanceof Error?e.message:'Launch could not be confirmed');}finally{lock.current=false;setBusy(false);}
  }
  async function change(delta:number){if(!manual||!chosen||lock.current)return;lock.current=true;setBusy(true);setError(null);try{await manual.setSlots(node.id,chosen.id,slots+delta);}catch(e){setError(e instanceof Error?e.message:'Slot change could not be confirmed');}finally{lock.current=false;setBusy(false);}}
  return <section className={styles.launch} aria-label="Interactive agents">
@@ -30,10 +29,10 @@ export function WorkerLaunch({node}:{node:NodeView}){
   <label>Provider<select aria-label="Agent provider" value={activeProvider??''} onChange={e=>{setProvider(e.target.value);setProfile('');}} disabled={busy}>
    {providers.map(p=><option key={p} value={p}>{p==='openai'?'Codex':'Claude'}</option>)}
   </select></label>
-  <label>Intelligence profile<select aria-label="Agent intelligence profile" value={intelligence?profileKey(intelligence):''} onChange={e=>setProfile(e.target.value)} disabled={busy||!profiles.length}>
+  <label>Level<select aria-label="Agent level" value={intelligence?profileKey(intelligence):''} onChange={e=>setProfile(e.target.value)} disabled={busy||!profiles.length}>
    {profiles.map(p=><option key={profileKey(p)} value={profileKey(p)}>{p.name} · {p.model} · {p.reasoning}</option>)}
   </select></label>
-  {!intelligence&&available&&<p className={styles.actionNote}>No saved profile is available for this provider. <Link to="/settings?tab=intelligence">Manage profiles</Link></p>}
+  {!intelligence&&available&&<p className={styles.actionNote}>No level lists a model for this provider. <Link to="/settings?tab=intelligence">Manage levels</Link></p>}
   <div className={styles.actions}><ActionButton onClick={()=>void launch()} disabled={busy||!available||!chosen||!intelligence}>{busy?'Starting…':'Launch agent'}</ActionButton></div>
   <p className={styles.actionNote}>Starts an interactive agent. Connect in the graph and work with it until you stop it.</p>
   {chosen&&<><div className={styles.actions} aria-label="Project worker slots"><ActionButton aria-label="Remove project slot" onClick={()=>void change(-1)} disabled={busy||!available||slots===0}>−</ActionButton><span>{slots} project slot{slots===1?'':'s'}</span><ActionButton aria-label="Add project slot" onClick={()=>void change(1)} disabled={busy||!available||slots>=(worker?.max_slots??0)}>+</ActionButton></div><p className={styles.actionNote}>Removing a busy slot lets its agent continue until stopped.</p></>}

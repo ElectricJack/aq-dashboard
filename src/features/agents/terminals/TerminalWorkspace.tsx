@@ -13,7 +13,7 @@ import { useRead } from "../../../app/useRead";
 import { useDraft } from "../../../app/useDraft";
 import { AgentsTabs } from "../AgentsTabs";
 import { InteractiveTerminal } from "../InteractiveTerminal";
-import { useManualAgents } from "../swarm/manualAgents";
+import { useManualAgents, launchProfileKey as key, selectionOf } from "../swarm/manualAgents";
 import styles from "./TerminalWorkspace.module.css";
 
 type Row = { key: string; id: string; project: string; projectId: string; worker: string; model: string; status: string; terminal: string | null; manual: boolean };
@@ -125,12 +125,11 @@ function Launch({ onLaunch, onError, workerNames }: { onLaunch: (row: Row) => vo
   const providers = w?.providers ?? [];
   const selectedProvider = providers.includes(provider) ? provider : providers[0];
   const profiles = fleet?.launch_profiles.filter(x => x.provider === selectedProvider) ?? [];
-  const key = (x: typeof profiles[number]) => `${x.profile_id}@${x.profile_version}:${x.candidate_id}`;
   const choice = profiles.find(x => key(x) === profile) ?? profiles.find(x => x.profile_id === "standard-medium") ?? profiles[0];
   function launch() {
     if (!manual || !w || !p || !choice) return;
     const id = crypto.randomUUID();
-    const request = manual.launch(w.node_id, p.id, id, { profile_id: choice.profile_id, profile_version: choice.profile_version, candidate_id: choice.candidate_id });
+    const request = manual.launch(w.node_id, p.id, id, selectionOf(choice));
     onLaunch({ key: `manual:${id}`, id, project: p.name, projectId: p.id, worker: workerNames[w.node_id] ?? "Worker unavailable", model: `${choice.provider} · ${choice.model}`, status: "pending", terminal: id, manual: true });
     void request.catch(() => onError("Launch could not be confirmed. Check the agent status."));
   }
@@ -138,7 +137,7 @@ function Launch({ onLaunch, onError, workerNames }: { onLaunch: (row: Row) => vo
     <label>Worker<select value={w?.node_id ?? ""} onChange={e => setWorker(e.target.value)}>{fleet?.workers.map(x => <option key={x.node_id} value={x.node_id}>{workerNames[x.node_id] ?? "Worker unavailable"}</option>)}</select></label>
     <label>Project<select value={p?.id ?? ""} onChange={e => setProject(e.target.value)}>{projects.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
     <label>Provider<select value={selectedProvider ?? ""} onChange={e => setProvider(e.target.value)}>{providers.map(x => <option key={x} value={x}>{x === "openai" ? "Codex" : "Claude"}</option>)}</select></label>
-    <label>Profile<select value={choice ? key(choice) : ""} onChange={e => setProfile(e.target.value)}>{profiles.map(x => <option key={key(x)} value={key(x)}>{x.name} · {x.model}</option>)}</select></label>
+    <label>Level<select value={choice ? key(choice) : ""} onChange={e => setProfile(e.target.value)}>{profiles.map(x => <option key={key(x)} value={key(x)}>{x.name} · {x.model} · {x.reasoning}</option>)}</select></label>
     <button disabled={!w || !p || !choice} onClick={launch}>Start agent</button>
   </div>;
 }
