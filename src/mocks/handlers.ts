@@ -5,6 +5,7 @@ import { scenario, withFixtureCapabilities } from "./scenarios";
 import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject, FIXTURE_ATTEMPT_SESSIONS } from "./humanGraph";
+import { supervisorHandlers } from "./supervisors";
 import { decisionHandlers } from "./decisions";
 import { swarmDemoGraphHandlers, swarmHandlers } from "./swarm";
 import { swarmSettingsHandlers } from "./swarmSettings";
@@ -97,7 +98,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
   };
 
   return [
-    http.get("/api/supervisors",()=>HttpResponse.json({supervisors:[],profiles:[],server_time_ms:1})),
+    ...supervisorHandlers(name),
     ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...(questions ? questionHandlers() : []),
