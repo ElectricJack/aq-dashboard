@@ -3,7 +3,7 @@ import { ContractError, isRecord } from "./adapters/contract";
 import { adaptSourceView, readPlaybookSource, sourceGap, type SourceGap, type SourceView } from "./playbookSources";
 
 /** The routing switch (spec 0013 §7) and the routing playbook source it depends on. */
-export const ROUTING_POLICY_PATH = "/api/settings/intelligence/routing";
+export const ROUTING_POLICY_PATH = "/api/settings/routing";
 /** The id of the routing document's playbook source. */
 export const ROUTING_SOURCE_ID = "routing";
 /** `source` is null when the server has none to show; `gap` then says why. */

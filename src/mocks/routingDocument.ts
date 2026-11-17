@@ -10,29 +10,14 @@ type WireRun = Omit<LatestRun, "question" | "unable"> & {
 type WireActive = Omit<ActivePlaybook, "previous"> & { previous: { since_ms: number } | null };
 type WireSource = Omit<SourceView, "active" | "latest"> & { active: WireActive | null; latest: WireRun | null };
 
-/**
- * The record the server keeps the routing document in (`/api/settings/intelligence/structure`). The dashboard uses its
- * revision and `routing_markdown`; the server requires the other fields back on every save, so the fixture checks them.
- */
-type Snapshot = {
-  revision: string;
-  catalog_revision: string;
-  routing_markdown: string;
-  parents: { id: string; description: string }[];
-  assignments: unknown[];
-};
-type Save = Snapshot & { operation_id: string; expected_revision: string; expected_catalog_revision: string };
+/** The routing document as the server serves it (`/api/settings/routing-document`, aq-role-settings): the text and its revision. */
+type Snapshot = { markdown: string; revision: string };
+/** A save, and its receipt. The fixture's digest is a constant: saving the document compiles nothing. */
+type Save = { markdown: string; expected_revision: string; operation_id: string };
+type Receipt = { revision: string; digest: string };
+const FIXTURE_DIGEST = `sha256:${"a".repeat(64)}`;
 
-const initial = (): Snapshot => ({
-  revision: "1", catalog_revision: "1", routing_markdown: "# Intelligence routing\n\nChoose the appropriate intelligence level for each task.",
-  parents: [
-    { id: "simple", description: "Straightforward work" },
-    { id: "standard", description: "Typical work" },
-    { id: "complex", description: "Demanding work" },
-    { id: "deep", description: "Deep analysis" },
-  ],
-  assignments: [],
-});
+const initial = (): Snapshot => ({ revision: "1", markdown: "# Intelligence routing\n\nChoose the appropriate intelligence level for each task." });
 
 /** How long a labelled fixture authoring run takes. */
 const RUN_MS = 800;
@@ -83,12 +68,12 @@ function initialSource(scenario?: string | null): WireSource {
 
 /** Isolated fixture state survives a page reload in the same browser tab. */
 export function routingDocumentHandlers(scenario?: string | null) {
-  const key = "aq-mock-intelligence-structure";
+  const key = "aq-mock-routing-document";
   let snapshot: Snapshot = (() => {
     try { return JSON.parse(sessionStorage.getItem(key) || "null") || initial(); } catch { return initial(); }
   })();
-  const operations = new Map<string, { request: string; response: Snapshot & { operation_id: string; disposition: string } }>();
-  const fail = (status: number, message: string) => HttpResponse.json({ error: "intelligence_structure", message }, { status });
+  const operations = new Map<string, { request: string; response: Receipt }>();
+  const fail = (status: number, message: string) => HttpResponse.json({ error: status === 409 ? "conflict" : status === 404 ? "not_found" : "bad_request", message }, { status });
   let source: WireSource = (() => { try { return JSON.parse(sessionStorage.getItem(`${key}-source`) || "null") || initialSource(scenario); } catch { return initialSource(scenario); } })();
   let enabled: boolean = (() => { try { return JSON.parse(sessionStorage.getItem(`${key}-enabled`) || "false") === true; } catch { return false; } })();
   /** The playbook that was in effect before the newest one, kept so a rollback can put it back. */
@@ -108,9 +93,9 @@ export function routingDocumentHandlers(scenario?: string | null) {
   const view = (): WireSource => source.latest ? { ...source, latest: { ...source.latest, elapsed_ms: Math.max(0, (source.latest.finished_at_ms ?? Date.now()) - source.latest.created_at_ms) } } : source;
   const routingView = () => { settle(); return { enabled, source: view() }; };
   return [
-    http.get("/api/settings/intelligence/structure", () => HttpResponse.json(snapshot)),
-    http.get("/api/settings/intelligence/routing", () => HttpResponse.json(routingView())),
-    http.post("/api/settings/intelligence/routing", async ({ request }) => {
+    http.get("/api/settings/routing-document", () => HttpResponse.json(snapshot)),
+    http.get("/api/settings/routing", () => HttpResponse.json(routingView())),
+    http.post("/api/settings/routing", async ({ request }) => {
       const body = await request.json().catch(() => null) as { enabled?: unknown } | null;
       if (!body || typeof body.enabled !== "boolean") return fail(400, "Invalid routing switch.");
       settle();
@@ -140,27 +125,23 @@ export function routingDocumentHandlers(scenario?: string | null) {
       return HttpResponse.json(view());
     }),
     http.delete("/api/playbooks/sources/:id", () => fail(409, "The routing source cannot be deleted.")),
-    http.get("/api/settings/intelligence/structure/operations/:id", ({ params }) => {
-      const operation = operations.get(String(params.id));
-      return operation ? HttpResponse.json(operation.response) : fail(404, "Operation not found.");
-    }),
-    http.post("/api/settings/intelligence/structure", async ({ request }) => {
+    // As the server: the same operation again answers as the first time; its id with another save is a conflict.
+    http.put("/api/settings/routing-document", async ({ request }) => {
       const body = await request.json().catch(() => null) as Save | null;
-      if (!body || typeof body.operation_id !== "string") return fail(400, "Invalid operation ID.");
-      const serialized = JSON.stringify(body), previous = operations.get(body.operation_id);
-      if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== snapshot.revision || body.expected_catalog_revision !== snapshot.catalog_revision) return fail(409, "Settings or catalog changed; reload and try again.");
-      if (typeof body.routing_markdown !== "string" || !Array.isArray(body.parents) || !Array.isArray(body.assignments)) return fail(400, "Invalid structure.");
-      const compile = body.routing_markdown !== snapshot.routing_markdown;
-      snapshot = { revision: String(Number(snapshot.revision) + 1), catalog_revision: snapshot.catalog_revision, routing_markdown: body.routing_markdown, parents: body.parents, assignments: body.assignments };
+      if (!body || typeof body.operation_id !== "string" || typeof body.markdown !== "string" || typeof body.expected_revision !== "string" || Object.keys(body).length !== 3) return fail(400, "Invalid settings request");
+      const serialized = JSON.stringify(body), earlier = operations.get(body.operation_id);
+      if (earlier) return earlier.request === serialized ? HttpResponse.json(earlier.response) : fail(409, "The operation id was used for another change");
+      if (body.expected_revision !== snapshot.revision) return fail(409, "The settings changed; reload and try again");
+      const compile = body.markdown !== snapshot.markdown;
+      snapshot = { revision: String(Number(snapshot.revision) + 1), markdown: body.markdown };
       sessionStorage.setItem(key, JSON.stringify(snapshot));
-      // The server starts an authoring run for a changed document; a newer save replaces a run still in flight.
+      // An authoring run follows a changed document; a newer save replaces a run still in flight.
       if (compile) {
         changed = true;
         source = { ...source, revision: source.revision + 1, latest: fixtureRun("running", Date.now()) };
         keepSource();
       }
-      const response = { ...snapshot, operation_id: body.operation_id, disposition: "saved" };
+      const response = { revision: snapshot.revision, digest: FIXTURE_DIGEST };
       operations.set(body.operation_id, { request: serialized, response });
       return HttpResponse.json(response);
     }),

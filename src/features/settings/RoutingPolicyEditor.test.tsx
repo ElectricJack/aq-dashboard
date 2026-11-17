@@ -9,11 +9,11 @@ import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 const registered = vi.hoisted(() => ({ entry: null as null | { save(): Promise<boolean>; locked: boolean; dirty: boolean } }));
 vi.mock("./IntelligenceDrafts", () => ({ useIntelligenceDraft: (entry: typeof registered.entry) => { registered.entry = entry; return { saving: false }; } }));
 vi.mock("../../app/session", () => ({ useSession: () => ({ queryContext: { principalId: "p", authorizationRevision: "1", contractVersion: "1" } }) }));
-const path = "/api/settings/intelligence/structure";
-const snapshot = () => ({ revision: "1", catalog_revision: "2", routing_markdown: "# Policy\n", parents: [
-  { id: "simple", description: "Simple" }, { id: "standard", description: "Standard" }, { id: "complex", description: "Complex" }, { id: "deep", description: "Deep" },
-], assignments: [] as unknown[] });
-const routingPath = "/api/settings/intelligence/routing";
+// The routing document's own route: GET {markdown, revision}; PUT {markdown, expected_revision, operation_id} answers {revision, digest}.
+const path = "/api/settings/routing-document";
+const snapshot = () => ({ revision: "1", markdown: "# Policy\n" });
+const receipt = (revision: string) => ({ revision, digest: "sha256:" + "a".repeat(64) });
+const routingPath = "/api/settings/routing";
 const sourcePath = "/api/playbooks/sources/routing";
 /** The routing read of a server that does not fill `source`: the source is then read from the sources API, which is what most tests here drive. */
 const switchState = (enabled = false) => ({ enabled, source: null });
@@ -34,25 +34,26 @@ function open(pollMs?: number) {
 
 test("saves exact Markdown and preserves the snapshot captured on first edit across refresh", async () => {
   let data = snapshot(); let submitted: Record<string, unknown> | undefined;
-  server.use(http.get(path, () => HttpResponse.json(data)), http.post(path, async ({ request }) => {
+  server.use(http.get(path, () => HttpResponse.json(data)), http.put(path, async ({ request }) => {
     submitted = await request.json() as Record<string, unknown>;
-    return HttpResponse.json({ ...data, revision: "2", routing_markdown: submitted.routing_markdown, operation_id: submitted.operation_id, disposition: "saved" });
+    return HttpResponse.json(receipt("3"));
   }));
   const client = open(); const editor = await screen.findByLabelText("Markdown");
   fireEvent.change(editor, { target: { value: "  # Héllo\n\n" } });
-  data = { ...data, revision: "2", parents: data.parents.map(p => ({ ...p, description: "changed" })) };
+  // Another settings change moved the store's revision; the text is the one the edit started from.
+  data = { ...data, revision: "2" };
   await client.invalidateQueries();
   expect(editor).toHaveValue("  # Héllo\n\n");
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   await waitFor(() => expect(submitted).toBeDefined());
-  expect(submitted).toMatchObject({ expected_revision: "2", expected_catalog_revision: "2", routing_markdown: "  # Héllo\n\n", parents: data.parents, assignments: snapshot().assignments });
+  expect(submitted).toEqual({ operation_id: expect.any(String), expected_revision: "2", markdown: "  # Héllo\n\n" });
 });
 
 test("conflict preserves the draft until explicit reload", async () => {
   let data = snapshot();
-  server.use(http.get(path, () => HttpResponse.json(data)), http.post(path, () => HttpResponse.json({}, { status: 409 })));
+  server.use(http.get(path, () => HttpResponse.json(data)), http.put(path, () => HttpResponse.json({}, { status: 409 })));
   open(); const editor = await screen.findByLabelText("Markdown"); fireEvent.change(editor, { target: { value: "draft" } });
-  data = { ...data, revision: "2", routing_markdown: "latest" };
+  data = { ...data, revision: "2", markdown: "latest" };
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("edits are preserved"); expect(editor).toHaveValue("draft");
   expect(registered.entry?.locked).toBe(true);
@@ -60,16 +61,15 @@ test("conflict preserves the draft until explicit reload", async () => {
   await waitFor(() => expect(editor).toHaveValue("latest"));
 });
 
-test("unknown save checks status then retries the exact operation", async () => {
+test("checking an unknown save sends the exact operation again, which the server answers as the first time", async () => {
   const requests: Record<string, unknown>[] = []; const data = snapshot();
-  server.use(http.get(path, () => HttpResponse.json(data)), http.post(path, async ({ request }) => {
+  server.use(http.get(path, () => HttpResponse.json(data)), http.put(path, async ({ request }) => {
     const body = await request.json() as Record<string, unknown>; requests.push(body);
-    return requests.length === 1 ? HttpResponse.error() : HttpResponse.json({ ...data, revision: "2", routing_markdown: body.routing_markdown, operation_id: body.operation_id, disposition: "saved" });
-  }), http.get(`${path}/operations/:id`, () => HttpResponse.json({}, { status: 404 })));
+    return requests.length === 1 ? HttpResponse.error() : HttpResponse.json(receipt("2"));
+  }));
   open(); fireEvent.change(await screen.findByLabelText("Markdown"), { target: { value: "draft" } });
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   await userEvent.click(await screen.findByRole("button", { name: "Check save status" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Retry same save" }));
   await screen.findByText("Routing document saved."); expect(requests).toHaveLength(2); expect(requests[1]).toEqual(requests[0]);
 });
 
@@ -79,19 +79,19 @@ test("enforces the UTF-8 byte limit", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent("128 KiB"); expect(registered.entry?.locked).toBe(true);
 });
 
-test("the routing draft sends the rest of the structure back as read, and a reverted edit is not a change", async () => {
+test("the routing draft sends only its text, revision and operation id, and a reverted edit is not a change", async () => {
   const data = snapshot(); let submitted: Record<string, unknown> | undefined;
-  server.use(http.get(path, () => HttpResponse.json(data)), http.post(path, async ({ request }) => {
+  server.use(http.get(path, () => HttpResponse.json(data)), http.put(path, async ({ request }) => {
     submitted = await request.json() as Record<string, unknown>;
-    return HttpResponse.json({ ...data, revision: "2", routing_markdown: submitted.routing_markdown, operation_id: submitted.operation_id, disposition: "saved" });
+    return HttpResponse.json(receipt("2"));
   }));
   open(); const policy = await screen.findByLabelText("Markdown");
-  fireEvent.change(policy, { target: { value: "changed" } }); fireEvent.change(policy, { target: { value: data.routing_markdown } });
+  fireEvent.change(policy, { target: { value: "changed" } }); fireEvent.change(policy, { target: { value: data.markdown } });
   expect(registered.entry?.dirty).toBe(false);
   fireEvent.change(policy, { target: { value: "policy" } });
   await userEvent.click(screen.getByRole("button", { name: "Save page" }));
   await waitFor(() => expect(submitted).toBeDefined());
-  expect(submitted).toEqual({ operation_id: expect.any(String), expected_revision: "1", expected_catalog_revision: "2", routing_markdown: "policy", parents: data.parents, assignments: data.assignments });
+  expect(submitted).toEqual({ operation_id: expect.any(String), expected_revision: "1", markdown: "policy" });
 });
 
 const kase = (situation: string, result: string, passed = true) => ({ name: "steps.classify", situation, result, passed });
@@ -226,9 +226,9 @@ test("the run is looked up by the source, and a superseded run is said to have b
 
 test("saving while a run is in flight shows the newer run: the newest save wins", async () => {
   let saved = false; const saves: unknown[] = [];
-  server.use(http.get(path, () => HttpResponse.json({ ...snapshot(), revision: saved ? "2" : "1" })), http.post(path, async ({ request }) => {
+  server.use(http.get(path, () => HttpResponse.json({ ...snapshot(), revision: saved ? "2" : "1" })), http.put(path, async ({ request }) => {
     const body = await request.json() as Record<string, unknown>; saves.push(body); saved = true;
-    return HttpResponse.json({ ...snapshot(), revision: "2", routing_markdown: body.routing_markdown, operation_id: body.operation_id, disposition: "saved" });
+    return HttpResponse.json(receipt("2"));
   }), http.get(sourcePath, () => HttpResponse.json(source({ latest: latest("running", { run: saved ? "9" : "8", created_at_ms: saved ? Date.now() : Date.now() - 3_600_000, elapsed_ms: saved ? 0 : 3_600_000 }) }))));
   open(20);
   expect(await screen.findByText(/Running for 60 min/)).toBeVisible();
