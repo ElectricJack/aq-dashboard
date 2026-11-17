@@ -87,7 +87,9 @@ function SwarmPageBody() {
   useEffect(() => { try { const v = localStorage.getItem(modeKey); setStoredMode(v === "board" || v === "tree" ? v : null); } catch { setStoredMode(null); } }, [modeKey]);
   const viewParam = params.get("view");
   const mode: SwarmViewMode = viewParam === "board" || viewParam === "tree" ? viewParam : storedMode ?? "tree";
-  const boardOnly = mode === "board" && !shown.selection && !!view;
+  // With nothing selected the properties pane is closed and the tree or the board takes the width; selecting opens it.
+  const paneClosed = !shown.selection && !!view;
+  const clear = () => setParams(prev => { const next = new URLSearchParams(prev); next.delete("select"); next.delete("focus"); return next; }, { replace: true });
   const setMode = (next: SwarmViewMode) => {
     setStoredMode(next);
     try { localStorage.setItem(modeKey, next); } catch { /* The view still switches when storage is unavailable. */ }
@@ -148,11 +150,11 @@ function SwarmPageBody() {
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
     <SwarmStatusHeader />
     {view && <SwarmSummary view={view} anchor={anchor} mode={mode} onMode={setMode} stale={stale} />}
-    <div ref={stage} className={styles.stage} style={desktop && !focused && !boardOnly ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-view={mode} data-board-only={boardOnly || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    <div ref={stage} className={styles.stage} style={desktop && !focused && !paneClosed ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-view={mode} data-pane-closed={paneClosed || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? mode === "board"
           ? <SlotBoard view={view} anchor={anchor} selected={shown.selection} onSelect={select} />
-          : <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} />
+          : <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} onClear={clear} anchor={anchor} />
         : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}
       <div className={styles.divider} role="separator" aria-label="Resize swarm tree and properties" aria-orientation="vertical"
         aria-valuemin={Math.round(minPercent)} aria-valuemax={Math.round(maxPercent)} aria-valuenow={Math.round(treePercent)} aria-valuetext={`${Math.round(treePercent)}% tree width`}

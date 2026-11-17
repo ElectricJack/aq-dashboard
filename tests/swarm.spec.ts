@@ -24,7 +24,10 @@ for (const vp of VIEWPORTS) {
       // The tree opens fitted to the viewport; at phone width off-screen cards are attached, not necessarily in view.
       await expect(page.getByRole("button", { name: /^AQ server/ })).toBeInViewport();
       for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/, /^waiting/]) await expect(page.getByRole("button", { name })).toBeAttached();
-      await expect(page.getByRole("button", { name: "free" }).first()).toBeAttached();
+      // The holding node's slot says holding, not free; no node here reports a real slot total, so none draws spare free cards.
+      await expect(page.getByRole("button", { name: "holding", exact: true })).toBeAttached();
+      await expect(page.getByRole("button", { name: "free", exact: true })).toHaveCount(0);
+      await expect(page.locator('[data-kind="agent"]')).toHaveCount(4);
       await expect(page.getByRole("list", { name: "Legend" })).toBeVisible();
       const tree = page.getByRole("region", { name: "Swarm tree" });
       const inside = async (name: RegExp) => {
@@ -36,7 +39,7 @@ for (const vp of VIEWPORTS) {
         expect(card!.y + card!.height).toBeLessThanOrEqual(area!.y + area!.height + 1);
       };
       await inside(/^AQ server/);
-      // The whole tree is fitted at 1440; at 390 it falls back to 0.5 centred on the server root, so only the server card is asserted.
+      // The whole tree is fitted at 1440; at 390 it opens at 0.5 centred on the server root, so only the server card is asserted.
       if (!vp.phone) for (const name of [/^desktop, local/, /^laptop, local · offline/, /^studio, local.*holding/, /^boat vm-a, cloud · booting/]) await inside(name);
     });
 
@@ -103,8 +106,13 @@ for (const vp of VIEWPORTS) {
 test("phone stacks tree above pane without horizontal scroll", async ({ page }) => {
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
+    // The properties are closed until something is selected.
     await page.goto("/agents/swarm");
     await expect(page.getByRole("button", { name: /^AQ server/ })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Properties" })).toBeHidden();
+    await noOverflow(page);
+    await page.goto("/agents/swarm?select=machine:desktop");
+    await expect(page.getByRole("complementary", { name: "Properties" })).toContainText("desktop");
     await noOverflow(page);
     const tree = await page.getByRole("region", { name: "Swarm tree" }).boundingBox();
     const pane = await page.getByRole("complementary", { name: "Properties" }).boundingBox();

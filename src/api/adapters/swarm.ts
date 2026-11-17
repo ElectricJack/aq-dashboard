@@ -20,13 +20,18 @@ export type AgentView = { manual?: import("../../features/agents/swarm/manualAge
   /** What the attempt ran with: from the swarm row when it carries it, else from the task's work read. */
   ranWith?: RanWithView | null;
   /** Last terminal output, when the read carries it. Output is not progress. */
-  lastOutputAt?: string | null };
+  lastOutputAt?: string | null;
+  /** The node slot the attempt holds, from one, when the server numbers slots. */
+  slot?: number };
 export type RanWithView = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string };
 export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
   /** `held`: slots an attempt holds for which the read names no agent (occupied minus the agents listed). */
-  slots: { total: number | null; occupied: number; idle: number | null; held?: number; scope?: string; target?:number }; holding: HoldReasonView[]; agents: AgentView[] };
+  slots: { total: number | null; occupied: number; idle: number | null; held?: number; scope?: string; target?:number };
+  /** The node's real slot count: set only when the server marks `slots.total` as that count, or numbers its agents' slots. */
+  capacity?: number;
+  holding: HoldReasonView[]; agents: AgentView[] };
 export type MachineControlView = { desired: "running" | "draining" | "stopped"; generation: string; since: string | null; pendingHandoffs: number };
 export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation: string; since: string | null; note: string | null };
 export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
@@ -95,6 +100,17 @@ export function adaptAgentRanWith(v: unknown): RanWithView | null {
   return Object.fromEntries(RAN_WITH.map(key => [key, v[key]])) as RanWithView;
 }
 
+const slotIndex = (v: unknown): number | null => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 4096 ? v : null);
+/**
+ * The node's real slot count, or null. Today `slots.total` is the cap on interactive sessions and a node runs one queued
+ * task, so the total is believed only when the server marks it (`slots.basis: "attempts"`) or numbers its agents' slots.
+ */
+function realCapacity(slots: Record<string, unknown>, agents: AgentView[]): number | null {
+  const total = num(slots.total);
+  if (total === null || !Number.isInteger(total) || total < 0) return null;
+  return slots.basis === "attempts" || agents.some(a => a.slot !== undefined) ? total : null;
+}
+
 function agent(a: SwarmAgent): AgentView {
   return {
     sessionId: String(a.session_id), attemptId: String(a.attempt_id),
@@ -107,13 +123,16 @@ function agent(a: SwarmAgent): AgentView {
     ...(oneOfOrNull(a.phase, PHASES) ? { phase: oneOfOrNull(a.phase, PHASES)! } : {}),
     ...(a.ran_with === undefined ? {} : { ranWith: adaptAgentRanWith(a.ran_with) }),
     ...(a.last_output_at === undefined ? {} : { lastOutputAt: text(a.last_output_at) }),
+    ...(slotIndex(a.slot) === null ? {} : { slot: slotIndex(a.slot)! }),
   };
 }
 
 function node(n: SwarmNode): NodeView {
   const slots = isRecord(n.slots) ? n.slots : { total: null, occupied: 0, idle: null };
   const agents = list<SwarmAgent>(n.agents).filter(isRecord).map(agent);
+  const capacity = realCapacity(slots as Record<string, unknown>, agents);
   return {
+    ...(capacity === null ? {} : { capacity }),
     id: String(n.node?.id ?? ""), name: String(n.name ?? ""),
     health: oneOf(n.health, ["online", "offline", "revoked"] as const, "unknown" as const),
     service: oneOf(n.service?.state, ["running", "stopped", "draining", "unreported"] as const, "unreported"),

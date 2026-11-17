@@ -73,8 +73,8 @@ test("holding machine lists reason and remedy", async () => {
 test("free slot on a holding machine explains why", async () => {
   renderApp("/agents/swarm");
   await card(/^desktop/);
-  const free = await screen.findAllByRole("button", { name: "free" });
-  fireEvent.click(free[1]!);
+  // The slot of a holding node is not offered as free: its card says holding.
+  fireEvent.click(await screen.findByRole("button", { name: "holding" }));
   await waitFor(() => expect(fact("Why")).toHaveTextContent("Free, but this machine is holding back: Capability report expired"));
   expect(fact("Fix")).toHaveTextContent("Wait for the next report; restart the worker if none arrives");
 });
@@ -92,7 +92,7 @@ test("waiting agent pane gives why and fix", async () => {
 test("agent pane opens a terminal with control requested", async () => {
   server.use(...handlersFor("default", { fixtures: true }));
   renderApp("/agents/swarm");
-  await click("claude · standard");
+  await click(/^Fixture: Replay reconciliation standard/);
   expect(await screen.findByRole("region", { name: "Agent terminal" })).toBeInTheDocument();
   expect(await screen.findByText("You have control", {}, { timeout: 8000 })).toBeInTheDocument();
 });
@@ -107,7 +107,7 @@ test("agent pane is watch-only without terminal.control", async () => {
     { name: "terminal.control", version: "1", enabled: false, reason: "Terminal control is not offered" }] } })));
   server.events.on("request:start", ({ request }) => { if (request.method === "POST" && request.url.includes("/mutations")) void request.clone().json().then(b => posts.push((b as { kind: string }).kind)); });
   renderApp("/agents/swarm");
-  await click("claude · standard");
+  await click(/^Fixture: Replay reconciliation standard/);
   const region = await screen.findByRole("region", { name: "Agent terminal" });
   await waitFor(() => expect(within(region).getAllByText("Waiting for interactive connection").length).toBeGreaterThan(0), { timeout: 8000 });
   // The watch mutation proves the posted list has been recorded before asserting that no control was sent.
@@ -122,7 +122,7 @@ test("selection survives reload through ?select=", async () => {
 
 test("pane widens for an agent", async () => {
   renderApp("/agents/swarm");
-  await click("claude · standard");
+  await click(/^Fixture: Replay reconciliation standard/);
   await waitFor(() => expect(screen.getByRole("complementary", { name: "Properties" }).parentElement).toHaveAttribute("data-wide"));
 });
 

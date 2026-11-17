@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { adaptSwarm, type AgentView, type MachineView, type NodeView } from "../../../api/adapters/swarm";
-import { demoSwarm, SWARM_MOCKUP } from "../../../mocks/swarm";
-import { SERVER_TIME } from "../../../mocks/inspectionData";
+import { demoSwarm } from "../../../mocks/swarm";
 import { buildSwarmGraph } from "./graph";
 import { mergeManual, type ManualFleet } from "./manualAgents";
-import { agentState, clock, detailParts, headline, heldCount, levelLabel, outputActivity, phaseParts, swarmCounts, taskLabel, titleMissing, workerCounts, workerHeadline, workerTile } from "./slots";
+import { agentState, clock, heldCount, holdingNodes, levelKey, levelLabel, machineShare, nodeSlots, outputActivity, phaseParts, shownMachineState, slotCapacity, taskLabel, titleMissing, workerCounts, workerHeadline, workerTile } from "./slots";
 
 const NOW = "2026-11-17T12:00:00.000Z";
 const agent = (n: number, extra: Partial<AgentView> = {}): AgentView => ({
@@ -58,38 +57,87 @@ describe("phases", () => {
   });
 });
 
-describe("counts", () => {
-  it("the tree's slot counts on the demo: five running on the desktop, two held, and no slot total while a worker reports none", () => {
-    const c = swarmCounts(adaptSwarm(demoSwarm(NOW), NOW));
-    expect(headline(c)).toBe("5 agents running on 1 machine");
-    expect(detailParts(c)).toEqual(["2 starting or settling", "17 free"]);
-    expect(c.machines.map(m => [m.label, m.running, m.held, m.free, m.total])).toEqual([["Fixture desktop", 5, 1, 14, null], ["Fixture laptop", 0, 1, 3, 4]]);
+const machineOf = (nodes: NodeView[], extra: Partial<MachineView> = {}): MachineView => ({
+  id: "m", label: "Machine", kind: "local", state: "online", holding: [], lastSeenAt: NOW, load: null, hardware: null, agentMax: null, cost: null, control: null, controlUnrecognised: false, nodes, ...extra,
+});
+const viewOf = (machines: MachineView[]) => ({ ...adaptSwarm(demoSwarm(NOW), NOW), machines });
+
+describe("a node's real slots", () => {
+  it("is one slot while the total is the interactive-session cap: an unmarked total of 8, 4 or none draws one card", () => {
+    for (const total of [8, 4, null]) {
+      const idle = worker(total, 0, []), busy = worker(total, 1, [agent(1)]);
+      expect(slotCapacity(idle)).toBe(1);
+      expect(nodeSlots(machineOf([idle]), idle)).toEqual([{ kind: "free", index: 0, slot: null, standing: null }]);
+      expect(nodeSlots(machineOf([busy]), busy)).toEqual([{ kind: "agent", agent: busy.agents[0], slot: null }]);
+    }
+    // An attempt the read does not name still takes the slot: held, never free.
+    const held = worker(null, 1, []);
+    expect(nodeSlots(machineOf([held]), held)).toEqual([{ kind: "held", index: 0, slot: null }]);
   });
-  it("names starting and finishing agents once the server lists them", () => {
-    const c = swarmCounts(adaptSwarm(demoSwarm(NOW, true), NOW));
-    expect(headline(c)).toBe("5 agents running on 1 machine");
-    expect(detailParts(c)).toEqual(["1 starting", "1 finishing", "17 free"]);
+  it("the adapter believes a total only when the server marks it or numbers its agents' slots", () => {
+    const wire = demoSwarm(NOW, true);
+    const view = adaptSwarm(wire, NOW);
+    expect(view.machines.flatMap(m => m.nodes).every(n => n.capacity === undefined)).toBe(true);
+    const marked = structuredClone(wire), node = marked.machines[0]!.nodes[0]!;
+    node.slots = { total: 8, occupied: 1, idle: 7, basis: "attempts" };
+    expect(adaptSwarm(marked, NOW).machines[0]!.nodes[0]!.capacity).toBe(8);
+    const numbered = structuredClone(wire), other = numbered.machines[0]!.nodes[0]!;
+    other.slots = { total: 8, occupied: 1, idle: 7 }; other.agents[0]!.slot = 3;
+    const adapted = adaptSwarm(numbered, NOW).machines[0]!.nodes[0]!;
+    expect(adapted.capacity).toBe(8);
+    expect(adapted.agents[0]!.slot).toBe(3);
+    // A slot index that is not a positive whole number is not an index.
+    const bad = structuredClone(wire); bad.machines[0]!.nodes[0]!.agents[0]!.slot = 0;
+    expect(adaptSwarm(bad, NOW).machines[0]!.nodes[0]!.capacity).toBeUndefined();
   });
-  it("leaves an offline, stopped or booting machine's slots out and says one agent on one machine", () => {
-    const view = adaptSwarm(SWARM_MOCKUP, SERVER_TIME);
-    const c = swarmCounts(view);
-    expect(headline(c)).toBe("4 agents running on 1 machine");
-    // desktop 5 slots (1 free) and studio 2 (2 free); the offline laptop's 2 are not offered as free.
-    expect(detailParts(c)).toEqual(["3 free of 7 slots"]);
-    expect(c.machines.find(m => m.id === "laptop")).toMatchObject({ live: false, state: "offline", free: 0, total: null });
-    view.machines = view.machines.filter(m => m.id === "laptop");
-    expect(headline(swarmCounts(view))).toBe("No agents running");
+  it("the shape to come: a node with a real total of eight and agents in slots 1 to 8 is eight cards in slot order", () => {
+    const agents = [5, 2, 8, 1].map(slot => agent(slot, { slot, phase: slot === 8 ? "starting" : "running" }));
+    const node: NodeView = { ...worker(8, 5, agents), capacity: 8 };
+    const cards = nodeSlots(machineOf([node]), node);
+    expect(cards.map(c => [c.slot, c.kind, c.kind === "agent" ? c.agent.sessionId : null])).toEqual([
+      [1, "agent", "s1"], [2, "agent", "s2"], [3, "held", null], [4, "free", null], [5, "agent", "s5"], [6, "free", null], [7, "free", null], [8, "agent", "s8"],
+    ]);
+    const c = workerCounts(viewOf([machineOf([node])]));
+    expect(workerHeadline(c)).toBe("5 of 8 slots busy on 1 worker");
+    expect(phaseParts(c)).toEqual(["1 starting", "3 running", "1 starting or settling"]);
+    expect(c.machines.map(machineShare)).toEqual(["Machine: 5 of 8 slots busy"]);
+    // All eight in order, with no other change.
+    const full: NodeView = { ...worker(8, 8, [8, 7, 6, 5, 4, 3, 2, 1].map(slot => agent(slot, { slot }))), capacity: 8 };
+    expect(nodeSlots(machineOf([full]), full).map(c => c.kind === "agent" && c.agent.slot)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(workerHeadline(workerCounts(viewOf([machineOf([full])])))).toBe("8 of 8 slots busy on 1 worker");
   });
-  it("says nothing runs yet while slots are only held", () => {
-    const view = adaptSwarm(demoSwarm(NOW), NOW);
-    for (const m of view.machines) for (const n of m.nodes) { n.slots = { ...n.slots, held: n.slots.occupied }; n.agents = []; }
-    expect(headline(swarmCounts(view))).toBe("No agents running yet");
+  it("a node that takes no work offers no free slot: its card says what it is doing instead", () => {
+    const holding: NodeView = { ...worker(8, 0, []), holding: [{ code: "capability_expired", message: "Capability report expired", remedy: null }] };
+    expect(nodeSlots(machineOf([holding]), holding)).toEqual([{ kind: "free", index: 0, slot: null, standing: "holding" }]);
+    const offline: NodeView = { ...worker(null, 1, [agent(1)]), health: "offline" };
+    // The attempt the read still lists is drawn; the slot is not counted busy while the node is not there.
+    expect(nodeSlots(machineOf([offline]), offline).map(c => c.kind)).toEqual(["agent"]);
+    expect(workerHeadline(workerCounts(viewOf([machineOf([offline])])))).toBe("0 of 1 slot busy");
   });
-  it("gives no slot total when a worker reports none", () => {
-    const view = adaptSwarm(demoSwarm(NOW), NOW);
-    view.machines[0]!.nodes[0]!.slots = { total: null, occupied: 5, idle: null, held: 0 };
-    // Seven free on Local Worker 2 and three on the laptop; no "of N slots".
-    expect(detailParts(swarmCounts(view)).at(-1)).toBe("10 free");
+});
+
+describe("a machine's hold", () => {
+  const hold = { code: "capability_expired", message: "Local Worker 2: Capability report expired", remedy: null };
+  it("is its nodes' own: a machine row that says holding while no node holds in this response is not holding", () => {
+    const between = machineOf([worker(8, 0, []), worker(null, 1, [agent(1)])], { state: "holding", holding: [hold] });
+    expect(holdingNodes(between)).toEqual([]);
+    expect(shownMachineState(between)).toBe("online");
+    expect(workerCounts(viewOf([between])).machines.map(machineShare)).toEqual(["Machine: 1 of 2 slots busy"]);
+    const holding = machineOf([{ ...worker(8, 0, []), holding: [{ ...hold, message: "Capability report expired" }] }, worker(null, 1, [agent(1)])], { state: "holding", holding: [hold] });
+    expect(holdingNodes(holding)).toHaveLength(1);
+    expect(shownMachineState(holding)).toBe("holding");
+    expect(workerCounts(viewOf([holding])).machines.map(machineShare)).toEqual(["Machine: 1 of 2 slots busy · holding"]);
+  });
+});
+
+describe("an agent's level", () => {
+  it("is the first word of the level it ran at, else an older server's class", () => {
+    expect(levelKey(agent(1, { routingProfile: { id: "standard-high", displayName: "Standard, high" } }))).toBe("standard");
+    expect(levelKey(agent(1, { routingProfile: { id: "complex", displayName: "Complex" }, intelligenceClass: "deep" }))).toBe("complex");
+    expect(levelKey(agent(1, { routingProfile: null, ranWith: { role: "writer", level: "simple-high", provider: "anthropic", model: "m", reasoning: "high", harness: "claude" } }))).toBe("simple");
+    expect(levelKey(agent(1, { routingProfile: { id: "x1", displayName: "Deep, low" } }))).toBe("deep");
+    expect(levelKey(agent(1, { intelligenceClass: "fast" }))).toBe("simple");
+    expect(levelKey(agent(1, { intelligenceClass: null }))).toBeNull();
   });
 });
 

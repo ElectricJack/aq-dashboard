@@ -34,12 +34,18 @@ export type MachineCost = { currency: string; micros_per_hour: number; started_a
 export type MachineControl = { desired: "running" | "draining" | "stopped"; generation: string; since: Timestamp | null; pending_handoffs: number };
 export type OwnerAvailability = { state: "unset" | "on" | "off"; generation: string; since: Timestamp | null; note?: string | null };
 export type WorkerService = { state: ServiceState; since: Timestamp | null };
-export type NodeSlots = { total: number | null; occupied: number; idle: number | null };
+/**
+ * `total` is today the cap on interactive sessions, not the number of attempts the node runs. A server that reports the
+ * node's real slot count says so with `basis: "attempts"`, and numbers each agent row's `slot` from one.
+ */
+export type NodeSlots = { total: number | null; occupied: number; idle: number | null; basis?: string | null };
 export type SwarmAgent = {
   session_id: string; attempt_id: string; task: TitledRef | null; project: ProjectRef;
   provider: string | null; model: string | null; harness: string | null; intelligence_class: IntelligenceClass | null;
   routing_profile?: { id: string; display_name: string } | null;
   terminal: EntityRef | null; started_at: Timestamp | null;
+  /** The node slot the attempt holds, from one; absent from a server that does not number slots. */
+  slot?: number | null;
   /**
    * Not sent by aq-server yet (requested 2026-11-16); read when present so nothing here changes when they land.
    * `phase`: where the attempt holding the slot is; today a row exists only while its agent runs.

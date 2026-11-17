@@ -29,7 +29,7 @@ for (const size of SIZES) {
         await expect(tiles).toHaveCount(9);
         await expect(board.locator('li[data-state="running"]')).toHaveCount(5);
         await expect(board.locator('li[data-state="idle"]')).toHaveCount(2);
-        const idle = board.getByRole("button", { name: "Slot 4, Local Worker 1#5, idle" });
+        const idle = board.getByRole("button", { name: "Slot 4 idle, Local Worker 1#5", exact: true });
         await expect(idle).toBeVisible();
         await expect(idle).toHaveText(/^Slot 4 · idle$/);
         await expect(idle).toHaveAttribute("title", "Local Worker 1#5");
@@ -92,24 +92,132 @@ for (const size of SIZES) {
       });
     }
 
-    test("swarm-demo: the tree draws held slots and the count line", async ({ page }) => {
-      await page.goto("/agents/swarm?scenario=swarm-demo&view=tree");
-      await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("status")).toContainText("5 agents running on 1 machine", { timeout: FIRST_PAINT });
+    for (const scenario of ["swarm-demo", "swarm-demo-next"]) {
+      test(`${scenario}: the tree opens fitted to its canvas with nine nodes, one readable card per real slot`, async ({ page }) => {
+        await page.goto(`/agents/swarm?scenario=${scenario}&view=tree`);
+        const activity = page.getByRole("region", { name: "Swarm activity" });
+        // The same honest count as above the board: slots busy of real slots, on how many workers.
+        await expect(activity.getByRole("status")).toContainText("7 of 9 slots busy on 2 workers", { timeout: FIRST_PAINT });
+        await expect(activity.getByRole("status")).not.toContainText(/free|agents running|machine/);
+        await expect(activity.getByRole("list", { name: "Machines" }).getByRole("listitem")).toHaveText(["Fixture desktop: 6 of 8 slots busy", "Fixture laptop: 1 of 1 slot busy"]);
+        const tree = page.getByRole("region", { name: "Swarm tree" });
+        // Server, machines, nodes, and one card under each node: its attempt or one free slot. No wall of free pills.
+        await expect(tree.locator('[data-kind="machine"]')).toHaveCount(2);
+        await expect(tree.locator('[data-kind="node"]')).toHaveCount(9);
+        await expect(tree.locator('[data-kind="free"]')).toHaveCount(2);
+        await expect(tree.locator('[data-kind="agent"]')).toHaveCount(scenario === "swarm-demo" ? 5 : 7);
+        await expect(tree.locator('[data-kind="held"]')).toHaveCount(scenario === "swarm-demo" ? 2 : 0);
+        await expect(tree.getByRole("button", { name: /^Fixture desktop, local · 24 cores · 6 of 8 slots busy/ })).toBeVisible();
+        // Nothing holds in this response: no machine, node or slot says so.
+        await expect(tree.locator('[data-state="holding"]')).toHaveCount(0);
+        await expect(tree).not.toContainText("holding");
+        // An agent card: the task's title first, then role and level, then model and effort, and a clock.
+        const card = tree.getByRole("button", { name: /^Add retry backoff to the webhook sender / });
+        await expect(card).toHaveAccessibleName("Add retry backoff to the webhook sender developer · Standard, high claude-sonnet-5-5 · high effort");
+        await expect(card).toContainText("developer · Standard, high");
+        await expect(card).toContainText("claude-sonnet-5-5 · high effort");
+        await expect(card).toHaveAttribute("data-level", "standard");
+        await expect(tree.getByRole("button", { name: /^Review: migrate invoices/ })).toHaveAttribute("data-level", "complex");
+        await expect(tree.getByRole("button", { name: /^Rename the cart reducer/ })).toHaveAttribute("data-level", "simple");
+        const clock = card.locator("[data-clock]");
+        const before = await clock.getAttribute("data-clock");
+        await expect(clock).not.toHaveAttribute("data-clock", before!, { timeout: 4000 });
+        // With nothing selected the properties are closed and the tree has the width.
+        const pane = page.getByRole("complementary", { name: "Properties" });
+        await expect(pane).toBeHidden();
+        const area = (await tree.boundingBox())!;
+        expect(area.width).toBeGreaterThan(size.width - 300);
+        expect(area.y + area.height).toBeLessThanOrEqual(size.height);
+        // Fitted: every card is inside the canvas, and the page does not scroll.
+        const cards = await tree.locator(".react-flow__node").evaluateAll(nodes => nodes.map(n => { const r = n.getBoundingClientRect(); return { id: n.getAttribute("data-id"), x: r.x, y: r.y, right: r.right, bottom: r.bottom }; }));
+        expect(cards).toHaveLength(21);
+        for (const c of cards) {
+          expect(c.x, c.id!).toBeGreaterThanOrEqual(area.x);
+          expect(c.y, c.id!).toBeGreaterThanOrEqual(area.y);
+          expect(c.right, c.id!).toBeLessThanOrEqual(area.x + area.width);
+          expect(c.bottom, c.id!).toBeLessThanOrEqual(area.y + area.height);
+        }
+        expect(await page.evaluate(() => { const main = document.scrollingElement!; return main.scrollHeight <= main.clientHeight && main.scrollWidth <= main.clientWidth; })).toBe(true);
+        // It fills the canvas rather than sitting small in the middle of it.
+        const span = { width: Math.max(...cards.map(c => c.right)) - Math.min(...cards.map(c => c.x)), height: Math.max(...cards.map(c => c.bottom)) - Math.min(...cards.map(c => c.y)) };
+        expect(Math.max(span.width / area.width, span.height / area.height)).toBeGreaterThan(0.9);
+        // Legible at a distance: the size the title is drawn at (its font size times the tree's zoom), and the card's width.
+        const zoom = await tree.locator(".react-flow__viewport").evaluate(el => new DOMMatrixReadOnly(getComputedStyle(el).transform).a);
+        const drawn = async (selector: string) => zoom * await card.locator(selector).first().evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+        expect(await drawn("span")).toBeGreaterThanOrEqual(size.width >= 1600 ? 18 : 11);
+        expect(await drawn("[data-clock]")).toBeGreaterThanOrEqual(size.width >= 1600 ? 17 : 10.5);
+        expect((await card.boundingBox())!.width).toBeGreaterThanOrEqual(size.width >= 1600 ? 250 : 150);
+        // The legend names the levels the cards carry.
+        await expect(page.getByRole("list", { name: "Legend" }).getByRole("listitem")).toContainText(["simple", "standard", "complex", "deep"]);
+        await expect(page.getByRole("list", { name: "Legend" })).not.toContainText("fast");
+        const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+        expect(axe.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(", ")}`)).toEqual([]);
+        if (shots) await page.screenshot({ path: `${shots}/${scenario}-tree-${size.name}.png` });
+        if (shots && scenario === "swarm-demo-next") await page.screenshot({ path: `${shots}/tree-fixed-${size.name}.png` });
+
+        // Selecting opens the properties, by keyboard too; the tree refits to the room it has left; Escape closes them.
+        await tree.locator('.react-flow__node[data-id^="agent:"]').first().focus();
+        await page.keyboard.press("Enter");
+        await expect(pane).toBeVisible();
+        await expect(pane).toContainText(scenario === "swarm-demo-next" ? "Add retry backoff to the webhook sender" : /Agent|Task|session/i);
+        const narrowed = (await tree.boundingBox())!;
+        expect(narrowed.width).toBeLessThan(area.width - 200);
+        await expect.poll(async () => (await tree.locator(".react-flow__node").evaluateAll((nodes, right) => nodes.every(n => n.getBoundingClientRect().right <= right), narrowed.x + narrowed.width))).toBe(true);
+        await tree.locator('.react-flow__node[data-id^="agent:"]').first().focus();
+        await page.keyboard.press("Escape");
+        await expect(pane).toBeHidden();
+      });
+    }
+
+    test("the tree stays where the viewer put it: after a zoom it does not refit, and fit view hands it back", async ({ page }) => {
+      await page.goto("/agents/swarm?scenario=swarm-demo-next&view=tree");
       const tree = page.getByRole("region", { name: "Swarm tree" });
-      await expect(tree.getByRole("button", { name: "slot held" })).toHaveCount(2);
-      await tree.getByRole("button", { name: "slot held" }).first().click();
+      await expect(tree.locator('[data-kind="node"]')).toHaveCount(9, { timeout: FIRST_PAINT });
+      const zoom = () => tree.locator(".react-flow__viewport").evaluate(el => new DOMMatrixReadOnly(getComputedStyle(el).transform).a);
+      await expect.poll(zoom).toBeGreaterThan(0.5);
+      const fitted = await zoom();
+      await page.getByRole("button", { name: "Zoom In" }).click();
+      await expect.poll(zoom).toBeGreaterThan(fitted * 1.1);
+      const mine = await zoom();
+      // Polls keep arriving (every two seconds) and the window changes size: the viewer's zoom is kept.
+      await page.setViewportSize({ width: size.width - 80, height: size.height });
+      await page.waitForTimeout(2500);
+      expect(await zoom()).toBeCloseTo(mine, 3);
+      await page.getByRole("button", { name: "Zoom Out" }).click();
+      await expect.poll(zoom).toBeLessThan(mine);
+      await page.getByRole("button", { name: "Fit View" }).click();
+      await expect.poll(async () => Math.abs(await zoom() - mine) > 0.01).toBe(true);
+      const area = (await tree.boundingBox())!;
+      await expect.poll(async () => tree.locator(".react-flow__node").evaluateAll((nodes, a) => nodes.every(n => { const r = n.getBoundingClientRect(); return r.x >= a.x && r.right <= a.x + a.width && r.y >= a.y && r.bottom <= a.y + a.height; }), area)).toBe(true);
+    });
+
+    test("swarm-demo: an attempt the read does not name is a held card, and selects", async ({ page }) => {
+      await page.goto("/agents/swarm?scenario=swarm-demo&view=tree");
+      const tree = page.getByRole("region", { name: "Swarm tree" });
+      await expect(tree.getByRole("button", { name: /^slot held/ })).toHaveCount(2, { timeout: FIRST_PAINT });
+      await tree.getByRole("button", { name: /^slot held/ }).first().click();
       await expect(page.getByRole("heading", { name: "Starting or settling" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
-      if (shots) await page.screenshot({ path: `${shots}/swarm-demo-tree-${size.name}.png` });
+    });
+
+    test("the design fixture's tree shows a hold on the node that holds, and only there", async ({ page }) => {
+      await page.goto("/agents/swarm?view=tree");
+      const tree = page.getByRole("region", { name: "Swarm tree" });
+      await expect(tree.getByRole("button", { name: /^studio-1, .*holding: Capability report expired/ })).toBeAttached({ timeout: FIRST_PAINT });
+      await expect(tree.getByRole("button", { name: /^studio, local · .*holding: Capability report expired/ })).toHaveAttribute("data-state", "holding");
+      await expect(tree.getByRole("button", { name: "holding", exact: true })).toHaveAttribute("data-kind", "free");
+      await expect(tree.getByRole("button", { name: /^desktop, local/ })).not.toHaveAttribute("data-state", "holding");
+      await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("list", { name: "Machines" }).getByRole("listitem")).toHaveText(["desktop: 2 of 2 slots busy", "laptop: offline", "studio: 0 of 1 slot busy · holding", /^boat vm-a: booting$/]);
+      await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("status")).toContainText("2 of 4 slots busy on 1 worker");
     });
 
     test("the design fixture's board keeps an offline and a holding machine sensible", async ({ page }) => {
       await page.goto("/agents/swarm?view=board");
       const board = page.getByRole("region", { name: "Swarm board" });
       await expect(board.getByRole("button", { name: /^laptop(?!-)/ })).toContainText("offline", { timeout: FIRST_PAINT });
-      await expect(board.getByRole("button", { name: /^Slot 1, laptop-1, offline: last seen/ })).toBeVisible();
+      await expect(board.getByRole("button", { name: /^Slot 1 offline last seen .*, laptop-1$/ })).toBeVisible();
       await expect(board.getByRole("button", { name: /^studio(?!-)/ })).toContainText("holding: Capability report expired");
-      await expect(board.getByRole("button", { name: "Slot 1, studio-1, holding: Capability report expired" })).toBeVisible();
+      await expect(board.getByRole("button", { name: "Slot 1 holding Capability report expired, studio-1", exact: true })).toBeVisible();
       // Three agents on one node are one tile; the other two are its "+2".
       await expect(board.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Slot 1, local-1", exact: true }) })).toContainText("+2 more on this slot");
       await expect(page.getByRole("region", { name: "Swarm activity" }).getByRole("status")).toContainText("2 of 4 slots busy on 1 worker");

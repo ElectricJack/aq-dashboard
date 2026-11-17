@@ -88,6 +88,8 @@ export const SWARM_LARGE_FLEET: Swarm = {
     reasons: [NO_FREE_SLOT], since: ago(2 * 60_000),
   })) },
 };
+// Its totals are real slot counts, as a server that reports them marks them; the other fixtures' totals are the interactive-session cap.
+for (const node of SWARM_LARGE_FLEET.machines[0]!.nodes) node.slots = { ...node.slots, basis: "attempts" };
 
 const stoppedService = { state: "stopped", since: ago(60_000) } as const;
 /** The desktop machine after the owner stopped its worker; one handoff is still pending. */

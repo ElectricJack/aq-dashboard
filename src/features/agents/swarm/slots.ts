@@ -30,49 +30,7 @@ export function drawsSlots(m: MachineView): boolean {
   return m.state !== "offline" && m.state !== "stopped" && m.state !== "booting";
 }
 
-export type Counts = { running: number; starting: number; finishing: number; held: number; free: number; /** Null when a worker reports no slot total. */ total: number | null };
-export type MachineCounts = Counts & { id: string; label: string; state: MachineView["state"]; live: boolean };
-export type SwarmCounts = Counts & { machines: MachineCounts[]; /** Machines with at least one running agent. */ machinesRunning: number; /** Machines with any occupied slot. */ machinesBusy: number };
-
-const ZERO: Counts = { running: 0, starting: 0, finishing: 0, held: 0, free: 0, total: 0 };
-function add(a: Counts, b: Counts): Counts {
-  return { running: a.running + b.running, starting: a.starting + b.starting, finishing: a.finishing + b.finishing, held: a.held + b.held, free: a.free + b.free,
-    total: a.total === null || b.total === null ? null : a.total + b.total };
-}
-export function nodeCounts(n: NodeView): Counts {
-  const c: Counts = { ...ZERO, held: heldCount(n), free: Math.max(0, n.slots.idle ?? 0), total: n.slots.total };
-  for (const a of n.agents) { const s = agentState(a); if (s !== "stopped") c[s] += 1; }
-  return c;
-}
-export const occupied = (c: Counts) => c.running + c.starting + c.finishing + c.held;
-
-/** Counts from the same rows the page draws, so the headline and the tiles cannot disagree. */
-export function swarmCounts(view: SwarmView): SwarmCounts {
-  const machines = view.machines.map((m): MachineCounts => {
-    const live = drawsSlots(m);
-    const sum = live ? m.nodes.reduce((acc, n) => add(acc, nodeCounts(n)), ZERO) : { ...ZERO, total: null };
-    return { ...sum, id: m.id, label: m.label, state: m.state, live };
-  });
-  const all = machines.filter(m => m.live).reduce<Counts>((acc, m) => add(acc, m), ZERO);
-  return { ...all, machines, machinesRunning: machines.filter(m => m.running > 0).length, machinesBusy: machines.filter(m => occupied(m) > 0).length };
-}
-
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** "7 agents running on 2 machines". */
-export function headline(c: SwarmCounts): string {
-  if (c.running === 0) return occupied(c) > 0 ? "No agents running yet" : "No agents running";
-  return `${plural(c.running, "agent")} running on ${plural(c.machinesRunning, "machine")}`;
-}
-/** The rest of the count line: what is starting, finishing, held and free. Zero parts are left out. */
-export function detailParts(c: Counts): string[] {
-  const parts: string[] = [];
-  if (c.starting) parts.push(`${c.starting} starting`);
-  if (c.finishing) parts.push(`${c.finishing} finishing`);
-  if (c.held) parts.push(`${c.held} starting or settling`);
-  parts.push(c.total === null ? `${c.free} free` : `${c.free} free of ${plural(c.total, "slot")}`);
-  return parts;
-}
 
 /*
  * The board: one tile per worker. A worker runs one queued task at a time; `slots` counts interactive-session slots,
@@ -122,24 +80,128 @@ export function modelLabel(a: AgentView): string {
   return a.ranWith?.model ?? a.model ?? a.harness ?? a.provider ?? "model not reported";
 }
 
+/** Project, role and level; then model and effort. Only what the read (or the task's own read) gave. */
+export function agentLines(a: AgentView): { who: string; what: string } {
+  const level = levelLabel(a);
+  const model = a.ranWith?.model ?? a.model;
+  const effort = a.ranWith?.reasoning ?? a.manual?.spec.reasoning;
+  return {
+    who: [a.project.label, a.ranWith?.role, level].filter(Boolean).join(" · "),
+    what: [model ?? a.harness ?? a.provider, effort ? `${effort} effort` : null].filter(Boolean).join(" · "),
+  };
+}
+
+export type Level = "simple" | "standard" | "complex" | "deep";
+const LEVELS: readonly Level[] = ["simple", "standard", "complex", "deep"];
+/**
+ * The level an agent runs at, for its colour: the first word of the level's id or name ("standard-high", "Complex"),
+ * else an older server's class (its "fast" is the simple level). Null when the read names neither.
+ */
+export function levelKey(a: Pick<AgentView, "routingProfile" | "ranWith" | "intelligenceClass" | "manual">): Level | null {
+  for (const name of [a.routingProfile?.id, a.ranWith?.level, a.routingProfile?.displayName, a.manual?.spec.profile_name]) {
+    const word = name?.trim().toLowerCase().split(/[^a-z]+/)[0];
+    const hit = LEVELS.find(l => l === word);
+    if (hit) return hit;
+  }
+  return a.intelligenceClass === "fast" ? "simple" : a.intelligenceClass;
+}
+
+/**
+ * How many slots a node really has. A node runs one queued task at a time, and `slots.total` is today the cap on
+ * interactive sessions, so the count is one unless the server marked its total as the real count (`NodeView.capacity`).
+ */
+export function slotCapacity(n: NodeView): number {
+  return n.capacity ?? 1;
+}
+/** A node that is there to hold attempts: not offline, revoked, stopped or booting. */
+function nodeLive(m: MachineView, n: NodeView): boolean {
+  const s = standing(m, n).standing;
+  return s !== "offline" && s !== "revoked" && s !== "stopped" && s !== "booting";
+}
+/** Why a node takes no work now, when it does not simply have a free slot. */
+export function nodeStanding(m: MachineView, n: NodeView): Pick<WorkerTile, "standing" | "reason"> {
+  return standing(m, n);
+}
+/** The attempts that fill a node's real slots, at most one per slot: its agents (the queued, running one first), then attempts the read does not name. */
+function slotHolders(m: MachineView, n: NodeView): { agents: AgentView[]; held: number } {
+  if (!nodeLive(m, n)) return { agents: [], held: 0 };
+  const capacity = slotCapacity(n);
+  const agents = n.agents.filter(a => agentState(a) !== "stopped").sort(shownFirst).slice(0, capacity);
+  return { agents, held: Math.min(heldCount(n), capacity - agents.length) };
+}
+
+/** One card under a node in the tree: an attempt the read lists, an attempt it does not name, or a slot nothing holds. */
+export type NodeSlot =
+  | { kind: "agent"; agent: AgentView; slot: number | null }
+  | { kind: "held"; index: number; slot: number | null }
+  | { kind: "free"; index: number; slot: number | null; standing: WorkerTile["standing"] };
+/**
+ * The cards the tree draws under a node: every attempt the read lists, every attempt it does not name, and free cards
+ * up to the node's real slot count, so a node always has at least as many cards as slots. When the server numbers the
+ * slots the cards are in slot order; otherwise attempts come first, in the order read.
+ */
+export function nodeSlots(m: MachineView, n: NodeView): NodeSlot[] {
+  const capacity = slotCapacity(n), held = heldCount(n), why = standing(m, n).standing;
+  const numbered = n.capacity !== undefined && n.agents.some(a => a.slot !== undefined);
+  const cards: NodeSlot[] = [];
+  const free = (index: number, slot: number | null): NodeSlot => ({ kind: "free", index, slot, standing: why });
+  if (numbered) {
+    const bySlot = new Map<number, AgentView>(), extra: AgentView[] = [];
+    for (const a of n.agents) (a.slot !== undefined && a.slot <= capacity && !bySlot.has(a.slot) ? bySlot.set(a.slot, a) : extra.push(a));
+    let heldLeft = held, heldIndex = 0, freeIndex = 0;
+    for (let slot = 1; slot <= capacity; slot++) {
+      const a = bySlot.get(slot);
+      if (a) cards.push({ kind: "agent", agent: a, slot });
+      else if (heldLeft > 0) { heldLeft -= 1; cards.push({ kind: "held", index: heldIndex++, slot }); }
+      else cards.push(free(freeIndex++, slot));
+    }
+    for (const a of extra) cards.push({ kind: "agent", agent: a, slot: null });
+    for (; heldLeft > 0; heldLeft--) cards.push({ kind: "held", index: heldIndex++, slot: null });
+    return cards;
+  }
+  for (const a of n.agents) cards.push({ kind: "agent", agent: a, slot: null });
+  for (let i = 0; i < held; i++) cards.push({ kind: "held", index: i, slot: null });
+  for (let i = 0; cards.length < capacity; i++) cards.push(free(i, n.capacity === undefined ? null : cards.length + 1));
+  return cards;
+}
+
+/** The nodes of a machine that hold in the current response: only a node's own `holding` list says so. */
+export function holdingNodes(m: MachineView): NodeView[] {
+  return drawsSlots(m) ? m.nodes.filter(n => n.holding.length > 0) : [];
+}
+/** The machine's state as the page shows it: "holding" only while one of its nodes holds in this response. */
+export function shownMachineState(m: MachineView): MachineView["state"] {
+  return m.state === "holding" && holdingNodes(m).length === 0 ? "online" : m.state;
+}
+
 export type WorkerCounts = {
+  /** Real slots, and how many an attempt holds. */
   workers: number; busy: number; starting: number; running: number; finishing: number; held: number;
-  /** Machines with at least one busy worker. */
+  /** Machines (each machine's worker service) with at least one busy slot. */
   machinesBusy: number;
   machines: { id: string; label: string; state: MachineView["state"]; live: boolean; workers: number; busy: number }[];
   /** What runs right now by model, most first; `cls` is the level class of its agents when they all share one. */
   models: { model: string; count: number; cls: AgentView["intelligenceClass"] }[];
 };
-/** Counts from the tiles the board draws, so the headline and the tiles cannot disagree. */
+/** One machine's real slots and how many are busy. */
+export function machineSlots(m: MachineView): { slots: number; busy: number } {
+  let slots = 0, busy = 0;
+  for (const n of m.nodes) { const h = slotHolders(m, n); slots += slotCapacity(n); busy += h.agents.length + h.held; }
+  return { slots, busy };
+}
+/**
+ * The one count behind the line above the tree and above the board: real slots, how many are busy, on how many
+ * machines, in which phase, and what runs by model. A node counts one slot unless the server reports its real count.
+ */
 export function workerCounts(view: SwarmView): WorkerCounts {
   const c: WorkerCounts = { workers: 0, busy: 0, starting: 0, running: 0, finishing: 0, held: 0, machinesBusy: 0, machines: [], models: [] };
   const models = new Map<string, WorkerCounts["models"][number]>();
   for (const m of view.machines) {
-    let busy = 0;
     for (const n of m.nodes) {
-      const t = workerTile(m, n);
-      if (t.state !== "busy") continue;
-      busy += 1; c[t.phase!] += 1;
+      const h = slotHolders(m, n);
+      if (h.agents.length + h.held === 0) continue;
+      c.held += h.held;
+      for (const a of h.agents) c[agentState(a) as "starting" | "running" | "finishing"] += 1;
       for (const a of n.agents) {
         if (agentState(a) === "stopped") continue;
         const model = modelLabel(a), seen = models.get(model);
@@ -147,11 +209,17 @@ export function workerCounts(view: SwarmView): WorkerCounts {
         else models.set(model, { model, count: 1, cls: a.intelligenceClass });
       }
     }
-    c.workers += m.nodes.length; c.busy += busy; if (busy > 0) c.machinesBusy += 1;
-    c.machines.push({ id: m.id, label: m.label, state: m.state, live: drawsSlots(m), workers: m.nodes.length, busy });
+    const { slots, busy } = machineSlots(m);
+    c.workers += slots; c.busy += busy; if (busy > 0) c.machinesBusy += 1;
+    c.machines.push({ id: m.id, label: m.label, state: shownMachineState(m), live: drawsSlots(m), workers: slots, busy });
   }
   c.models = [...models.values()].sort((a, b) => b.count - a.count || a.model.localeCompare(b.model));
   return c;
+}
+/** A machine's share of the count line: "Fixture desktop: 6 of 8 slots busy". */
+export function machineShare(m: WorkerCounts["machines"][number]): string {
+  if (!m.live) return `${m.label}: ${m.state}`;
+  return `${m.label}: ${m.busy} of ${plural(m.workers, "slot")} busy${m.state === "holding" ? " · holding" : ""}`;
 }
 /** "7 of 9 slots busy on 2 workers": the board calls each tile a slot and each machine's service a worker. */
 export function workerHeadline(c: WorkerCounts): string {

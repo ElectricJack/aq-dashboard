@@ -47,9 +47,14 @@ describe("swarm tree", () => {
     tree();
     expect(await screen.findByRole("button", { name: /^desktop, local · 24 cores/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^laptop, local · offline/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /studio.*holding: Capability report expired/ })).toBeInTheDocument();
+    // The hold is the node's own: its card gives the reason, its slot says holding rather than free, and the machine names it.
+    expect(screen.getByRole("button", { name: /^studio-1, .*holding: Capability report expired/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^studio, local · .*holding: Capability report expired/ })).toHaveAttribute("data-state", "holding");
+    expect(screen.getByRole("button", { name: "holding" })).toHaveAttribute("data-kind", "free");
     expect(screen.getByRole("button", { name: /^boat vm-a, cloud · booting/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "free" })).toHaveLength(3);
+    // One card per real slot: no node here reports a real total, so none draws spare "free" cards for its interactive-session cap.
+    expect(screen.queryAllByRole("button", { name: "free" })).toHaveLength(0);
+    expect(screen.getAllByRole("button").filter(b => b.getAttribute("data-kind") === "agent")).toHaveLength(4);
     expect(screen.getAllByRole("button", { name: /^waiting/ })).toHaveLength(1);
     expect(screen.getByRole("list", { name: "Legend" })).toBeInTheDocument();
   });
@@ -63,8 +68,8 @@ describe("swarm tree", () => {
   test("codex pill has the provider ring", async () => {
     tree();
     // One running agent and one waiting agent carry the same label.
-    const pills = await screen.findAllByRole("button", { name: "codex · fast" });
-    expect(pills.length).toBeGreaterThanOrEqual(1);
+    const pills = [await screen.findByRole("button", { name: /^Refactor telemetry fast/ }), ...screen.getAllByRole("button", { name: /^codex · fast/ })];
+    expect(pills.length).toBeGreaterThanOrEqual(2);
     for (const pill of pills) expect(pill).toHaveAttribute("data-provider", "codex");
   });
   test("clicking a card selects it", async () => {

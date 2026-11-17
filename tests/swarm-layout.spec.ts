@@ -26,14 +26,15 @@ for (const width of [1440, 390]) {
       expect(positions).toHaveLength(count);
       expect(new Set(positions.map(p => p.x)).size).toBe(2);
       expect(new Set(positions.map(p => p.y)).size).toBe(count / 2);
-      expect(Math.max(...positions.map(p => p.x)) - Math.min(...positions.map(p => p.x))).toBeLessThanOrEqual(150);
+      expect(Math.max(...positions.map(p => p.x)) - Math.min(...positions.map(p => p.x))).toBeLessThanOrEqual(280);
       const workerId = id(worker);
       const free = await tree.locator(`[data-id^="free:${workerId}:"]`).evaluateAll(elements => elements.map(el => {
         const transform = new DOMMatrixReadOnly((el as HTMLElement).style.transform);
         return { x: transform.m41, y: transform.m42 };
       }));
       expect(free).toHaveLength(2);
-      expect(new Set(free.map(p => p.x - 5))).toEqual(new Set(positions.map(p => p.x)));
+      // Every slot card is one size, so free cards sit in the agent cards' columns.
+      expect(new Set(free.map(p => p.x))).toEqual(new Set(positions.map(p => p.x)));
       expect(free[0]!.y).toBe(free[1]!.y);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

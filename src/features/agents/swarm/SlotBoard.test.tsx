@@ -37,7 +37,7 @@ describe("board", () => {
   test("a busy tile is labelled with its slot, keeps the node's name as given in its tooltip and name, and shows the title, project, role, level, model, effort and phase", () => {
     board(demoSwarm(NOW, true));
     const tile = screen.getByRole("button", { name: /: Fix the flaky checkout cancellation test/ });
-    expect(tile).toHaveAccessibleName("Slot 2, Local Worker 1#3, running: Fix the flaky checkout cancellation test, Fixture: storefront · developer · Standard, high, claude-sonnet-5-5 · high effort");
+    expect(tile).toHaveAccessibleName("Slot 2, Local Worker 1#3, running: Fix the flaky checkout cancellation test Fixture: storefront · developer · Standard, high Running · claude-sonnet-5-5 · high effort");
     expect(tile).toHaveTextContent("Fix the flaky checkout cancellation test Fixture: storefront · developer · Standard, high Running · claude-sonnet-5-5 · high effort");
     expect(tile).toHaveAttribute("title", "Local Worker 1#3: Fix the flaky checkout cancellation test, Fixture: storefront · developer · Standard, high, claude-sonnet-5-5 · high effort");
     const li = tile.closest("li")!;
@@ -57,7 +57,7 @@ describe("board", () => {
 
   test("an idle slot is a calm tile that reads \"Slot N · idle\" and keeps its node's name", () => {
     board(demoSwarm(NOW, true));
-    const idle = screen.getByRole("button", { name: "Slot 4, Local Worker 1#5, idle" });
+    const idle = screen.getByRole("button", { name: "Slot 4 idle, Local Worker 1#5" });
     expect(idle).toHaveTextContent(/^Slot 4 · idle$/);
     expect(idle).toHaveAttribute("title", "Local Worker 1#5");
     expect(idle.closest("li")).toHaveAttribute("data-state", "idle");
@@ -72,14 +72,14 @@ describe("board", () => {
     other!.service = "draining";
     view.machines[1]!.nodes[0]!.health = "offline"; view.machines[1]!.nodes[0]!.lastSeenAt = "2026-11-17T10:00:00.000Z";
     draw(view);
-    expect(screen.getByRole("button", { name: "Slot 4, Local Worker 1#5, holding: Capability report expired" }).closest("li")).toHaveAttribute("data-state", "holding");
-    expect(screen.getByRole("button", { name: /^Slot 4,/ })).toHaveTextContent("Slot 4 · holding Capability report expired");
-    expect(screen.getByRole("button", { name: "Slot 7, Local Worker 1#8, draining" }).closest("li")).toHaveAttribute("data-state", "draining");
+    expect(screen.getByRole("button", { name: "Slot 4 holding Capability report expired, Local Worker 1#5" }).closest("li")).toHaveAttribute("data-state", "holding");
+    expect(screen.getByRole("button", { name: /^Slot 4 /})).toHaveTextContent("Slot 4 · holding Capability report expired");
+    expect(screen.getByRole("button", { name: "Slot 7 draining, Local Worker 1#8" }).closest("li")).toHaveAttribute("data-state", "draining");
     // The offline slot still lists its attempt: the tile says offline and keeps the attempt as "+1".
-    const off = screen.getByRole("button", { name: "Slot 1, Local Worker 3, offline: last seen 2h ago" }).closest("li")!;
+    const off = screen.getByRole("button", { name: "Slot 1 offline last seen 2h ago, Local Worker 3" }).closest("li")!;
     expect(off).toHaveAttribute("data-state", "offline");
     expect(off).toHaveTextContent("+1 more on this slot: Tidy the release notes template (finishing, claude-haiku-5-5)");
-    expect(screen.queryByRole("button", { name: /, idle$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Slot \d+ idle, / })).toBeNull();
   });
 
   test("a busy slot whose worker is draining keeps its attempt and says draining beside its label", () => {
@@ -115,20 +115,20 @@ describe("board", () => {
   test("an older server's rows: a short id for a title, no role, effort or output, and a held slot is busy, never idle", () => {
     board(demoSwarm(NOW));
     const tile = screen.getAllByRole("listitem").find(li => li.dataset.state === "running")!;
-    expect(within(tile).getByRole("button", { name: /: Task/ })).toHaveAccessibleName("Slot 1, Local Worker 1, running: Task 20000000, Fixture: billing service · Standard, high, claude-sonnet-5-5");
+    expect(within(tile).getByRole("button", { name: /: Task/ })).toHaveAccessibleName("Slot 1, Local Worker 1, running: Task 20000000 Fixture: billing service · Standard, high Running · claude-sonnet-5-5");
     expect(tile).not.toHaveAttribute("data-output");
     expect(tile.querySelector("[data-output-age]")).toBeNull();
     // The attempt that is starting and the one settling hold their slots; the read names no agent for them.
     const held = screen.getAllByRole("button", { name: /, starting or settling: / });
-    expect(held.map(b => b.getAttribute("aria-label"))).toEqual(["Slot 8, Local Worker 2, starting or settling: An attempt holds this slot; no agent is listed yet", "Slot 1, Local Worker 3, starting or settling: An attempt holds this slot; no agent is listed yet"]);
+    expect(held.map(b => b.getAttribute("aria-label"))).toEqual(["Slot 8, Local Worker 2, starting or settling: Starting or settling An attempt holds this slot; no agent is listed yet", "Slot 1, Local Worker 3, starting or settling: Starting or settling An attempt holds this slot; no agent is listed yet"]);
     expect(held.map(b => within(b.closest("li")!).getAllByRole("button")[0]!.textContent)).toEqual(["Slot 8", "Slot 1"]);
     expect(held[0]).toHaveTextContent("Starting or settling An attempt holds this slot; no agent is listed yet");
-    expect(screen.getAllByRole("button", { name: /, idle$/ })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^Slot \d+ idle, / })).toHaveLength(2);
   });
 
   test("the pinned server fixture renders: one tile for its node, showing the running agent", () => {
     board((pinned as unknown as { data: Swarm }).data);
-    expect(screen.getByRole("button", { name: /^Slot 2, profiled-fixture, running: Task 00000000, Synthetic authority fixture/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Slot 2, profiled-fixture, running: Task 00000000 Synthetic authority fixture/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "free" })).toBeNull();
   });
 
@@ -163,9 +163,9 @@ describe("board", () => {
   test("the design fixture: an offline machine's slot says offline, a holding one says why, three agents on one node are one tile and +2", () => {
     board(SWARM_MOCKUP);
     expect(screen.getByRole("button", { name: /^laptop(?!-)/ })).toHaveTextContent(/offline · last seen/);
-    expect(screen.getByRole("button", { name: /^Slot 1, laptop-1, offline: last seen/ }).closest("li")).toHaveAttribute("data-state", "offline");
+    expect(screen.getByRole("button", { name: /^Slot 1 offline last seen .*, laptop-1$/ }).closest("li")).toHaveAttribute("data-state", "offline");
     expect(screen.getByRole("button", { name: /^studio(?!-)/ })).toHaveTextContent("holding: Capability report expired");
-    expect(screen.getByRole("button", { name: "Slot 1, studio-1, holding: Capability report expired" }).closest("li")).toHaveAttribute("data-state", "holding");
+    expect(screen.getByRole("button", { name: "Slot 1 holding Capability report expired, studio-1" }).closest("li")).toHaveAttribute("data-state", "holding");
     expect(screen.getByRole("button", { name: /^boat vm-a/ })).toHaveTextContent("booting");
     expect(texts(screen.getByRole("list", { name: "desktop slots" }))).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Slot 1, local-1" }).closest("li")).toHaveTextContent("+2 more on this slot");
@@ -179,7 +179,7 @@ describe("board", () => {
     expect(onSelect).toHaveBeenLastCalledWith({ kind: "agent", sessionId: "20000000-0000-4000-8000-000000007300" });
     fireEvent.click(screen.getByRole("button", { name: "Slot 1, Local Worker 1" }));
     expect(onSelect).toHaveBeenLastCalledWith({ kind: "node", nodeId: W1 });
-    fireEvent.click(screen.getByRole("button", { name: "Slot 4, Local Worker 1#5, idle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Slot 4 idle, Local Worker 1#5" }));
     expect(onSelect).toHaveBeenLastCalledWith({ kind: "node", nodeId: "20000000-0000-4000-8000-000000007403" });
     fireEvent.click(screen.getByRole("button", { name: /^Fixture desktop/ }));
     expect(onSelect).toHaveBeenLastCalledWith({ kind: "machine", machineId: "desktop" });
@@ -227,21 +227,33 @@ describe("count line", () => {
     expect(screen.queryByRole("list", { name: "Models running now" })).toBeNull();
   });
 
-  test("above the tree the line still counts agents and slots, and the age of the data runs", () => {
+  test("above the tree the line is the board's: the same count, shares and models; and the age of the data runs", () => {
     vi.useFakeTimers();
     let mono = 0;
     const onMode = vi.fn();
     render(<SwarmSummary view={adaptSwarm(demoSwarm(NOW), NOW)} anchor={anchor} mode="tree" onMode={onMode} now={() => mono} />);
-    expect(screen.getByRole("status")).toHaveTextContent("5 agents running on 1 machine");
-    expect(screen.getByRole("status")).toHaveTextContent("2 starting or settling · 17 free");
-    expect(texts(screen.getByRole("list", { name: "Machines" }))).toEqual(["Fixture desktop: 5 running · 6 busy", "Fixture laptop: 0 running · 1/4 slots"]);
-    expect(screen.queryByRole("list", { name: "Models running now" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("7 of 9 slots busy on 2 workers");
+    expect(screen.getByRole("status")).toHaveTextContent("5 running · 2 starting or settling");
+    expect(screen.getByRole("status").textContent).not.toMatch(/free|agents running|machine/);
+    expect(texts(screen.getByRole("list", { name: "Machines" }))).toEqual(["Fixture desktop: 6 of 8 slots busy", "Fixture laptop: 1 of 1 slot busy"]);
+    expect(texts(screen.getByRole("list", { name: "Models running now" }))).toEqual(["claude-sonnet-5-5 ×3", "claude-haiku-5-5 ×1", "claude-opus-5-5 ×1"]);
     expect(screen.getByText("Updated 0s ago")).toBeInTheDocument();
     mono = 4_000; act(() => vi.advanceTimersByTime(4_000));
     expect(screen.getByText("Updated 4s ago")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Board" }));
     expect(onMode).toHaveBeenCalledWith("board");
+  });
+  test("a machine reads as holding only while one of its nodes holds in this response", () => {
+    const view = adaptSwarm(demoSwarm(NOW, true), NOW);
+    // The machine row still says holding from an earlier report; no node holds now.
+    view.machines[0]!.state = "holding"; view.machines[0]!.holding = [{ code: "capability_expired", message: "Local Worker 2: Capability report expired", remedy: null }];
+    const { unmount } = summary(view);
+    expect(texts(screen.getByRole("list", { name: "Machines" }))[0]).toBe("Fixture desktop: 6 of 8 slots busy");
+    unmount();
+    render(<SlotBoard view={view} anchor={anchor} selected={null} onSelect={vi.fn()} now={() => 0} />);
+    expect(screen.getByRole("button", { name: /^Fixture desktop/ })).toHaveTextContent(/^Fixture desktoponline6 of 8 slots busy/);
+    expect(screen.getByRole("button", { name: /^Fixture desktop/ }).textContent).not.toMatch(/holding/);
   });
   test("names an offline machine and says when the page is not updating", () => {
     render(<SwarmSummary view={adaptSwarm(SWARM_MOCKUP, SERVER_TIME)} anchor={{ serverTime: SERVER_TIME, receivedAt: 0 }} mode="board" onMode={vi.fn()} stale now={() => 0} />);
@@ -263,7 +275,7 @@ describe("swarm page on the demo fixture", () => {
     expect(within(activity).getByRole("status")).toHaveTextContent("7 of 9 slots busy on 2 workers");
     // The swarm read gives the task id as the title; the task read gives the title, and the work read the role and effort.
     const tile = await screen.findByRole("button", { name: /: Add retry backoff to the webhook sender/ }, { timeout: 5000 });
-    await waitFor(() => expect(tile).toHaveAccessibleName("Slot 1, Local Worker 1, running: Add retry backoff to the webhook sender, Fixture: billing service · developer · Standard, high, claude-sonnet-5-5 · high effort"), { timeout: 5000 });
+    await waitFor(() => expect(tile).toHaveAccessibleName("Slot 1, Local Worker 1, running: Add retry backoff to the webhook sender Fixture: billing service · developer · Standard, high Running · claude-sonnet-5-5 · high effort"), { timeout: 5000 });
     await waitFor(() => expect(screen.queryByRole("button", { name: /: Task 2000/ })).toBeNull(), { timeout: 5000 });
     expect(screen.getAllByRole("button", { name: /, starting or settling: / })).toHaveLength(2);
     expect(screen.queryByRole("region", { name: "Swarm tree" })).toBeNull();
