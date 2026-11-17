@@ -15,7 +15,7 @@ import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
 import { DocumentTitleProvider } from "./documentTitle";
 import { useBackFocusRestore } from "./focusReturn";
-import { DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
+import { NAV_DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
 import { scopeSearch, useScope } from "./scope";
 import { isFocusedSessionPath } from "./focusedSession";
 import { useSession } from "./session";
@@ -106,7 +106,7 @@ function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
-  const more = DESTINATIONS.filter((d) => d.phone === "more");
+  const more = NAV_DESTINATIONS.filter((d) => d.phone === "more");
   // SO-21: More carries the active cue while one of its destinations is open.
   const inMore = more.some((d) => location.pathname === `/${d.id}` || location.pathname.startsWith(`/${d.id}/`));
 
@@ -249,7 +249,7 @@ export function Shell() {
             </div>
           )}
           <ul>
-            {DESTINATIONS.filter((d) => d.id !== "settings").map((d) => (
+            {NAV_DESTINATIONS.filter((d) => d.id !== "settings").map((d) => (
               <li key={d.id}>
                 <DestinationLink dest={d} search={search} badge={d.id === "decisions" ? badge : null} />
               </li>

@@ -16,7 +16,7 @@ for (const vp of [{ name: "tablet-1024", width: 1024, height: 768 }, { name: "ta
       await surface("overview").ready(page, kind);
       const rail = page.getByRole("complementary", { name: "Application navigation" });
       await expect(rail).toBeVisible();
-      await expect(rail.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Results" })).toBeVisible();
+      await expect(rail.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Work" })).toBeVisible();
       expect((await rail.boundingBox())!.width).toBeLessThanOrEqual(200);
       await expect(page.getByRole("navigation", { name: "Primary (compact)" })).toBeHidden();
     });

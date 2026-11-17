@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { NAV_HIDDEN } from "../src/app/destinations";
 
 // Widths from docs/plans/0001 D-A11: 320/390 phone, 768 tablet, 1440 desktop.
 const VIEWPORTS = [
@@ -51,13 +52,13 @@ for (const vp of VIEWPORTS) {
         await expect(compact).toBeVisible();
         await expect(primary).toBeHidden();
         await compact.getByRole("button", { name: "More" }).click();
-        await compact.getByRole("link", { name: "Knowledge" }).click();
+        await compact.getByRole("link", { name: "Playbooks" }).click();
       } else {
         await expect(primary).toBeVisible();
         await expect(compact).toBeHidden();
-        await primary.getByRole("link", { name: "Knowledge" }).click();
+        await primary.getByRole("link", { name: "Playbooks" }).click();
       }
-      await expect(page.getByRole("heading", { level: 1, name: "Knowledge" })).toBeFocused();
+      await expect(page.getByRole("heading", { level: 1, name: "Playbooks" })).toBeFocused();
       expect(await hasPageHorizontalScroll(page)).toBe(false);
     });
 
@@ -170,9 +171,11 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
     const railBox = (await rail.boundingBox())!;
     expect(within((await scope.boundingBox())!, railBox), "scope picker inside the rail").toBe(true);
 
-    const decisions = primary.getByRole("link", { name: /decisions, \d+ pending/i });
-    await expect(decisions).toBeVisible();
-    await expect(decisions).toHaveAccessibleName("Decisions, 2 pending");
+    if (!NAV_HIDDEN.has("decisions")) {
+      const decisions = primary.getByRole("link", { name: /decisions, \d+ pending/i });
+      await expect(decisions).toBeVisible();
+      await expect(decisions).toHaveAccessibleName("Decisions, 2 pending");
+    }
 
     const connection = rail.getByRole("status").filter({ hasText: "Connected" });
     await expect(connection).toBeVisible();
@@ -190,6 +193,7 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
   });
 
   test("1440x900: empty scenario shows no Decisions badge", async ({ page }) => {
+    test.skip(NAV_HIDDEN.has("decisions"), "Decisions is hidden from the nav");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/overview?scenario=empty");
     await expect(page.getByText("Nothing needs your attention")).toBeVisible();
@@ -207,7 +211,7 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
     await expect(page.getByRole("complementary", { name: "Application navigation" })).toBeHidden();
     const compact = page.getByRole("navigation", { name: "Primary (compact)" });
     await compact.getByRole("button", { name: "More" }).click();
-    await expect(compact.getByRole("link", { name: "Decisions, 2 pending" })).toBeVisible();
+    if (!NAV_HIDDEN.has("decisions")) await expect(compact.getByRole("link", { name: "Decisions, 2 pending" })).toBeVisible();
     expect(await hasPageHorizontalScroll(page)).toBe(false);
     const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);

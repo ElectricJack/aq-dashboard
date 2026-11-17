@@ -32,8 +32,13 @@ export const DESTINATIONS: readonly Destination[] = [
   { id: "settings", label: "Settings", capability: null, workPackage: "D03", phone: "more" },
 ];
 
+/** Incomplete surfaces kept out of the navigation; their routes and deep links still work. Empty it to restore them. */
+export const NAV_HIDDEN: ReadonlySet<DestinationId> = new Set<DestinationId>(["results", "decisions", "knowledge"]);
+
+export const NAV_DESTINATIONS: readonly Destination[] = DESTINATIONS.filter((d) => !NAV_HIDDEN.has(d.id));
+
 /** Phone bottom bar order: Overview, Results, Supervisor, Agents, then More. */
-export const PHONE_PRIMARY: readonly DestinationId[] = ["overview", "results", "supervisor", "agents"];
+export const PHONE_PRIMARY: readonly DestinationId[] = (["overview", "results", "supervisor", "agents"] as const).filter((id) => !NAV_HIDDEN.has(id));
 
 export function destination(id: DestinationId): Destination {
   const d = DESTINATIONS.find((x) => x.id === id);

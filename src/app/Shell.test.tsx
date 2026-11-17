@@ -6,6 +6,7 @@ import { setupServer } from "msw/node";
 import { envelope, handlersFor } from "../mocks/handlers";
 import { overview } from "../mocks/inspectionData";
 import { renderApp } from "../test/renderApp";
+import { NAV_HIDDEN } from "./destinations";
 import usageFixture from "../../contracts/proposed/provider-usage.json";
 
 const server = setupServer(...handlersFor("default"));
@@ -14,6 +15,10 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 const useScenario = (name: string) => server.use(...handlersFor(name));
+
+const hiddenOut = (label: string) => !NAV_HIDDEN.has(label.toLowerCase() as never);
+// The Decisions badge lives on the Decisions link, so its tests wait until that link is back in the nav.
+const decisionsTest = test.skipIf(NAV_HIDDEN.has("decisions"));
 
 async function rail() {
   return screen.findByRole("navigation", { name: "Primary" });
@@ -32,17 +37,9 @@ test("rail lists destinations in the specified order with Supervisor below Overv
   renderApp("/overview");
   const links = within(await rail()).getAllByRole("link");
   // The first span is the label; a pending badge may follow it.
-  expect(links.map((l) => l.querySelector("span")?.textContent)).toEqual([
-    "Overview",
-    "Supervisor",
-    "Agents",
-    "Work",
-    "Results",
-    "Decisions",
-    "Playbooks",
-    "Knowledge",
-    "Settings",
-  ]);
+  expect(links.map((l) => l.querySelector("span")?.textContent)).toEqual(
+    ["Overview", "Supervisor", "Agents", "Work", "Results", "Decisions", "Playbooks", "Knowledge", "Settings"].filter(hiddenOut),
+  );
 });
 
 test("marks the current destination", async () => {
@@ -56,21 +53,14 @@ test("marks the current destination", async () => {
 test("phone navigation offers Overview, Results, Supervisor, Agents and More", async () => {
   renderApp("/overview");
   const phone = await screen.findByRole("navigation", { name: "Primary (compact)" });
-  expect(within(phone).getAllByRole("link").map((l) => l.textContent)).toEqual([
-    "Overview",
-    "Results",
-    "Supervisor",
-    "Agents",
-  ]);
+  expect(within(phone).getAllByRole("link").map((l) => l.textContent)).toEqual(
+    ["Overview", "Results", "Supervisor", "Agents"].filter(hiddenOut),
+  );
   await userEvent.click(within(phone).getByRole("button", { name: "More" }));
   const more = within(phone).getByRole("list", { name: "More destinations" });
-  expect(within(more).getAllByRole("link").map((l) => l.querySelector("span")?.textContent)).toEqual([
-    "Work",
-    "Decisions",
-    "Playbooks",
-    "Knowledge",
-    "Settings",
-  ]);
+  expect(within(more).getAllByRole("link").map((l) => l.querySelector("span")?.textContent)).toEqual(
+    ["Work", "Decisions", "Playbooks", "Knowledge", "Settings"].filter(hiddenOut),
+  );
 });
 
 test("moves focus to the page heading after navigation", async () => {
@@ -207,14 +197,14 @@ test("desktop rail holds the scope picker; the header does not", async () => {
   expect(within(screen.getByRole("banner")).queryByRole("combobox")).not.toBeInTheDocument();
 });
 
-test("Decisions shows the scoped open-decision count (reviews + questions), not every attention item (RR-02)", async () => {
+decisionsTest("Decisions shows the scoped open-decision count (reviews + questions), not every attention item (RR-02)", async () => {
   // The fixture has 3 attention rows: a decision, a question and a failure.
   renderApp("/overview");
   const nav = await rail();
   expect(await within(nav).findByRole("link", { name: "Decisions, 2 pending" })).toBeInTheDocument();
 });
 
-test("RR-02: needs_you counting offline workers and failed results never inflates the Decisions badge", async () => {
+decisionsTest("RR-02: needs_you counting offline workers and failed results never inflates the Decisions badge", async () => {
   // Shape of the live MS1 overview: 6 attention items, none of them a review or question.
   const live = overview(null);
   const respond = (reviews: number) => server.use(http.get("/api/v1/overview", () => HttpResponse.json(envelope({ ...live,
@@ -231,7 +221,7 @@ test("RR-02: needs_you counting offline workers and failed results never inflate
   expect(await within(nav).findByRole("link", { name: "Decisions, 4 pending, approximate" })).toHaveTextContent("~4");
 });
 
-test("Decisions has no badge when nothing is pending", async () => {
+decisionsTest("Decisions has no badge when nothing is pending", async () => {
   useScenario("empty");
   renderApp("/overview");
   const nav = await rail();
