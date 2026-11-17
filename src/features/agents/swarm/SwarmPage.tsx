@@ -148,7 +148,7 @@ function SwarmPageBody() {
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
     <SwarmStatusHeader />
     {view && <SwarmSummary view={view} anchor={anchor} mode={mode} onMode={setMode} stale={stale} />}
-    <div ref={stage} className={styles.stage} style={desktop && !focused && !boardOnly ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-board-only={boardOnly || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    <div ref={stage} className={styles.stage} style={desktop && !focused && !boardOnly ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-view={mode} data-board-only={boardOnly || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? mode === "board"
           ? <SlotBoard view={view} anchor={anchor} selected={shown.selection} onSelect={select} />

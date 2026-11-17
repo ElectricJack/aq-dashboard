@@ -10,8 +10,8 @@ const RAN_WITH = { role: "reviewer", level: "deep", provider: "anthropic", model
 describe("facts the swarm read does not carry", () => {
   it("asks for the title and ran_with of every agent whose row lacks them", () => {
     const t = factTargets(adaptSwarm(demoSwarm(NOW), NOW));
-    expect(t.titles).toHaveLength(12);
-    expect(t.ranWith).toHaveLength(12);
+    expect(t.titles).toHaveLength(5);
+    expect(t.ranWith).toHaveLength(5);
   });
   it("asks for nothing once the server sends them", () => {
     expect(factTargets(adaptSwarm(demoSwarm(NOW, true), NOW))).toEqual({ titles: [], ranWith: [] });
@@ -20,7 +20,7 @@ describe("facts the swarm read does not carry", () => {
   it("skips ids the Graph reads would refuse", () => {
     const view = adaptSwarm(demoSwarm(NOW), NOW);
     agents(view)[0]!.project.id = "not-a-uuid";
-    expect(factTargets(view).titles).toHaveLength(11);
+    expect(factTargets(view).titles).toHaveLength(4);
   });
   it("fills the title and ran_with it was given and leaves the other rows as they were", () => {
     const view = adaptSwarm(demoSwarm(NOW), NOW);

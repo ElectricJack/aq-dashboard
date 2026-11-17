@@ -8,14 +8,10 @@ import type { AgentView, MachineView, NodeView, SwarmView } from "../../../api/a
  * - `stopped`: an interactive agent that stopped or failed, kept only while it is selected. It occupies nothing.
  */
 export type SlotState = "starting" | "running" | "finishing" | "held" | "stopped" | "free";
-export type Slot = { key: string; state: SlotState; agent: AgentView | null; /** A last free tile standing for this many free slots. */ more?: number };
 
 export const SLOT_LABEL: Record<SlotState, string> = {
   starting: "Starting", running: "Running", finishing: "Finishing", held: "Starting or settling", stopped: "Stopped", free: "Free",
 };
-/** Free tiles drawn per worker before the rest are summed into one. */
-export const MAX_FREE_TILES = 8;
-
 export function agentState(a: AgentView): Exclude<SlotState, "held" | "free"> {
   if (a.manual) {
     const s = a.manual.status;
@@ -32,15 +28,6 @@ export function heldCount(n: NodeView): number {
 /** Machines whose workers and slots the page draws; an offline, stopped or booting machine is one card with no slots. */
 export function drawsSlots(m: MachineView): boolean {
   return m.state !== "offline" && m.state !== "stopped" && m.state !== "booting";
-}
-
-/** A worker's slots in a stable order: named agents, held slots, then free ones. */
-export function nodeSlots(n: NodeView, maxFree = MAX_FREE_TILES): Slot[] {
-  const slots: Slot[] = n.agents.map(a => ({ key: `agent:${a.sessionId}`, state: agentState(a), agent: a }));
-  for (let i = 0; i < heldCount(n); i++) slots.push({ key: `held:${n.id}:${i}`, state: "held", agent: null });
-  const idle = Math.max(0, n.slots.idle ?? 0), tiles = Math.min(idle, maxFree);
-  for (let i = 0; i < tiles; i++) slots.push({ key: `free:${n.id}:${i}`, state: "free", agent: null, ...(i === tiles - 1 && idle > maxFree ? { more: idle - maxFree + 1 } : {}) });
-  return slots;
 }
 
 export type Counts = { running: number; starting: number; finishing: number; held: number; free: number; /** Null when a worker reports no slot total. */ total: number | null };
@@ -85,6 +72,95 @@ export function detailParts(c: Counts): string[] {
   if (c.held) parts.push(`${c.held} starting or settling`);
   parts.push(c.total === null ? `${c.free} free` : `${c.free} free of ${plural(c.total, "slot")}`);
   return parts;
+}
+
+/*
+ * The board: one tile per worker. A worker runs one queued task at a time; `slots` counts interactive-session slots,
+ * which is a different thing, so the board does not draw them.
+ */
+export type WorkerState = "busy" | "idle" | "holding" | "draining" | "stopped" | "offline" | "booting" | "revoked" | "unknown";
+export type WorkerTile = {
+  node: NodeView; state: WorkerState;
+  /** A busy worker's phase: its agent's, or `held` when an attempt holds it and the read names no agent. */
+  phase: Exclude<SlotState, "stopped" | "free"> | null;
+  /** The attempt the tile shows: the queued one before an interactive one, a running one before the rest, then the latest start. */
+  agent: AgentView | null;
+  /** Everything else the worker holds, so nothing is dropped: other agents, and attempts the read does not name. */
+  others: AgentView[]; heldMore: number;
+  /** Why the worker is not simply idle (drawn in the tile), or what a busy worker is also doing (drawn beside its name). */
+  standing: Exclude<WorkerState, "busy" | "idle"> | null; reason: string | null;
+};
+
+function standing(m: MachineView, n: NodeView): Pick<WorkerTile, "standing" | "reason"> {
+  const is = (s: WorkerTile["standing"], reason: string | null = null) => ({ standing: s, reason });
+  if (m.state === "offline" || n.health === "offline") return is("offline");
+  if (n.health === "revoked") return is("revoked");
+  if (m.state === "stopped" || n.service === "stopped") return is("stopped");
+  if (m.state === "booting") return is("booting");
+  if (n.service === "draining" || m.control?.desired === "draining") return is("draining");
+  if (n.holding[0]) return is("holding", n.holding[0].message);
+  if (n.health === "unknown") return is("unknown");
+  return is(null);
+}
+const START = (a: AgentView) => (a.startedAt ? Date.parse(a.startedAt) || 0 : 0);
+function shownFirst(a: AgentView, b: AgentView): number {
+  return Number(!!a.manual) - Number(!!b.manual) || Number(agentState(a) !== "running") - Number(agentState(b) !== "running") || START(b) - START(a);
+}
+
+export function workerTile(m: MachineView, n: NodeView): WorkerTile {
+  const why = standing(m, n);
+  // A worker that is not there holds nothing now; what the read still lists for it is kept as "+N".
+  const live = why.standing !== "offline" && why.standing !== "revoked" && why.standing !== "stopped" && why.standing !== "booting";
+  const agent = live ? n.agents.filter(a => agentState(a) !== "stopped").sort(shownFirst)[0] ?? null : null;
+  const held = heldCount(n), busy = live && (!!agent || held > 0);
+  const phase = !busy ? null : agent ? agentState(agent) as WorkerTile["phase"] : "held";
+  return { node: n, state: busy ? "busy" : why.standing ?? "idle", phase, agent, others: n.agents.filter(a => a !== agent), heldMore: busy && !agent ? held - 1 : held, ...why };
+}
+
+/** The model an agent runs on, as the read names it. */
+export function modelLabel(a: AgentView): string {
+  return a.ranWith?.model ?? a.model ?? a.harness ?? a.provider ?? "model not reported";
+}
+
+export type WorkerCounts = {
+  workers: number; busy: number; starting: number; running: number; finishing: number; held: number;
+  /** Machines with at least one busy worker. */
+  machinesBusy: number;
+  machines: { id: string; label: string; state: MachineView["state"]; live: boolean; workers: number; busy: number }[];
+  /** What runs right now by model, most first; `cls` is the level class of its agents when they all share one. */
+  models: { model: string; count: number; cls: AgentView["intelligenceClass"] }[];
+};
+/** Counts from the tiles the board draws, so the headline and the tiles cannot disagree. */
+export function workerCounts(view: SwarmView): WorkerCounts {
+  const c: WorkerCounts = { workers: 0, busy: 0, starting: 0, running: 0, finishing: 0, held: 0, machinesBusy: 0, machines: [], models: [] };
+  const models = new Map<string, WorkerCounts["models"][number]>();
+  for (const m of view.machines) {
+    let busy = 0;
+    for (const n of m.nodes) {
+      const t = workerTile(m, n);
+      if (t.state !== "busy") continue;
+      busy += 1; c[t.phase!] += 1;
+      for (const a of n.agents) {
+        if (agentState(a) === "stopped") continue;
+        const model = modelLabel(a), seen = models.get(model);
+        if (seen) { seen.count += 1; if (seen.cls !== a.intelligenceClass) seen.cls = null; }
+        else models.set(model, { model, count: 1, cls: a.intelligenceClass });
+      }
+    }
+    c.workers += m.nodes.length; c.busy += busy; if (busy > 0) c.machinesBusy += 1;
+    c.machines.push({ id: m.id, label: m.label, state: m.state, live: drawsSlots(m), workers: m.nodes.length, busy });
+  }
+  c.models = [...models.values()].sort((a, b) => b.count - a.count || a.model.localeCompare(b.model));
+  return c;
+}
+/** "7 of 9 workers busy on 2 machines". */
+export function workerHeadline(c: WorkerCounts): string {
+  if (c.workers === 0) return "No workers";
+  return `${c.busy} of ${plural(c.workers, "worker")} busy${c.busy > 0 ? ` on ${plural(c.machinesBusy, "machine")}` : ""}`;
+}
+/** The busy workers by phase. Zero parts are left out. */
+export function phaseParts(c: WorkerCounts): string[] {
+  return [c.starting && `${c.starting} starting`, c.running && `${c.running} running`, c.finishing && `${c.finishing} finishing`, c.held && `${c.held} starting or settling`].filter((p): p is string => !!p);
 }
 
 /** A running clock: `0:07`, `12:34`, `1:02:03`. Null when either time is unknown. */

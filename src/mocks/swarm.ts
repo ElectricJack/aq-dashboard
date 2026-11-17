@@ -100,73 +100,78 @@ export const SWARM_STOPPED: Swarm = {
 };
 
 /*
- * Demo fixtures (`?scenario=swarm-demo` and `?scenario=swarm-demo-next`): a desktop with two workers of eight slots and
- * a laptop with one worker of four, a dozen agents running and two more slots held. Explicitly synthetic: the tasks,
- * sessions and attempts refer to nothing real, and mock mode's banner says so on screen.
+ * Demo fixtures (`?scenario=swarm-demo` and `?scenario=swarm-demo-next`): the shape of the live stack. A desktop with
+ * eight workers and a laptop with one; a worker runs one queued task at a time, so each holds one attempt at most.
+ * Seven are busy (five running, one starting, one finishing) and two are idle. `slots` is what the server sends: a
+ * total of 8 or 4 on the first workers, and `total: null` on the ones added beside them. Explicitly synthetic: the
+ * tasks, sessions and attempts refer to nothing real, and mock mode's banner says so on screen.
  *
- * `swarm-demo` is the shape aq-server sends today (feat/role-catalog 58a95b99): an agent is listed only while it runs,
- * its task `title` is the task's id, and the row has no role, reasoning effort or output time. Slots an attempt holds
- * before its agent starts (or after it stops) are only counted in `slots.occupied`. The page fills titles, roles and
- * effort from each task's own reads, which the demo handlers below serve.
- *
- * `swarm-demo-next` is the same swarm as the requested server changes would send it: every slot-holding attempt is
+ * `swarm-demo-next` is the shape aq-server sends now (feat/role-catalog 4544f870): every attempt that holds a worker is
  * listed with its `phase`, real `title`, `ran_with` and `last_output_at`.
+ *
+ * `swarm-demo` is the shape of an older server (58a95b99): an agent is listed only while it runs, its task `title` is
+ * the task's id, and the row has no role, reasoning effort or output time. A worker an attempt holds before its agent
+ * starts (or after it stops) is only counted in `slots.occupied`. The page fills titles, roles and effort from each
+ * task's own reads, which the demo handlers below serve.
  */
 type Demo = { title: string; project: number; role: string; level: [id: string, name: string]; model: string; provider: string; harness: string; reasoning: string; cls: SwarmAgent["intelligence_class"]; ranMs: number; outputAgoMs: number };
 const demo = (title: string, project: number, role: string, level: Demo["level"], model: string, reasoning: string, ranMs: number, outputAgoMs = 2_000): Demo => {
   const codex = model.startsWith("gpt");
-  return { title, project, role, level, model, reasoning, ranMs, outputAgoMs, provider: codex ? "openai" : "anthropic", harness: codex ? "codex" : "claude-code", cls: /haiku|mini/.test(model) ? "fast" : /opus/.test(model) ? "deep" : "standard" };
+  return { title, project, role, level, model, reasoning, ranMs, outputAgoMs, provider: codex ? "openai" : "anthropic", harness: codex ? "codex" : "claude", cls: /haiku|mini/.test(model) ? "fast" : /opus/.test(model) ? "deep" : "standard" };
 };
-const HIGH: Demo["level"] = ["standard-high", "Standard, high"], LOW: Demo["level"] = ["standard-low", "Standard, low"], DEEP: Demo["level"] = ["deep", "Deep"], FAST: Demo["level"] = ["fast", "Fast"];
+const HIGH: Demo["level"] = ["standard-high", "Standard, high"], MEDIUM: Demo["level"] = ["standard-medium", "Standard, medium"], COMPLEX: Demo["level"] = ["complex-low", "Complex, low"], SIMPLE: Demo["level"] = ["simple-high", "Simple, high"];
 export const DEMO_PROJECTS = [{ id: uuid(7001), label: "Fixture: storefront" }, { id: uuid(7002), label: "Fixture: billing service" }, { id: uuid(7003), label: "Fixture: docs site" }];
-// Twelve running agents, then two whose attempt holds a slot without a running agent (one starting, one settling).
+// Five running agents, then one starting and one finishing.
 const DEMO_AGENTS: Demo[] = [
-  demo("Add retry backoff to the webhook sender", 1, "developer", HIGH, "claude-sonnet-5", "high", 9 * 60_000 + 12_000),
-  demo("Fix the flaky checkout cancellation test", 0, "developer", HIGH, "claude-sonnet-5", "high", 4 * 60_000 + 3_000),
-  demo("Review: migrate invoices to the new ledger tables", 1, "reviewer", DEEP, "claude-opus-5-5", "high", 2 * 60_000 + 41_000, 48_000),
-  demo("Rename the cart reducer's actions", 0, "developer", FAST, "claude-haiku-5", "low", 38_000),
-  demo("Write the upgrade guide for the 4.0 release with every breaking change and a migration example for each one", 2, "writer", LOW, "gpt-5.3-codex", "medium", 71_000),
-  demo("Bump the sandbox image to the patched base", 1, "developer", FAST, "gpt-5.3-codex-mini", "low", 9_000),
-  demo("Add an index for the orders-by-customer query", 0, "developer", HIGH, "claude-sonnet-5", "high", 6 * 60_000 + 20_000),
-  demo("Investigate the nightly export timeout", 1, "investigator", DEEP, "claude-opus-5-5", "high", 14 * 60_000 + 5_000, 95_000),
-  demo("Translate the pricing page strings", 2, "writer", FAST, "claude-haiku-5", "low", 22_000),
-  demo("Replace the deprecated date picker", 0, "developer", LOW, "gpt-5.3-codex", "medium", 3 * 60_000 + 9_000),
-  demo("Cover the refund path with integration tests", 1, "developer", HIGH, "claude-sonnet-5", "high", 5 * 60_000 + 30_000),
-  demo("Fix the broken anchors in the API reference", 2, "writer", FAST, "gpt-5.3-codex-mini", "low", 15_000),
-  demo("Add rate limiting to the public search endpoint", 0, "developer", HIGH, "claude-sonnet-5", "high", 0),
-  demo("Tidy the release notes template", 2, "writer", FAST, "claude-haiku-5", "low", 3 * 60_000),
+  demo("Add retry backoff to the webhook sender", 1, "developer", HIGH, "claude-sonnet-5-5", "high", 9 * 60_000 + 12_000),
+  demo("Fix the flaky checkout cancellation test", 0, "developer", HIGH, "claude-sonnet-5-5", "high", 4 * 60_000 + 3_000),
+  demo("Review: migrate invoices to the new ledger tables", 1, "reviewer", COMPLEX, "claude-opus-5-5", "low", 2 * 60_000 + 41_000, 48_000),
+  demo("Rename the cart reducer's actions", 0, "developer", SIMPLE, "claude-haiku-5-5", "high", 9_000),
+  demo("Write the upgrade guide for the 4.0 release with every breaking change and a migration example for each one", 2, "writer", MEDIUM, "claude-sonnet-5-5", "medium", 71_000),
+  demo("Add rate limiting to the public search endpoint", 0, "developer", HIGH, "claude-sonnet-5-5", "high", 0),
+  demo("Tidy the release notes template", 2, "writer", SIMPLE, "claude-haiku-5-5", "high", 3 * 60_000),
 ];
-/** Which worker each demo agent is on: five running and one starting on the first, four running and one settling on the second, three on the laptop. */
-const DEMO_PLACEMENT = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 0, 1];
-const DEMO_RUNNING = 12;
+const DEMO_RUNNING = 5, DEMO_STARTING = 5, DEMO_FINISHING = 6;
+/** The nine workers as the live server lists them, with the slot total it sends and the demo agent each holds (null: idle). */
+const DEMO_WORKERS: { machine: 0 | 1; name: string; total: number | null; agent: number | null }[] = [
+  { machine: 0, name: "Local Worker 1", total: 8, agent: 0 },
+  { machine: 0, name: "Local Worker 1#3", total: null, agent: 1 },
+  { machine: 0, name: "Local Worker 1#4", total: null, agent: 2 },
+  { machine: 0, name: "Local Worker 1#5", total: null, agent: null },
+  { machine: 0, name: "Local Worker 1#6", total: null, agent: 3 },
+  { machine: 0, name: "Local Worker 1#7", total: null, agent: 4 },
+  { machine: 0, name: "Local Worker 1#8", total: null, agent: null },
+  { machine: 0, name: "Local Worker 2", total: 8, agent: DEMO_STARTING },
+  { machine: 1, name: "Local Worker 3", total: 4, agent: DEMO_FINISHING },
+];
 const demoTask = (i: number) => uuid(7100 + i), demoAttempt = (i: number) => uuid(7200 + i), demoSession = (i: number) => uuid(7300 + i);
 const demoRanWith = (d: Demo) => ({ role: d.role, level: d.level[0], provider: d.provider, model: d.model, reasoning: d.reasoning, harness: d.harness, execution_profile: "fixture-sandbox", snapshot_digest: "d".repeat(64) });
 
-/** The demo swarm at `now`. `next` adds what the requested server changes would send. */
+/** The demo swarm at `now`. `next` is the shape the server sends now; without it, an older server's. */
 export function demoSwarm(now: string, next = false): Swarm {
   const at = (ms: number) => new Date(Date.parse(now) - ms).toISOString();
   const row = (d: Demo, i: number): SwarmAgent => ({
     session_id: demoSession(i), attempt_id: demoAttempt(i), task: { id: demoTask(i), title: next ? d.title : demoTask(i) }, project: DEMO_PROJECTS[d.project]!,
     provider: d.provider, model: d.model, harness: d.harness, intelligence_class: d.cls, routing_profile: { id: d.level[0], display_name: d.level[1] },
-    terminal: null, started_at: i < DEMO_RUNNING ? at(d.ranMs) : i === 13 ? at(d.ranMs) : null,
-    ...(next ? { phase: i < DEMO_RUNNING ? "running" as const : i === 12 ? "starting" as const : "finishing" as const, ran_with: demoRanWith(d), last_output_at: i === 12 ? null : at(i === 13 ? 20_000 : d.outputAgoMs) } : {}),
+    terminal: null, started_at: i === DEMO_STARTING ? null : at(d.ranMs),
+    ...(next ? { phase: i < DEMO_RUNNING ? "running" as const : i === DEMO_STARTING ? "starting" as const : "finishing" as const, ran_with: demoRanWith(d), last_output_at: i === DEMO_STARTING ? null : at(i === DEMO_FINISHING ? 20_000 : d.outputAgoMs) } : {}),
   });
-  const node = (index: number, name: string, total: number): SwarmNode => {
-    const on = DEMO_AGENTS.map((d, i) => ({ d, i })).filter(x => DEMO_PLACEMENT[x.i] === index);
-    const agents = on.filter(x => next || x.i < DEMO_RUNNING).map(x => row(x.d, x.i));
-    return { ...worker(7400 + index, name, "docker-local", total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total, occupied: on.length, idle: total - on.length } };
-  };
-  const machine = (id: string, label: string, cpus: number, cpu: number, ram: number, nodes: SwarmNode[]): Swarm["machines"][number] => ({
+  const nodes = (machine: 0 | 1): SwarmNode[] => DEMO_WORKERS.map((w, index) => ({ w, index })).filter(x => x.w.machine === machine).map(({ w, index }) => {
+    const held = w.agent === null ? 0 : 1;
+    const agents = w.agent !== null && (next || w.agent < DEMO_RUNNING) ? [row(DEMO_AGENTS[w.agent]!, w.agent)] : [];
+    return { ...worker(7400 + index, w.name, "docker-local", w.total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total: w.total, occupied: held, idle: w.total === null ? null : w.total - held } };
+  });
+  const machine = (id: string, label: string, cpus: number, cpu: number, ram: number, agentMax: number, list: SwarmNode[]): Swarm["machines"][number] => ({
     id, label, kind: "local", state: "online", holding: [], last_seen_at: at(1_500),
     load: { source: "windows_host", host_probe: "fresh", cpu_busy_bps: cpu, memory_used_bps: ram, cpu_avg_15m_bps: cpu - 600, memory_avg_15m_bps: ram - 200, samples_15m: 60, observed_at: at(4_000), fresh: true },
-    hardware: { logical_cpus: cpus, memory_total_bytes: (cpus > 16 ? 64 : 32) * 2 ** 30, disk_total_bytes: 2e12, disk_free_bytes: 294e9 }, agent_max: nodes.reduce((n, w) => n + (w.slots.total ?? 0), 0), cost: null,
-    control: { desired: "running", generation: "3", since: at(3_600_000), pending_handoffs: 0 }, nodes,
+    hardware: { logical_cpus: cpus, memory_total_bytes: (cpus > 16 ? 64 : 32) * 2 ** 30, disk_total_bytes: 2e12, disk_free_bytes: 294e9 }, agent_max: agentMax, cost: null,
+    control: { desired: "running", generation: "3", since: at(3_600_000), pending_handoffs: 0 }, nodes: list,
   });
   return {
-    server: { version: "0.1.0", source_revision: "58a95b992d64a9d4b587e6c3c38a857c6041edd4", running_agents: DEMO_RUNNING, owner_availability: { state: "on", generation: "2", since: at(3_600_000) } },
+    server: { version: "0.1.0", source_revision: next ? "4544f8700f9d02d3291e0566da332114efee9497" : "58a95b992d64a9d4b587e6c3c38a857c6041edd4", running_agents: next ? DEMO_AGENTS.length : DEMO_RUNNING, owner_availability: { state: "on", generation: "2", since: at(3_600_000) } },
     machines: [
-      machine("desktop", "Fixture desktop", 24, 7400, 6100, [node(0, "Local Worker 1", 8), node(1, "Local Worker 2", 8)]),
-      machine("laptop", "Fixture laptop", 12, 5200, 4800, [node(2, "Local Worker 3", 4)]),
+      machine("desktop", "Fixture desktop", 24, 7400, 6100, 16, nodes(0)),
+      machine("laptop", "Fixture laptop", 12, 5200, 4800, 8, nodes(1)),
     ],
     waiting: { reasons: [], agents: [] },
   };

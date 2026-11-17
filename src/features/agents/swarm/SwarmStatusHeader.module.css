@@ -7,3 +7,11 @@
 .notice { display: block; margin-top: 6px; }
 .status button { border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-raised); color: var(--color-text); padding: 4px 9px; font: inherit; cursor: pointer; }
 .status :is(button, input):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* The board on a short desktop window (1280×720): each provider's limit is one line (name, limit, slider) so the workers below fit on one screen. */
+@media (min-width: 1024px) and (max-height: 899px) {
+  .status:has(~ [data-view="board"]) { margin-block-end: 4px; padding-block: 3px; }
+  .status:has(~ [data-view="board"]) .provider { display: flex; align-items: center; gap: 12px; }
+  .status:has(~ [data-view="board"]) .heading { flex: none; gap: 12px; }
+  .status:has(~ [data-view="board"]) .provider input { flex: 1; margin: 0; }
+  .status:has(~ [data-view="board"]) .burn { display: none; }
+}
