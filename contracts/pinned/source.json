@@ -90,10 +90,10 @@
     "dashboard-read/v1/fixtures/session.json": "b503465395c7b3f29c0d1b501d87306da6aaade4d37aac5b5667ef542f5415ce",
     "dashboard-read/v1/fixtures/sessions.json": "9b6ed9c5aede341c70d7bc8aa3007a17276945465e11d49aa3ae4a27aa2bee43",
     "dashboard-read/v1/fixtures/swarm.json": "0c513d2d2b82aa460b188f9f58e6b28f042134850196274a50c11b335cb5a7b8",
-    "dashboard-read/v1/schema.json": "92b19f1ecee542b9424687e5b4db364e70b406620867dd695c5e6f39144405da",
+    "dashboard-read/v1/schema.json": "4c44009eacf09d8379dd945a23da5b59d5b86bf10deb7d01490c9078167945cd",
     "results-feedback/v1/README.md": "c2592b78662f98c71bb736784fd0fe15d416cf073e797f798ed486f017d7ea8e",
     "results-feedback/v1/check.py": "3ad8537c7974f812689761e28c7522569b3e6386d669074db84aa227f9be3959",
-    "results-feedback/v1/fixtures/compatibility.json": "4a8388455cdcf0bf86f0cf1eddaa06a0388d59d8147b9704f7a587784e90901f",
+    "results-feedback/v1/fixtures/compatibility.json": "de4bdfb6fc711a26cd47a29ef97ec8ab73ee1b9dcbb41daa045e605c4af892bf",
     "results-feedback/v1/fixtures/invalid.json": "878fb9932ae318d1f0c079b9d881e559ea24df7e59360295350f3d2975bb4766",
     "results-feedback/v1/fixtures/replay.json": "b24d7e9d418b013c8ba01ad07e7dcf3b31b83afabfc531539b868a5efb24b592",
     "results-feedback/v1/fixtures/valid.json": "65c63b37d99bedc1d2ea8d4f6cbb57d00d1e9315e482cd3d28ce9d807a91f065",
@@ -104,8 +104,8 @@
     "dashboard-read": "dashboard-read/source.json"
   },
   "contract_commits": {
-    "results-feedback": "5e5b16e4566785d715b4e91a89aee1b7c783ffe4",
-    "dashboard-actions": "9bca5002e777798a11daf1d7bc5c70a01a1e47fd",
-    "dashboard-read": "3f249fc80715431b7bcb5a46c9ea58fdd58487ff"
+    "results-feedback": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
+    "dashboard-actions": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
+    "dashboard-read": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590"
   }
 }

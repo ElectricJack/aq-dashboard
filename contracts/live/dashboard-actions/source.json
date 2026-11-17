@@ -1,6 +1,6 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "9bca5002e777798a11daf1d7bc5c70a01a1e47fd",
+  "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
   "path": "protocol/dashboard-actions/v1",
   "files": {
     "README.md": "eaababbf2f72d0e64a5e3706731e617d38d1c743f9b2e22e2a5b0beeddc26dd7",
@@ -66,5 +66,5 @@
     "fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
     "schema.json": "4c850a63a6bd4ca5a28799056b13880a736561873179391e1713f536f1d8bc29"
   },
-  "note": "Copied from aq-server branch feat/role-catalog at 9bca5002 (spec 0014: task role, task.role.set, no profile_hint). Re-pin when that branch merges to main."
+  "note": "Copied from aq-server branch feat/role-catalog at 09ee5e98 (spec 0014: task role, task.role.set, no profile_hint; unchanged since 9bca5002). Re-pin when that branch merges to main."
 }

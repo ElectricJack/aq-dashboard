@@ -1,13 +1,13 @@
 {
   "repository": "aq-server",
-  "commit": "9bca5002e777798a11daf1d7bc5c70a01a1e47fd",
+  "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
   "path": "protocol/human-supervisor-conversation/v1/schema.json",
   "sha256": "412069f36c814496fb7c1d336b6342c8773c4fd4da54a12908c2c8c6c8c927ae",
   "note": "Global and project conversations share retained message/history contracts with immutable scoped identity and bounded labels. Live runtime can be idle between physical turns; admission receipts retain the unavailable snapshot.",
   "fixture_note": "mixed-history.fixture.json is a dashboard-authored, visibly labelled deterministic fixture derived from the pinned schema; it is not a live reply or an owner-supplied example.",
   "f2_fixture": {
     "repository": "aq-server",
-    "commit": "9bca5002e777798a11daf1d7bc5c70a01a1e47fd",
+    "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
     "path": "protocol/dashboard-actions/v1/fixtures/request-task-graph-create.json",
     "sha256": "1a500b4b6dd36be565307e55e4ff59bd56c54801c806a51df99a9abe6020a32a"
   },
