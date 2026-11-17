@@ -41,7 +41,14 @@
 .reasons ul { list-style:none; margin:0; padding:0; display:grid; gap:var(--space-1); }
 .reasons li { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); }
 .reasons li > svg { color:var(--color-status-waiting); }
+/* Role beside route, and a route's facts beside its "Why" disclosure: one line each while there is room (density 2026-11-17). */
+.roleLine { margin:0; }
+.statusLine { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px var(--space-4); min-inline-size:0; }
+.statusLine > p { margin:0; min-inline-size:0; }
+.statusLine > details[open] { flex:1 1 100%; }
+.agentHead .terminalLink { margin-inline-start:var(--space-2); }
 .agent { display:grid; gap:var(--space-1); }
+.agentSession { display:inline-flex; align-items:center; gap:6px; margin-inline-start:var(--space-2); }
 .agent p,.attempt p { margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; }
 .agentLinks a { margin-inline-start:var(--space-2); }
 .terminalLink { font-weight:600; }
@@ -111,6 +118,8 @@
   .agent p,.attempt p,.commentHead,.history li > p:not(.historyReason),.results p.meta,.dependencyTitle,.reasons li { white-space:nowrap; min-inline-size:0; overflow:hidden; text-overflow:ellipsis; }
   .attempt p.meta,.results p.meta,.history li > p.meta { display:block; }
   .agent p > *,.attempt p > *,.commentHead > * { flex:none; }
+  /* The holding attempt's line carries a link: where the inspector is too narrow it wraps instead of clipping it. */
+  .agent p.agentHead { flex-wrap:wrap; overflow:visible; }
   .idValue code { overflow:hidden; text-overflow:ellipsis; }
   .dependencyTitle a { min-inline-size:0; overflow:hidden; text-overflow:ellipsis; }
 }

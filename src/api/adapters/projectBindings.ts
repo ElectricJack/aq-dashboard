@@ -3,8 +3,12 @@ export const PROJECT_PAGE_SIZE = 25;
 export type ProjectBindingView = {
   id: string; name: string; revision: number; enabled: boolean;
   binding: Record<string,unknown>; workerPolicy: "enabled" | "disabled" | "missing" | "unknown";
-  repositoryId: string; repositoryGeneration: number; workspaceId: string; catalogDigest: string;
-  agents: string[]; intelligence: string[]; execution: string[]; environments: string[]; workerGroups: string[]; nodeIds: string[]; enrolledNodes: boolean;
+  repositoryId: string; repositoryGeneration: number; workspaceId: string;
+  /** The role of a task that names none, and the level of a task the router did not assign one. */
+  defaultRole: string; defaultIntelligence: string;
+  /** The Markdown this project adds for a role, after the role's own prompt; by role id. */
+  roleNotes: { role: string; note: string }[];
+  environments: string[]; workerGroups: string[]; nodeIds: string[]; enrolledNodes: boolean;
   validation: { repository: string; graph: string; recordedAt: string; observedAt: string; expiresAt: string };
 };
 function ensure(v: unknown): asserts v { if (!v) throw new ContractError("Invalid project binding page"); }
@@ -12,6 +16,17 @@ function positive(v: unknown): v is number { return typeof v === "number" && Num
 function uuid(v: unknown): v is string { return typeof v === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(v) && v !== "00000000-0000-0000-0000-000000000000"; }
 function label(v: unknown): v is string { return typeof v === "string" && v.trim().length > 0 && v.length <= 128 && !/[\u0000-\u001f\u007f]/.test(v); }
 function labels(v: unknown, empty = false): string[] { ensure(Array.isArray(v) && (empty || v.length > 0) && v.length <= 32 && v.every(label) && new Set(v).size === v.length); return v; }
+/**
+ * A binding's defaults (aq-server spec 0014 §5.4, `aq-project-policy`). The server does not write a default that has its
+ * usual value, so an absent `default_role` is `developer` and an absent `default_intelligence` is `standard-high`.
+ */
+export const BINDING_DEFAULT_ROLE = "developer", BINDING_DEFAULT_INTELLIGENCE = "standard-high";
+function labelOr(v: unknown, fallback: string): string { ensure(v === undefined || label(v)); return (v as string | undefined) ?? fallback; }
+function roleNotes(v: unknown): { role: string; note: string }[] {
+  if (v === undefined) return [];
+  ensure(isRecord(v) && Object.keys(v).length <= 128 && Object.entries(v).every(([role, note]) => label(role) && typeof note === "string" && !note.includes("\0")));
+  return Object.entries(v).filter(([, note]) => (note as string).trim() !== "").map(([role, note]) => ({ role, note: note as string })).sort((a, b) => a.role < b.role ? -1 : a.role > b.role ? 1 : 0);
+}
 function timestamp(v: unknown): string { ensure(positive(v) && v <= 8640000000000000); return new Date(v).toISOString(); }
 export function validationLabel(v: string): string {
   return ({ verified: "Verified", absent: "Absent", stale: "Stale", forbidden: "Forbidden", unavailable: "Unavailable", unsupported: "Unsupported" } as Record<string, string>)[v] ?? "Unknown";
@@ -23,7 +38,7 @@ export function adaptProjectBindings(raw: unknown, after: string | null) {
     ensure(isRecord(row) && positive(row.revision) && isRecord(row.binding) && isRecord(row.validation));
     const b = row.binding, v = row.validation;
     ensure(b.schema_version === 1 && uuid(b.project_id) && (!previous || b.project_id > previous) && label(b.name) && typeof b.enabled === "boolean");
-    ensure(uuid(b.repository_id) && uuid(b.graph_workspace_id) && positive(b.repository_binding_generation) && typeof b.catalog_digest === "string" && /^[0-9a-f]{64}$/.test(b.catalog_digest));
+    ensure(uuid(b.repository_id) && uuid(b.graph_workspace_id) && positive(b.repository_binding_generation));
     ensure(v.repository_generation === b.repository_binding_generation && v.repository_id === b.repository_id && v.graph_workspace_id === b.graph_workspace_id && v.repository_adapter_reference === b.repository_adapter_reference && v.graph_adapter_reference === b.graph_adapter_reference);
     ensure(label(v.repository) && label(v.graph));
     const observedAt = timestamp(v.observed_at_ms), expiresAt = timestamp(v.expires_at_ms);
@@ -38,9 +53,9 @@ export function adaptProjectBindings(raw: unknown, after: string | null) {
     const workerPolicy = raw.execution === undefined ? "unknown" : raw.execution[b.project_id] === undefined ? "missing" : raw.execution[b.project_id] === true ? "enabled" : "disabled";
     ensure(raw.execution === undefined || raw.execution[b.project_id] === undefined || typeof raw.execution[b.project_id] === "boolean");
     return { binding: b, workerPolicy, id: b.project_id, name: b.name, revision: row.revision, enabled: b.enabled, repositoryId: b.repository_id, repositoryGeneration: b.repository_binding_generation,
-      workspaceId: b.graph_workspace_id, catalogDigest: b.catalog_digest,
+      workspaceId: b.graph_workspace_id,
       workerGroups, nodeIds: b.allowed_node_ids, enrolledNodes,
-      agents: labels(b.allowed_agent_profiles), intelligence: labels(b.allowed_intelligence_profiles), execution: labels(b.allowed_execution_profiles), environments: labels(b.allowed_environments),
+      defaultRole: labelOr(b.default_role, BINDING_DEFAULT_ROLE), defaultIntelligence: labelOr(b.default_intelligence, BINDING_DEFAULT_INTELLIGENCE), roleNotes: roleNotes(b.role_notes), environments: labels(b.allowed_environments),
       validation: { repository: v.repository, graph: v.graph, recordedAt: timestamp(row.validated_at_ms), observedAt, expiresAt } };
   });
   ensure(raw.next_cursor === null || (items.length === PROJECT_PAGE_SIZE && raw.next_cursor === previous));

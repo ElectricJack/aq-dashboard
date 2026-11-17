@@ -61,6 +61,8 @@ function neighborhood(root:string,tasks:GraphNode[],edges:GraphEdge[]){
   return {root_id:root,nodes:tasks.filter(t=>kept.has(t.id)),edges:keptEdges,truncated:near.length>MAX_NODES,parent:parentOf(root,tasks,edges),
     omitted:{tasks:String(dropped.length),tasks_by_state:countStates(dropped),other_nodes:"0",edges:String(touching.length-keptEdges.filter(e=>e.source===root||e.target===root).length),exact:true},expansion:null};
 }
+/** What the fixture's holding attempt ran with (aq-server spec 0014 §7.1), the same on the work, history, list and session reads. */
+export const FIXTURE_RAN_WITH={role:"developer",level:"standard-high",provider:"anthropic",model:"claude-opus-5-5",reasoning:"high",harness:"claude-code",execution_profile:"fixture-sandbox",snapshot_digest:"f".repeat(64)};
 /** Fixture attempts: "Replay reconciliation" holds one and had a failed one; "Worker recovery" had one that ended. */
 export const FIXTURE_ATTEMPTS:Record<string,{attempt_id:string;session_id:string;holds_task:boolean;status:string}[]>={
   [ID.replay]:[{attempt_id:id(0x301),session_id:id(0x302),holds_task:true,status:"running"},{attempt_id:id(0x305),session_id:id(0x306),holds_task:false,status:"failed"}],
@@ -74,7 +76,9 @@ export const FIXTURE_ATTEMPT_SESSIONS=[
 ].map(s=>({id:s.sid,label:`Fixture attempt session ${s.sid.slice(-4)}`,task:{type:"task",id:s.task,revision:"1",title:fixtureTasks.find(t=>t.id===s.task)!.title},attempt_id:s.attempt,
   project:{id:fixture.project.id,label:fixture.project.name},profile:{provider:s.provider,model:s.model,harness:s.harness},authority:"remote" as const,
   observation:{state:"unknown" as const,observed_at:"2026-10-31T12:00:00.000Z",fresh_until:"2026-10-31T12:01:00.000Z"},wait:null,controller:{state:"none" as const,label:null},terminal:null,
-  lifecycle:{started_at:s.started,stopped_at:s.stopped},profile_revisions:[],permissions:[],last_activity_at:null}));
+  lifecycle:{started_at:s.started,stopped_at:s.stopped},profile_revisions:[],permissions:[],last_activity_at:null,
+  // aq-server 09ee5e98: the session of an attempt with a `ran_with` record carries it; the older attempts have none.
+  ...(s.attempt===id(0x301)?{ran_with:FIXTURE_RAN_WITH}:{})}));
 /** Fixture change history: a create, edits and lifecycle changes, oldest first as Graph serves it. "Replay reconciliation" has 30 entries (two pages). */
 function historyFor(node:GraphNode){
   const count=node.id===ID.replay?30:4,base=Date.parse("2026-10-30T09:00:00.000Z");
@@ -126,6 +130,13 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  const unavailable=()=>HttpResponse.json({request_id:"fixture",code:"unavailable",message:"Read unavailable",retryable:true},{status:503});
  const missing=()=>HttpResponse.json({request_id:"fixture",code:"not_found",message:"This item does not exist or is not available to you.",retryable:false},{status:404});
  const wrap=(data:unknown)=>({...fixture,data});
+ // Task roles (aq-server spec 0014 §5.5): a task names a role, or runs as the fixture project's default, `developer`.
+ const named=new Map<string,string>();
+ const roleOf=(task:string)=>named.has(task)?{id:named.get(task)!,source:"task"}:{id:"developer",source:"project_default"};
+ const withRole=<T extends {id:string;kind:string}>(node:T)=>node.kind==="task"?{...node,role:roleOf(node.id)}:node;
+ /** What a fixture attempt ran with (spec 0014 §7.1); the values name the labelled role and level fixtures. */
+ const RAN_WITH=FIXTURE_RAN_WITH;
+ const FIXTURE_ROLES=["developer","reviewer"],NOT_GRANTED=["offered","preparing","declined","never_granted"];
  const tasks=graph==="large"?largeTasks:fixtureTasks,edges=graph==="large"?largeEdges:fixtureEdges;
  const path="/api/human/projects/:project";
  return [http.get(`${path}/:collection`,({params,request})=>{
@@ -135,9 +146,9 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    const limit=Math.min(GRAPH_PAGE_SIZE,Math.max(1,Number(url.searchParams.get("limit"))||GRAPH_PAGE_SIZE));
    const cursor=url.searchParams.get("cursor"),offset=cursor?Number(atob(cursor).split(":")[1])||0:0;
    const nodes=reads==="empty"?[]:(params.collection==="tasks"?tasks:[knowledge]).filter(n=>n.title.toLowerCase().includes(q));
-   const next=offset+limit,items=nodes.slice(offset,next);
+   const next=offset+limit,items=nodes.slice(offset,next).map(withRole);
    // List pages carry the holding executions for the listed tasks (X12).
-   const executions=params.collection==="tasks"?items.filter(n=>FIXTURE_ATTEMPTS[n.id]?.some(a=>a.holds_task)).map(n=>{const a=FIXTURE_ATTEMPTS[n.id]!.find(x=>x.holds_task)!;return {task_id:n.id,attempt_id:a.attempt_id,session_id:a.session_id,status:a.status};}):undefined;
+   const executions=params.collection==="tasks"?items.filter(n=>FIXTURE_ATTEMPTS[n.id]?.some(a=>a.holds_task)).map(n=>{const a=FIXTURE_ATTEMPTS[n.id]!.find(x=>x.holds_task)!;return {task_id:n.id,attempt_id:a.attempt_id,session_id:a.session_id,status:a.status,ran_with:RAN_WITH};}):undefined;
    return HttpResponse.json(wrap({items,next_cursor:next<nodes.length?btoa(`fixture:${next}`):null,...(executions?{executions}:{})}));
  }),http.get(`${path}/tasks/:id/graph`,({params})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id||!tasks.some(n=>n.id===params.id))return missing();
@@ -147,17 +158,18 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    // Work read: readiness blockers and the attempt holding the task. Only "Replay reconciliation" has one.
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
    const blockers=edges.filter(e=>e.target===node.id&&e.edge_type==="blocks").map(e=>{const b=tasks.find(n=>n.id===e.source);return {edge_id:e.id,id:e.source,title:b?.title??null,task_state:b?.task_state??null,satisfied:b?b.task_state==="completed":null};});
-   const held=FIXTURE_ATTEMPTS[node.id]?.find(a=>a.holds_task),execution=held?{task_id:node.id,attempt_id:held.attempt_id,session_id:held.session_id,status:held.status}:null;
+   const held=FIXTURE_ATTEMPTS[node.id]?.find(a=>a.holds_task),execution=held?{task_id:node.id,attempt_id:held.attempt_id,session_id:held.session_id,status:held.status,ran_with:RAN_WITH}:null;
    // aq-server #99: an attempt that has finished but still holds the task makes it "held", with AQ's reason.
    const stopped=!!execution&&["finished","declined","never_granted"].includes(execution.status);
    const reasons=stopped?[{code:"attempt_stopped_not_released",attempt_id:execution!.attempt_id,status:execution!.status,message:"Fixture: the attempt finished and stopped; the claim stays until its result is settled, the task is retried or the attempt is abandoned."}]:[];
    const state=node.task_state!=="active"?node.task_state:stopped?"held":execution?"running":blockers.some(b=>!b.satisfied)?"waiting":"ready",routing=routingOf(node.id,String(state));
-   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,readiness:{state,blockers,complete:true,reasons},parent:parentOf(node.id,tasks,edges),execution,...(routing?{routing}:{})}));
+   return HttpResponse.json(wrap({task_id:node.id,task_state:node.task_state,version:node.version,role:roleOf(node.id),readiness:{state,blockers,complete:true,reasons},parent:parentOf(node.id,tasks,edges),execution,...(routing?{routing}:{})}));
  }),http.get(`${path}/tasks/:id/history`,({params,request})=>{
+   // aq-server 09ee5e98: each attempt with a `ran_with` record carries it here too; the fixture's ended attempts have none.
    // Recorded attempts (history read): "Replay reconciliation" holds one; "Worker recovery" had one that ended; the rest never had one.
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
    const all=historyFor(node),cursor=new URL(request.url).searchParams.get("cursor"),offset=cursor?Number(atob(cursor).split(":")[1])||0:0,next=offset+25;
-   return HttpResponse.json(wrap({task_id:node.id,items:all.slice(offset,next),next_cursor:next<all.length?btoa(`history:${next}`):null,attempts:FIXTURE_ATTEMPTS[node.id]??[],attempts_truncated:false}));
+   return HttpResponse.json(wrap({task_id:node.id,items:all.slice(offset,next),next_cursor:next<all.length?btoa(`history:${next}`):null,attempts:(FIXTURE_ATTEMPTS[node.id]??[]).map(a=>a.holds_task?{...a,ran_with:RAN_WITH}:a),attempts_truncated:false}));
  }),http.get(`${path}/tasks/:id/comments`,({params,request})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id)return missing();
    const url=new URL(request.url),limit=Number(url.searchParams.get("limit")??50),cursor=url.searchParams.get("cursor"),offset=cursor?Number(atob(cursor).split(":")[1])||0:0;
@@ -175,6 +187,15 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
      const stamp=new Date().toISOString();
      return HttpResponse.json({...operationFixture,scope:{kind:"project",project_id:body.payload.project_id},data:{...operationFixture.data,operation_id:body.operation_id,disposition:"confirmed",scope:{kind:"project",project_id:body.payload.project_id},
        subject_refs:[body.subject],created_at:stamp,updated_at:stamp,receipt_refs:[{type:"graph_change_set",id:id(0x3ff)}],affected_entities:[{type:"task",id:body.subject.id}],recovery:"none"}});
+   }
+   if(body?.kind==="task.role.set"){
+     // As AQ: the role must exist (422 `unknown_role`), and it is fixed once an attempt of the task was granted (rejected).
+     const role=(body.payload as {role?:string|null}).role??null,stamp=new Date().toISOString();
+     if(role!==null&&!FIXTURE_ROLES.includes(role))return HttpResponse.json({request_id:"fixture",code:"unknown_role",message:`Role \`${role}\` does not exist. The roles are: ${FIXTURE_ROLES.join(", ")}.`,retryable:false},{status:422});
+     const granted=FIXTURE_ATTEMPTS[body.subject.id]?.some(a=>!NOT_GRANTED.includes(a.status))??false;
+     if(!granted){if(role===null)named.delete(body.subject.id);else named.set(body.subject.id,role);}
+     return HttpResponse.json({...operationFixture,scope:{kind:"project",project_id:body.payload.project_id},data:{...operationFixture.data,operation_id:body.operation_id,disposition:granted?"rejected":"confirmed",scope:{kind:"project",project_id:body.payload.project_id},
+       subject_refs:[body.subject],created_at:stamp,updated_at:stamp,receipt_refs:granted?[]:[{type:"graph_change_set",id:id(0x3fe)}],affected_entities:granted?[]:[{type:"task",id:body.subject.id}],recovery:granted?"refresh_and_review":"none"}});
    }
    if(!body?.kind?.startsWith("task.comment."))return undefined;
    const now=new Date().toISOString();
@@ -204,6 +225,6 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  }),http.get(`${path}/:collection/:id`,({params,request})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id)return missing();
    const node=(params.collection==="tasks"?tasks:params.collection==="knowledge"?[knowledge]:[]).find(n=>n.id===params.id);
-   const revision=new URL(request.url).searchParams.get("revision");return node&&(!revision||revision===node.content_revision)?HttpResponse.json(wrap(node)):missing();
+   const revision=new URL(request.url).searchParams.get("revision");return node&&(!revision||revision===node.content_revision)?HttpResponse.json(wrap(withRole(node))):missing();
  })];
 }

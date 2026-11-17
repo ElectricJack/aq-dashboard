@@ -8,7 +8,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterAll(() => server.close());
 
 const cell = { provider: "p", intelligence_class: "c", display_name: "Class", normal_limit: 2, reduced_limit: null, effective_limit: 2, running: null, waiting: null };
-const wire = { revision: "1", catalog_revision: "2", active_mode: "normal", normal: [{ provider: "p", intelligence_class: "c", limit: 2 }], reduced: null, cells: [cell], unclassified: [] };
+const wire = { revision: "1", active_mode: "normal", normal: [{ provider: "p", intelligence_class: "c", limit: 2 }], reduced: null, cells: [cell], unclassified: [] };
 test("accepts unknown counts and validates every response field", () => {
   expect(adaptSwarmSettings(wire)).toEqual(wire);
   for (const bad of [
@@ -34,7 +34,7 @@ test("accepts catalog drift with retained removed pairs and new unconfigured cel
 });
 test("revision conflicts and exact operation replay preserve the confirmed snapshot", async () => {
   const initial = await readSwarmSettings();
-  const save = { operation_id: "00000000-0000-4000-8000-000000000001", expected_revision: initial.revision, expected_catalog_revision: initial.catalog_revision, normal: initial.normal!, reduced: initial.reduced };
+  const save = { operation_id: "00000000-0000-4000-8000-000000000001", expected_revision: initial.revision, normal: initial.normal!, reduced: initial.reduced };
   const saved = await saveSwarmSettings(save);
   expect(saved.revision).not.toBe(initial.revision);
   expect(await saveSwarmSettings(save)).toEqual(saved);
@@ -58,12 +58,12 @@ test("independent provider and class limits preserve unlimited and reject incons
 });
 test("sparse class updates leave other limits intact and can be retried exactly", async () => {
   const initial = await readSwarmSettings();
-  const request = { operation_id: "00000000-0000-4000-8000-000000000011", expected_revision: initial.revision, expected_catalog_revision: initial.catalog_revision, cell: { provider: initial.cells[0]!.provider, intelligence_class: initial.cells[0]!.intelligence_class, limit: 0 } };
+  const request = { operation_id: "00000000-0000-4000-8000-000000000011", expected_revision: initial.revision, cell: { provider: initial.cells[0]!.provider, intelligence_class: initial.cells[0]!.intelligence_class, limit: 0 } };
   const saved = await updateSwarmLimits(request);
   expect(saved.cells[0]!.effective_limit).toBe(0);
   expect(saved.cells[1]!.effective_limit).toBe(initial.cells[1]!.effective_limit);
   expect(await updateSwarmLimits(request)).toEqual(saved);
-  const provider = await updateSwarmLimits({ operation_id: "00000000-0000-4000-8000-000000000012", expected_revision: saved.revision, expected_catalog_revision: saved.catalog_revision, provider: { provider: initial.cells[0]!.provider, limit: 2 } });
+  const provider = await updateSwarmLimits({ operation_id: "00000000-0000-4000-8000-000000000012", expected_revision: saved.revision, provider: { provider: initial.cells[0]!.provider, limit: 2 } });
   expect(provider.provider_limits).toEqual([{ provider: initial.cells[0]!.provider, limit: 2 }]);
   expect(provider.cells[0]!.effective_limit).toBe(0);
 });

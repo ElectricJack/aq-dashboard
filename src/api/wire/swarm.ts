@@ -12,7 +12,8 @@ export type ServiceState = "running" | "stopped" | "draining" | "unreported";
 export type ReportedState = "ready" | "unavailable" | "unreported";
 export type IntelligenceClass = "fast" | "standard" | "deep";
 // "history_rate_limited" is unused: no server sends it since the offer and worker report
-// rate limits were removed (2026-11-13). It stays because the pinned schema lists it.
+// rate limits were removed (2026-11-13). The "measurement_*" codes are unused since context
+// measurement was removed with the profile catalog (spec 0014). They stay because the pinned schema lists them.
 export type HoldCode =
   | "worker_offline" | "worker_revoked" | "worker_stopped" | "worker_draining"
   | "capability_unreported" | "capability_expired"
@@ -33,13 +34,29 @@ export type MachineCost = { currency: string; micros_per_hour: number; started_a
 export type MachineControl = { desired: "running" | "draining" | "stopped"; generation: string; since: Timestamp | null; pending_handoffs: number };
 export type OwnerAvailability = { state: "unset" | "on" | "off"; generation: string; since: Timestamp | null; note?: string | null };
 export type WorkerService = { state: ServiceState; since: Timestamp | null };
+/**
+ * A worker node's slots: `total` is the node's one slot count (a per-node Setting), shared by queued tasks and
+ * hand-started sessions; null from an old worker that does not report it. Each agent row carries its `slot`, from one.
+ */
 export type NodeSlots = { total: number | null; occupied: number; idle: number | null };
 export type SwarmAgent = {
   session_id: string; attempt_id: string; task: TitledRef | null; project: ProjectRef;
   provider: string | null; model: string | null; harness: string | null; intelligence_class: IntelligenceClass | null;
   routing_profile?: { id: string; display_name: string } | null;
   terminal: EntityRef | null; started_at: Timestamp | null;
+  /** The node slot the attempt holds, from one; absent from an old server's row. */
+  slot?: number | null;
+  /**
+   * Not sent by aq-server yet (requested 2026-11-16); read when present so nothing here changes when they land.
+   * `phase`: where the attempt holding the slot is; today a row exists only while its agent runs.
+   * `ran_with`: the attempt's role, level, model and reasoning effort, as on the human-graph task reads (spec 0014 §7.1).
+   * `last_output_at`: last terminal output the relay recorded, as on the session read.
+   */
+  phase?: "starting" | "running" | "finishing";
+  ran_with?: SwarmRanWith | null;
+  last_output_at?: Timestamp | null;
 };
+export type SwarmRanWith = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile?: string; snapshot_digest?: string | null };
 export type SwarmNode = {
   node: EntityRef; name: string; health: "online" | "offline" | "revoked" | "unknown"; service: WorkerService;
   backend_kind: string | null; worker_version: string; sandbox_templates: string[]; agent_channel: ReportedState;

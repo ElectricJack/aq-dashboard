@@ -6,6 +6,7 @@ import {setupServer} from "msw/node";
 import {vi} from "vitest";
 import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import {handlersFor} from "../../mocks/handlers";
+import {roleSettingsHandlers} from "../../mocks/roleSettings";
 import {renderApp} from "../../test/renderApp";
 import {graphEnvelope,graphId,graphNode,graphProject} from "../../test/humanGraph";
 import {confirmedTaskOperation,taskActor,taskOperation,taskOperationId} from "../../test/taskCreate";
@@ -219,4 +220,50 @@ test("a 400 on submit is a refused submission with the draft editable, not an un
  await waitFor(()=>expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled());
  await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));await waitFor(()=>expect(sent).toHaveLength(2));
  expect(JSON.parse(sent[1]!).operation_id).not.toBe(JSON.parse(sent[0]!).operation_id);
+});
+
+/* ----- The task's role (aq-server spec 0014 §5.5) ----- */
+function roles(defaultRole?:string){
+ server.use(...roleSettingsHandlers(),http.get(`/api/projects/${graphProject}`,()=>HttpResponse.json({revision:1,binding:{project_id:graphProject,...(defaultRole?{default_role:defaultRole}:{})}})));
+}
+function creating(sent:string[]){
+ server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const bytes=await request.text();sent.push(bytes);return HttpResponse.json(forBytes(bytes));}),http.get(`/api/human/projects/${graphProject}/tasks/:task`,({params})=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:String(params.task),title:"Created"}))));
+}
+test("the Role select starts on the project's default and a task filed that way names no role",async()=>{
+ enable();roles();const sent:string[]=[];creating(sent);
+ renderApp(`/work${scope}`);const modal=await open();const select=within(modal).getByRole("combobox",{name:"Role"});
+ // A binding that states no default role runs tasks as `developer`.
+ await waitFor(()=>expect(within(select).getAllByRole("option").map(o=>o.textContent)).toEqual(["Fixture developer (project default)","Fixture developer","Fixture reviewer"]));
+ expect(select).toHaveValue("");expect(select).toHaveAccessibleDescription("The role is the kind of work. AQ's router chooses the level.");
+ await fill(modal);await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByText("Task created and its record verified.")).toBeInTheDocument();
+ expect(sent).toHaveLength(1);expect(JSON.parse(sent[0]!)).not.toHaveProperty("role");expect(sent[0]).not.toContain("profile_hint");
+});
+test("the default option names the project's own default role, and a picked role is sent as `role`",async()=>{
+ enable();roles("reviewer");const sent:string[]=[];creating(sent);
+ renderApp(`/work${scope}`);const modal=await open();const select=within(modal).getByRole("combobox",{name:"Role"});
+ await waitFor(()=>expect(within(select).getAllByRole("option")[0]).toHaveTextContent("Fixture reviewer (project default)"));
+ await userEvent.selectOptions(select,"developer");await fill(modal);
+ await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByText("Task created and its record verified.")).toBeInTheDocument();
+ expect(JSON.parse(sent[0]!)).toMatchObject({role:"developer",title:"Create the recovery boundary"});
+ // The next task starts on the project default again.
+ await userEvent.click(within(modal).getByRole("button",{name:"Start another task"}));expect(within(modal).getByRole("combobox",{name:"Role"})).toHaveValue("");
+});
+test("a disabled role is not offered, and when the roles cannot be read the task can still be filed on the project default",async()=>{
+ enable();roles();
+ server.use(http.get("/api/settings/roles",()=>HttpResponse.json({error:"unavailable",message:"down"},{status:503})));
+ renderApp(`/work${scope}`);const modal=await open();const select=within(modal).getByRole("combobox",{name:"Role"});
+ await waitFor(()=>expect(select).toHaveAccessibleDescription("The roles could not be read, so only the project's default is offered."));
+ expect(within(select).getAllByRole("option").map(o=>o.textContent)).toEqual(["developer (project default)"]);
+ expect(within(modal).getByRole("button",{name:"Create task"})).toBeEnabled();
+});
+test("an unknown role is refused in AQ's words and the draft, with its role, stays editable",async()=>{
+ enable();roles();const message="Role `reviewer` does not exist. The roles are: developer.";
+ server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>HttpResponse.json({error:"bad_request",message},{status:400})));
+ renderApp(`/work${scope}`);const modal=await open();const select=within(modal).getByRole("combobox",{name:"Role"});
+ await waitFor(()=>expect(within(select).getAllByRole("option")).toHaveLength(3));
+ await userEvent.selectOptions(select,"reviewer");await fill(modal);await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
+ expect(await within(modal).findByRole("alert")).toHaveTextContent(`AQ refused this task as invalid; no task was created. AQ: “${message}”. Check the fields and submit again. Your draft is preserved.`);
+ const again=within(modal).getByRole("combobox",{name:"Role"});expect(again).toBeEnabled();expect(again).toHaveValue("reviewer");
 });

@@ -69,12 +69,20 @@ keeping receipts longer than the minimum is safe.
 
 ## Enqueue work
 
-`task.create` also accepts optional `priority` (integer 1–300), `profile_hint`,
-`intelligence_hint` and `task_type`. Hints are nonblank, without control characters,
-and at most 128 UTF-8 bytes. They become `aq:priority`, `aq:profile_hint`,
+`task.create` also accepts optional `priority` (integer 1–300), `role`,
+`intelligence_hint` and `task_type`. Each is nonblank, without control characters,
+and at most 128 UTF-8 bytes. They become `aq:priority`, `aq:role`,
 `aq:intelligence_hint` and `aq:task_type` metadata on the new Graph task. Omitted
-fields preserve native task-create serialization and defaults. These hints confer
+fields preserve native task-create serialization and defaults. The hints confer
 no execution or credential authority.
+
+`role` (spec 0014 §5.5) is the role the task expects, on `task.create` and on
+each task of `task.graph.create`. It must be a role that exists in Settings: an
+unknown role is refused with `422`, code `unknown_role`, and a message that
+names the role and lists the roles that exist. A disabled role may be named;
+the task is then held (`role_disabled` in the work read). A task that names no
+role runs as the project's `default_role`. `profile_hint` no longer exists and
+is refused as an unknown field.
 
 `task.graph.create` has a `project` subject, matching `project_id` and
 `expected_version`. Its `tasks` array contains explicit nonnil task `id`s and
@@ -181,6 +189,13 @@ subject revision and the single `expected_versions` entry (`task` or
   Graph's cap; schema `maxLength` values count characters and are upper bounds.
 - `task.reprioritize` writes Graph metadata `aq:priority` (integer in
   -1,000,000..1,000,000, higher first) and preserves other metadata keys.
+- `task.role.set` sets the role the task names (Graph metadata `aq:role`),
+  or clears it when `role` is null or absent, so the project's default role
+  applies. The role must exist (`422 unknown_role` otherwise). It preserves
+  other metadata keys and writes one Graph revision, which the task history
+  shows as a `role` change. Once any attempt of the task has been granted the
+  operation is `rejected`; an offer that was declined or never granted does
+  not count.
 - `task.route.set` puts an owner route on the task: `class` is
   `<parent>-<effort>` (for example `standard-high`), with optional `harnesses`
   and `providers` limits. It is refused (`422`) when Settings assigns no profile
@@ -190,6 +205,29 @@ subject revision and the single `expected_versions` entry (`task` or
   returns a `conflict`.
 - `task.dependency.add` adds a `blocks` edge from `blocker_id`;
   `task.dependency.remove` removes `edge_id` at `edge_version`.
+- `task.activate` makes a `draft` task `active`, so the scheduler may start
+  it. A task in any other state is `rejected` and nothing is written:
+  reopening a completed or canceled task is not activation. A draft has never
+  had an attempt, so there is nothing to reconcile. Activating a draft parent
+  also makes its children eligible.
+- `task.reopen` makes a `completed` or `canceled` task `active` again, only
+  when the task has never had an execution attempt. A task in another state,
+  or one with any attempt, is `rejected` and nothing is written: the scheduler
+  does not start over a task that has execution history (an accepted result,
+  or an attempt abandoned by a cancel), so reopening it would leave it active
+  and permanently held. Follow-up work on such a task is a new task. Reopening
+  a completed task blocks its dependents again; waits already satisfied by it
+  are not undone.
+- `task.complete` is the owner closing an `active` task by hand, for work
+  finished outside AQ. Settlement stays the way work that ran is completed.
+  It requires the action's `reason` (non-blank), which Graph records on the
+  transition. It is `rejected`, with nothing written, when the task is not
+  `active`; when any attempt holds the task (the attempt would keep running
+  and its result could not be settled: cancel or abandon it first); when a
+  playbook manages the task (metadata `aq:playbook_namespace`: the playbook
+  would read the completion as an accepted result it has no receipt for); and
+  when Graph refuses the completion because a child task is still open.
+  Completion unblocks the task's dependents and satisfies waits on it at once.
 - `task.cancel` records Graph task lifecycle `canceled`, including draft tasks
   without attempts. `reason` is optional. A central cleanup cursor requests B3
   cancellation for any holding attempt, retries after restart, and records the

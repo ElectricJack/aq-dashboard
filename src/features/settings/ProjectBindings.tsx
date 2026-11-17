@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
 import { adaptProjectBindings, mergeProjectPages, PROJECT_PAGE_SIZE, validationLabel } from "../../api/adapters/projectBindings";
 import { queryKey } from "../../api/queryKeys";
+import { levelLabel } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
 import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -39,14 +40,20 @@ export function ProjectBindings() {
         {items.map(p => <li className={styles.card} key={p.id} data-project-id={p.id}>
           <div className={styles.heading}><h3>{p.name}</h3><span className={styles.state} data-started={p.enabled && p.workerPolicy === "enabled" || undefined}>{projectState(p)}</span></div>
           <ProjectControl key={`${p.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} project={p} onChanged={()=>query.refetch()}/>
+          {/* What a task of this project runs as when it names no role, and on when the router assigned no level (read-only). */}
+          <dl className={styles.facts} aria-label={`Defaults of ${p.name}`}>
+            <dt>Default role</dt><dd>{p.defaultRole}</dd>
+            <dt>Default level</dt><dd>{levelLabel(p.defaultIntelligence)} <span className={styles.meta}>({p.defaultIntelligence})</span></dd>
+            <dt>Notes for roles</dt><dd>{p.roleNotes.length === 0 ? "None" : <ul className={styles.notes} aria-label={`Notes for roles in ${p.name}`}>{p.roleNotes.map(({ role, note }) => <li key={role}>
+              <details><summary>{role}</summary><pre tabIndex={0}>{note}</pre></details>
+            </li>)}</ul>}</dd>
+          </dl>
+          <p className={styles.meta}>A task that names no role runs as the default role. A task the router gave no level runs on the default level. Notes are added after a role’s own prompt.</p>
           <details className={styles.details}><summary>Configuration and connection details</summary>
           <p className={styles.meta}>Revision {p.revision}</p>
           <dl className={styles.facts}>
             <dt>Repository ID</dt><dd>{p.repositoryId}</dd>
             <dt>Graph workspace ID</dt><dd>{p.workspaceId}</dd>
-            <dt>Allowed agent profiles</dt><dd>{p.agents.join(", ")}</dd>
-            <dt>Allowed intelligence profiles</dt><dd>{p.intelligence.join(", ")}</dd>
-            <dt>Allowed execution profiles</dt><dd>{p.execution.join(", ")}</dd>
             <dt>Allowed worker groups</dt><dd>{p.workerGroups.join(", ") || "None listed"}</dd>
             <dt>Allowed environments</dt><dd>{p.environments.join(", ")}</dd>
           </dl>
@@ -59,7 +66,6 @@ export function ProjectBindings() {
             <dt>Repository binding generation</dt><dd>{p.repositoryGeneration}</dd>
             <dt>Explicitly allowed worker node IDs</dt><dd>{p.nodeIds.join(", ") || "None individually listed"}</dd>
             <dt>Enrolled machines</dt><dd>{p.enrolledNodes ? "allowed" : "not allowed"}</dd>
-            <dt>Catalog digest</dt><dd>{p.catalogDigest}</dd>
             <dt>Check observed at</dt><dd><Timestamp iso={p.validation.observedAt} /></dd>
             <dt>Check expiry</dt><dd><Timestamp iso={p.validation.expiresAt} /></dd>
             <dt>Binding validated at</dt><dd><Timestamp iso={p.validation.recordedAt} /></dd>

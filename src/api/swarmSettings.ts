@@ -7,13 +7,13 @@ import { pollUnlessSettled } from "./retry";
 
 export type SwarmProviderLimit = { provider: string; limit: number | null };
 export type SwarmLimitOverride = { provider: string; intelligence_class: string; limit: number | null };
-export type UpdateSwarmLimits = { operation_id: string; expected_revision: string; expected_catalog_revision: string; provider?: SwarmProviderLimit; cell?: SwarmLimitOverride };
+export type UpdateSwarmLimits = { operation_id: string; expected_revision: string; provider?: SwarmProviderLimit; cell?: SwarmLimitOverride };
 export type SwarmMode = "normal" | "reduced";
 export type SwarmCellLimit = { provider: string; intelligence_class: string; limit: number };
 export type SwarmCell = { provider: string; intelligence_class: string; display_name: string; normal_limit: number | null; reduced_limit: number | null; effective_limit: number | null; running: number | null; waiting: number | null };
 export type SwarmUnclassified = { provider: string; running: number; waiting: number };
-export type SwarmSettings = { provider_limits?: SwarmProviderLimit[]; cell_limits?: SwarmLimitOverride[]; unclassified: SwarmUnclassified[]; revision: string; catalog_revision: string; active_mode: SwarmMode; normal: SwarmCellLimit[] | null; reduced: SwarmCellLimit[] | null; cells: SwarmCell[] };
-export type SaveSwarmSettings = { operation_id: string; expected_revision: string; expected_catalog_revision: string; normal: SwarmCellLimit[]; reduced: SwarmCellLimit[] | null };
+export type SwarmSettings = { provider_limits?: SwarmProviderLimit[]; cell_limits?: SwarmLimitOverride[]; unclassified: SwarmUnclassified[]; revision: string; active_mode: SwarmMode; normal: SwarmCellLimit[] | null; reduced: SwarmCellLimit[] | null; cells: SwarmCell[] };
+export type SaveSwarmSettings = { operation_id: string; expected_revision: string; normal: SwarmCellLimit[]; reduced: SwarmCellLimit[] | null };
 export type SetSwarmMode = { operation_id: string; expected_revision: string; active_mode: SwarmMode };
 const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 512;
 const revision = (v: unknown): v is string => typeof v === "string" && v.length <= 128 && /^(0|[1-9]\d*)$/.test(v);
@@ -32,7 +32,7 @@ function limits(v: unknown): SwarmCellLimit[] | null {
   });
 }
 export function adaptSwarmSettings(v: unknown): SwarmSettings {
-  ensure(isRecord(v) && revision(v.revision) && revision(v.catalog_revision) && mode(v.active_mode) && Array.isArray(v.cells) && v.cells.length <= 4096 && Array.isArray(v.unclassified) && v.unclassified.length <= 4096);
+  ensure(isRecord(v) && revision(v.revision) && mode(v.active_mode) && Array.isArray(v.cells) && v.cells.length <= 4096 && Array.isArray(v.unclassified) && v.unclassified.length <= 4096);
   const normal = limits(v.normal), reduced = limits(v.reduced);
   function overrides(value: unknown, cell: boolean) {
     if (value === undefined) return undefined; // Compatible with older server snapshots and receipts.
@@ -75,7 +75,7 @@ export function adaptSwarmSettings(v: unknown): SwarmSettings {
     const normalLimit = normalByCell.get(key) ?? null, reducedLimit = reducedByCell.get(key) ?? null;
     ensure(cell.normal_limit === normalLimit && cell.reduced_limit === reducedLimit && cell.effective_limit === (cellOverrides.has(key) ? cellOverrides.get(key) : v.active_mode === "normal" ? normalLimit : reducedLimit));
   }
-  return { revision: v.revision, catalog_revision: v.catalog_revision, active_mode: v.active_mode, normal, reduced, cells, unclassified, ...(providerLimits === undefined ? {} : { provider_limits: providerLimits }), ...(cellLimits === undefined ? {} : { cell_limits: cellLimits }) };
+  return { revision: v.revision, active_mode: v.active_mode, normal, reduced, cells, unclassified, ...(providerLimits === undefined ? {} : { provider_limits: providerLimits }), ...(cellLimits === undefined ? {} : { cell_limits: cellLimits }) };
 }
 export async function readSwarmSettings(signal?: AbortSignal) { return adaptSwarmSettings(await apiGet<unknown>("/api/settings/swarm", signal)); }
 export async function saveSwarmSettings(request: SaveSwarmSettings) { return adaptSwarmSettings(await apiSend<unknown>("POST", "/api/settings/swarm", request)); }

@@ -3,15 +3,18 @@ import { Link } from "react-router";
 import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../../components/QueryStatus/RetainedNotice";
 import { useSession } from "../../../app/session";
-import { useAttemptSession, type TaskAttempt, type useTaskHistory } from "../taskWork";
-import { Ago, IdValue, NotOffered, humanize } from "./common";
+import { useAttemptSession, type RanWith, type TaskAttempt, type TaskExecution, type useTaskHistory } from "../taskWork";
+import { Ago, IdValue, NotOffered, RanWithLine, humanize } from "./common";
 import { ShowAll } from "./Section";
 import styles from "./Inspector.module.css";
 
 export const ATTEMPTS_PREVIEW = 3;
 
-/** Attempts from the history read (item 4): the holding attempt first, then the rest as AQ lists them. */
-export function TaskAttempts({ query, linkSearch }: { query: ReturnType<typeof useTaskHistory>; linkSearch: string }) {
+/**
+ * Attempts from the history read (item 4): the holding attempt first, then the rest as AQ lists them. `holding` is the
+ * work read's attempt: it carries what that attempt ran with, which the history read does not.
+ */
+export function TaskAttempts({ query, linkSearch, holding }: { query: ReturnType<typeof useTaskHistory>; linkSearch: string; holding?: TaskExecution | null }) {
   const [all, setAll] = useState(false);
   const { bootstrap } = useSession();
   const page = query.data?.pages[0]?.data;
@@ -22,25 +25,27 @@ export function TaskAttempts({ query, linkSearch }: { query: ReturnType<typeof u
   return <>
     <RetainedNotice query={query} />
     {!sessions.enabled && <NotOffered what="Session details" reason={sessions.reason} />}
-    <ol className={styles.attempts} aria-label="Attempts">{shown.map(a => <AttemptRow key={a.attempt_id} attempt={a} linkSearch={linkSearch} sessions={sessions.enabled} />)}</ol>
+    <ol className={styles.attempts} aria-label="Attempts">{shown.map(a => <AttemptRow key={a.attempt_id} attempt={a} linkSearch={linkSearch} sessions={sessions.enabled} ranWith={a.ran_with ?? (holding?.attempt_id === a.attempt_id ? holding.ran_with : undefined)} />)}</ol>
     <ShowAll shown={ATTEMPTS_PREVIEW} total={page.attempts.length} noun="attempts" expanded={all} onShowAll={setAll} />
     {page.attempts_truncated && <p className={styles.meta}>AQ recorded more than {page.attempts.length} attempts; only these are shown.</p>}
   </>;
 }
 
-function AttemptRow({ attempt: a, linkSearch, sessions }: { attempt: TaskAttempt; linkSearch: string; sessions: boolean }) {
+function AttemptRow({ attempt: a, linkSearch, sessions, ranWith }: { attempt: TaskAttempt; linkSearch: string; sessions: boolean; ranWith?: RanWith }) {
   const session = useAttemptSession(a.session_id, sessions), s = session.data;
-  const profile = s ? [["provider", s.profile.provider], ["model", s.profile.model], ["harness", s.profile.harness]] as const : null;
+  // What the attempt ran with says more than the session's profile (role, level, reasoning), so it replaces that line's first part.
+  const profile = s && !ranWith ? [["provider", s.profile.provider], ["model", s.profile.model], ["harness", s.profile.harness]] as const : null;
   return <li className={styles.attempt} data-attempt={a.attempt_id}>
     <p className={styles.attemptHead}>
       <span>Attempt</span> <IdValue id={a.attempt_id} label="attempt ID" />
       <span className={styles.attemptStatus}>{humanize(a.status)}</span>
       {a.holds_task && <span className={styles.badge}>Holds the task</span>}
     </p>
+    {ranWith && <RanWithLine ranWith={ranWith} />}
     {/* Profile and times share one metadata line (v1 density, 2026-11-06). */}
     {sessions && <p className={styles.meta}>{profile
       ? <span data-attempt-profile="">{profile.map(([name, value], i) => <span key={name}>{i > 0 && " · "}{value ?? `${name} not reported`}</span>)}</span>
-      : session.isError ? "Session details unavailable." : "Reading session details…"}
+      : s ? null : session.isError ? "Session details unavailable." : "Reading session details…"}
       {s && <span data-attempt-times="">{profile && " · "}
         {s.lifecycle?.startedAt ? <>Started <Ago at={s.lifecycle.startedAt} /></> : "Start not recorded"}
         {" · "}{s.lifecycle?.stoppedAt ? <>Stopped <Ago at={s.lifecycle.stoppedAt} /></> : "No stop recorded"}

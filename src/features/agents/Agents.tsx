@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { levelLabel } from "../../api/roleSettings";
 import { ChevronDown, ChevronLeft, Columns2, FileText, Maximize2, MessageSquare, Monitor, PanelRight, Plus, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import {
@@ -573,6 +574,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
         <dd>{s.profile.provider ?? "Unknown"}</dd>
         <dt>Configured model and harness</dt>
         <dd>{profileText(s.profile)}</dd>
+        {s.ranWith && <><dt>Ran with</dt><dd data-session-ran-with="">{s.ranWith.role} · {levelLabel(s.ranWith.level)} · {s.ranWith.model} · {s.ranWith.reasoning} reasoning · {s.ranWith.harness}</dd></>}
         <dt>Controller</dt>
         <dd>{controllerText(s.controller)}</dd>
         <dt>Last activity</dt>

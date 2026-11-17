@@ -76,7 +76,9 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await page.goto(`/work/${replay}?${scope}`);
       const attempts = section(page, "Attempts").getByRole("list", { name: "Attempts" }).getByRole("listitem");
       await expect(attempts).toHaveCount(2);
-      await expect(attempts.nth(0)).toContainText("anthropic · claude-opus-5-5 · claude-code");
+      // The holding attempt has a record of what it ran with; the older attempt below has none and shows its session's profile.
+      await expect(attempts.nth(0)).toContainText("Ran as developer · Standard · High · claude-opus-5-5 · high reasoning · claude-code");
+      await expect(attempts.nth(0)).not.toContainText("Reading session details");
       await expect(attempts.nth(0)).toContainText(/Started .* ago · No stop recorded/);
       await expect(attempts.nth(1)).toContainText("openai · gpt-5.3-codex · codex");
       await expect(attempts.nth(1)).toContainText(/Stopped .* ago/);

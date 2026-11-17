@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
@@ -29,4 +29,24 @@ test("history task receipts carry their project scope into Work",()=>{
  const receipt={type:'action_receipt',project_id:taskRequest.subject.id,created_task_ids:[taskRequest.operation_id],kind:'task.create'} as import('../../api/adapters/supervisor').ActionReceiptAttachment;
  render(<MemoryRouter><SupervisorHistoryReceipt receipt={receipt}/></MemoryRouter>);
  expect(screen.getByRole('link',{name:/Open task/})).toHaveAttribute('href',`/work/${taskRequest.operation_id}?scope=project%3A${taskRequest.subject.id}`);
+});
+
+test("a proposed task carries a role only when the draft or the person names one", async () => {
+  const create = vi.fn(), roles = { choices: [{ id: "developer", name: "Developer" }, { id: "reviewer", name: "Reviewer" }], defaultRole: "developer" };
+  const view = render(<SupervisorTaskProposal draft={taskRequest.payload} onCreate={create} roles={roles} />);
+  const select = screen.getByRole("combobox", { name: "Role" });
+  expect(within(select).getAllByRole("option").map(option => option.textContent)).toEqual(["Developer (project default)", "Developer", "Reviewer"]);
+  expect(select).toHaveValue("");
+  await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+  expect(create.mock.calls[0]![0]).not.toHaveProperty("role");
+  await userEvent.selectOptions(select, "reviewer");
+  await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+  expect(create.mock.calls[1]![0]).toMatchObject({ role: "reviewer" });
+  await userEvent.selectOptions(select, "");
+  await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+  expect(create.mock.calls[2]![0]).not.toHaveProperty("role");
+  view.unmount();
+  // The supervisor's draft may name the role itself.
+  render(<SupervisorTaskProposal draft={{ ...taskRequest.payload, role: "reviewer" }} onCreate={create} roles={roles} />);
+  expect(screen.getByRole("combobox", { name: "Role" })).toHaveValue("reviewer");
 });

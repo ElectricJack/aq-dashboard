@@ -30,7 +30,26 @@ test("loading is explicit, then actual configuration and historical status label
   expect(list).toHaveTextContent("Revision 2"); expect(list).toHaveTextContent("Repository: Verified · Graph: Stale");
   expect(list).toHaveTextContent("None individually listed");
   expect(list).toHaveTextContent("Allowed worker groups");
-  expect(list).toHaveTextContent("reviewer@2"); expect(list).toHaveTextContent("Recorded external checks");
+  expect(list).toHaveTextContent("Recorded external checks");
+});
+test("a project shows its default role, its default level and its notes for each role, read-only", async () => {
+  capability(true);
+  const named = projectRecord(); named.binding.default_role = "reviewer"; named.binding.default_intelligence = "deep-low";
+  named.binding.role_notes = { reviewer: "Check the migration notes.\nAsk before touching billing.", developer: "Run the linter." };
+  // As the server writes a binding whose defaults are the usual ones: neither default, and no notes.
+  const usual = projectRecord(2); usual.binding.default_role = undefined; usual.binding.default_intelligence = undefined; usual.binding.role_notes = undefined;
+  server.use(http.get("/api/projects", () => HttpResponse.json({ items: [named, usual], next_cursor: null })));
+  renderApp("/settings?tab=projects");
+  // Shown on the card itself, without opening the configuration details.
+  const defaults = await screen.findByRole("list", { name: "Notes for roles in Project 1" }).then(() => screen.getByLabelText("Defaults of Project 1"));
+  expect(defaults).toHaveTextContent("Default rolereviewer"); expect(defaults).toHaveTextContent("Default levelDeep · Low (deep-low)");
+  const notes = within(defaults).getByRole("list", { name: "Notes for roles in Project 1" });
+  expect(within(notes).getAllByRole("listitem").map(item => item.querySelector("summary")!.textContent)).toEqual(["developer", "reviewer"]);
+  await userEvent.click(within(notes).getByText("reviewer"));
+  expect(within(notes).getByText(/Check the migration notes\.\s+Ask before touching billing\./)).toBeVisible();
+  expect(within(defaults).queryByRole("textbox")).toBeNull();
+  const other = screen.getByLabelText("Defaults of Project 2");
+  expect(other).toHaveTextContent("Default roledeveloper"); expect(other).toHaveTextContent("Default levelStandard · High (standard-high)"); expect(other).toHaveTextContent("Notes for rolesNone");
 });
 test("empty is distinct from unavailable; retry is an explicit read", async () => {
   capability(true); let calls = 0;

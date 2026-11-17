@@ -8,9 +8,9 @@ import { InternalWorkSettings } from "./InternalWorkSettings";
 vi.mock("../../app/session", () => ({ useSession: () => ({ queryContext: { principalId: "p", authorizationRevision: "1", contractVersion: "1" } }) }));
 const path = "/api/settings/internal-work";
 const purposes = ["routing_classification", "playbook_compilation", "playbook_call", "decision_revision", "result_processing"];
-const profile = (id: string, name: string) => ({ id, version: 1, name, description: "", candidates: [], projects: [] });
-const snapshot = (over: Record<string, unknown> = {}) => ({ revision: "3", catalog_revision: "7", default_profile_id: "p1", overrides: {}, purposes, ...over });
-const server = setupServer(http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: "7", active_digest: null, model_choices: [], profiles: [profile("p1", "Fast"), profile("p2", "Careful")] })));
+const level = (id: string, name: string) => ({ kind: "intelligence", id, revision: "7", updated_at_ms: 1, markdown: "", fields: { id, name, description: "", candidates: [] }, problem: null });
+const snapshot = (over: Record<string, unknown> = {}) => ({ revision: "3", default_profile_id: "p1", overrides: {}, purposes, ...over });
+const server = setupServer(http.get("/api/settings/intelligence-profiles", () => HttpResponse.json({ revision: "7", active_digest: null, documents: [level("p1", "Fast"), level("p2", "Careful")] })));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -48,7 +48,7 @@ test("saves operation id, both revisions and only non-default overrides", async 
   await userEvent.selectOptions(screen.getByLabelText("Playbook compilation"), "p1");
   await userEvent.click(screen.getByRole("button", { name: "Save internal work" }));
   await waitFor(() => expect(body).toBeDefined());
-  expect(body).toEqual({ operation_id: expect.any(String), expected_revision: "3", expected_catalog_revision: "7", default_profile_id: "p2", overrides: { playbook_compilation: "p1" } });
+  expect(body).toEqual({ operation_id: expect.any(String), expected_revision: "3", default_profile_id: "p2", overrides: { playbook_compilation: "p1" } });
   expect(await screen.findByText("Saved.")).toBeVisible();
 });
 test("a conflict shows the reload message and keeps the draft", async () => {
@@ -94,4 +94,12 @@ test("an unconfirmed save keeps the draft and retries with the same operation id
   expect(await screen.findByText("Saved.")).toBeVisible();
   expect(ids).toHaveLength(2);
   expect(ids[1]).toBe(ids[0]);
+});
+
+test("a saved choice whose level no longer exists is named, with what happens to it", async () => {
+  server.use(http.get(path, () => HttpResponse.json(snapshot({ default_profile_id: "old", overrides: { playbook_call: "older" }, missing: [{ purpose: null, profile_id: "old" }, { purpose: "playbook_call", profile_id: "older" }] }))));
+  open();
+  const note = await screen.findByText(/The default names the level “old”, which no longer exists/);
+  expect(note).toHaveTextContent("Playbook calls names the level “older”, which no longer exists: it runs on the default.");
+  expect(within(screen.getByLabelText("Default profile")).getByRole("option", { name: "old (unavailable)" })).toBeInTheDocument();
 });

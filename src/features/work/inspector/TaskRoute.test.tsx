@@ -11,7 +11,7 @@ import { classLabel, elapsed, whoMayTake } from "./TaskRoute";
 // for routing, "Replay reconciliation" was routed by the router, every other task is not under an automatic router.
 const server = setupServer(...handlersFor("default", { fixtures: true }));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
-afterEach(() => { server.resetHandlers(...handlersFor("default", { fixtures: true })); localStorage.clear(); });
+afterEach(() => { server.events.removeAllListeners(); server.resetHandlers(...handlersFor("default", { fixtures: true })); localStorage.clear(); });
 afterAll(() => server.close());
 const project = "00000000-0000-0000-0000-000000000001";
 async function open(id: string) {
@@ -88,15 +88,15 @@ test("a failed history read says so inside the disclosure and the rest of Status
   expect(within(region).getByText("Standard · High")).toBeVisible();
 });
 
-test("Set route lists only classes with an assigned profile and sends the class and limits; the work read then shows the route", async () => {
+test("Set route lists the saved levels by id and sends the level as the class with its limits; the work read then shows the route", async () => {
   const sent: { kind: string; payload: Record<string, unknown> }[] = [];
   server.events.on("request:start", async ({ request }) => { if (request.method === "POST" && new URL(request.url).pathname === "/api/v1/actions") sent.push(await request.clone().json()); });
   const region = await open(FIXTURE_IDS.approve);
   const dialog = await action(region, "Set route");
-  const select = await within(dialog).findByLabelText("Class");
-  await waitFor(() => expect(within(select).getAllByRole("option").map(o => o.textContent)).toEqual(["Choose a class", "Standard · Low", "Standard · High"]));
+  const select = await within(dialog).findByLabelText("Level");
+  await waitFor(() => expect(within(select).getAllByRole("option").map(o => o.textContent)).toEqual(["Choose a level", "Standard · Low", "Standard · High"]));
   await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
-  // The select is required: nothing is sent until a class is chosen.
+  // The select is required: nothing is sent until a level is chosen.
   expect(select).toBeInvalid();
   expect(sent).toEqual([]);
   await userEvent.selectOptions(select, "standard-high");
@@ -138,4 +138,23 @@ test("an unrouted task on a router (not held back for routing) shows nothing but
   const items = within(screen.getByRole("menu")).getAllByRole("menuitem").map(i => i.firstChild!.textContent);
   expect(items).toContain("Set route");
   expect(items).not.toContain("Clear route");
+});
+
+test("Set route offers every saved level, whatever its id, in the order simple to deep and low to max, then the rest by id", async () => {
+  const level = (id: string) => ({ kind: "intelligence", id, revision: "1", updated_at_ms: 1, markdown: `---\nid: ${id}\n---\n`, problem: null,
+    fields: { id, name: id, description: "", candidates: [{ provider: "fixture-provider", model: "fixture-model", reasoning: "high", harnesses: ["claude"] }], selection: {} } });
+  const unreadable = { kind: "intelligence", id: "complex-low", revision: "1", updated_at_ms: 1, markdown: "?", fields: null, problem: "a document starts with a `---` line" };
+  server.use(http.get("/api/settings/intelligence-profiles", () => HttpResponse.json({ revision: "1", active_digest: null,
+    documents: [...["deep-max", "research", "standard-medium", "simple-high", "deep-low", "simple-low", "architect-high", "standard-low"].map(level), unreadable] })));
+  const region = await open(FIXTURE_IDS.approve);
+  const dialog = await action(region, "Set route");
+  const select = await within(dialog).findByLabelText("Level");
+  // A level AQ cannot read cannot take work, so `complex-low` is not offered.
+  await waitFor(() => expect(within(select).getAllByRole("option").map(o => (o as HTMLOptionElement).value)).toEqual(["", "simple-low", "simple-high", "standard-low", "standard-medium", "deep-low", "deep-max", "architect-high", "research"]));
+  const sent: { kind: string; payload: Record<string, unknown> }[] = [];
+  server.events.on("request:start", async ({ request }) => { if (request.method === "POST" && new URL(request.url).pathname === "/api/v1/actions") sent.push(await request.clone().json()); });
+  await userEvent.selectOptions(select, "research");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  await waitFor(() => expect(sent).toHaveLength(1));
+  expect(sent[0]).toMatchObject({ kind: "task.route.set", payload: { class: "research" } });
 });

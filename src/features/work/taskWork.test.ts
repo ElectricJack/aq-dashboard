@@ -80,15 +80,49 @@ test("work read: routing is optional; the server's routed and waiting shapes ada
   // The exact objects aq-server's it_dashboard human_work test pins (work_read_reports_waiting_then_routed).
   const routed = { state: "routed", since_ms: 1790000000000, route: { class: "standard-high", harnesses: ["codex"], providers: ["openai"], prefer: [], lane: "backend", provider_intent: "any", source: "owner", policy_digest: null } };
   const waiting = { state: "waiting", since_ms: 1767225600000 };
-  const read = (routing?: unknown) => adaptTaskWork(env({ ...workExample.data, ...(routing === undefined ? {} : { routing }) }), project, workExample.data.task_id).data;
+  const { routing: _routing, ...unrouted } = workExample.data;
+  const read = (routing?: unknown) => adaptTaskWork(env({ ...unrouted, ...(routing === undefined ? {} : { routing }) }), project, workExample.data.task_id).data;
+  // A route's class is a level's id; the server decides which levels exist.
+  expect(read({ ...routed, route: { ...routed.route, class: "fast-high" } }).routing?.route?.class).toBe("fast-high");
   expect(read().routing).toBeUndefined();
   expect(read(routed).routing).toEqual(routed);
   expect(read(waiting).routing).toEqual(waiting);
   expect(read({ state: "unrouted" }).routing).toEqual({ state: "unrouted" });
   for (const bad of [null, "waiting", { state: "unrouted", since_ms: 5 }, { state: "unrouted", route: routed.route }, { ...waiting, state: "later" }, { ...waiting, since_ms: -1 }, { ...waiting, since_ms: "5" }, { state: "waiting" }, { ...waiting, route: routed.route },
-    { ...routed, route: undefined }, { ...routed, route: { ...routed.route, class: "fast-high" } }, { ...routed, route: { ...routed.route, harnesses: "codex" } },
+    { ...routed, route: undefined }, { ...routed, route: { ...routed.route, class: "Fast High" } }, { ...routed, route: { ...routed.route, class: "" } }, { ...routed, route: { ...routed.route, harnesses: "codex" } },
     { ...routed, route: { ...routed.route, lane: 4 } }, { ...routed, route: { ...routed.route, providers: Array(33).fill("p") } }, { ...routed, route: { ...routed.route, source: "<b>" } }])
     expect(() => read(bad), JSON.stringify(bad)).toThrow();
+});
+
+test("work read: the task's role and its source; role and level holds name no attempt; what the attempt ran with is optional (spec 0014)", () => {
+  const example = adaptTaskWork(workExample, workExample.project.id, workExample.data.task_id).data;
+  expect(example.role).toEqual({ id: "developer", source: "project_default" });
+  const base = { task_id: id, task_state: "active", version: "1", parent: null };
+  const read = (extra: Record<string, unknown>) => adaptTaskWork(env({ ...base, readiness: { state: "ready", blockers: [], complete: true, reasons: [] }, execution: null, ...extra }), project, id).data;
+  expect(read({ role: { id: "reviewer", source: "task" } }).role).toEqual({ id: "reviewer", source: "task" });
+  // A server from before roles states none.
+  expect(read({}).role).toBeUndefined();
+  for (const role of [null, "reviewer", { id: "reviewer" }, { id: "", source: "task" }, { id: "reviewer", source: "router" }]) expect(() => read({ role }), JSON.stringify(role)).toThrow();
+  // The exact reasons aq-role-settings `RoleHold::shown` and `LevelHold::shown` produce.
+  const disabled = { code: "role_disabled", role: "reviewer", message: "AQ does not offer this task: its role `reviewer` is disabled. Enable the role in Settings or change the task's role." };
+  const missing = { code: "role_missing", role: "tester", message: "AQ does not offer this task: its role `tester` does not exist. Change the task's role or the project's default role." };
+  const level = { code: "level_missing", level: "deep-max", message: "AQ does not offer this task: it was routed to `deep-max`, and no intelligence profile `deep-max` exists. Add that intelligence profile in Settings or route the task again." };
+  const held = (reasons: unknown[]) => read({ readiness: { state: "held", blockers: [], complete: true, reasons } });
+  expect(held([disabled, missing, level]).reasons).toEqual([disabled, missing, level]);
+  expect(held([disabled]).state).toBe("held");
+  for (const bad of [{ ...disabled, role: "" }, { ...disabled, status: "finished" }, { ...disabled, attempt_id: "x" }, { ...level, level: 4 }, { code: "role_disabled", role: "reviewer" }]) expect(() => held([bad]), JSON.stringify(bad)).toThrow();
+  const ranWith = { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-opus", reasoning: "high", harness: "claude", execution_profile: "sandbox", snapshot_digest: "a".repeat(64) };
+  const execution = { task_id: id, attempt_id: uuid(20), session_id: uuid(21), status: "running" };
+  expect(read({ execution: { ...execution, ran_with: ranWith } }).execution?.ran_with).toEqual(ranWith);
+  // An attempt from before roles: the server fills the summary from the launch record and sends a null digest.
+  expect(read({ execution: { ...execution, ran_with: { ...ranWith, snapshot_digest: null } } }).execution?.ran_with).toEqual({ ...ranWith, snapshot_digest: null });
+  // An attempt from before roles has no such record.
+  expect(read({ execution }).execution).toEqual({ attempt_id: uuid(20), session_id: uuid(21), status: "running" });
+  for (const bad of ["developer", { ...ranWith, model: 7 }, { ...ranWith, level: undefined }]) expect(() => read({ execution: { ...execution, ran_with: bad } }), JSON.stringify(bad)).toThrow();
+  const history = (attempt: Record<string, unknown>) => adaptTaskHistory({ ...historyExample, data: { ...historyExample.data, attempts: [attempt] } }, historyExample.project.id, historyExample.data.task_id).data.attempts[0]!;
+  const attempt = { attempt_id: uuid(20), session_id: uuid(21), holds_task: false, status: "failed" };
+  expect(history({ ...attempt, ran_with: ranWith }).ran_with).toEqual(ranWith);
+  expect(history(attempt)).toEqual(attempt);
 });
 
 test("history read: the server's example changes (aq-server #99); an older server has none", () => {
@@ -148,4 +182,39 @@ test("comment bodies: nonblank, at most 16 KiB of UTF-8, no control characters",
   expect(commentProblem("é".repeat(8193))).toMatch(/16 KB/);
   expect(commentProblem("ok\u0007")).toMatch(/control/);
   expect(commentProblem("line one\n\tline two\r\n")).toBeNull();
+});
+
+// aq-server 09ee5e98 (spec 0014 §6.1): the last offer of a task was refused before any attempt existed. The reason is the
+// serialized `aq_role_settings::refusals::OfferRefusal` with `message`, `recorded_at_ms` and, for the startup text, `limiting`.
+const work = (reasons: unknown[], extra: Record<string, unknown> = {}) => env({ task_id: id, task_state: "active", version: "1", role: { id: "developer", source: "project_default" }, parent: null, execution: null,
+  readiness: { state: "held", blockers: [], complete: true, reasons }, ...extra });
+const overLimit = { code: "startup_over_limit", bytes: 70112, limit: 65536, execution_profile: "sandbox", profile_limit: 65536, project_ceiling: 262144, limiting: "startup_context_bytes", recorded_at_ms: 1794000000000,
+  message: "AQ does not offer this task: its startup text is 70112 bytes, over the limit of 65536 bytes (startup_context_bytes of execution profile `sandbox`). Shorten the task, the role or the project's notes, or raise that limit." };
+const noPlatformText = { code: "platform_text_missing", environment: "sandbox@3", recorded_at_ms: 1794000000000, message: "AQ does not offer this task: the server has no platform text for environment `sandbox@3`, and an agent is not launched without it." };
+
+test("a refused offer is a hold reason: the startup text's two numbers and which limit it is, or the environment without platform text", () => {
+  const w = adaptTaskWork(work([overLimit, noPlatformText]), project, id).data;
+  expect(w.state).toBe("held");
+  expect(w.reasons).toEqual([
+    { code: "startup_over_limit", message: overLimit.message, startup: { bytes: 70112, limit: 65536, execution_profile: "sandbox", limiting: "startup_context_bytes" } },
+    { code: "platform_text_missing", message: noPlatformText.message, environment: "sandbox@3" },
+  ]);
+  const ceiling = adaptTaskWork(work([{ ...overLimit, limit: 32768, project_ceiling: 32768, limiting: "project_context_bytes" }]), project, id).data;
+  expect(ceiling.reasons[0]!.startup).toEqual({ bytes: 70112, limit: 32768, execution_profile: "sandbox", limiting: "project_context_bytes" });
+});
+
+test("a refusal whose numbers this bundle cannot read, and a reason code it does not know, still show AQ's message", () => {
+  const w = adaptTaskWork(work([{ ...overLimit, bytes: "many" }, { code: "environment_template_unresolved", message: "AQ does not offer this task." }]), project, id).data;
+  expect(w.reasons).toEqual([{ code: "startup_over_limit", message: overLimit.message }, { code: "environment_template_unresolved", message: "AQ does not offer this task." }]);
+  // A reason without a message is still a contract fault.
+  expect(() => adaptTaskWork(work([{ code: "startup_over_limit", bytes: 1, limit: 0 }]), project, id)).toThrow();
+});
+
+test("ran_with from a launch record with an empty value is read, not a fault that blanks Status and Attempts", () => {
+  const ran = { role: "coding", level: "standard-high", provider: "anthropic", model: "claude-opus-5-5", reasoning: "", harness: "claude-code", execution_profile: "sandbox", snapshot_digest: null };
+  const execution = { task_id: id, attempt_id: uuid(30), session_id: uuid(31), status: "granted", ran_with: ran };
+  expect(adaptTaskWork(work([], { execution, readiness: { state: "running", blockers: [], complete: true, reasons: [] } }), project, id).data.execution!.ran_with).toEqual(ran);
+  const history = adaptTaskHistory(env({ task_id: id, items: [], next_cursor: null, attempts: [{ attempt_id: uuid(30), session_id: uuid(31), holds_task: true, status: "granted", ran_with: ran }], attempts_truncated: false }), project, id).data;
+  expect(history.attempts[0]!.ran_with).toEqual(ran);
+  expect(() => adaptTaskWork(work([], { execution: { ...execution, ran_with: { ...ran, model: 5 } } }), project, id)).toThrow();
 });

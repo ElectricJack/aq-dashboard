@@ -4,22 +4,30 @@ import { ContractError, isRecord } from "./adapters/contract";
 export const INTERNAL_WORK_PURPOSES = ["routing_classification", "playbook_compilation", "playbook_call", "decision_revision", "result_processing"] as const;
 export type InternalWorkPurpose = typeof INTERNAL_WORK_PURPOSES[number];
 export type InternalWorkSettings = {
-  revision: string; catalog_revision: string; default_profile_id: string | null;
+  revision: string; default_profile_id: string | null;
   overrides: Partial<Record<InternalWorkPurpose, string>>; purposes: InternalWorkPurpose[];
+  /** Saved choices whose level no longer exists; `purpose` is null for the default. Such a purpose runs on the default. */
+  missing: { purpose: InternalWorkPurpose | null; profile_id: string }[];
 };
-export type SaveInternalWork = Pick<InternalWorkSettings, "default_profile_id" | "overrides"> & { operation_id: string; expected_revision: string; expected_catalog_revision: string };
+export type SaveInternalWork = Pick<InternalWorkSettings, "default_profile_id" | "overrides"> & { operation_id: string; expected_revision: string };
 export type InternalWorkSaved = InternalWorkSettings & { operation_id: string; disposition: "saved" | "unchanged" };
 const revision = (value: unknown): value is string => typeof value === "string" && value.length <= 128 && /^(0|[1-9]\d*)$/.test(value);
 const profileId = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 128;
 const purpose = (value: unknown): value is InternalWorkPurpose => INTERNAL_WORK_PURPOSES.includes(value as InternalWorkPurpose);
 function ensure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid internal work settings response"); }
 export function adaptInternalWork(value: unknown): InternalWorkSettings {
-  ensure(isRecord(value) && revision(value.revision) && revision(value.catalog_revision));
+  ensure(isRecord(value) && revision(value.revision));
   ensure(value.default_profile_id === null || profileId(value.default_profile_id));
   ensure(isRecord(value.overrides) && Array.isArray(value.purposes) && value.purposes.length <= INTERNAL_WORK_PURPOSES.length && value.purposes.every(purpose));
   const overrides: Partial<Record<InternalWorkPurpose, string>> = {};
   for (const [key, id] of Object.entries(value.overrides)) { ensure(purpose(key) && profileId(id)); overrides[key] = id; }
-  return { revision: value.revision, catalog_revision: value.catalog_revision, default_profile_id: value.default_profile_id as string | null, overrides, purposes: value.purposes as InternalWorkPurpose[] };
+  // `missing` came with levels as documents (aq-server spec 0014); a server without it reports none.
+  ensure(value.missing === undefined || (Array.isArray(value.missing) && value.missing.length <= INTERNAL_WORK_PURPOSES.length + 1));
+  const missing = (value.missing ?? []).map((item: unknown) => {
+    ensure(isRecord(item) && (item.purpose === null || purpose(item.purpose)) && profileId(item.profile_id));
+    return { purpose: item.purpose, profile_id: item.profile_id };
+  });
+  return { revision: value.revision, default_profile_id: value.default_profile_id as string | null, overrides, purposes: value.purposes as InternalWorkPurpose[], missing };
 }
 function saved(value: unknown, operationId: string): InternalWorkSaved {
   ensure(isRecord(value) && value.operation_id === operationId && (value.disposition === "saved" || value.disposition === "unchanged"));

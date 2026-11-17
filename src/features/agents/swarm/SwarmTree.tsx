@@ -1,44 +1,64 @@
-import { useEffect, useMemo, useRef, type FocusEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { Background, Controls, ReactFlow, type ReactFlowInstance } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { SwarmView } from "../../../api/adapters/swarm";
-import { buildSwarmGraph, layoutSwarm, selectionId, type Selection } from "./graph";
-import { SwarmCard } from "./SwarmCard";
+import { useServerNow, type ServerAnchor } from "../../../components/time/useServerNow";
+import { FIT, buildSwarmGraph, fitBounds, fitViewport, layoutForCanvas, routeEdges, selectionId, slotFrames, type Selection } from "./graph";
+import { BusEdge, SlotFrame, SwarmCard, SwarmTime } from "./SwarmCard";
 import styles from "./Swarm.module.css";
 
-const nodeTypes = { card: SwarmCard };
-const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean }[] = [
-  { label: "fast", color: "#1b7f6c" }, { label: "standard", color: "#57c" }, { label: "deep", color: "#a5c" }, { label: "unclassified", color: "#6b7280" },
-  { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "free slot", color: "transparent", dashed: true }, { label: "waiting for a slot", color: "transparent", dashed: true },
+const nodeTypes = { card: SwarmCard, frame: SlotFrame };
+const edgeTypes = { bus: BusEdge };
+// The colours the cards carry: an agent's level is the bar on its card.
+const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean; amber?: boolean }[] = [
+  { label: "simple", color: "#2aa88a" }, { label: "standard", color: "#6f8fe0" }, { label: "complex", color: "#e0733d" }, { label: "deep", color: "#b96ad6" }, { label: "no level", color: "#6b7280" },
+  { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "starting or finishing", color: "transparent", dashed: true, amber: true }, { label: "slot held (starting or settling)", color: "#c7802e" }, { label: "free slot", color: "transparent", dashed: true },
 ];
 
 /** The part of the React Flow instance the tree uses. */
-type Flow = Pick<ReactFlowInstance, "setViewport" | "setCenter" | "getViewport" | "getInternalNode"> & { fitView(options: { padding: number; minZoom: number; maxZoom: number; duration: number }): unknown };
+type Flow = Pick<ReactFlowInstance, "setViewport" | "setCenter" | "getViewport" | "getInternalNode">;
 
-export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { view: SwarmView; ready: number | null; selected: Selection | null; stale?: boolean; onSelect(s: Selection): void }) {
+export function SwarmTree({ view, ready, selected, stale = false, onSelect, onClear, anchor, now }: { view: SwarmView; ready: number | null; selected: Selection | null; stale?: boolean; onSelect(s: Selection): void;
+  /** Called when the canvas is clicked or Escape is pressed: nothing is selected. */ onClear?(): void; anchor?: ServerAnchor | undefined; now?: () => number }) {
   const section = useRef<HTMLElement>(null);
+  const time = useServerNow(anchor, { tickMs: 1000, ...(now ? { now } : {}) });
+  // The canvas size: the tree is laid out for it and opens fitted to it.
+  const [canvas, setCanvas] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const element = section.current;
+    if (!element) return;
+    const measure = () => { const width = element.clientWidth, height = element.clientHeight; if (width > 0 && height > 0) setCanvas(c => (c && c.width === width && c.height === height ? c : { width, height })); };
+    measure();
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  // Once the viewer zooms or pans, the view is theirs: the tree neither refits nor rewraps until they press "fit view".
+  const moved = useRef(false);
+  const wrap = useRef<{ columns: number; width: number; height: number } | null>(null);
+  const graph = useMemo(() => buildSwarmGraph(view, { host: window.location.host, ready, now: view.serverTime, stale }), [view, ready, stale]);
   const laidOut = useMemo(() => {
-    const graph = buildSwarmGraph(view, { host: window.location.host, ready, now: view.serverTime, stale });
-    return { nodes: layoutSwarm(graph.nodes, graph.edges), edges: graph.edges };
-  }, [view, ready, stale]);
+    const kept = moved.current && wrap.current ? wrap.current : null;
+    const placed = layoutForCanvas(graph.nodes, graph.edges, kept ?? canvas, kept?.columns);
+    if (!kept && canvas) wrap.current = { columns: placed.columns, ...canvas };
+    // Each worker's frame is drawn behind its cards and is not a card: it takes no focus, no click and no part in the fit.
+    const frames = slotFrames(placed.nodes, graph.edges).map(f => ({ id: f.id, type: "frame", position: { x: f.x, y: f.y }, width: f.width, height: f.height, data: {}, selectable: false, focusable: false, draggable: false, zIndex: -1, className: styles.frameNode! }));
+    return { nodes: placed.nodes, frames, edges: routeEdges(placed.nodes, graph.edges) };
+  }, [graph, canvas]);
   const chosen = selected ? selectionId(selected) : null;
-  const nodes = useMemo(() => laidOut.nodes.map(n => ({ ...n, selected: n.id === chosen })), [laidOut, chosen]);
-  // Open by fitting the whole tree (zoom 0.5 to 1). If it cannot fit even at 0.5, fall back to zoom 0.5 centred on the server root. The user pans.
-  const FIT = { padding: 0.08, minZoom: 0.5, maxZoom: 1, duration: 0 } as const;
-  const fitsAtMin = () => {
-    const box = section.current;
-    if (!box || laidOut.nodes.length === 0) return true;
-    const size = (n: (typeof laidOut.nodes)[number]) => ({ w: n.width ?? n.data.box.width ?? 0, h: n.height ?? n.data.box.height ?? 0 });
-    const w = Math.max(...laidOut.nodes.map(n => n.position.x + size(n).w)) - Math.min(...laidOut.nodes.map(n => n.position.x));
-    const h = Math.max(...laidOut.nodes.map(n => n.position.y + size(n).h)) - Math.min(...laidOut.nodes.map(n => n.position.y));
-    return w * FIT.minZoom * (1 + 2 * FIT.padding) <= box.clientWidth && h * FIT.minZoom * (1 + 2 * FIT.padding) <= box.clientHeight;
-  };
-  const centreRoot = (flow: Pick<Flow, "setViewport">) => {
-    const width = section.current?.clientWidth ?? 0;
-    const root = laidOut.nodes.find(n => n.id === "server");
-    if (!width || !root) return;
-    const zoom = FIT.minZoom;
-    void flow.setViewport({ x: width / 2 - (root.position.x + (root.width ?? 0) / 2) * zoom, y: 24 - root.position.y * zoom, zoom });
+  const nodes = useMemo(() => [...laidOut.frames, ...laidOut.nodes.map(n => ({ ...n, selected: n.id === chosen }))], [laidOut, chosen]);
+  // What the fit depends on: which machines and nodes are drawn and how much room their cards take. Every slot has a
+  // place of one size, so attempts starting and finishing do not change it.
+  const shape = useMemo(() => {
+    const b = fitBounds(laidOut.nodes, graph.edges);
+    return `${Math.round(b.width)}x${Math.round(b.height)}|${laidOut.nodes.filter(n => n.data.kind === "machine" || n.data.kind === "node").map(n => n.id).join(",")}`;
+  }, [laidOut, graph]);
+  const size = () => ({ width: section.current?.clientWidth ?? 0, height: section.current?.clientHeight ?? 0 });
+  /** Show the whole tree, as large as it fits. */
+  const fit = (instance: Pick<Flow, "setViewport">) => {
+    const viewport = fitViewport(laidOut.nodes, size(), graph.edges);
+    return viewport ? Promise.resolve(instance.setViewport(viewport, { duration: 0 })) : Promise.resolve();
   };
   const flow = useRef<Flow | null>(null);
   const ownSelectId = useRef<string | null>(null);
@@ -64,12 +84,16 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
     if (laidOut.nodes.length === 0) return;
     const target = chosen && laidOut.nodes.some(n => n.id === chosen) ? chosen : null;
     if (target) initCentred.current = target;
-    // Fit first so the fitted zoom is the starting zoom, then centre on the selection.
-    void Promise.resolve(instance.fitView(FIT)).then(() => {
-      if (target) reveal(target, true);
-      else if (!fitsAtMin()) centreRoot(instance);
-    });
+    // Fit first so the fitted zoom is the starting zoom; a selection the fit leaves outside the canvas is then centred.
+    void fit(instance).then(() => { if (target) reveal(target, false); });
   };
+  // Fit again when the machines or nodes drawn change, or the canvas does (the properties pane opening, a window
+  // resize): never after the viewer has zoomed or panned.
+  useEffect(() => {
+    if (!flow.current || moved.current) return;
+    void fit(flow.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape, canvas?.width, canvas?.height]);
   // A selection that changes from outside the tree (?select=, history) pans to the card; a click inside the tree does not recentre.
   useEffect(() => {
     if (!chosen || !initialised.current) return;
@@ -88,24 +112,30 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect }: { 
   };
   // Enter and Space on a focused card select it (React Flow focuses the node and pans to it).
   const keys = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape" && chosen && onClear) { onClear(); return; }
     if (event.key !== "Enter" && event.key !== " ") return;
     const holder = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
     const hit = holder && laidOut.nodes.find(n => n.id === holder.dataset.id);
     if (hit) { event.preventDefault(); choose(hit.data.selection); }
   };
+  const refit = () => { moved.current = false; if (flow.current) void fit(flow.current); };
   return (
     <div>
       <section ref={section} aria-label="Swarm tree" className={styles.flow} onKeyDown={keys} onFocus={focused}>
-        <ReactFlow nodes={nodes} edges={laidOut.edges} nodeTypes={nodeTypes} onInit={onInit} nodesDraggable={false} nodesConnectable={false} nodesFocusable edgesFocusable={false} elementsSelectable
-          proOptions={{ hideAttribution: true }} onNodeClick={(_, n) => choose(n.data.selection)} minZoom={0.5} maxZoom={2}>
-          <Background gap={18} size={1} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
+        <SwarmTime.Provider value={time ?? view.serverTime}>
+          <ReactFlow nodes={nodes} edges={laidOut.edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={onInit} nodesDraggable={false} nodesConnectable={false} nodesFocusable edgesFocusable={false} elementsSelectable
+            proOptions={{ hideAttribution: true }} onNodeClick={(_, n) => { if (n.type !== "frame") choose((n as (typeof laidOut.nodes)[number]).data.selection); }} {...(onClear ? { onPaneClick: () => onClear() } : {})}
+            // React Flow reports a wheel, drag or pinch with its event, and its own viewport changes without one.
+            onMoveStart={event => { if (event) moved.current = true; }} minZoom={FIT.minZoom} maxZoom={2}>
+            <Background gap={18} size={1} />
+            <Controls position="top-left" showInteractive={false} fitViewOptions={{ padding: FIT.padding, minZoom: FIT.minZoom, maxZoom: FIT.maxZoom }} onZoomIn={() => { moved.current = true; }} onZoomOut={() => { moved.current = true; }} onFitView={refit} />
+          </ReactFlow>
+        </SwarmTime.Provider>
       </section>
       <ul className={styles.legend} aria-label="Legend">
         {LEGEND.map(l => (
           <li key={l.label}>
-            <i style={{ background: l.color, ...(l.dashed ? { border: "1px dashed currentColor", boxSizing: "border-box" } : {}), ...(l.ring ? { boxShadow: "0 0 0 2px #111 inset" } : {}) }} />{l.label}
+            <i style={{ background: l.color, ...(l.dashed ? { border: `1px dashed ${l.amber ? "#c7802e" : "currentColor"}`, boxSizing: "border-box" } : {}), ...(l.ring ? { boxShadow: "0 0 0 2px #111 inset" } : {}) }} />{l.label}
           </li>
         ))}
       </ul>

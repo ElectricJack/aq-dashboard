@@ -5,20 +5,25 @@ import { validateTaskDraft, type TaskDraft } from "../../api/adapters/taskCreate
 import { supervisorId, type ActionReceiptAttachment } from "../../api/adapters/supervisor";
 import type { ActionOperation } from "../actions/actionClient";
 import { ActionButton } from "../../components/layout/Workspace";
+import { RoleOptions, type RoleChoice } from "../work/taskRole";
 import styles from "./SupervisorConversation.module.css";
 
 /** F2 task.create payload subset. The future typed conversation owner supplies
- * the project/revision and pending-safe action handler; prose never enters here. */
-export function SupervisorTaskProposal({ draft: initial, onCreate, pending = false }: { draft: TaskDraft | Omit<TaskDraft, "task_state"> & { task_state: string }; onCreate: (draft: TaskDraft) => void; pending?: boolean }) {
+ * the project/revision and pending-safe action handler; prose never enters here.
+ * `roles` (the enabled roles and the project's default) adds the Role select; the
+ * role is passed on only when the person or the draft names one. */
+export function SupervisorTaskProposal({ draft: initial, onCreate, pending = false, roles }: { draft: TaskDraft | Omit<TaskDraft, "task_state"> & { task_state: string }; onCreate: (draft: TaskDraft) => void; pending?: boolean; roles?: { choices: RoleChoice[]; defaultRole?: string } }) {
   const id = useId();
-  const [draft, setDraft] = useState<TaskDraft>({ title: initial.title, body: initial.body, acceptance_criteria: initial.acceptance_criteria, task_state: initial.task_state === "active" ? "active" : "draft" });
+  const [draft, setDraft] = useState<TaskDraft>({ title: initial.title, body: initial.body, acceptance_criteria: initial.acceptance_criteria, task_state: initial.task_state === "active" ? "active" : "draft", ...(initial.role ? { role: initial.role } : {}) });
   const [error, setError] = useState<string | null>(null);
   const submit = (event: FormEvent) => { event.preventDefault(); if (pending) return; const problem = validateTaskDraft(draft); setError(problem); if (!problem) onCreate({ ...draft }); };
+  const setRole = (role: string) => setDraft(({ role: _, ...rest }) => role ? { ...rest, role } : rest);
   return <form className={styles.workCard} onSubmit={submit} aria-label="Proposed task">
     <h3>Draft feedback task</h3><p>Review and edit the scope before creating this task.</p>
     <label htmlFor={`${id}-title`}>Task title</label><input id={`${id}-title`} value={draft.title} disabled={pending} onChange={event => setDraft({ ...draft, title: event.target.value })} />
     <label htmlFor={`${id}-body`}>Description</label><textarea id={`${id}-body`} value={draft.body} disabled={pending} onChange={event => setDraft({ ...draft, body: event.target.value })} />
     <label htmlFor={`${id}-acceptance`}>Acceptance criteria</label><textarea id={`${id}-acceptance`} value={draft.acceptance_criteria} disabled={pending} onChange={event => setDraft({ ...draft, acceptance_criteria: event.target.value })} />
+    {roles && <RoleOptions choices={roles.choices} name={role => roles.choices.find(choice => choice.id === role)?.name ?? role} defaultRole={roles.defaultRole} value={draft.role ?? ""} onChange={setRole} disabled={pending} />}
     {error && <p role="status">{error}</p>}<ActionButton type="submit" disabled={pending}>{pending ? "Creating…" : "Create task"}</ActionButton>
   </form>;
 }

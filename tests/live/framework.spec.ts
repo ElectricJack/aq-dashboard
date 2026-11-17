@@ -182,9 +182,9 @@ test("saved project bindings match the actual owner API without implying readine
     await expect(item).toContainText(row.binding.graph_workspace_id);
     await expect(item).toContainText("Recorded external checks");
     for (const group of row.binding.allowed_worker_groups) await expect(item).toContainText(group);
-    for (const profile of row.binding.allowed_agent_profiles) await expect(item).toContainText(profile);
+    // Bindings name their defaults once the server has moved to roles; an older server states none.
+    for (const stated of [row.binding.default_role, row.binding.default_intelligence]) if (stated) await expect(item).toContainText(stated);
     await item.getByText("Identifiers and check times", { exact: true }).click();
-    await expect(item).toContainText(row.binding.catalog_digest);
     for (const node of row.binding.allowed_node_ids) await expect(item).toContainText(node);
     await expect(item.locator(`time[datetime="${new Date(row.validation.expires_at_ms).toISOString()}"]`)).toBeVisible();
   }

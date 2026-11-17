@@ -11,6 +11,10 @@
     "task_id": "00000000-0000-0000-0000-000000000003",
     "task_state": "active",
     "version": "4",
+    "role": {
+      "id": "developer",
+      "source": "project_default"
+    },
     "readiness": {
       "state": "held",
       "blockers": [],
@@ -30,6 +34,22 @@
       "attempt_id": "00000000-0000-0000-0000-000000000004",
       "session_id": "00000000-0000-0000-0000-000000000005",
       "status": "finished"
+    },
+    "routing": {
+      "state": "routed",
+      "route": {
+        "class": "standard-high",
+        "harnesses": [],
+        "providers": [
+          "anthropic"
+        ],
+        "prefer": [],
+        "lane": "backend",
+        "provider_intent": "any",
+        "source": "owner",
+        "policy_digest": null
+      },
+      "since_ms": 1793000000000
     }
   }
 }

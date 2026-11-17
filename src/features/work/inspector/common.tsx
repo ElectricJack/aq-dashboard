@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { CopyValue, shortId } from "../../decisions/DecisionContext";
 import { formatAge } from "../../../components/time/relative";
 import { useServerNow } from "../../../components/time/useServerNow";
+import { levelLabel } from "../../../api/roleSettings";
+import type { RanWith } from "../taskWork";
 import styles from "./Inspector.module.css";
 
 /**
@@ -36,3 +38,17 @@ export function NotOffered({ what, reason }: { what: string; reason?: string }) 
 
 /** `cancel_requested` → "Cancel requested". */
 export const humanize = (value: string) => value.replace(/[_-]+/g, " ").replace(/^./, c => c.toUpperCase());
+
+/** "Ran as developer · Standard · High · claude-opus-5-5 · high reasoning · claude-code"; a value the record lacks is left out. */
+export function ranWithText(r: RanWith): string {
+  return `Ran as ${[r.role || "an unknown role", r.level && levelLabel(r.level), r.model, r.reasoning && `${r.reasoning} reasoning`, r.harness].filter(Boolean).join(" · ")}`;
+}
+const ranWithTitle = (r: RanWith) => `Provider ${r.provider || "unknown"} · execution profile ${r.execution_profile || "unknown"}${r.snapshot_digest ? ` · snapshot ${r.snapshot_digest.slice(0, 12)}` : " · from before roles"}`;
+/**
+ * What an attempt ran with, on one line: role, level, model, reasoning and harness (aq-server spec 0014 §7.1). The
+ * provider, execution profile and snapshot are in its title. Old attempts have no such record and show no line.
+ */
+export function RanWithLine({ ranWith: r }: { ranWith: RanWith }) {
+  return <p className={styles.meta} data-ran-with="" title={ranWithTitle(r)}><span>{ranWithText(r)}</span></p>;
+}
+

@@ -263,6 +263,8 @@ export type SessionDetail = SessionSummary & {
   profile_revisions: { name: string; revision: Revision }[];
   permissions: string[];
   last_activity_at: Timestamp | null;
+  /** What the session's attempt ran with (aq-server spec 0014 §7.1); absent when the attempt has no such record. `snapshot_digest` is null for an attempt from before roles. */
+  ran_with?: { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile: string; snapshot_digest?: string | null } | null;
 };
 
 export type SearchHit = { ref: EntityRef; title: string; excerpt: string; project: ProjectRef | null };

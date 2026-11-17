@@ -76,6 +76,26 @@ function fallbackSession(extra: Partial<SessionDetail> = {}): SessionDetail {
   return { ...SESSIONS[0]!, id: UUID_SESSION, label: `Remote session ${UUID_SESSION}`, task: { type: "task", id: "e0a20000-0000-4000-8000-0000000001e1", revision: "1", title: "e0a20000-0000-4000-8000-0000000001e1" }, ...extra };
 }
 
+test("session details say what the attempt ran with, and say nothing when the read has no record", async () => {
+  const ranWith = { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-sonnet-5", reasoning: "high", harness: "claude-code", execution_profile: "sandbox", snapshot_digest: null };
+  useLifecycleResponse({ ...nativeLifecycleSession({ started_at: "2026-10-31T11:58:00.000Z", stopped_at: null }), ran_with: ranWith } as SessionDetail);
+  renderApp(`/agents/${SESSIONS[0]!.id}`);
+  const detail = await screen.findByRole("region", { name: SESSIONS[0]!.label });
+  await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
+  const row = detail.querySelector("[data-session-ran-with]");
+  expect(row).toHaveTextContent(/^developer · .+ · claude-sonnet-5 · high reasoning · claude-code$/);
+  expect(within(detail).getByText("Ran with")).toBeInTheDocument();
+});
+
+test("session details without a ran_with record show no Ran with row", async () => {
+  useLifecycleResponse(nativeLifecycleSession({ started_at: "2026-10-31T11:58:00.000Z", stopped_at: null }));
+  renderApp(`/agents/${SESSIONS[0]!.id}`);
+  const detail = await screen.findByRole("region", { name: SESSIONS[0]!.label });
+  await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
+  expect(within(detail).getByRole("dialog", { name: "Session details" })).toBeInTheDocument();
+  expect(within(detail).queryByText("Ran with")).toBeNull();
+});
+
 test("a session tab without a user label shows the short session id, not an identical prefix (RA-13)", async () => {
   useLifecycleResponse(fallbackSession());
   renderApp(`/agents/${UUID_SESSION}`);

@@ -16,7 +16,42 @@
 .pill[data-class="fast"] { background: #1b7f6c; } /* mockup #3a9 fails AA with white text */ .pill[data-class="standard"] { background: #57c; }
 .pill[data-class="deep"] { background: #a5c; } .pill[data-class="none"] { background: #6b7280; }
 .pill[data-provider="codex"] { box-shadow: 0 0 0 2px #111 inset; }
+/* A node and the slot cards under it are one column of the same width. */
+.card[data-kind="node"] .title { font-size: 15px; line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card[data-kind="machine"] .title, .card[data-kind="server"] .title { font-size: 15px; line-height: 19px; }
 .card[data-kind="free"] { background: transparent; color: var(--color-text-secondary); border: 1px dashed var(--color-text-secondary); }
+.card[data-kind="held"] .title { font-size: 17px; line-height: 22px; font-weight: 600; }
+/* A free slot is a smaller, quieter card in the middle of its slot's place, so the busy slots are what the eye finds. */
+.card[data-kind="free"] { padding: 14px 8px 4px; }
+.card[data-kind="free"] .title { font-size: 15px; line-height: 19px; font-weight: 500; }
+/* A worker node and its slots are one box: the frame behind them. */
+.frameNode { pointer-events: none !important; cursor: default; }
+.frame { box-sizing: border-box; inline-size: 100%; block-size: 100%; border: 1px solid var(--color-border); border-radius: 12px; background: color-mix(in srgb, var(--color-panel) 55%, transparent); }
+/* An agent card's slot is its first line, so the title keeps the card's width. */
+.card[data-kind="agent"] .slot { position: static; order: -1; display: block; text-align: start; line-height: 13px; }
+/* More attempts than slots: the node and each row beyond its slots say so. */
+.card[data-over] { border-color: #c7802e; }
+.card[data-over] .slot { color: var(--color-attention); }
+.card[data-kind="free"][data-state="holding"], .card[data-kind="free"][data-state="booting"] { border-color: #c7802e; color: var(--color-attention); opacity: 1; }
+/* Held: occupied, so a solid amber border; no agent yet, so no level colour. */
+.card[data-kind="held"] { background: var(--color-panel); color: var(--color-attention); border: 1px solid #c7802e; border-inline-start-width: 6px; }
+.slot { position: absolute; inset-block-start: 4px; inset-inline-end: 8px; color: var(--color-text-secondary); font-size: 11px; line-height: 14px; font-weight: 600; }
+/* An agent: the task's title first and large, then role and level, then model and effort with the clock. Its level's
+   colour is the bar on its leading edge and a tint, as on the board's tiles and in the legend. */
+.card[data-kind="agent"] { --accent: #6b7280; position: relative; justify-content: flex-start; gap: 0; padding: 6px 10px 5px; text-align: start; border-inline-start: 6px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--color-raised)); }
+.card[data-kind="agent"][data-level="simple"] { --accent: #2aa88a; } .card[data-kind="agent"][data-level="standard"] { --accent: #6f8fe0; }
+.card[data-kind="agent"][data-level="complex"] { --accent: #e0733d; } .card[data-kind="agent"][data-level="deep"] { --accent: #b96ad6; }
+.card[data-kind="agent"] .title { font-size: 19px; line-height: 23px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; min-block-size: 46px; }
+.card[data-kind="agent"] .sub { font-size: 13px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foot { display: flex; align-items: baseline; gap: 8px; min-inline-size: 0; color: var(--color-text-secondary); font-size: 13px; line-height: 20px; }
+.what { flex: 1; min-inline-size: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phase { flex: none; color: var(--color-attention); font-size: 13px; font-weight: 600; }
+.clock { flex: none; color: var(--color-text); font-size: 18px; line-height: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.clock::after { content: attr(data-clock); }
+/* Starting or finishing: the attempt holds its slot and is not running. */
+.card[data-kind="agent"][data-phase="starting"], .card[data-kind="agent"][data-phase="finishing"] { border-style: dashed; border-inline-start-style: solid; border-color: #c7802e; border-inline-start-color: var(--accent); }
+.card[data-kind="agent"][data-phase="stopped"] { opacity: .6; }
+.card[data-kind="agent"][data-provider="codex"] { box-shadow: 0 0 0 2px #111 inset; }
 .card[data-kind="waitingAgent"] { background: transparent; color: #c7802e; border: 1px dashed #c7802e; }
 :global(.react-flow__node.selected) .card { outline: 2px solid #57c; outline-offset: 2px; }
 /* React Flow styles .react-flow__node.selectable:focus-visible itself, so the selectable form is repeated to win on specificity. */
@@ -76,7 +111,6 @@
 .stage[data-focus] > :first-child { display: none; }
 .stage[data-focus] .pane { min-block-size: calc(100dvh - 240px); }
 .pill[data-state="booting"] { border: 1px dashed #c7802e; color: var(--color-attention); background: var(--color-panel); }
-.pill[data-kind="agent"][data-state="online"] { background: #1b7f6c; }
 
 .manualHead { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 6px 12px; }
 .manualIdentity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; min-inline-size: 0; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
@@ -84,7 +118,7 @@
 .manualActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .stage[data-viewport-fit] { flex: 1; min-block-size: 0; }
 .stage[data-viewport-fit] > :first-child { display: flex; flex-direction: column; min-block-size: 0; }
-.stage[data-viewport-fit] .flow { height: auto; flex: 1; min-block-size: 0; }
+.stage[data-viewport-fit] .flow, .stage[data-viewport-fit] > :first-child > section { height: auto; flex: 1; min-block-size: 0; }
 .stage[data-viewport-fit] .pane, .stage[data-viewport-fit] .terminal, .stage[data-viewport-fit] .terminal > :global([data-interactive-terminal]) { min-block-size: 0; }
 .stage[data-focus] > :first-child { display: none; }
 
@@ -109,6 +143,9 @@
   .divider:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 }
 .stage[data-focus] > .divider { display: none; }
+/* With nothing selected the tree or the board takes the whole width; selecting a card or a tile brings the properties back. */
+.stage[data-pane-closed] { grid-template-columns: minmax(0, 1fr); }
+.stage[data-pane-closed] > .divider, .stage[data-pane-closed] > .pane { display: none; }
 .pane { min-inline-size: 0; }
 
 @media (min-width: 1024px) {
@@ -116,3 +153,5 @@
   .stage:not([data-wide]) .pane { overflow-y: auto; }
   .stage:not([data-wide]) .pane > * { flex-shrink: 0; }
 }
+/* A short desktop window (1280×720, a laptop or a projector): the legend is one line so the tree keeps the height. */
+@media (min-width: 1024px) and (max-height: 899px) { .legend { flex-wrap: nowrap; gap: 10px; margin-block: 2px 0; white-space: nowrap; overflow: hidden; } }

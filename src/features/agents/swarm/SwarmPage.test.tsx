@@ -47,10 +47,15 @@ describe("swarm tree", () => {
     tree();
     expect(await screen.findByRole("button", { name: /^desktop, local · 24 cores/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^laptop, local · offline/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /studio.*holding: Context measurement expired/ })).toBeInTheDocument();
+    // The hold is the node's own: its card gives the reason, its slot says holding rather than free, and the machine names it.
+    expect(screen.getByRole("button", { name: /^studio-1, .*holding: Capability report expired/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^studio, local · .*holding: Capability report expired/ })).toHaveAttribute("data-state", "holding");
+    expect(screen.getAllByRole("button", { name: /^Slot \d holding$/ }).map(b => b.getAttribute("data-kind"))).toEqual(["free", "free"]);
     expect(screen.getByRole("button", { name: /^boat vm-a, cloud · booting/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "free" })).toHaveLength(3);
-    expect(screen.getAllByRole("button", { name: /^waiting/ })).toHaveLength(1);
+    // One card per slot: local-1's three are busy, local-2 has one of its two free, and the holding node offers none.
+    expect(screen.getAllByRole("button", { name: /^Slot \d free$/ }).map(b => b.getAttribute("aria-label"))).toEqual(["Slot 2 free"]);
+    expect(screen.getAllByRole("button").filter(b => b.getAttribute("data-kind") === "agent")).toHaveLength(4);
+    expect(screen.queryAllByRole("button", { name: /^waiting/ })).toHaveLength(0);
     expect(screen.getByRole("list", { name: "Legend" })).toBeInTheDocument();
   });
   test("offline machine renders dashed and greyed without meters", async () => {
@@ -62,10 +67,9 @@ describe("swarm tree", () => {
   });
   test("codex pill has the provider ring", async () => {
     tree();
-    // One running agent and one waiting agent carry the same label.
-    const pills = await screen.findAllByRole("button", { name: "codex · fast" });
-    expect(pills.length).toBeGreaterThanOrEqual(1);
-    for (const pill of pills) expect(pill).toHaveAttribute("data-provider", "codex");
+    expect(await screen.findByRole("button", { name: /^Refactor telemetry fast/ })).toHaveAttribute("data-provider", "codex");
+    // Waiting agents are not drawn in the tree.
+    expect(screen.queryAllByRole("button", { name: /^codex · fast/ })).toHaveLength(0);
   });
   test("clicking a card selects it", async () => {
     const onSelect = tree();
@@ -76,7 +80,7 @@ describe("swarm tree", () => {
 
 test("swarm status shows provider controls", async () => {
   server.use(http.get("/api/settings/swarm", () => HttpResponse.json({
-    revision: "1", catalog_revision: "1", active_mode: "normal", normal: [{ provider: "codex", intelligence_class: "fast", limit: 2 }], reduced: [{ provider: "codex", intelligence_class: "fast", limit: 1 }],
+    revision: "1", active_mode: "normal", normal: [{ provider: "codex", intelligence_class: "fast", limit: 2 }], reduced: [{ provider: "codex", intelligence_class: "fast", limit: 1 }],
     cells: [{ provider: "codex", intelligence_class: "fast", display_name: "Fast", normal_limit: 2, reduced_limit: 1, effective_limit: 2, running: 2, waiting: 3 }],
     unclassified: [{ provider: "codex", running: 1, waiting: 4 }], provider_limits: [], cell_limits: [],
   })));

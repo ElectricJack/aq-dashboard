@@ -1452,6 +1452,44 @@
         {
           "properties": {
             "kind": {
+              "const": "task.activate"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.activate:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "description": "`task.activate`: a draft task becomes schedulable.",
+              "properties": {
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version"
+              ],
+              "title": "TaskActivate",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
               "const": "task.cancel"
             },
             "payload": {
@@ -1611,6 +1649,44 @@
         {
           "properties": {
             "kind": {
+              "const": "task.complete"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.complete:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "description": "`task.complete`: the owner closes an active task by hand. The reason is\nthe action's own `reason`, which this kind requires.",
+              "properties": {
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version"
+              ],
+              "title": "TaskComplete",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
               "const": "task.create"
             },
             "payload": {
@@ -1674,7 +1750,8 @@
                     "null"
                   ]
                 },
-                "profile_hint": {
+                "role": {
+                  "description": "The role the task expects; it must exist. Absent: the project's\ndefault role.",
                   "maxLength": 128,
                   "minLength": 1,
                   "type": [
@@ -1709,6 +1786,43 @@
                 "task_state"
               ],
               "title": "Create",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "task.delete"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.delete:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "properties": {
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version"
+              ],
+              "title": "TaskDelete",
               "type": "object"
             }
           },
@@ -1962,7 +2076,8 @@
                         "null"
                       ]
                     },
-                    "profile_hint": {
+                    "role": {
+                      "description": "The role the task expects; it must exist. Absent: the project's\ndefault role.",
                       "maxLength": 128,
                       "minLength": 1,
                       "type": [
@@ -2046,6 +2161,44 @@
         {
           "properties": {
             "kind": {
+              "const": "task.reopen"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.reopen:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "description": "`task.reopen`: a completed or canceled task that never had an attempt\nbecomes schedulable again.",
+              "properties": {
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version"
+              ],
+              "title": "TaskReopen",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
               "const": "task.reprioritize"
             },
             "payload": {
@@ -2117,6 +2270,152 @@
                 "expected_version"
               ],
               "title": "Execution",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "task.role.set"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.role.set:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "properties": {
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "role": {
+                  "description": "The role the task names, stored as Graph metadata `aq:role`; it must\nexist. Null or absent clears it: the project's default role applies.",
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version"
+              ],
+              "title": "TaskRoleSet",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "task.route.clear"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.route.clear:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "properties": {
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version"
+              ],
+              "title": "TaskRouteClear",
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "task.route.set"
+            },
+            "payload": {
+              "$id": "urn:aq:dashboard-actions:1:task.route.set:payload",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "additionalProperties": false,
+              "properties": {
+                "class": {
+                  "description": "`<parent>-<effort>`, for example `standard-high`.",
+                  "pattern": "^(simple|standard|complex|deep)-(low|medium|high|max)$",
+                  "type": "string"
+                },
+                "expected_version": {
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                "harnesses": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 16,
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "project_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "providers": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 16,
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "operation_id",
+                "project_id",
+                "expected_version",
+                "class"
+              ],
+              "title": "TaskRouteSet",
               "type": "object"
             }
           },
@@ -2382,6 +2681,173 @@
       ],
       "type": "string"
     },
+    "Anchor": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "result",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "artifact_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "height": {
+              "format": "double",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "kind": {
+              "const": "image_region",
+              "type": "string"
+            },
+            "width": {
+              "format": "double",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "x": {
+              "format": "double",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "y": {
+              "format": "double",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "artifact_id",
+            "digest",
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "artifact_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "end_ms": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "video_range",
+              "type": "string"
+            },
+            "start_ms": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "artifact_id",
+            "digest",
+            "start_ms",
+            "end_ms"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ArtifactPin": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest"
+      ],
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "id": {
+          "$ref": "#/$defs/Text"
+        },
+        "version": {
+          "$ref": "#/$defs/Text"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "type": "object"
+    },
+    "AttachmentRef": {
+      "additionalProperties": false,
+      "description": "A pinned reference from `Create.attachments` to a staged upload.",
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "digest"
+      ],
+      "type": "object"
+    },
+    "Choice": {
+      "enum": [
+        "approve",
+        "reject"
+      ],
+      "type": "string"
+    },
     "Completeness": {
       "enum": [
         "complete",
@@ -2389,6 +2855,56 @@
         "unknown"
       ],
       "type": "string"
+    },
+    "ContentType": {
+      "enum": [
+        "fact",
+        "decision",
+        "policy",
+        "procedure",
+        "incident",
+        "reference",
+        "note"
+      ],
+      "type": "string"
+    },
+    "ContextKind": {
+      "enum": [
+        "project",
+        "task",
+        "result",
+        "review",
+        "knowledge",
+        "session",
+        "playbook_run"
+      ],
+      "type": "string"
+    },
+    "ContextRef": {
+      "additionalProperties": false,
+      "description": "X5: a pinned reference to an AQ entity the owner attached to a message.\nThe server checks shape only; the supervisor resolves refs under its own\nauthority.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "revision": {
+          "description": "Required, nullable: an absent field is refused like the schema does.",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/ContextKind"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "type": "object"
     },
     "Coverage": {
       "additionalProperties": false,
@@ -2407,6 +2923,33 @@
         "state"
       ],
       "type": "object"
+    },
+    "Dependency": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "source": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "target": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "Digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
     },
     "Disposition": {
       "enum": [
@@ -2550,6 +3093,28 @@
       ],
       "type": "object"
     },
+    "InitialState": {
+      "enum": [
+        "draft",
+        "active"
+      ],
+      "type": "string"
+    },
+    "Input": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "maxLength": 4096,
+          "type": "string"
+        }
+      ],
+      "description": "One scalar run input."
+    },
     "Observation": {
       "additionalProperties": false,
       "properties": {
@@ -2605,6 +3170,16 @@
         "operation_id": {
           "format": "uuid",
           "type": "string"
+        },
+        "reason": {
+          "description": "Why a `rejected` operation was refused, when its domain owner names a reason (absent\notherwise). `busy`: the owner's rows were contended, nothing was changed, and a new\nsubmission may succeed.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "receipt_refs": {
           "items": {
@@ -2663,6 +3238,24 @@
       ],
       "type": "string"
     },
+    "RevisionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "result_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result_id",
+        "revision"
+      ],
+      "type": "object"
+    },
     "Scope": {
       "oneOf": [
         {
@@ -2698,8 +3291,110 @@
         }
       ]
     },
+    "Task": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "default": "",
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "body": {
+          "default": "",
+          "maxLength": 32768,
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "intelligence_hint": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "labels": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "parent_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "format": "uint16",
+          "maximum": 300,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "role": {
+          "description": "The role the task expects; it must exist. Absent: the project's\ndefault role.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_state": {
+          "$ref": "#/$defs/InitialState",
+          "default": "active"
+        },
+        "task_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "type": "object"
+    },
+    "TaskState": {
+      "enum": [
+        "draft",
+        "active"
+      ],
+      "type": "string"
+    },
+    "Text": {
+      "description": "Nonempty UTF-8 text, at most 512 bytes; no control characters.",
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
     "Timestamp": {
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "type": "string"
+    },
+    "Verdict": {
+      "enum": [
+        "verified",
+        "disputed"
+      ],
       "type": "string"
     }
   },

@@ -10,8 +10,9 @@ test("refuses unsafe counters, foreign check identity, duplicate/unsorted rows a
   const bad = projectRecord(); bad.validation.repository_id = projectRecord(2).binding.project_id;
   const badGeneration = projectRecord(); badGeneration.validation.repository_generation = 4;
   const badRevision = { ...projectRecord(), revision: Number.MAX_SAFE_INTEGER + 1 };
-  const badProfiles = projectRecord(); badProfiles.binding.allowed_agent_profiles = Array.from({ length: 33 }, (_, i) => `profile${i}@1`);
-  for (const items of [[bad], [badGeneration], [badRevision], [badProfiles], [projectRecord(), projectRecord()], Array.from({ length: 26 }, (_, i) => projectRecord(i + 1))]) expect(() => adaptProjectBindings({ items, next_cursor: null }, null)).toThrow();
+  const badProfiles = projectRecord(); badProfiles.binding.allowed_environments = Array.from({ length: 33 }, (_, i) => `environment${i}`);
+  const badRole = projectRecord(); badRole.binding.default_role = "";
+  for (const items of [[bad], [badGeneration], [badRevision], [badProfiles], [badRole], [projectRecord(), projectRecord()], Array.from({ length: 26 }, (_, i) => projectRecord(i + 1))]) expect(() => adaptProjectBindings({ items, next_cursor: null }, null)).toThrow();
 });
 test("validates cursor advancement and exact last-row binding", () => {
   const items = Array.from({ length: 25 }, (_, i) => projectRecord(i + 1));
@@ -48,4 +49,16 @@ test("allow_enrolled_nodes false is not allowed, true is allowed", () => {
   expect(adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!.enrolledNodes).toBe(false);
   (record.binding as Record<string, unknown>).allow_enrolled_nodes = true;
   expect(adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!.enrolledNodes).toBe(true);
+});
+
+test("a binding names its default role and level and its notes per role; a default the server does not write is the usual one", () => {
+  const named = projectRecord(); named.binding.default_role = "reviewer"; named.binding.default_intelligence = "deep-low"; named.binding.role_notes = { reviewer: "Check the migration notes.", developer: "Run the linter.", tester: "  " };
+  const stated = adaptProjectBindings({ items: [named], next_cursor: null }, null).items[0]!;
+  // Notes are listed by role id; a blank note is no note.
+  expect([stated.defaultRole, stated.defaultIntelligence, stated.roleNotes]).toEqual(["reviewer", "deep-low", [{ role: "developer", note: "Run the linter." }, { role: "reviewer", note: "Check the migration notes." }]]);
+  const older = projectRecord(); older.binding.default_role = undefined; older.binding.default_intelligence = undefined; older.binding.role_notes = undefined;
+  const absent = adaptProjectBindings({ items: [older], next_cursor: null }, null).items[0]!;
+  expect([absent.defaultRole, absent.defaultIntelligence, absent.roleNotes]).toEqual(["developer", "standard-high", []]);
+  const badNotes = projectRecord(); badNotes.binding.role_notes = { "": "x" };
+  expect(() => adaptProjectBindings({ items: [badNotes], next_cursor: null }, null)).toThrow();
 });

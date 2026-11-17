@@ -7,6 +7,9 @@ export function swarmSettingsHandlers(scenario?: string | null) {
     { provider: "fixture-provider", intelligence_class: "fixture-standard", display_name: "Fixture standard" },
     { provider: "fixture-provider", intelligence_class: "fixture-advanced", display_name: "Fixture advanced" },
   ];
+  // `level-limits`: the swarm also lists the labelled fixture levels of Settings → Intelligence (src/mocks/roleSettings.ts), so their Max agents can be set.
+  if (scenario === "level-limits") catalog.push({ provider: "fixture-provider", intelligence_class: "standard-low", display_name: "Fixture standard, low" },
+    { provider: "fixture-provider", intelligence_class: "standard-high", display_name: "Fixture standard, high" }, { provider: "anthropic", intelligence_class: "standard-high", display_name: "Fixture standard, high" });
   if (scenario === "swarm-two-providers") catalog.push({ provider: "fixture-provider-two", intelligence_class: "fixture-standard-two", display_name: "Fixture second standard" });
   const storageKey = `aq-mock-swarm-settings:${scenario ?? "default"}`;
   const operations = new Map<string, { request: string; response: SwarmSettings }>();
@@ -23,7 +26,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       providerLimits.push(...(saved.provider_limits ?? [])); cellLimits.push(...(saved.cell_limits ?? []));
     }
   } catch { /* Fresh labelled fixture state. */ }
-  const result = (): SwarmSettings => ({ revision: String(revision), catalog_revision: "1", active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
+  const result = (): SwarmSettings => ({ revision: String(revision), active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
     cells: catalog.map(c => {
       const find = (list: SwarmCellLimit[] | null) => list?.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class)?.limit ?? null;
       const override = cellLimits.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class);
@@ -33,7 +36,6 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   const fail = (status: number, message: string) => HttpResponse.json({ error: "swarm_settings", message }, { status });
   const valid = (value: unknown): value is SwarmCellLimit[] => Array.isArray(value) && value.length === catalog.length && catalog.every(c => value.filter(x => x && x.provider === c.provider && x.intelligence_class === c.intelligence_class && Number.isSafeInteger(x.limit) && x.limit >= 0).length === 1);
   return [
-    http.get("/api/settings/intelligence", () => HttpResponse.json({ revision: "1", active_digest: "a".repeat(64), profiles: catalog.map(c => ({ id: c.intelligence_class, version: 1, name: c.display_name, description: "Labelled fixture profile", candidates: [{ id: c.intelligence_class, provider: c.provider, model: "fixture-model", reasoning_configuration_reference: "fixture-balanced@1", harnesses: ["fixture-harness"] }], projects: [] })), model_choices: [{ provider: "fixture-provider", model: "fixture-model", reasoning_configuration_reference: "fixture-balanced@1", reasoning: "Fixture balanced", harness: "fixture-harness" }] })),
     http.get("/api/settings/swarm", () => HttpResponse.json(result())),
     http.get("/api/settings/swarm/operations/:id", ({ params }) => {
       const entry = operations.get(String(params.id));
@@ -47,7 +49,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       if (!body || typeof body.operation_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.operation_id)) return fail(400, "Invalid operation ID.");
       const previous = operations.get(body.operation_id), serialized = JSON.stringify(["save", body]);
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision) || body.expected_catalog_revision !== "1") return fail(409, "Settings or catalog changed; reload and try again.");
+      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
       if (!valid(body.normal) || (body.reduced !== null && !valid(body.reduced)) || (activeMode === "reduced" && body.reduced === null) || body.reduced?.some(r => r.limit > body.normal.find(n => n.provider === r.provider && n.intelligence_class === r.intelligence_class)!.limit)) return fail(400, "Invalid settings matrix.");
       normal = body.normal; reduced = body.reduced; revision++;
       const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
@@ -61,7 +63,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       const body = await request.json() as UpdateSwarmLimits;
       const previous = operations.get(body.operation_id), serialized = JSON.stringify(["limits", body]);
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision) || body.expected_catalog_revision !== "1") return fail(409, "Settings or catalog changed; reload and try again.");
+      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
       if (!body.provider && !body.cell) return fail(400, "Choose a limit.");
       for (const item of [body.provider, body.cell].filter(Boolean)) {
         if (item!.limit !== null && (!Number.isInteger(item!.limit) || item!.limit! < 0 || item!.limit! > 4294967295)) return fail(400, "Invalid limit.");

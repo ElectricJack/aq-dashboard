@@ -1,4 +1,5 @@
 import { usageLabel } from "./SwarmPane";
+import { HOLD_POLLS } from "./SwarmPage";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
@@ -66,32 +67,29 @@ test("machine pane shows Linux when the host probe is not applicable", async () 
 test("holding machine lists reason and remedy", async () => {
   renderApp("/agents/swarm");
   await click(/^studio, local/);
-  await waitFor(() => expect(fact("Holding")).toHaveTextContent("Context measurement expired — Measure this worker's runtime again"));
+  await waitFor(() => expect(fact("Holding")).toHaveTextContent("Capability report expired — Wait for the next report; restart the worker if none arrives"));
 });
 
 test("free slot on a holding machine explains why", async () => {
   renderApp("/agents/swarm");
   await card(/^desktop/);
-  const free = await screen.findAllByRole("button", { name: "free" });
-  fireEvent.click(free[1]!);
-  await waitFor(() => expect(fact("Why")).toHaveTextContent("Free, but this machine is holding back: Context measurement expired"));
-  expect(fact("Fix")).toHaveTextContent("Measure this worker's runtime again");
+  // The slot of a holding node is not offered as free: its card says holding.
+  fireEvent.click(await screen.findByRole("button", { name: "Slot 1 holding" }));
+  await waitFor(() => expect(fact("Why")).toHaveTextContent("Free, but this machine is holding back: Capability report expired"));
+  expect(fact("Fix")).toHaveTextContent("Wait for the next report; restart the worker if none arrives");
 });
 
-test("waiting agent pane gives why and fix", async () => {
+test("the tree draws no waiting card and no waiting agents", async () => {
   renderApp("/agents/swarm");
-  await card(/^waiting/);
-  const pills = screen.getAllByRole("button", { name: /^claude · deep — / }).filter(b => b.getAttribute("data-kind") === "waitingAgent");
-  expect(pills[0]).toHaveAttribute("title", "claude · deep — Every slot on an eligible machine is busy");
-  fireEvent.click(pills[0]!);
-  await waitFor(() => expect(fact("Why")).toHaveTextContent("Every slot on an eligible machine is busy"));
-  expect(fact("Fix")).toHaveTextContent("Wait for a running agent to finish, or add a machine");
+  await card(/^AQ server/);
+  expect(screen.queryAllByRole("button", { name: /^waiting/ })).toHaveLength(0);
+  expect(screen.queryAllByRole("button").filter(b => (b.getAttribute("data-kind") ?? "").startsWith("waiting"))).toHaveLength(0);
 });
 
 test("agent pane opens a terminal with control requested", async () => {
   server.use(...handlersFor("default", { fixtures: true }));
   renderApp("/agents/swarm");
-  await click("claude · standard");
+  await click(/^Fixture: Replay reconciliation standard/);
   expect(await screen.findByRole("region", { name: "Agent terminal" })).toBeInTheDocument();
   expect(await screen.findByText("You have control", {}, { timeout: 8000 })).toBeInTheDocument();
 });
@@ -106,7 +104,7 @@ test("agent pane is watch-only without terminal.control", async () => {
     { name: "terminal.control", version: "1", enabled: false, reason: "Terminal control is not offered" }] } })));
   server.events.on("request:start", ({ request }) => { if (request.method === "POST" && request.url.includes("/mutations")) void request.clone().json().then(b => posts.push((b as { kind: string }).kind)); });
   renderApp("/agents/swarm");
-  await click("claude · standard");
+  await click(/^Fixture: Replay reconciliation standard/);
   const region = await screen.findByRole("region", { name: "Agent terminal" });
   await waitFor(() => expect(within(region).getAllByText("Waiting for interactive connection").length).toBeGreaterThan(0), { timeout: 8000 });
   // The watch mutation proves the posted list has been recorded before asserting that no control was sent.
@@ -121,7 +119,7 @@ test("selection survives reload through ?select=", async () => {
 
 test("pane widens for an agent", async () => {
   renderApp("/agents/swarm");
-  await click("claude · standard");
+  await click(/^Fixture: Replay reconciliation standard/);
   await waitFor(() => expect(screen.getByRole("complementary", { name: "Properties" }).parentElement).toHaveAttribute("data-wide"));
 });
 
@@ -159,12 +157,12 @@ test("a data flap keeps the terminal mounted and never retakes control", async (
   expect(kinds.filter(k => k === "control")).toHaveLength(1);
 });
 
-test("the last known agent is dropped after three polls without it", async () => {
+test("the last known agent is dropped after the hold polls without it", async () => {
   FIXTURE_HANDLERS();
   const { queryClient } = renderApp("/agents?select=agent:sess-07");
   await screen.findByRole("region", { name: "Agent terminal" });
   serve(withoutAgent("sess-07"));
-  for (let i = 0; i < 3; i++) { await queryClient.invalidateQueries({ queryKey: [] }); await screen.findByText(/not in the latest update/); }
+  for (let i = 0; i < HOLD_POLLS; i++) { await queryClient.invalidateQueries({ queryKey: [] }); await screen.findByText(/not in the latest update/); }
   await queryClient.invalidateQueries({ queryKey: [] });
   await waitFor(() => expect(screen.queryByRole("region", { name: "Agent terminal" })).toBeNull());
   expect(screen.getByText("Select anything in the tree")).toBeInTheDocument();

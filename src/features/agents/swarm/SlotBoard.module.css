@@ -1,0 +1,109 @@
+/* Count line: the one sentence a watcher reads first. */
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-block: 0 10px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); min-inline-size: 0; }
+.headline { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; min-inline-size: 0; }
+.headline strong { font-size: 20px; line-height: 26px; }
+.rest { color: var(--color-text-secondary); font-size: var(--font-size-body); }
+.machines { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--font-size-xs); min-inline-size: 0; }
+.machines li { padding: 2px 8px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-raised); overflow-wrap: anywhere; }
+.machines li[data-busy] { border-color: #1b7f6c; }
+.machines li[data-state="holding"] { border-color: #c7802e; }
+.machines li[data-state="offline"], .machines li[data-state="stopped"] { border-style: dashed; color: var(--color-text-secondary); }
+.updated { margin-inline-start: auto; color: var(--color-text-secondary); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
+.updated[data-stale] { color: var(--color-attention); font-weight: 600; }
+.modes { display: inline-flex; }
+.modes button { min-block-size: 30px; padding: 2px 12px; border: 1px solid var(--color-border); background: var(--color-raised); color: var(--color-text); font: inherit; font-size: var(--font-size-xs); cursor: pointer; }
+.modes button:first-child { border-radius: var(--radius-control) 0 0 var(--radius-control); }
+.modes button:last-child { border-radius: 0 var(--radius-control) var(--radius-control) 0; border-inline-start: 0; }
+/* #57c with white text fails AA; this is the same blue, darker. */
+.modes button[aria-pressed="true"] { background: #3d5aa8; border-color: #3d5aa8; color: #fff; font-weight: 600; }
+.modes button:focus-visible, .board button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+@media (pointer: coarse) { .modes button { min-block-size: 44px; } }
+
+/* What runs right now by model; the swatch is the level colour its tiles carry. */
+.models { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; font-size: var(--font-size-body); font-variant-numeric: tabular-nums; min-inline-size: 0; }
+.models li { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.models i { flex: none; inline-size: 10px; block-size: 10px; border-radius: 3px; background: #6b7280; }
+.models li[data-class="fast"] i { background: #2aa88a; } .models li[data-class="standard"] i { background: #6f8fe0; } .models li[data-class="deep"] i { background: #b96ad6; }
+
+/* Board: the same box as the tree canvas; it scrolls instead of zooming. Machine, then its worker nodes side by side, then one tile per slot. */
+.board { --accent: #6b7280; box-sizing: border-box; height: 540px; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); }
+.note { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.machine { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--color-border); border-inline-start: 4px solid #6a8; border-radius: 8px; background: var(--color-panel); min-inline-size: 0; }
+.machine[data-state="holding"] { border-color: #c7802e; }
+.machine[data-state="offline"], .machine[data-state="stopped"], .machine[data-state="booting"], .machine[data-state="unknown"] { border-style: dashed; }
+.machineHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; inline-size: 100%; padding: 2px 4px; border: 0; border-radius: 6px; background: none; color: var(--color-text); font: inherit; text-align: start; cursor: pointer; min-inline-size: 0; }
+.machineHead strong { font-size: 16px; }
+.machineHead[aria-pressed="true"], .tile[aria-pressed="true"], .workerHead[aria-pressed="true"] { outline: 2px solid #57c; outline-offset: 1px; }
+.state { padding: 0 8px; border-radius: 10px; border: 1px solid var(--color-border); font-size: var(--font-size-xs); font-weight: 600; }
+.state[data-state="online"] { border-color: #1b7f6c; }
+.state[data-state="holding"], .state[data-state="booting"] { border-color: #c7802e; color: var(--color-attention); }
+.line { color: var(--color-text-secondary); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
+.hold { color: var(--color-attention); font-size: var(--font-size-xs); font-weight: 600; overflow-wrap: anywhere; }
+/* A machine's worker nodes sit side by side while there is room for their slots, and wrap when there is not. */
+.workers { display: flex; flex-wrap: wrap; gap: 8px; min-inline-size: 0; }
+.worker { --tile: 178px; --gap: 6px; box-sizing: border-box; flex: var(--across) 1 calc(var(--across) * (var(--tile) + var(--gap)) + 8px); min-inline-size: 0; max-inline-size: 100%; display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-canvas); }
+.worker[data-state="holding"], .worker[data-state="draining"], .worker[data-over] { border-color: #c7802e; }
+.worker[data-state="offline"], .worker[data-state="stopped"], .worker[data-state="revoked"], .worker[data-state="unknown"] { border-style: dashed; }
+.workerHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 1px 4px; border: 0; border-radius: 6px; background: none; color: var(--color-text); font: inherit; text-align: start; cursor: pointer; min-inline-size: 0; }
+.workerHead strong { font-size: 14px; }
+/* A worker's slots in slot order: at most four across (eight slots are two rows of four), fewer when the room is narrow. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(min(var(--tile), 100%), calc((100% - (var(--across) - 1) * var(--gap)) / var(--across))), 1fr)); gap: var(--gap); align-items: stretch; margin: 0; padding: 0; list-style: none; }
+.cell { position: relative; box-sizing: border-box; display: flex; flex-direction: column; min-inline-size: 0; border: 1px solid var(--color-border); border-inline-start: 6px solid var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, var(--color-raised)); color: var(--color-text); font-size: 13px; line-height: 17px; }
+/* The level's palette hint, as on the tree's pills: different models read as different colours across the board. */
+.cell[data-class="fast"] { --accent: #2aa88a; } .cell[data-class="standard"] { --accent: #6f8fe0; } .cell[data-class="deep"] { --accent: #b96ad6; }
+/* The slot's label and its attempt's clock. */
+.head { display: flex; align-items: center; gap: 8px; padding: 3px 0 0; min-inline-size: 0; min-block-size: 22px; }
+.name { display: block; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); font-size: var(--font-size-xs); font-weight: 600; }
+.clock { flex: none; margin-inline-start: auto; font-weight: 700; font-size: 20px; line-height: 24px; font-variant-numeric: tabular-nums; }
+.clock::after { content: attr(data-clock); }
+.name[data-label]::before { content: attr(data-label); }
+.tile { box-sizing: border-box; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; inline-size: 100%; padding: 0 10px 7px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; min-inline-size: 0; }
+.top { display: flex; align-items: flex-start; gap: 7px; min-inline-size: 0; }
+.top .dot { margin-block-start: 6px; }
+/* Two lines of title before it is cut; the full text is the tile's tooltip and accessible name. */
+.title { flex: 1; min-inline-size: 0; font-weight: 700; font-size: 16px; line-height: 20px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.output::after { content: attr(data-output-age); }
+.meta { display: block; min-inline-size: 0; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phase { font-weight: 600; color: var(--color-text); }
+.dot { flex: none; inline-size: 10px; block-size: 10px; border-radius: 50%; background: #6b7280; }
+.cell[data-state="running"] .dot { background: #2aa88a; }
+.cell[data-state="starting"], .cell[data-state="finishing"], .cell[data-state="held"] { border-block-color: #c7802e; border-inline-end-color: #c7802e; }
+.cell[data-state="held"] { --accent: #c7802e; }
+.cell[data-state="starting"] .dot, .cell[data-state="held"] .dot { background: transparent; border: 2px solid #c7802e; box-sizing: border-box; }
+.cell[data-state="finishing"] .dot { background: #c7802e; }
+.cell[data-state="held"] .title, .cell[data-state="starting"] .phase, .cell[data-state="finishing"] .phase { color: var(--color-attention); }
+/* Free: a small, quiet tile, so the busy slots are what the eye finds. On a worker that takes no work it says why instead. */
+.cell:not([data-class]) { align-self: start; background: transparent; border: 1px dashed var(--color-border); }
+.cell:not([data-class]) .tile { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 8px; padding-block: 5px; }
+.standing { display: block; color: var(--color-text-secondary); font-size: 14px; line-height: 18px; font-weight: 500; }
+.cell[data-over] { border-color: #c7802e; } .cell[data-over] .name { color: var(--color-attention); }
+.cell[data-state="stopped"] { opacity: .6; }
+.cell[data-state="holding"], .cell[data-state="draining"], .cell[data-state="booting"] { border-color: #c7802e; border-style: solid; }
+.cell[data-state="holding"] .standing, .cell[data-state="draining"] .standing, .cell[data-state="booting"] .standing { color: var(--color-attention); }
+.cell[data-state="holding"] .meta { white-space: normal; overflow-wrap: anywhere; }
+/* The dot moves only while the read reports terminal output in the last seconds. */
+.cell[data-output="active"] .dot { animation: pulse 1.2s ease-in-out infinite; }
+.cell[data-output="quiet"] .dot { background: #6b7280; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(42,168,138,.7); } 50% { box-shadow: 0 0 0 5px rgba(42,168,138,0); } }
+@media (prefers-reduced-motion: reduce) { .cell[data-output="active"] .dot { animation: none; box-shadow: 0 0 0 3px rgba(42,168,138,.35); } }
+/* A 1920 screen or a projector: four wide tiles across, larger type. */
+@media (min-width: 1600px) { .headline strong { font-size: 24px; line-height: 30px; } }
+@media (min-width: 1600px) { .worker { --tile: 184px; --gap: 8px; } .cell { font-size: 14px; line-height: 19px; } .title { font-size: 16px; line-height: 20px; -webkit-line-clamp: 3; line-clamp: 3; } .clock { font-size: 22px; line-height: 26px; } .name { font-size: 13px; } .standing { font-size: 15px; line-height: 19px; } .workerHead strong { font-size: 16px; } .tile { padding-block-end: 8px; } .summary[data-mode="board"] .headline strong { font-size: 28px; line-height: 34px; } .summary[data-mode="board"] .rest { font-size: 16px; } }
+/* A desktop window under 900px tall (1280×720, a laptop or a projector): tighter boxes, the same tiles; the board scrolls for what does not fit. */
+@media (min-width: 1024px) and (max-height: 899px) {
+  /* Two rows: the headline with the age and the view switch, then each machine's share with the models. */
+  .summary { margin-block-end: 4px; padding-block: 4px; gap: 2px 14px; }
+  .summary::before { content: ""; order: 4; flex-basis: 100%; }
+  .headline { order: 1; } .updated { order: 2; } .modes { order: 3; } .machines { order: 5; } .models { order: 6; flex: 1; font-size: var(--font-size-xs); }
+  .board { padding: 4px; gap: 4px; }
+  .machine { gap: 3px; padding: 3px 6px 5px; }
+  .machineHead { padding-block: 0; }
+  .worker { --gap: 5px; gap: 2px; padding-block: 2px 4px; }
+  .head { padding-block-start: 0; }
+  .tile { padding-block-end: 3px; gap: 0; }
+  .cell { line-height: 15px; }
+  .title { font-size: 15px; line-height: 18px; }
+  .top .dot { margin-block-start: 4px; }
+}
+/* Phones: one compact line above the tree; each machine's share is on its card or its board section. */
+@media (max-width: 1023px) { .board { height: auto; max-block-size: none; } .updated, .machines { display: none; } .summary { padding: 6px 10px; gap: 4px 10px; } .headline strong { font-size: 16px; line-height: 22px; } .rest { font-size: var(--font-size-xs); } .modes { margin-inline-start: auto; } }
