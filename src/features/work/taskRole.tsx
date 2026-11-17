@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { isRecord } from "../../api/adapters/contract";
 import { validGraphId } from "../../api/adapters/humanGraph";
+import { BINDING_DEFAULT_ROLE } from "../../api/adapters/projectBindings";
 import { apiGet } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
 import { useDocuments } from "../../api/roleSettings";
@@ -13,9 +14,6 @@ import type { TaskRole } from "./taskWork";
  * role; the router then assigns the level. These helpers serve the two places a person chooses a role (filing a task,
  * and "Change role" on a task) and the one place it is shown (the task's Status).
  */
-
-/** The role of a project whose binding states none (`aq-project-policy`: a default is not written to the record). */
-const BINDING_DEFAULT_ROLE = "developer";
 
 export type RoleChoice = { id: string; name: string };
 /** The roles a task may be handed, and each role's name. Both come from Settings → Roles. */

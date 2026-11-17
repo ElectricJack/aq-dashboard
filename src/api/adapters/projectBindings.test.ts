@@ -51,10 +51,14 @@ test("allow_enrolled_nodes false is not allowed, true is allowed", () => {
   expect(adaptProjectBindings({ items: [record], next_cursor: null }, null).items[0]!.enrolledNodes).toBe(true);
 });
 
-test("a binding names its default role and level and the roles it adds notes to; a server that states none is accepted", () => {
-  const stated = adaptProjectBindings({ items: [projectRecord()], next_cursor: null }, null).items[0]!;
-  expect([stated.defaultRole, stated.defaultIntelligence, stated.roleNotes]).toEqual(["developer", "standard-high", ["reviewer"]]);
+test("a binding names its default role and level and its notes per role; a default the server does not write is the usual one", () => {
+  const named = projectRecord(); named.binding.default_role = "reviewer"; named.binding.default_intelligence = "deep-low"; named.binding.role_notes = { reviewer: "Check the migration notes.", developer: "Run the linter.", tester: "  " };
+  const stated = adaptProjectBindings({ items: [named], next_cursor: null }, null).items[0]!;
+  // Notes are listed by role id; a blank note is no note.
+  expect([stated.defaultRole, stated.defaultIntelligence, stated.roleNotes]).toEqual(["reviewer", "deep-low", [{ role: "developer", note: "Run the linter." }, { role: "reviewer", note: "Check the migration notes." }]]);
   const older = projectRecord(); older.binding.default_role = undefined; older.binding.default_intelligence = undefined; older.binding.role_notes = undefined;
   const absent = adaptProjectBindings({ items: [older], next_cursor: null }, null).items[0]!;
-  expect([absent.defaultRole, absent.defaultIntelligence, absent.roleNotes]).toEqual([null, null, []]);
+  expect([absent.defaultRole, absent.defaultIntelligence, absent.roleNotes]).toEqual(["developer", "standard-high", []]);
+  const badNotes = projectRecord(); badNotes.binding.role_notes = { "": "x" };
+  expect(() => adaptProjectBindings({ items: [badNotes], next_cursor: null }, null)).toThrow();
 });
