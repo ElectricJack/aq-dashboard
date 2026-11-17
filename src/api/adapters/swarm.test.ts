@@ -25,6 +25,35 @@ function fixture(): Swarm {
 }
 const TIME = "2026-11-07T10:00:05.000Z";
 
+describe("slots an attempt holds and the facts a newer server adds", () => {
+  it("counts a slot the server reports occupied with no agent listed as held", () => {
+    const f = fixture(); f.machines[0]!.nodes[0]!.slots = { total: 3, occupied: 3, idle: 0 };
+    expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]!.slots).toEqual({ total: 3, occupied: 3, idle: 0, held: 2 });
+    expect(adaptSwarm(fixture(), TIME).machines[0]!.nodes[0]!.slots.held).toBe(0);
+  });
+  it("leaves phase, ran_with and output time absent on today's rows", () => {
+    const a = adaptSwarm(fixture(), TIME).machines[0]!.nodes[0]!.agents[0]!;
+    expect("phase" in a || "ranWith" in a || "lastOutputAt" in a).toBe(false);
+    const pinnedAgent = adaptSwarm((pinned as unknown as { data: Swarm }).data, TIME).machines.flatMap(m => m.nodes).flatMap(n => n.agents)[0]!;
+    expect("phase" in pinnedAgent || "ranWith" in pinnedAgent || "lastOutputAt" in pinnedAgent).toBe(false);
+  });
+  it("reads them when the server sends them", () => {
+    const f = fixture();
+    Object.assign(f.machines[0]!.nodes[0]!.agents[0]!, { phase: "starting", last_output_at: "2026-11-07T10:00:03.000Z",
+      ran_with: { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-sonnet-5", reasoning: "high", harness: "claude-code", execution_profile: "sandbox", snapshot_digest: null } });
+    expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]!.agents[0]).toMatchObject({ phase: "starting", lastOutputAt: "2026-11-07T10:00:03.000Z",
+      ranWith: { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-sonnet-5", reasoning: "high", harness: "claude-code" } });
+  });
+  it("drops a phase it does not know and a ran_with with a part missing", () => {
+    const f = fixture();
+    Object.assign(f.machines[0]!.nodes[0]!.agents[0]!, { phase: "paused", ran_with: { role: "developer", level: "", model: "m" }, last_output_at: null });
+    const a = adaptSwarm(f, TIME).machines[0]!.nodes[0]!.agents[0]!;
+    expect(a.phase).toBeUndefined();
+    expect(a.ranWith).toBeNull();
+    expect(a.lastOutputAt).toBeNull();
+  });
+});
+
 describe("adaptSwarm", () => {
   it("pinned swarm fixture adapts", () => {
     const f = pinned as unknown as { data: Swarm; server_time: string };

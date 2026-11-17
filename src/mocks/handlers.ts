@@ -6,7 +6,7 @@ import { fixtureTerminalId, terminalHandlers } from "./terminal";
 import { resultsHandlers } from "./results";
 import { humanGraphHandlers, fixtureProject, FIXTURE_ATTEMPT_SESSIONS } from "./humanGraph";
 import { decisionHandlers } from "./decisions";
-import { swarmHandlers } from "./swarm";
+import { swarmDemoGraphHandlers, swarmHandlers } from "./swarm";
 import { swarmSettingsHandlers } from "./swarmSettings";
 import { providerSettingsHandlers } from "./providerSettings";
 import { routingDocumentHandlers } from "./routingDocument";
@@ -101,6 +101,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
     ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
     ...(questions ? questionHandlers() : []),
+    ...swarmDemoGraphHandlers(name),
     ...humanGraphHandlers(s.reads, s.graph),
     ...swarmHandlers(s.reads, name),
     ...providerSettingsHandlers(),

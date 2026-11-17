@@ -99,10 +99,109 @@ export const SWARM_STOPPED: Swarm = {
   }),
 };
 
-export function swarmEnvelope<T>(data: T) {
+/*
+ * Demo fixtures (`?scenario=swarm-demo` and `?scenario=swarm-demo-next`): a desktop with two workers of eight slots and
+ * a laptop with one worker of four, a dozen agents running and two more slots held. Explicitly synthetic: the tasks,
+ * sessions and attempts refer to nothing real, and mock mode's banner says so on screen.
+ *
+ * `swarm-demo` is the shape aq-server sends today (feat/role-catalog 58a95b99): an agent is listed only while it runs,
+ * its task `title` is the task's id, and the row has no role, reasoning effort or output time. Slots an attempt holds
+ * before its agent starts (or after it stops) are only counted in `slots.occupied`. The page fills titles, roles and
+ * effort from each task's own reads, which the demo handlers below serve.
+ *
+ * `swarm-demo-next` is the same swarm as the requested server changes would send it: every slot-holding attempt is
+ * listed with its `phase`, real `title`, `ran_with` and `last_output_at`.
+ */
+type Demo = { title: string; project: number; role: string; level: [id: string, name: string]; model: string; provider: string; harness: string; reasoning: string; cls: SwarmAgent["intelligence_class"]; ranMs: number; outputAgoMs: number };
+const demo = (title: string, project: number, role: string, level: Demo["level"], model: string, reasoning: string, ranMs: number, outputAgoMs = 2_000): Demo => {
+  const codex = model.startsWith("gpt");
+  return { title, project, role, level, model, reasoning, ranMs, outputAgoMs, provider: codex ? "openai" : "anthropic", harness: codex ? "codex" : "claude-code", cls: /haiku|mini/.test(model) ? "fast" : /opus/.test(model) ? "deep" : "standard" };
+};
+const HIGH: Demo["level"] = ["standard-high", "Standard, high"], LOW: Demo["level"] = ["standard-low", "Standard, low"], DEEP: Demo["level"] = ["deep", "Deep"], FAST: Demo["level"] = ["fast", "Fast"];
+export const DEMO_PROJECTS = [{ id: uuid(7001), label: "Fixture: storefront" }, { id: uuid(7002), label: "Fixture: billing service" }, { id: uuid(7003), label: "Fixture: docs site" }];
+// Twelve running agents, then two whose attempt holds a slot without a running agent (one starting, one settling).
+const DEMO_AGENTS: Demo[] = [
+  demo("Add retry backoff to the webhook sender", 1, "developer", HIGH, "claude-sonnet-5", "high", 9 * 60_000 + 12_000),
+  demo("Fix the flaky checkout cancellation test", 0, "developer", HIGH, "claude-sonnet-5", "high", 4 * 60_000 + 3_000),
+  demo("Review: migrate invoices to the new ledger tables", 1, "reviewer", DEEP, "claude-opus-5-5", "high", 2 * 60_000 + 41_000, 48_000),
+  demo("Rename the cart reducer's actions", 0, "developer", FAST, "claude-haiku-5", "low", 38_000),
+  demo("Write the upgrade guide for the 4.0 release with every breaking change and a migration example for each one", 2, "writer", LOW, "gpt-5.3-codex", "medium", 71_000),
+  demo("Bump the sandbox image to the patched base", 1, "developer", FAST, "gpt-5.3-codex-mini", "low", 9_000),
+  demo("Add an index for the orders-by-customer query", 0, "developer", HIGH, "claude-sonnet-5", "high", 6 * 60_000 + 20_000),
+  demo("Investigate the nightly export timeout", 1, "investigator", DEEP, "claude-opus-5-5", "high", 14 * 60_000 + 5_000, 95_000),
+  demo("Translate the pricing page strings", 2, "writer", FAST, "claude-haiku-5", "low", 22_000),
+  demo("Replace the deprecated date picker", 0, "developer", LOW, "gpt-5.3-codex", "medium", 3 * 60_000 + 9_000),
+  demo("Cover the refund path with integration tests", 1, "developer", HIGH, "claude-sonnet-5", "high", 5 * 60_000 + 30_000),
+  demo("Fix the broken anchors in the API reference", 2, "writer", FAST, "gpt-5.3-codex-mini", "low", 15_000),
+  demo("Add rate limiting to the public search endpoint", 0, "developer", HIGH, "claude-sonnet-5", "high", 0),
+  demo("Tidy the release notes template", 2, "writer", FAST, "claude-haiku-5", "low", 3 * 60_000),
+];
+/** Which worker each demo agent is on: five running and one starting on the first, four running and one settling on the second, three on the laptop. */
+const DEMO_PLACEMENT = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 0, 1];
+const DEMO_RUNNING = 12;
+const demoTask = (i: number) => uuid(7100 + i), demoAttempt = (i: number) => uuid(7200 + i), demoSession = (i: number) => uuid(7300 + i);
+const demoRanWith = (d: Demo) => ({ role: d.role, level: d.level[0], provider: d.provider, model: d.model, reasoning: d.reasoning, harness: d.harness, execution_profile: "fixture-sandbox", snapshot_digest: "d".repeat(64) });
+
+/** The demo swarm at `now`. `next` adds what the requested server changes would send. */
+export function demoSwarm(now: string, next = false): Swarm {
+  const at = (ms: number) => new Date(Date.parse(now) - ms).toISOString();
+  const row = (d: Demo, i: number): SwarmAgent => ({
+    session_id: demoSession(i), attempt_id: demoAttempt(i), task: { id: demoTask(i), title: next ? d.title : demoTask(i) }, project: DEMO_PROJECTS[d.project]!,
+    provider: d.provider, model: d.model, harness: d.harness, intelligence_class: d.cls, routing_profile: { id: d.level[0], display_name: d.level[1] },
+    terminal: null, started_at: i < DEMO_RUNNING ? at(d.ranMs) : i === 13 ? at(d.ranMs) : null,
+    ...(next ? { phase: i < DEMO_RUNNING ? "running" as const : i === 12 ? "starting" as const : "finishing" as const, ran_with: demoRanWith(d), last_output_at: i === 12 ? null : at(i === 13 ? 20_000 : d.outputAgoMs) } : {}),
+  });
+  const node = (index: number, name: string, total: number): SwarmNode => {
+    const on = DEMO_AGENTS.map((d, i) => ({ d, i })).filter(x => DEMO_PLACEMENT[x.i] === index);
+    const agents = on.filter(x => next || x.i < DEMO_RUNNING).map(x => row(x.d, x.i));
+    return { ...worker(7400 + index, name, "docker-local", total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total, occupied: on.length, idle: total - on.length } };
+  };
+  const machine = (id: string, label: string, cpus: number, cpu: number, ram: number, nodes: SwarmNode[]): Swarm["machines"][number] => ({
+    id, label, kind: "local", state: "online", holding: [], last_seen_at: at(1_500),
+    load: { source: "windows_host", host_probe: "fresh", cpu_busy_bps: cpu, memory_used_bps: ram, cpu_avg_15m_bps: cpu - 600, memory_avg_15m_bps: ram - 200, samples_15m: 60, observed_at: at(4_000), fresh: true },
+    hardware: { logical_cpus: cpus, memory_total_bytes: (cpus > 16 ? 64 : 32) * 2 ** 30, disk_total_bytes: 2e12, disk_free_bytes: 294e9 }, agent_max: nodes.reduce((n, w) => n + (w.slots.total ?? 0), 0), cost: null,
+    control: { desired: "running", generation: "3", since: at(3_600_000), pending_handoffs: 0 }, nodes,
+  });
   return {
-    api_version: "proposed-0", request_id: "mock", server_time: SERVER_TIME, scope: { kind: "all_authorized" }, data,
-    observation: { observed_at: SERVER_TIME, fresh_until: "2026-10-31T12:00:30.000Z", source: "mock", quality: "reported", coverage: "complete" },
+    server: { version: "0.1.0", source_revision: "58a95b992d64a9d4b587e6c3c38a857c6041edd4", running_agents: DEMO_RUNNING, owner_availability: { state: "on", generation: "2", since: at(3_600_000) } },
+    machines: [
+      machine("desktop", "Fixture desktop", 24, 7400, 6100, [node(0, "Local Worker 1", 8), node(1, "Local Worker 2", 8)]),
+      machine("laptop", "Fixture laptop", 12, 5200, 4800, [node(2, "Local Worker 3", 4)]),
+    ],
+    waiting: { reasons: [], agents: [] },
+  };
+}
+
+/** The task reads the page falls back to for the demo's titles and `ran_with`; any other task falls through to the Graph fixtures. */
+export function swarmDemoGraphHandlers(scenarioName?: string | null) {
+  if (scenarioName !== "swarm-demo") return [];
+  const find = (project: unknown, task: unknown) => { const i = DEMO_AGENTS.findIndex((d, n) => demoTask(n) === task && DEMO_PROJECTS[d.project]!.id === project); return i < 0 ? null : { d: DEMO_AGENTS[i]!, i }; };
+  const wrap = (project: (typeof DEMO_PROJECTS)[number], data: unknown) => ({ contract: "human-graph-1", project: { id: project.id, name: project.label, revision: "1", workspace_id: uuid(7000) }, observed_at: SERVER_TIME, data });
+  return [
+    http.get("/api/human/projects/:project/tasks/:task", ({ params }) => {
+      const hit = find(params.project, params.task);
+      if (!hit) return undefined;
+      return HttpResponse.json(wrap(DEMO_PROJECTS[hit.d.project]!, {
+        task_state: "active", verification: "unverified", content_type: "note", last_verified_by: null, last_verified_at: null, retirement_reason: null, valid_from: null, valid_until: null, review_at: null,
+        successor_id: null, summary: null, summary_of_revision: null, id: demoTask(hit.i), kind: "task", title: hit.d.title, body: "Mock-mode demo fixture. Not live AQ data.", acceptance_criteria: "", labels: [],
+        retired: false, deleted: false, created_at: SERVER_TIME, updated_at: SERVER_TIME, created_by: "demo-fixture", provenance: [], version: "1", content_revision: "1", role: { id: hit.d.role, source: "task" },
+      }));
+    }),
+    http.get("/api/human/projects/:project/tasks/:task/work", ({ params }) => {
+      const hit = find(params.project, params.task);
+      if (!hit) return undefined;
+      return HttpResponse.json(wrap(DEMO_PROJECTS[hit.d.project]!, {
+        task_id: demoTask(hit.i), task_state: "active", version: "1", role: { id: hit.d.role, source: "task" }, readiness: { state: "running", blockers: [], complete: true, reasons: [] }, parent: null,
+        execution: { task_id: demoTask(hit.i), attempt_id: demoAttempt(hit.i), session_id: demoSession(hit.i), status: "granted", ran_with: demoRanWith(hit.d) },
+      }));
+    }),
+  ];
+}
+
+export function swarmEnvelope<T>(data: T, serverTime: string = SERVER_TIME) {
+  return {
+    api_version: "proposed-0", request_id: "mock", server_time: serverTime, scope: { kind: "all_authorized" }, data,
+    observation: { observed_at: serverTime, fresh_until: new Date(Date.parse(serverTime) + (serverTime === SERVER_TIME ? 30_000 : 5_000)).toISOString(), source: "mock", quality: "reported", coverage: "complete" },
     pending_operations: [], coverage: { state: "complete" },
   };
 }
@@ -115,11 +214,16 @@ const AVAILABILITY_SCENARIOS: Record<string, OwnerAvailability> = {
 
 export function swarmHandlers(reads: "ok" | "partial" | "empty" | "failed", scenarioName?: string | null) {
   const availability = AVAILABILITY_SCENARIOS[scenarioName ?? ""];
+  // The demo's clock runs from when the mock started, so elapsed timers count between polls instead of restarting.
+  const started = Date.now();
+  const demoNow = () => new Date(Date.parse(SERVER_TIME) + (Date.now() - started)).toISOString();
+  const isDemo = scenarioName === "swarm-demo" || scenarioName === "swarm-demo-next";
   const swarm = scenarioName === "swarm-large-fleet" ? SWARM_LARGE_FLEET : availability ? { ...SWARM_MOCKUP, server: { ...SWARM_MOCKUP.server, owner_availability: availability } } : SWARM_MOCKUP;
   return [
     http.get("/api/v1/swarm", () => {
       if (reads === "failed") return HttpResponse.json({ request_id: "mock", code: "read_model_unavailable", message: "The read model is temporarily unavailable.", retryable: true }, { status: 503 });
       if (reads === "empty") return HttpResponse.json(swarmEnvelope({ ...SWARM_MOCKUP, machines: [], waiting: { reasons: [NO_MACHINE_ONLINE], agents: [] } }));
+      if (isDemo) { const now = demoNow(); return HttpResponse.json(swarmEnvelope(demoSwarm(now, scenarioName === "swarm-demo-next"), now)); }
       return HttpResponse.json(swarmEnvelope(swarm));
     }),
   ];

@@ -54,10 +54,12 @@ export function mergeManual(view:SwarmView,fleet:ManualFleet|undefined,project:s
   const manual=fleet.sessions.filter(s=>s.node_id===n.id&&(!project||s.project_id===project)&&(!['stopped','failed'].includes(s.status)||selected===`agent:${s.id}`));
   const running=manual.filter(s=>!['pending','stopped','failed'].includes(s.status)).length;
   const total=project?capacity(fleet,n.id,project):Math.min(report.max_slots,fleet.projects.reduce((sum,p)=>sum+capacity(fleet,n.id,p.id),0));
-  const occupied=n.agents.length+running;
+  // An attempt that holds a slot before its agent starts (or after it stops) is not in `agents`; it still occupies the slot.
+  const held=n.slots.held??Math.max(0,n.slots.occupied-n.agents.length);
+  const occupied=n.agents.length+held+running;
   const allManual=fleet.sessions.filter(s=>s.node_id===n.id&&['preparing','running','stopping'].includes(s.status)).length;
   const elsewhere=Math.max(0,allManual-running);
   const idle=Math.min(Math.max(0,total-occupied),Math.max(0,report.max_slots-occupied-elsewhere));
-  return {...n,...(fresh?{health:'online' as const,lastSeenAt:new Date(report.observed_at_ms).toISOString()}:{}),backendKind:n.backendKind??'docker-local',slots:{total:Math.max(total,occupied),occupied,idle,scope:project?(fleet.projects.find(p=>p.id===project)?.name??"Selected project"):"All projects",...(total<occupied?{target:total}:{})},agents:[...n.agents,...manual.map(s=>({sessionId:s.id,attemptId:s.id,task:null,project:{id:s.project_id,label:s.spec.project_name},provider:s.spec.provider||null,model:s.spec.model||null,harness:s.spec.harness??(s.spec.provider==='openai'?'codex':'claude'),intelligenceClass:null,terminalId:s.status==='running'?s.id:null,startedAt:new Date(s.created_at_ms).toISOString(),manual:s}))]};
+  return {...n,...(fresh?{health:'online' as const,lastSeenAt:new Date(report.observed_at_ms).toISOString()}:{}),backendKind:n.backendKind??'docker-local',slots:{total:Math.max(total,occupied),occupied,idle,held,scope:project?(fleet.projects.find(p=>p.id===project)?.name??"Selected project"):"All projects",...(total<occupied?{target:total}:{})},agents:[...n.agents,...manual.map(s=>({sessionId:s.id,attemptId:s.id,task:null,project:{id:s.project_id,label:s.spec.project_name},provider:s.spec.provider||null,model:s.spec.model||null,harness:s.spec.harness??(s.spec.provider==='openai'?'codex':'claude'),intelligenceClass:null,terminalId:s.status==='running'?s.id:null,startedAt:new Date(s.created_at_ms).toISOString(),manual:s}))]};
  })}))};
 }

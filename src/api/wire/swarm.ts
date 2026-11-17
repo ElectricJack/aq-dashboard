@@ -39,7 +39,17 @@ export type SwarmAgent = {
   provider: string | null; model: string | null; harness: string | null; intelligence_class: IntelligenceClass | null;
   routing_profile?: { id: string; display_name: string } | null;
   terminal: EntityRef | null; started_at: Timestamp | null;
+  /**
+   * Not sent by aq-server yet (requested 2026-11-16); read when present so nothing here changes when they land.
+   * `phase`: where the attempt holding the slot is; today a row exists only while its agent runs.
+   * `ran_with`: the attempt's role, level, model and reasoning effort, as on the human-graph task reads (spec 0014 §7.1).
+   * `last_output_at`: last terminal output the relay recorded, as on the session read.
+   */
+  phase?: "starting" | "running" | "finishing";
+  ran_with?: SwarmRanWith | null;
+  last_output_at?: Timestamp | null;
 };
+export type SwarmRanWith = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile?: string; snapshot_digest?: string | null };
 export type SwarmNode = {
   node: EntityRef; name: string; health: "online" | "offline" | "revoked" | "unknown"; service: WorkerService;
   backend_kind: string | null; worker_version: string; sandbox_templates: string[]; agent_channel: ReportedState;

@@ -1,7 +1,12 @@
 import { ContractError, isRecord } from "./contract";
 import type { MachineControl, OwnerAvailability, Swarm, SwarmAgent, SwarmMachine, SwarmNode, HoldReason, MachineLoad, WaitingAgent } from "../wire/swarm";
 
-export const SWARM_POLL_MS = 10_000;
+/**
+ * The swarm read is polled; aq-server offers no event stream for it. Each response is fresh for five seconds
+ * (`observation.fresh_until`), and tasks can start and finish within ten, so two seconds keeps the page inside
+ * the freshness window with a poll to spare. Polling stops while the tab is hidden (the query client's default).
+ */
+export const SWARM_POLL_MS = 2_000;
 
 export type HoldReasonView = { code: string; message: string; remedy: string | null };
 export type LoadView = { source: "linux" | "windows_host" | "unknown"; hostProbe: "not_applicable" | "fresh" | "stale" | "missing";
@@ -9,11 +14,19 @@ export type LoadView = { source: "linux" | "windows_host" | "unknown"; hostProbe
 export type AgentView = { manual?: import("../../features/agents/swarm/manualAgents").ManualAgent; sessionId: string; attemptId: string; task: { id: string; title: string } | null; project: { id: string; label: string };
   provider: string | null; model: string | null; harness: string | null; intelligenceClass: "fast" | "standard" | "deep" | null;
   routingProfile?: { id: string; displayName: string } | null;
-  terminalId: string | null; startedAt: string | null };
+  terminalId: string | null; startedAt: string | null;
+  /** Where the attempt is, when the server says; absent from a server that lists only running agents. */
+  phase?: "starting" | "running" | "finishing";
+  /** What the attempt ran with: from the swarm row when it carries it, else from the task's work read. */
+  ranWith?: RanWithView | null;
+  /** Last terminal output, when the read carries it. Output is not progress. */
+  lastOutputAt?: string | null };
+export type RanWithView = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string };
 export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
-  slots: { total: number | null; occupied: number; idle: number | null; scope?: string; target?:number }; holding: HoldReasonView[]; agents: AgentView[] };
+  /** `held`: slots an attempt holds for which the read names no agent (occupied minus the agents listed). */
+  slots: { total: number | null; occupied: number; idle: number | null; held?: number; scope?: string; target?:number }; holding: HoldReasonView[]; agents: AgentView[] };
 export type MachineControlView = { desired: "running" | "draining" | "stopped"; generation: string; since: string | null; pendingHandoffs: number };
 export type OwnerAvailabilityView = { state: "unset" | "on" | "off"; generation: string; since: string | null; note: string | null };
 export type MachineView = { id: string; label: string; kind: "local" | "cloud" | "unknown"; state: "online" | "holding" | "offline" | "stopped" | "booting" | "unknown";
@@ -51,6 +64,7 @@ function availability(a: OwnerAvailability | null | undefined): OwnerAvailabilit
 }
 
 const CLASSES = ["fast", "standard", "deep"] as const;
+const PHASES = ["starting", "running", "finishing"] as const;
 
 function hold(r: HoldReason): HoldReasonView {
   return { code: String(r?.code ?? ""), message: String(r?.message ?? ""), remedy: text(r?.remedy) };
@@ -74,6 +88,13 @@ export function agentClassLabel(agent: AgentView): string {
   return agent.routingProfile === undefined ? agent.intelligenceClass ?? "unclassified" : agent.routingProfile?.displayName ?? "unclassified";
 }
 
+const RAN_WITH = ["role", "level", "provider", "model", "reasoning", "harness"] as const;
+/** The six facts the page shows, or null when any is missing: a partial record is not shown as a whole one. */
+export function adaptAgentRanWith(v: unknown): RanWithView | null {
+  if (!isRecord(v) || !RAN_WITH.every(key => typeof v[key] === "string" && (v[key] as string).trim() !== "" && (v[key] as string).length <= 256)) return null;
+  return Object.fromEntries(RAN_WITH.map(key => [key, v[key]])) as RanWithView;
+}
+
 function agent(a: SwarmAgent): AgentView {
   return {
     sessionId: String(a.session_id), attemptId: String(a.attempt_id),
@@ -83,11 +104,15 @@ function agent(a: SwarmAgent): AgentView {
     intelligenceClass: oneOfOrNull(a.intelligence_class, CLASSES),
     ...(a.routing_profile === undefined ? {} : { routingProfile: isRecord(a.routing_profile) && typeof a.routing_profile.id === "string" && a.routing_profile.id.trim() && typeof a.routing_profile.display_name === "string" && a.routing_profile.display_name.trim() ? { id: a.routing_profile.id, displayName: a.routing_profile.display_name } : null }),
     terminalId: isRecord(a.terminal) ? text(a.terminal.id) : null, startedAt: text(a.started_at),
+    ...(oneOfOrNull(a.phase, PHASES) ? { phase: oneOfOrNull(a.phase, PHASES)! } : {}),
+    ...(a.ran_with === undefined ? {} : { ranWith: adaptAgentRanWith(a.ran_with) }),
+    ...(a.last_output_at === undefined ? {} : { lastOutputAt: text(a.last_output_at) }),
   };
 }
 
 function node(n: SwarmNode): NodeView {
   const slots = isRecord(n.slots) ? n.slots : { total: null, occupied: 0, idle: null };
+  const agents = list<SwarmAgent>(n.agents).filter(isRecord).map(agent);
   return {
     id: String(n.node?.id ?? ""), name: String(n.name ?? ""),
     health: oneOf(n.health, ["online", "offline", "revoked"] as const, "unknown" as const),
@@ -96,8 +121,9 @@ function node(n: SwarmNode): NodeView {
     sandboxTemplates: list<unknown>(n.sandbox_templates).filter((t): t is string => typeof t === "string"),
     agentChannel: oneOf(n.agent_channel, ["ready", "unavailable", "unreported"] as const, "unreported"),
     lastSeenAt: text(n.last_seen_at),
-    slots: { total: num(slots.total), occupied: num(slots.occupied) ?? 0, idle: num(slots.idle) },
-    holding: holds(n.holding), agents: list<SwarmAgent>(n.agents).filter(isRecord).map(agent),
+    // The server counts every attempt that holds the worker's slot; it lists an agent only while that agent runs.
+    slots: { total: num(slots.total), occupied: num(slots.occupied) ?? 0, idle: num(slots.idle), held: Math.max(0, (num(slots.occupied) ?? 0) - agents.length) },
+    holding: holds(n.holding), agents,
   };
 }
 
