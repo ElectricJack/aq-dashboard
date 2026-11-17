@@ -6,6 +6,7 @@ import { ActionButton, DetailList } from "../../../components/layout/Workspace";
 import { useSession } from "../../../app/session";
 import { InteractiveTerminal } from "../InteractiveTerminal";
 import { useAgentTokens } from "./useAgentTokens";
+import { levelLabel, taskLabel } from "./slots";
 import styles from "./Swarm.module.css";
 
 export function AgentPane({agent,serverTime}:{agent:AgentView;serverTime:string}) {
@@ -20,9 +21,11 @@ function NativeAgentPane({agent,serverTime}:{agent:AgentView;serverTime:string})
   return (
     <>
       <DetailList className={styles.facts}>
-        <dt>Task</dt><dd>{agent.task ? `${agent.project.label} / ${agent.task.title}` : agent.project.label}</dd>
+        <dt>Task</dt><dd>{agent.task ? `${agent.project.label} / ${taskLabel(agent)}` : agent.project.label}</dd>
+        {agent.ranWith && <><dt>Role</dt><dd>{agent.ranWith.role}</dd></>}
+        {levelLabel(agent) && <><dt>Level</dt><dd>{levelLabel(agent)}</dd></>}
         <dt>Attempt</dt><dd>{agent.attemptId.slice(0, 8)}{agent.startedAt ? ` · ${formatAge(serverTime, agent.startedAt)}` : ""}</dd>
-        <dt>Model</dt><dd>{agent.model ?? "unknown"}</dd>
+        <dt>Model</dt><dd>{agent.ranWith?.model ?? agent.model ?? "unknown"}{agent.ranWith ? ` · ${agent.ranWith.reasoning} effort` : ""}</dd>
         <dt>Tokens</dt><dd>{tokens.text}</dd>
       </DetailList>
       <div className={styles.actions}>

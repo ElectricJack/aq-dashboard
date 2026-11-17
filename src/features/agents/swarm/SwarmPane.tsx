@@ -13,7 +13,8 @@ import { AddMachine } from "./AddMachine";
 import { OwnerAvailability } from "./OwnerAvailability";
 import { MachineControls } from "./MachineControls";
 import { WorkerManagement } from "./WorkerManagement";
-import { showWaiting, type Selection } from "./graph";
+import { HELD_TEXT, showWaiting, type Selection } from "./graph";
+import { taskLabel } from "./slots";
 import styles from "./Swarm.module.css";
 
 const gb = (bytes: number, base: number) => String(Math.round(bytes / base));
@@ -125,7 +126,7 @@ function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
 function find(view: SwarmView, selection: Selection) {
   for (const m of view.machines) for (const n of m.nodes) {
     if (selection.kind === "node" && n.id === selection.nodeId) return { m, n };
-    if (selection.kind === "free" && n.id === selection.nodeId) return { m, n };
+    if ((selection.kind === "free" || selection.kind === "held") && n.id === selection.nodeId) return { m, n };
     if (selection.kind === "agent") { const a = n.agents.find(x => x.sessionId === selection.sessionId); if (a) return { m, n, a }; }
   }
   if (selection.kind === "machine") { const m = view.machines.find(x => x.id === selection.machineId); if (m) return { m }; }
@@ -187,10 +188,20 @@ function Body({ view, selection, ready }: { view: SwarmView; selection: Selectio
       </DetailList>
     </>;
   }
+  if (selection.kind === "held" && hit.n) {
+    return <>
+      <Head kicker="Slot held" title="Starting or settling" />
+      <DetailList className={styles.facts}>
+        <dt>Node</dt><dd>{hit.n.name}</dd>
+        <dt>What</dt><dd>{HELD_TEXT}</dd>
+        <dt>Which</dt><dd>The server does not say which task holds this slot until its agent has started.</dd>
+      </DetailList>
+    </>;
+  }
   if (selection.kind === "agent" && hit.a) {
     if(hit.a.manual) return <AgentPane agent={hit.a} serverTime={view.serverTime} />;
     return <>
-      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${agentClassLabel(hit.a)}`} title={hit.a.task?.title ?? "No task"} />
+      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${agentClassLabel(hit.a)}`} title={taskLabel(hit.a)} />
       <AgentPane agent={hit.a} serverTime={view.serverTime} />
     </>;
   }

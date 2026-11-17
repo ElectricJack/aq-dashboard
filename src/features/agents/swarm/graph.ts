@@ -2,12 +2,13 @@ import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { agentClassLabel, type MachineView, type NodeView, type SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
+import { agentState, heldCount, taskLabel } from "./slots";
 
 export type Selection =
   | { kind: "server" } | { kind: "machine"; machineId: string } | { kind: "node"; nodeId: string }
-  | { kind: "agent"; sessionId: string } | { kind: "free"; nodeId: string; index: number }
+  | { kind: "agent"; sessionId: string } | { kind: "free"; nodeId: string; index: number } | { kind: "held"; nodeId: string; index: number }
   | { kind: "waiting" } | { kind: "waitingAgent"; taskId: string };
-export type CardKind = "server" | "machine" | "node" | "agent" | "free" | "waiting" | "waitingAgent";
+export type CardKind = "server" | "machine" | "node" | "agent" | "free" | "held" | "waiting" | "waitingAgent";
 interface CardFields {
   kind: CardKind; selection: Selection; label: string; sub: string | null; reason: string | null;
   state: MachineView["state"] | null; machineKind: "local" | "cloud" | "unknown" | null;
@@ -21,10 +22,12 @@ interface CardFields {
 export interface SwarmCardData extends CardFields, Record<string, unknown> {}
 export const CARD_SIZE: Record<CardKind | "machineMeters", { width: number; height: number }> = {
   server: { width: 160, height: 48 }, machine: { width: 240, height: 52 }, machineMeters: { width: 240, height: 88 },
-  node: { width: 190, height: 48 }, agent: { width: 130, height: 26 }, free: { width: 120, height: 26 },
+  node: { width: 190, height: 48 }, agent: { width: 130, height: 26 }, free: { width: 120, height: 26 }, held: { width: 130, height: 26 },
   waiting: { width: 190, height: 48 }, waitingAgent: { width: 230, height: 26 },
 };
 export const MAX_FREE_PILLS = 8;
+export const MAX_HELD_PILLS = 8;
+export const HELD_TEXT = "An attempt holds this slot and no agent is listed for it: the agent is starting, or it stopped and its result is being settled.";
 
 export function selectionId(s: Selection): string {
   switch (s.kind) {
@@ -33,6 +36,7 @@ export function selectionId(s: Selection): string {
     case "node": return `node:${s.nodeId}`;
     case "agent": return `agent:${s.sessionId}`;
     case "free": return `free:${s.nodeId}:${s.index}`;
+    case "held": return `held:${s.nodeId}:${s.index}`;
     case "waiting": return "waiting";
     case "waitingAgent": return `waiting-agent:${s.taskId}`;
   }
@@ -48,7 +52,7 @@ const CHAR_WIDTH = 6.8, LINE_HEIGHT = 16, PADDING = 14;
 const wrapped = (text: string, width: number) => text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil((line.length * CHAR_WIDTH) / (width - 22))), 0);
 function boxFor(card: Card): { width: number; height: number } {
   const size = card.kind === "machine" && card.meters ? CARD_SIZE.machineMeters : CARD_SIZE[card.kind];
-  if (card.kind === "agent" || card.kind === "free" || card.kind === "waitingAgent") return size;
+  if (card.kind === "agent" || card.kind === "free" || card.kind === "held" || card.kind === "waitingAgent") return size;
   const lines = (card.sub ? wrapped(card.sub, size.width) : 0) + (card.reason ? wrapped(card.reason, size.width) : 0);
   const height = PADDING + 17 + lines * LINE_HEIGHT + (card.meters ? card.meters.length * 14 + 6 : 0);
   return { width: size.width, height: Math.max(size.height, height) };
@@ -82,7 +86,7 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
   for (const m of view.machines) {
     const selection: Selection = { kind: "machine", machineId: m.id };
     const id = selectionId(selection);
-    const agentCount = m.nodes.reduce((n, w) => n + w.agents.length, 0);
+    const agentCount = m.nodes.reduce((n, w) => n + w.agents.length + heldCount(w), 0);
     nodes.push(node({
       ...base("machine", selection, m.label), sub: machineSub(m, opts.now),
       reason: m.state === "holding" && m.holding[0] ? `holding: ${m.holding[0].message}` : null,
@@ -106,7 +110,19 @@ export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: nu
     link(machineId, id);
     for (const a of w.agents) {
       const s: Selection = { kind: "agent", sessionId: a.sessionId };
-      nodes.push(node({ ...base("agent", s, `${a.harness ?? a.provider ?? "agent"} · ${agentClassLabel(a)}`), intelligenceClass: a.intelligenceClass, provider: a.provider, ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:`${agentClassLabel(a)} · ${a.manual.stage}`}: {}) }));
+      const phase = agentState(a);
+      const label = `${a.harness ?? a.provider ?? "agent"} · ${agentClassLabel(a)}`;
+      // The pill's full text first, then what it is working on.
+      nodes.push(node({ ...base("agent", s, label), intelligenceClass: a.intelligenceClass, provider: a.provider,
+        tooltip: `${label} — ${[phase === "running" ? null : phase, taskLabel(a), a.project.label, a.ranWith?.role, a.ranWith?.model ?? a.model].filter(Boolean).join(" · ")}`,
+        ...(phase === "starting" || phase === "finishing" ? { state: "booting" as const } : {}), ...(a.manual?{label:`${a.manual.status==='running'?'Ready':a.manual.status==='pending'?'Pending':a.manual.status==='preparing'?'Starting':a.manual.status} · ${a.project.label}`,state:a.manual.status==='running'?'online' as const:['stopped','failed'].includes(a.manual.status)?'stopped' as const:'booting' as const,tooltip:`${agentClassLabel(a)} · ${a.manual.stage}`}: {}) }));
+      link(id, selectionId(s));
+    }
+    // A slot an attempt holds with no agent listed is drawn as held, never left out and never free.
+    for (let i = 0; i < Math.min(heldCount(w), MAX_HELD_PILLS); i++) {
+      const s: Selection = { kind: "held", nodeId: w.id, index: i };
+      const rest = heldCount(w) - MAX_HELD_PILLS + 1;
+      nodes.push(node({ ...base("held", s, i === MAX_HELD_PILLS - 1 && rest > 1 ? `+${rest} held` : "slot held"), tooltip: HELD_TEXT }));
       link(id, selectionId(s));
     }
     const idle = w.slots.idle ?? 0;
@@ -146,7 +162,7 @@ export function layoutSwarm(nodes: Node<SwarmCardData>[], edges: Edge[], rankdir
   const owner = new Map<string, string>();
   for (const e of edges) {
     const parent = byId.get(e.source), child = byId.get(e.target);
-    if (!parent || !child || !["node", "waiting"].includes(parent.data.kind) || !["agent", "free", "waitingAgent"].includes(child.data.kind)) continue;
+    if (!parent || !child || !["node", "waiting"].includes(parent.data.kind) || !["agent", "free", "held", "waitingAgent"].includes(child.data.kind)) continue;
     const children = groups.get(parent.id) ?? [];
     children.push(child); groups.set(parent.id, children); owner.set(child.id, parent.id);
   }

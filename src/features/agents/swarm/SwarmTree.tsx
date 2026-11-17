@@ -9,7 +9,7 @@ import styles from "./Swarm.module.css";
 const nodeTypes = { card: SwarmCard };
 const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean }[] = [
   { label: "fast", color: "#1b7f6c" }, { label: "standard", color: "#57c" }, { label: "deep", color: "#a5c" }, { label: "unclassified", color: "#6b7280" },
-  { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "free slot", color: "transparent", dashed: true }, { label: "waiting for a slot", color: "transparent", dashed: true },
+  { label: "Codex (dark ring)", color: "#6b7280", ring: true }, { label: "slot held (starting or settling)", color: "#c7802e" }, { label: "free slot", color: "transparent", dashed: true }, { label: "waiting for a slot", color: "transparent", dashed: true },
 ];
 
 /** The part of the React Flow instance the tree uses. */

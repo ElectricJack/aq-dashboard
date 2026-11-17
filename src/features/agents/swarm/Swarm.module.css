@@ -17,6 +17,8 @@
 .pill[data-class="deep"] { background: #a5c; } .pill[data-class="none"] { background: #6b7280; }
 .pill[data-provider="codex"] { box-shadow: 0 0 0 2px #111 inset; }
 .card[data-kind="free"] { background: transparent; color: var(--color-text-secondary); border: 1px dashed var(--color-text-secondary); }
+/* Held: occupied, so a solid amber border; no agent yet, so no class colour. */
+.card[data-kind="held"] { border-radius: 14px; padding: 3px 9px; background: var(--color-panel); color: var(--color-attention); border: 1px solid #c7802e; }
 .card[data-kind="waitingAgent"] { background: transparent; color: #c7802e; border: 1px dashed #c7802e; }
 :global(.react-flow__node.selected) .card { outline: 2px solid #57c; outline-offset: 2px; }
 /* React Flow styles .react-flow__node.selectable:focus-visible itself, so the selectable form is repeated to win on specificity. */
@@ -84,7 +86,7 @@
 .manualActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .stage[data-viewport-fit] { flex: 1; min-block-size: 0; }
 .stage[data-viewport-fit] > :first-child { display: flex; flex-direction: column; min-block-size: 0; }
-.stage[data-viewport-fit] .flow { height: auto; flex: 1; min-block-size: 0; }
+.stage[data-viewport-fit] .flow, .stage[data-viewport-fit] > :first-child > section { height: auto; flex: 1; min-block-size: 0; }
 .stage[data-viewport-fit] .pane, .stage[data-viewport-fit] .terminal, .stage[data-viewport-fit] .terminal > :global([data-interactive-terminal]) { min-block-size: 0; }
 .stage[data-focus] > :first-child { display: none; }
 
@@ -109,6 +111,9 @@
   .divider:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 }
 .stage[data-focus] > .divider { display: none; }
+/* The board with nothing selected takes the whole width; selecting a tile brings the properties back. */
+.stage[data-board-only] { grid-template-columns: minmax(0, 1fr); }
+.stage[data-board-only] > .divider, .stage[data-board-only] > .pane { display: none; }
 .pane { min-inline-size: 0; }
 
 @media (min-width: 1024px) {

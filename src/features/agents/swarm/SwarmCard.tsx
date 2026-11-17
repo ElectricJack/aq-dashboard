@@ -29,7 +29,7 @@ export function SwarmCard({ data }: NodeProps<Node<SwarmCardData>>) {
           </span>
         )}
       </button>
-      {!["agent", "free", "waitingAgent"].includes(data.kind) && <Handle type="source" position={Position.Bottom} isConnectable={false} style={handle} />}
+      {!["agent", "free", "held", "waitingAgent"].includes(data.kind) && <Handle type="source" position={Position.Bottom} isConnectable={false} style={handle} />}
     </>
   );
 }

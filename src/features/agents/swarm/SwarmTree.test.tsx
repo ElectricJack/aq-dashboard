@@ -112,9 +112,10 @@ test("a selection that changes from outside pans to it, but a click inside the t
 test("agent pills carry their full text as a title and show the harness", async () => {
   render(<SwarmTree view={view} ready={6} selected={null} onSelect={vi.fn()} />);
   const pills = (await screen.findAllByRole("button", { name: /^claude · standard/ })).filter(b => b.getAttribute("data-kind") === "agent");
-  expect(pills[0]).toHaveAttribute("title", "claude · standard");
+  // The pill's own text first, then the task, project and model it is working with.
+  expect(pills[0]!.getAttribute("title")).toMatch(/^claude · standard — .+ · claude-sonnet-5$/);
   const codex = (await screen.findAllByRole("button", { name: /^codex · fast/ })).find(b => b.getAttribute("data-kind") === "agent");
-  expect(codex).toHaveAttribute("title", "codex · fast");
+  expect(codex!.getAttribute("title")).toMatch(/^codex · fast — /);
 });
 
 test("a click-originated focus on a partially visible card does not pan", async () => {
