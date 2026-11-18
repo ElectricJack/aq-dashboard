@@ -114,23 +114,25 @@ function layout(graph: DefinitionGraph, start: string, vertical: boolean) {
     };
   });
   const bounds = diagram.graph();
-  return { nodes, edges, bounds: { x: 0, y: 0, width: bounds.width!, height: bounds.height! } };
+  return { nodes, edges, reachable: order, bounds: { x: 0, y: 0, width: bounds.width!, height: bounds.height! } };
 }
 
 function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start: string; vertical: boolean }) {
   const [stepId, setStep] = useState<string | null>(null);
   const flow = useRef<ReactFlowInstance<StepNode, PathEdge>>(null);
   const canvas = useRef<HTMLDivElement>(null);
-  const canvasWidth = useRef(0);
+  const canvasSize = useRef({ width: 0, height: 0 });
   const heading = useRef<HTMLHeadingElement>(null);
+  const focusHeading = useRef(false);
   const hintId = useId();
-  const { nodes, edges, bounds } = useMemo(() => layout(graph, start, vertical), [graph, start, vertical]);
+  const { nodes, edges, reachable, bounds } = useMemo(() => layout(graph, start, vertical), [graph, start, vertical]);
   const selectedNodes = useMemo(() => nodes.map(node => {
     const selected = node.id === stepId;
     return { ...node, selected, domAttributes: { "aria-pressed": selected } };
   }), [nodes, stepId]);
   const step = stepId === null ? undefined : graph.steps.get(stepId);
   const open = Boolean(step);
+  const explained = Boolean(step?.inspection || step?.transitions.some(transition => transition.reason));
   const fit = useCallback(() => {
     if (!canvas.current || !flow.current) return;
     const { clientWidth, clientHeight } = canvas.current;
@@ -143,8 +145,9 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
       const instance = flow.current;
       if (!instance || !canvas.current) return;
       const { clientWidth, clientHeight } = canvas.current;
-      if (!clientWidth || clientWidth === canvasWidth.current) return;
-      canvasWidth.current = clientWidth;
+      const previous = canvasSize.current;
+      if (!clientWidth || (clientWidth === previous.width && clientHeight === previous.height)) return;
+      canvasSize.current = { width: clientWidth, height: clientHeight };
       const node = nodes.find(node => node.id === stepId);
       if (node) {
         const zoom = instance.getZoom();
@@ -157,7 +160,8 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
     return () => cancelAnimationFrame(frame);
   }, [fit, nodes, stepId]);
   useEffect(() => {
-    if (vertical && stepId) heading.current?.focus();
+    if (stepId && (vertical || focusHeading.current)) heading.current?.focus({ preventScroll: !vertical });
+    focusHeading.current = false;
   }, [vertical, stepId]);
   function closeStep() {
     canvas.current?.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(stepId ?? "")}"]`)?.focus();
@@ -165,15 +169,17 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
   }
   function goTo(id: string) {
     const node = nodes.find(node => node.id === id);
+    if (!node) return;
+    if (id === stepId) heading.current?.focus({ preventScroll: !vertical });
+    else focusHeading.current = true;
     setStep(id);
-    if (node && flow.current) {
+    if (flow.current) {
       const zoom = Math.max(0.78, flow.current.getZoom());
       void flow.current.setCenter(node.position.x + node.width! / 2, node.position.y + height / 2, { zoom });
     }
-    heading.current?.focus({ preventScroll: !vertical });
   }
   return <div className={styles.graphContainer}>
-    <div className={styles.graphLayout} data-inspecting={open}>
+    <div className={styles.graphLayout} data-inspecting={open} data-explained={explained}>
       <div className={styles.frame} role="region" aria-label="Workflow diagram" aria-describedby={hintId}>
         <div className={styles.toolbar}>
           <span id={hintId}>Select a step for details</span>
@@ -189,7 +195,11 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
             nodesDraggable={false} nodesConnectable={false} edgesFocusable={false} zoomOnScroll={false}
             deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}
             elevateNodesOnSelect={false} proOptions={{ hideAttribution: true }} ariaLabelConfig={graphLabels}
-            onInit={instance => { flow.current = instance; canvasWidth.current = canvas.current?.clientWidth ?? 0; fit(); }}
+            onInit={instance => {
+              flow.current = instance;
+              if (canvas.current) canvasSize.current = { width: canvas.current.clientWidth, height: canvas.current.clientHeight };
+              fit();
+            }}
             onNodeClick={(_, node) => setStep(node.id)}
             onNodesChange={changes => {
               const selection = changes.find(change => change.type === "select" && change.selected);
@@ -199,7 +209,7 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
           </ReactFlow>
         </div>
       </div>
-      {step && <StepInspector step={step} kind={kinds[step.kind].label} headingRef={heading} onClose={closeStep} onNavigate={goTo} />}
+      {step && <StepInspector step={step} kind={kinds[step.kind].label} reachable={reachable} headingRef={heading} onClose={closeStep} onNavigate={goTo} />}
     </div>
   </div>;
 }
