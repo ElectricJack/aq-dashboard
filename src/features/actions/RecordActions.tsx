@@ -115,7 +115,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       if(operation?.request_digest&&operation.operation_id===next.operation_id&&operation.request_digest!==next.request_digest)throw new ContractError("Operation identity changed");
       setOperation(next);setUnknown(false);setError(null);
       if(next.disposition==="confirmed"&&value.kind==="task.delete"){setOpen(false);void navigate({pathname:"/work",search:scopeSearch({kind:"project",project_id:record.project.id})});}
-      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-history","human-graph-task-summary","overview-task-contributions","task-routes"].includes(String(q.queryKey[4]))});
+      if(next.disposition==="confirmed")await cache.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","all-project-work","human-graph-detail","human-graph-neighborhood","human-graph-task-work","human-graph-task-history","human-graph-task-summary","overview-task-contributions","task-routes"].includes(String(q.queryKey[4]))});
     }catch(reason){if(!current.current)return;
       if(reason instanceof ApiError&&reason.status===401){setAccessLost(true);setDraft(draftFor({project:record.project},true));setOperation(null);reportAccessDenied(reason);setError("Access changed. Reload access before checking the operation.");}
       // A 403 refuses this one request (SO-03, ISSUE-003): the dialog and its draft stay; a resubmission gets a new operation identity.

@@ -27,7 +27,7 @@ export function ProjectControl({project:p,onChanged}:{project:ProjectBindingView
       if(!alive.current)return;
       setPending(null);setMessage(saved.enabled?"Start request confirmed.":"Stop request confirmed.");
       await onChanged();
-      await client.invalidateQueries({predicate:q=>q.queryKey.includes(queryContext.principalId)&&q.queryKey.some(k=>["worker-launch-projects","projects","overview","human-graph-list","selected-project-control","project-execution-bindings"].includes(String(k)))});
+      await client.invalidateQueries({predicate:q=>q.queryKey.includes(queryContext.principalId)&&q.queryKey.some(k=>["worker-launch-projects","projects","overview","human-graph-list","all-project-work","selected-project-control","project-execution-bindings"].includes(String(k)))});
     }catch(e){if(alive.current){
       if(e instanceof ApiError&&[400,401,403,404,409,413,422].includes(e.status??0)){
         setPending(null);setMessage(e.serverMessage??"AQ refused the change. Refresh the project and try again.");

@@ -1,4 +1,5 @@
 import {connectManualTerminal} from '../../api/manualTerminalClient';
+import { connectNativeTerminal } from '../../api/nativeTerminalClient';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -118,7 +119,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     });
     const job = crypto.randomUUID();
     const freeze = () => { const lines = snapshotLines(term.buffer.active, term.rows); if (lines.length) setSnapshot(lines); };
-    const transport = (hostShell ? (options: Parameters<typeof connectManualTerminal>[0]) => connectManualTerminal(options, `/api/worker-terminals/shells/${terminalId}/terminal`) : manual ? connectManualTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
+    const transport = (hostShell ? (options: Parameters<typeof connectManualTerminal>[0]) => connectManualTerminal(options, `/api/worker-terminals/shells/${terminalId}/terminal`) : manual ? connectManualTerminal : inputEnabled ? connectNativeTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
       write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
       reset: () => { freeze(); feed?.restart(); term.reset(); },

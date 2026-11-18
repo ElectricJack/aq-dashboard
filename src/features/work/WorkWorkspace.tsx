@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
-import { List, ListChecks, Search, Workflow } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { Link, Navigate, useParams, useSearchParams } from "react-router";
+import { List, ListChecks, Workflow } from "lucide-react";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useScope } from "../../app/scope";
+import { useSession } from "../../app/session";
 import { useGraphDetail, useGraphList } from "../../api/humanGraphReads";
 import { GRAPH_MAX_PAGES, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -12,17 +13,31 @@ import inspectorStyles from "../knowledge/HumanNodeWorkspace.module.css";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { HumanTaskGraph, PHONE_QUERY, PhoneGraphView, graphListTarget } from "./graph/HumanTaskGraph";
 import { HumanTaskInspector, TaskInspectorUnavailable } from "./HumanTaskInspector";
-import { WORK_STATE_FILTERS, WORK_STATE_LABEL, listStatus, recordMarker, workStateFilter } from "./labels";
+import { listStatus, recordMarker, workStateFilter } from "./labels";
 import { StatusIcon } from "./StatusIcon";
+import { AllProjectWorkList } from "./AllProjectWorkList";
+import { WorkFilters } from "./WorkFilters";
 import { useTaskWork } from "./taskWork";
 import styles from "./WorkWorkspace.module.css";
 
 /** Work destination: a task workspace (design reference 02), not a generic record inspector. */
 export function WorkWorkspace({ action }: { action?: ReactNode }) {
   const [scope] = useScope();
+  const { bootstrap } = useSession();
   const id = useParams().taskId;
   const [params] = useSearchParams();
-  if (scope.kind !== "project") return <div className={styles.page}><WorkHead action={action}/><ProjectChoice kind="task" id={id}/></div>;
+  if (scope.kind !== "project") {
+    const allProjects = bootstrap.capability("human.work.tasks.read").enabled;
+    if (allProjects && id) {
+      const listParams = new URLSearchParams(params);
+      for (const name of ["view", "root", "focus", "revision"]) listParams.delete(name);
+      return <Navigate to={{ pathname: "/work", search: listParams.toString() }} replace/>;
+    }
+    return <div className={styles.page} data-view="list">
+      <WorkHead action={action}/>
+      {allProjects ? <AllProjectWorkList/> : <ProjectChoice kind="task" id={id}/>}
+    </div>;
+  }
   const missing = <p role="status">This item does not exist or is not available to you.</p>;
   // A malformed task id inside a valid project still offers the "All tasks" exit (WK-E).
   if (!validGraphId(scope.project_id)) return <div className={styles.page}><WorkHead action={action}/>{missing}</div>;
@@ -39,7 +54,6 @@ function WorkHead({ action, project, children }: { action?: ReactNode; project?:
 function TaskWorkspace({ project, id, action }: { project: string; id?: string; action?: ReactNode }) {
   const [params, setParams] = useSearchParams();
   const q = (params.get("q") ?? "").slice(0, 256);
-  const [draft, setDraft] = useState(q);
   const state = workStateFilter(params.get("state"));
   const graph = params.get("view") === "graph";
   const query = useGraphList(project, "task", q);
@@ -118,15 +132,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
         <ActionButton aria-pressed={!graph} onClick={() => update("view", "")}><List size={18} aria-hidden/>List</ActionButton>
         <ActionButton aria-pressed={graph} onClick={() => update("view", "graph")}><Workflow size={18} aria-hidden/>Graph</ActionButton>
       </nav>
-      <form role="search" className={styles.search} onSubmit={e => { e.preventDefault(); update("q", draft.trim()); }}>
-        <label className="visually-hidden" htmlFor="find-task">Search tasks</label>
-        <Search size={18} aria-hidden className={styles.searchIcon}/>
-        <input id="find-task" type="search" enterKeyHint="search" maxLength={256} value={draft} placeholder="Find tasks in this project…"
-          onChange={e => { setDraft(e.target.value); if (!e.target.value && q) update("q", ""); }}/>
-      </form>
-      <div role="group" aria-label="Task state" className={styles.chips}>
-        {WORK_STATE_FILTERS.map(s => <button key={s} type="button" className={styles.chip} data-state={s} aria-pressed={state === s} onClick={() => update("state", state === s ? "" : s)}>{WORK_STATE_LABEL[s]}</button>)}
-      </div>
+      <WorkFilters q={q} state={state} onChange={update}/>
       {graph && <div className={styles.graphActions} data-work-graph-actions/>}
     </Toolbar>
     <div className={styles.panes}>

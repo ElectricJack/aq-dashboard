@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import task from "../../../contracts/live/human-graph/examples/task.json";
+import bootstrap from "../../../contracts/proposed/bootstrap.json";
 import { handlersFor } from "../../mocks/handlers";
 import { renderApp } from "../../test/renderApp";
 const server=setupServer(...handlersFor("default"));
@@ -23,7 +24,67 @@ test("task state chips filter loaded tasks and live in the URL",async()=>{
 test("task search uses the project read and retains its URL",async()=>{
  const {router}=renderApp(`/work${scope}`);await screen.findByRole("list",{name:"Tasks"});await userEvent.type(screen.getByRole("searchbox",{name:"Search tasks"}),"No matching title{Enter}");await waitFor(()=>expect(router.state.location.search).toContain("q=No+matching+title"));expect(await screen.findByText("No records returned for this search.")).toBeVisible();
 });
-test("Work asks for a project rather than inventing all-project Graph data",async()=>{renderApp("/work");expect(await screen.findByRole("heading",{name:"Choose a project"})).toBeVisible();});
+test("Work asks for a project on servers without the all-project capability",async()=>{renderApp("/work");expect(await screen.findByRole("heading",{name:"Choose a project"})).toBeVisible();});
+
+function enableAllProjects() {
+  const capabilities = [...bootstrap.data.capabilities,
+    { name: "human.graph.read", version: "1", enabled: true },
+    { name: "human.work.tasks.read", version: "1", enabled: true },
+  ];
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, capabilities } })));
+}
+
+test("All projects fetches a bounded page, loads more and uses the row's project for details", async () => {
+  enableAllProjects();
+  const otherProject = { id: "00000000-0000-0000-0000-000000000027", name: "Other project", workspace_id: "00000000-0000-0000-0000-000000000028" };
+  const items = Array.from({ length: 50 }, (_, i) => ({
+    id: `00000000-0000-0000-0000-${String(i + 1000).padStart(12, "0")}`,
+    workspace_id: otherProject.workspace_id, title: `Other project task ${i + 1}`,
+    task_state: "active", updated_at: "2026-11-01T12:00:00Z",
+  }));
+  const cursors: (string | null)[] = [];
+  server.use(http.get("/api/human/work/tasks", ({ request }) => {
+    const params = new URL(request.url).searchParams;
+    expect(params.get("limit")).toBe("50");
+    const cursor = params.get("cursor");
+    cursors.push(cursor);
+    return HttpResponse.json({ contract: "human-work-task-list-1", unavailable_projects: 1,
+      items: cursor ? [{ ...task.data, workspace_id: task.project.workspace_id }] : items,
+      projects: cursor ? [task.project] : [otherProject], next_cursor: cursor ? null : "next-page" });
+  }));
+  const { router } = renderApp("/work");
+  const list = await screen.findByRole("list", { name: "Tasks" });
+  expect(within(list).getAllByRole("listitem")).toHaveLength(50);
+  expect(cursors).toEqual([null]);
+  expect(screen.getByText("Task records are unavailable for 1 project.")).toBeVisible();
+  expect(within(list).getByRole("link", { name: /Other project task 1, Other project/ })).toHaveAttribute("href", expect.stringContaining(otherProject.id));
+  await userEvent.click(screen.getByRole("button", { name: "Load more tasks" }));
+  const link = await within(list).findByRole("link", { name: new RegExp(task.data.title) });
+  expect(within(list).getAllByRole("listitem")).toHaveLength(51);
+  expect(cursors).toEqual([null, "next-page"]);
+  await userEvent.click(link);
+  expect(await screen.findByRole("region", { name: task.data.title })).toBeVisible();
+  expect(new URLSearchParams(router.state.location.search).get("scope")).toBe(`project:${task.project.id}`);
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Scope" }), "all");
+  expect(await screen.findByRole("heading", { name: "51 tasks loaded" })).toBeVisible();
+  expect(router.state.location.pathname).toBe("/work");
+});
+
+test("All projects forwards search and status together and starts a new cursor chain", async () => {
+  enableAllProjects();
+  const requests: URLSearchParams[] = [];
+  server.use(http.get("/api/human/work/tasks", ({ request }) => {
+    requests.push(new URL(request.url).searchParams);
+    return HttpResponse.json({ contract: "human-work-task-list-1", items: [], projects: [], unavailable_projects: 0, next_cursor: null });
+  }));
+  const { router } = renderApp("/work?state=completed");
+  await screen.findByText("No matching tasks across projects.");
+  await userEvent.type(screen.getByRole("searchbox", { name: "Search tasks" }), "release gate{Enter}");
+  await waitFor(() => expect(requests.at(-1)?.get("q")).toBe("release gate"));
+  expect(requests.at(-1)?.get("state")).toBe("completed");
+  expect(requests.at(-1)?.has("cursor")).toBe(false);
+  expect(new URLSearchParams(router.state.location.search).get("q")).toBe("release gate");
+});
 test("failed and empty Graph lists remain distinct",async()=>{server.use(...handlersFor("reads-failed"));renderApp(`/work${scope}`);expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load tasks");expect(screen.queryByText("No records returned for this search.")).not.toBeInTheDocument();});
 test("successful empty Graph list says no records returned",async()=>{server.use(...handlersFor("empty"));renderApp(`/work${scope}`);expect(await screen.findByText("No records returned for this search.")).toBeVisible();});
 test("missing task is neutral and never echoes an arbitrary route",async()=>{renderApp(`/work/secret-task-id${scope}`);expect(await screen.findByText("This item does not exist or is not available to you.")).toBeVisible();expect(screen.queryByText("secret-task-id")).not.toBeInTheDocument();});
