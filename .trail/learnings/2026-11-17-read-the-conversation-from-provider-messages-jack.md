@@ -29,4 +29,4 @@ Read only the known provider directories using the original sandbox identity. On
 In the code:
 - The dashboard chooses between sources in `src/features/agents/history/History.tsx` and checks the session and project in `src/api/sessionConversation.ts`.
 - The worker's manual conversation collector is in `crates/aq-worker/src/bin/aq-worker/manual/conversation.rs`.
-- Server conversation routes and storage are in `crates/aq-manual-sessions/src/conversation.rs` and server migration 137, following the live deployment's migration 136.
+- Server conversation routes and storage are in `crates/aq-manual-sessions/src/conversation.rs` and server migration 138. The concurrent supervisor update took migration 137, so History was restacked after it to keep fresh installs and upgrades on the same migration sequence.
