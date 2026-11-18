@@ -21,15 +21,15 @@ export function ganttTaskTarget(project: string, id: string, search = "", keepAl
   return { pathname: `/work/${encodeURIComponent(id)}`, search: `?${params}` };
 }
 
-export function DependencyGantt({ project, selected, compact = false, search = "", focused = false, runningProjects = [] }: {
-  project?: string; selected?: string; compact?: boolean; search?: string; focused?: boolean; runningProjects?: string[];
+export function DependencyGantt({ project, selected, compact = false, search = "", focused = false, runningProjects = [], showOffline = true }: {
+  project?: string; selected?: string; compact?: boolean; search?: string; focused?: boolean; runningProjects?: string[]; showOffline?: boolean;
 }) {
-  if (project) return <ProjectTracks projects={[{ id: project, label: project }]} {...{ selected, compact, search, focused }} />;
-  return <AllProjectTracks {...{ compact, selected, search, focused, runningProjects }} />;
+  if (project) return <ProjectTracks projects={[{ id: project, label: project }]} {...{ selected, compact, search, focused, showOffline }} />;
+  return <AllProjectTracks {...{ compact, selected, search, focused, runningProjects, showOffline }} />;
 }
 
-function AllProjectTracks({ compact, selected, search, focused, runningProjects }: {
-  compact: boolean; selected?: string; search: string; focused: boolean; runningProjects: string[];
+function AllProjectTracks({ compact, selected, search, focused, runningProjects, showOffline }: {
+  compact: boolean; selected?: string; search: string; focused: boolean; runningProjects: string[]; showOffline: boolean;
 }) {
   const capability = useProjectsCapability();
   const projects = useProjects();
@@ -43,14 +43,14 @@ function AllProjectTracks({ compact, selected, search, focused, runningProjects 
     ? [...valid.filter(project => running.has(project.id)), ...valid.filter(project => !running.has(project.id))].slice(0, GANTT_PROJECT_LIMIT)
     : valid;
   return <>
-    <RetainedNotice query={projects} />
+    <RetainedNotice query={projects} showOffline={false} />
     {valid.length > GANTT_PROJECT_LIMIT && <p className={styles.message}>Showing {GANTT_PROJECT_LIMIT} projects. Choose a project from the scope menu to see its tracks.</p>}
-    <ProjectTracks projects={selectedProjects} grouped {...{ compact, selected, search, focused }} />
+    <ProjectTracks projects={selectedProjects} grouped {...{ compact, selected, search, focused, showOffline }} />
   </>;
 }
 
-function ProjectTracks({ projects, grouped = false, selected, compact, search, focused }: {
-  projects: GanttProject[]; grouped?: boolean; selected?: string; compact: boolean; search: string; focused: boolean;
+function ProjectTracks({ projects, grouped = false, selected, compact, search, focused, showOffline }: {
+  projects: GanttProject[]; grouped?: boolean; selected?: string; compact: boolean; search: string; focused: boolean; showOffline: boolean;
 }) {
   const queries = useGanttProjects(projects);
   const available = queries.flatMap(query => query.data ? [query.data] : []);
@@ -67,7 +67,7 @@ function ProjectTracks({ projects, grouped = false, selected, compact, search, f
   const partial = available.filter(snapshot => snapshot.partial);
   const retained = queries.find(query => query.isError && query.data) ?? queries.find(query => query.data);
   return <>
-    {retained && <RetainedNotice query={retained} />}
+    {retained && <RetainedNotice query={retained} showOffline={showOffline} />}
     {pending && <p className={styles.message} role="status">Loading more dependency tracks…</p>}
     {missing.length > 0 && <p className={styles.message} role="status">Tracks unavailable for {missing.map(m => m.label).join(", ")}.</p>}
     {partial.length > 0 && <p className={styles.message} role="status">{grouped ? `Partial dependency coverage for ${partial.map(s => s.project.label).join(", ")}.` : "Some tasks or dependencies are unavailable in this view."}</p>}

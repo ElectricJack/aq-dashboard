@@ -333,7 +333,7 @@ export function Overview() {
 
   const runningProjects = query.data?.view.inMotion.filter(item => (item.running.value ?? 0) > 0).map(item => item.project.id);
   const gantt = canShowGantt && <DependencyGantt compact project={scope.kind === "project" ? scope.project_id : undefined}
-    runningProjects={runningProjects} />;
+    runningProjects={runningProjects} showOffline={!query.data} />;
 
   if (!query.data && unavailableProject(scope.kind, query.error)) return <ProjectUnavailable />;
   if (!query.data && !query.isError) return (
