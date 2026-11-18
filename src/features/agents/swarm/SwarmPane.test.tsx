@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { handlersFor } from "../../../mocks/handlers";
-import { SWARM_MOCKUP, swarmEnvelope } from "../../../mocks/swarm";
+import { demoSwarm, SWARM_MOCKUP, swarmEnvelope } from "../../../mocks/swarm";
 import { SERVER_TIME } from "../../../mocks/inspectionData";
 import { renderApp } from "../../../test/renderApp";
 import { stubReactFlowDom } from "../../../test/reactFlow";
@@ -127,6 +127,20 @@ const FIXTURE_HANDLERS = () => server.use(...handlersFor("default", { fixtures: 
 const controlPosts = () => { const kinds: string[] = []; server.events.on("request:start", ({ request }) => { if (request.method === "POST" && request.url.includes("/mutations")) void request.clone().json().then(b => kinds.push((b as { kind: string }).kind)); }); return kinds; };
 const withoutAgent = (id: string) => ({ ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: n.agents.filter(a => a.session_id !== id) })) })) });
 const serve = (data: unknown) => server.use(http.get("/api/v1/swarm", () => HttpResponse.json(swarmEnvelope(data))));
+
+test.each(["tree", "board"])("the %s finishing pane offers the task instead of terminal reconnect", async view => {
+  const swarm = demoSwarm(SERVER_TIME, true);
+  const agent = swarm.machines.flatMap(m => m.nodes.flatMap(n => n.agents)).find(a => a.phase === "finishing")!;
+  agent.terminal = { id: agent.session_id, type: "terminal" };
+  serve(swarm);
+  renderApp(`/agents/swarm?view=${view}`);
+  await click(/Tidy the release notes template/);
+  const details = within(screen.getByRole("complementary", { name: "Properties" }));
+  expect(await details.findByRole("status")).toHaveTextContent("Finishing. AQ is waiting for this attempt to release its worker slot.");
+  expect(details.getByRole("link", { name: "Open task" })).toHaveAttribute("href", `/work/${agent.task!.id}?scope=project%3A${agent.project.id}`);
+  expect(details.queryByRole("region", { name: "Agent terminal" })).not.toBeInTheDocument();
+  expect(details.queryByRole("button", { name: "Reconnect" })).not.toBeInTheDocument();
+});
 
 test("Reconnect automatically restores interactive control", async () => {
   FIXTURE_HANDLERS();

@@ -1,8 +1,10 @@
 import {ManualAgentPane} from "./ManualAgentPane";
 import { Link, useLocation } from "react-router";
+import { validGraphId } from "../../../api/adapters/humanGraph";
 import { agentClassLabel, type AgentView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
 import { ActionButton, DetailList } from "../../../components/layout/Workspace";
+import { scopeSearch } from "../../../app/scope";
 import { useSession } from "../../../app/session";
 import { InteractiveTerminal } from "../InteractiveTerminal";
 import { useAgentTokens } from "./useAgentTokens";
@@ -18,6 +20,10 @@ function NativeAgentPane({agent,serverTime}:{agent:AgentView;serverTime:string})
   const tokens = useAgentTokens(agent.sessionId);
   const terminal = bootstrap.capability("terminal.watch");
   const label = `${agent.provider ?? "agent"} · ${agentClassLabel(agent)}`;
+  const finishing = agent.phase === "finishing";
+  const taskSearch = validGraphId(agent.project.id)
+    ? scopeSearch({ kind: "project", project_id: agent.project.id })
+    : scopeOnly(search);
   return (
     <>
       <DetailList className={styles.facts}>
@@ -28,16 +34,17 @@ function NativeAgentPane({agent,serverTime}:{agent:AgentView;serverTime:string})
         <dt>Model</dt><dd>{agent.ranWith?.model ?? agent.model ?? "unknown"}{agent.ranWith ? ` · ${agent.ranWith.reasoning} effort` : ""}</dd>
         <dt>Tokens</dt><dd>{tokens.text}</dd>
       </DetailList>
+      {finishing && <p role="status" className={styles.actionNote}>Finishing. AQ is waiting for this attempt to release its worker slot.</p>}
       <div className={styles.actions}>
-        <ActionButton disabled title="Not available on this page yet">Cancel attempt</ActionButton>
-        {agent.task && <Link className={styles.linkButton} to={{ pathname: `/work/${agent.task.id}`, search: scopeOnly(search) }}>Open task</Link>}
-        <Link className={styles.linkButton} to={{ pathname: `/agents/${encodeURIComponent(agent.sessionId)}`, search: scopeOnly(search) }}>Pop out terminal</Link>
+        {!finishing && <ActionButton disabled title="Not available on this page yet">Cancel attempt</ActionButton>}
+        {agent.task && <Link className={styles.linkButton} to={{ pathname: `/work/${encodeURIComponent(agent.task.id)}`, search: taskSearch }}>Open task</Link>}
+        {!finishing && <Link className={styles.linkButton} to={{ pathname: `/agents/${encodeURIComponent(agent.sessionId)}`, search: scopeOnly(search) }}>Pop out terminal</Link>}
       </div>
-      {!agent.terminalId
+      {!finishing && (!agent.terminalId
         ? <p role="note" className={styles.actionNote}>No terminal was recorded for this agent.</p>
         : !terminal.enabled
           ? <p role="note" className={styles.actionNote}>{terminal.reason}</p>
-          : <div className={styles.terminal}><InteractiveTerminal key={agent.terminalId} terminalId={agent.terminalId} name={label} label="Agent terminal" /></div>}
+          : <div className={styles.terminal}><InteractiveTerminal key={agent.terminalId} terminalId={agent.terminalId} name={label} label="Agent terminal" /></div>)}
     </>
   );
 }
