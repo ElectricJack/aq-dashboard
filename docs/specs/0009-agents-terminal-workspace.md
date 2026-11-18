@@ -163,6 +163,8 @@ worker disconnect or server restart.
 | `GET /api/manual-agents/{id}` | Owner, session metadata for a pinned terminal pane |
 | `GET /api/manual-agents/{id}/conversation` | Owner, saved conversation or an empty result, bound to session and project |
 | `POST /v1/worker/manual-agents/{id}/conversation` | Original enrolled node, immutable bounded conversation snapshot with replay acknowledgement |
+| `GET /api/v1/sessions/{id}/conversation` | Owner, the same snapshot for a queued worker session |
+| `POST /v1/worker/attempts/{id}/conversation` | Original enrolled node, the same snapshot after a confirmed attempt stop |
 
 ## 7. History user interface
 

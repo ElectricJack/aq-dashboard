@@ -3,12 +3,18 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import bootstrap from "../../contracts/proposed/bootstrap.json" with { type: "json" };
 import requirements from "../../src/app/bundle-requirements.json" with { type: "json" };
+import { SESSIONS } from "../../src/mocks/inspectionData";
 import { SWARM_MOCKUP } from "../../src/mocks/swarm";
 
 // Labelled deterministic fixtures: actual browser, xterm and client transport;
 // HTTP and WebSocket peers below are simulated, never the owner's live agents.
 const uuid = (n: number) => `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const project = uuid(1), repository = uuid(2);
+const queuedSession = {
+  ...SESSIONS[0]!, id: uuid(50), label: "Fixture queued session",
+  project: { id: project, label: "Fixture project" },
+  observation: { ...SESSIONS[0]!.observation, state: "reported_stopped" },
+};
 const now = () => Date.now();
 const sessions = () => Array.from({ length: 5 }, (_, i) => ({
   id: uuid(10 + i), node_id: SWARM_MOCKUP.machines[0]!.nodes[i % 2]!.node.id,
@@ -39,7 +45,7 @@ async function fixture(page: Page, hostEnabled = false) {
       contracts: [{name:"dashboard-read",version:"dashboard-read-1",digest:`sha256:${"0".repeat(64)}`}],
       capabilities: [...new Set([...requirements.required_capabilities,"swarm.read",...(hostEnabled?["swarm.worker.control"]:[])])].map(name => ({ name, version: "1", enabled: ["sessions.read", "swarm.read", "tasks.create", "projects.read", ...(hostEnabled?["swarm.worker.control"]:[])].includes(name), reason:"Disabled in this fixture" })) } };
     else if (path === "/api/v1/swarm") json = { ...envelope, data: { ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: [] })) })) } };
-    else if (path === "/api/v1/projects" || path === "/api/v1/sessions") json = { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: path.endsWith("projects") ? 1 : 0, accuracy: "exact" } } };
+    else if (path === "/api/v1/projects" || path === "/api/v1/sessions") json = { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [queuedSession], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 1, accuracy: "exact" } } };
     else if (path.startsWith("/api/worker-terminals/") && !path.includes("/terminal/")) {
       if (path.endsWith("/stop")) { hostStops.push(hostShell!.id); hostShell!.desired_running=false; hostShell!.status="ended"; }
       else if (request.method()==="POST" && !hostShell?.desired_running) hostShell={id:uuid(99),status:"running",desired_running:true};
@@ -47,7 +53,7 @@ async function fixture(page: Page, hostEnabled = false) {
     }
     else if (path === "/api/manual-agents") json = { sessions: agents, workers: [], slots: [], projects: [], server_time_ms: now() };
     else if (path === "/api/manual-agents/history") json = { sessions: [{ ...agents[0], conversation_available: true }], next_cursor: null, server_time_ms: now() };
-    else if (path.endsWith("/conversation")) json = { session_id: path.split("/")[3], project_id: project, conversation: { partial: false, messages } };
+    else if (path.endsWith("/conversation")) json = { session_id: path.split("/").at(-2), project_id: project, conversation: { partial: false, messages } };
     else if (/^\/api\/manual-agents\/[^/]+$/.test(path)) {
       json = agents.find(a => a.id === path.split("/")[3]);
     } else if (path.endsWith("/terminal/connect")) {
@@ -172,6 +178,29 @@ test("saved conversation supports search and download on desktop and phone", asy
   await page.getByRole("button", { name: "← Sessions" }).click();
   await expect(page.getByRole("textbox", { name: "Search sessions" })).toBeVisible();
   expect(f.connects.size).toBe(0);
+});
+
+test("queued sessions open the shared conversation on desktop and phone", async ({ page }) => {
+  const f = await fixture(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/agents/history?scope=project:${project}`);
+  await page.getByRole("button", { name: /Fixture queued session/ }).click();
+  const output = page.getByLabel("Saved conversation", { exact: true });
+  await expect(output).toContainText(f.messages[0]!.text);
+  await expect(output).toContainText("This is a saved conversation.");
+  await page.getByRole("textbox", { name: "Find in conversation" }).fill("fixture project");
+  await page.getByRole("button", { name: "Find", exact: true }).click();
+  await expect(output.locator("mark")).toHaveText("fixture project");
+  await expect(page.getByRole("link", { name: "Open session inspection" })).toHaveAttribute(
+    "href", `/agents/${queuedSession.id}?scope=project%3A${project}`,
+  );
+  await noOverflow(page);
+  await page.screenshot({ path: test.info().outputPath("queued-history-1440.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(output).toBeVisible();
+  await expect(page.getByRole("button", { name: "← Sessions" })).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: test.info().outputPath("queued-history-390.png") });
 });
 
 test("connection loss freezes only its pane and explicit reconnect never replays input", async ({page}) => {

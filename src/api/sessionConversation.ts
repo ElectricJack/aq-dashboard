@@ -4,8 +4,11 @@ import { ContractError, isRecord } from './adapters/contract';
 export type ConversationMessage = { role: 'user' | 'assistant'; text: string };
 export type Conversation = { messages: ConversationMessage[]; partial: boolean };
 
-export async function sessionConversation(id: string, project: string | undefined, signal: AbortSignal) {
-  const value = await apiGet<unknown>(`/api/manual-agents/${encodeURIComponent(id)}/conversation`, signal);
+export type ConversationSource = 'manual' | 'native';
+
+export async function sessionConversation(source: ConversationSource, id: string, project: string | undefined, signal: AbortSignal) {
+  const base = source === 'manual' ? '/api/manual-agents' : '/api/v1/sessions';
+  const value = await apiGet<unknown>(`${base}/${encodeURIComponent(id)}/conversation`, signal);
   if (!isRecord(value) || value.session_id !== id || typeof value.project_id !== 'string') {
     throw new ContractError('Invalid conversation session');
   }
