@@ -20,13 +20,14 @@ function useActionAvailability() {
 /**
  * A disabled action that keeps its reason out of the layout: the reason is the
  * button's accessible description and appears as a tooltip on hover, focus or tap.
+ * A tap focuses before it clicks, so the click only ever shows: blur, Escape or leaving hides.
  */
 export function UnavailableAction({ label, reason, icon }: { label: string; reason: string; icon?: ReactNode }) {
   const [shown, setShown] = useState(false);
   const tip = useId();
   return <span className={styles.tipAnchor} onMouseEnter={() => setShown(true)} onMouseLeave={() => setShown(false)}>
     <ActionButton aria-disabled="true" className={styles.unavailable} title={shown ? undefined : reason} aria-describedby={shown ? tip : undefined}
-      onFocus={() => setShown(true)} onBlur={() => setShown(false)} onClick={() => setShown(v => !v)} onKeyDown={e => { if (e.key === "Escape") setShown(false); }}>
+      onFocus={() => setShown(true)} onBlur={() => setShown(false)} onClick={() => setShown(true)} onKeyDown={e => { if (e.key === "Escape") setShown(false); }}>
       {icon}{label}
     </ActionButton>
     {shown && <span role="tooltip" id={tip} className={styles.tooltip}>{reason}</span>}

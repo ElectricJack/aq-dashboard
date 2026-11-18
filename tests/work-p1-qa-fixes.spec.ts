@@ -144,6 +144,8 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
     test("P1-04: a focused control is never hidden under the pinned header", async ({ page }) => {
       await page.goto(`/work/${replay}?${scope}`);
       await expect(section(page, "Attempts").getByRole("button", { name: "Copy session ID" }).first()).toBeVisible();
+      // Open History below Attempts so the page is long enough to scroll an attempt row up under the header.
+      await section(page, "History").getByRole("button", { name: "History", exact: true }).click();
       /** Scroll so the target's centre sits just under the pinned header's bottom edge: on screen, but covered. */
       const underHeader = (target: Locator) => target.evaluate(async (el) => {
         window.scrollTo(0, 0);

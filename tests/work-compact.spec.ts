@@ -78,7 +78,8 @@ test.describe("desktop 1440x900", () => {
     expect(m.inspectorFont).toBe("14px");
     expect(m.title).toBe("18px");
     expect(m.headerHeight).toBeLessThanOrEqual(140);
-    expect(m.aboveFirstComment).toBeLessThanOrEqual(400);
+    // 400 for header, status and the comment form, plus the 66px Role / Route / Why this route block Status gained with routing.
+    expect(m.aboveFirstComment).toBeLessThanOrEqual(466);
     expect(m.sectionHead).toBeLessThanOrEqual(34);
     expect(m.row).toBeLessThanOrEqual(32);
     expect(m.rowFont).toBe("14px");

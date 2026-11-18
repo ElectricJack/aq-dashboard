@@ -51,13 +51,14 @@ test.describe("desktop", () => {
     await axe(page);
   });
 
-  test("WD-11: Cancel and Retry name the attempt and explain when they can't act", async ({ page }) => {
+  // Cancel now cancels the task itself and needs no attempt (spec 0002, owner update 2026-11-10); only an
+  // already canceled task refuses it. Retry still names the attempt.
+  test("WD-11: Cancel task and Retry attempt say what they act on and explain when they can't act", async ({ page }) => {
     await page.goto(`/work/${id(0x104)}?${scope}`);
     await expect(inspector(page).getByText("No agent attempt holds this task.")).toBeVisible();
     await inspector(page).getByRole("button", { name: "More actions" }).click();
-    const cancel = page.getByRole("menuitem", { name: /Cancel attempt/ });
-    await expect(cancel).toHaveAttribute("aria-disabled", "true");
-    await expect(cancel).toContainText("No agent attempt holds this task");
+    await expect(page.getByRole("menuitem", { name: /Cancel attempt/ })).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Cancel task", exact: true })).not.toHaveAttribute("aria-disabled", "true");
     // 0x104 never had an attempt, so there is nothing to retry (WD-11 remainder, work-rerun-fixes.spec.ts).
     await expect(page.getByRole("menuitem", { name: /Retry attempt/ })).toContainText("This task has never had an agent attempt to retry");
     await page.keyboard.press("Escape");
@@ -65,12 +66,17 @@ test.describe("desktop", () => {
     await page.goto(`/work/${id(0x105)}?${scope}`);
     await expect(inspector(page).getByRole("link", { name: "Open terminal" })).toBeVisible();
     await inspector(page).getByRole("button", { name: "More actions" }).click();
-    await expect(page.getByRole("menuitem", { name: /Cancel attempt/ })).not.toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByRole("menuitem", { name: "Cancel task", exact: true })).not.toHaveAttribute("aria-disabled", "true");
 
     await page.goto(`/work/${id(0x102)}?${scope}`);
     await inspector(page).getByRole("button", { name: "More actions" }).click();
     await expect(page.getByRole("menuitem", { name: /Retry attempt/ })).toContainText("AQ retries attempts of active tasks only");
-    await expect(page.getByRole("menuitem", { name: /Cancel attempt/ })).toContainText("No agent attempt can hold a completed task");
+
+    await page.goto(`/work/${id(0x108)}?${scope}`);
+    await inspector(page).getByRole("button", { name: "More actions" }).click();
+    const cancel = page.getByRole("menuitem", { name: /Cancel task/ });
+    await expect(cancel).toHaveAttribute("aria-disabled", "true");
+    await expect(cancel).toContainText("Task is already canceled");
   });
 
   test("WD-03: Create task limits the title to 512 and a blank title says it is required", async ({ page }) => {

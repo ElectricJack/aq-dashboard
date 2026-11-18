@@ -38,15 +38,18 @@ for (const vp of VIEWPORTS) {
   test.describe(`${vp.width}x${vp.height}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("subtitle sits 4-8px under the H1 and the view tabs stay on one row", async ({ page }) => {
+    test("compact header has no subtitle row and the view tabs stay on one row", async ({ page }) => {
       await page.goto("/playbooks");
       await expect(page.getByRole("list", { name: "Playbook runs" })).toBeVisible({ timeout: 30_000 });
       const h1 = await box(page.getByRole("heading", { level: 1, name: "Playbooks" }));
-      const subtitle = await box(page.getByText("Inspect policy and follow each execution.", { exact: true }));
-      const gap = subtitle.y - (h1.y + h1.height);
-      expect(gap).toBeGreaterThanOrEqual(4);
-      expect(gap).toBeLessThanOrEqual(8);
+      // Compact header (spec 0002, owner update 2026-11-10): no subtitle; the view bar follows the title row directly.
+      await expect(page.getByText("Inspect policy and follow each execution.", { exact: true })).toHaveCount(0);
       const tablist = page.getByRole("tablist", { name: "Playbook views" });
+      const header = await box(page.locator("main [data-page-header]"));
+      expect(h1.y + h1.height).toBeLessThanOrEqual(header.y + header.height);
+      const gap = (await box(tablist)).y - (header.y + header.height);
+      expect(gap).toBeGreaterThanOrEqual(4);
+      expect(gap).toBeLessThanOrEqual(32);
       expect((await box(tablist)).height).toBeLessThan(56);
       await expect(tablist.getByRole("tab")).toHaveText(["Runs", "Definitions", "Activations", "Admissions"]);
       await expect(tablist.getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-selected", "true");

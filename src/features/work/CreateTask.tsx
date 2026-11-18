@@ -14,15 +14,17 @@ import {adaptTaskOperation,freezeTaskCreate,validateTaskDraft,validateTitle,type
 import {taskOperationRequest} from "../../api/taskCreateClient";
 import {ActionButton} from "../../components/layout/Workspace";
 import {RoleSelect} from "./taskRole";
+import {UnavailableAction} from "../knowledge/KnowledgeActions";
 import styles from "./CreateTask.module.css";
 const blank:TaskDraft={title:"",body:"",acceptance_criteria:"",task_state:"draft"};
 function validDraft(value:unknown):value is TaskDraft{return isRecord(value)&&typeof value.title==="string"&&value.title.length<=1024&&typeof value.body==="string"&&typeof value.acceptance_criteria==="string"&&(value.task_state==="draft"||value.task_state==="active")&&(value.role===undefined||(typeof value.role==="string"&&value.role.length<=128));}
 export function CreateTaskAction(){
  const {bootstrap,queryContext}=useSession();const [scope]=useScope();const capability=bootstrap.capability("tasks.create");
  const identity=`${queryContext.principalId}:${queryContext.authorizationRevision}`;const [revoked,setRevoked]=useState<string|null>(null);
- const project=scope.kind==="project"&&validGraphId(scope.project_id)?scope.project_id:undefined;const hintId=useId();
+ const project=scope.kind==="project"&&validGraphId(scope.project_id)?scope.project_id:undefined;
  if(revoked===identity)return <div className={styles.action}><p role="alert" className={styles.warning}>Access changed. Reload after signing in to check the operation.</p><ActionButton onClick={()=>window.location.reload()}>Reload access</ActionButton></div>;
- if(!capability.enabled||!project)return <div className={styles.action}><ActionButton disabled title={!capability.enabled?capability.reason:"Choose a project first"} aria-describedby={hintId}><Plus size={18} aria-hidden/>Create task</ActionButton><span id={hintId} className={styles.hint}>{!capability.enabled?capability.reason:"Choose a project first"}</span></div>;
+ // The compact header has no room for the reason, so it is the button's description and a tooltip on hover, focus or tap (SO-22).
+ if(!capability.enabled||!project)return <UnavailableAction label="Create task" reason={(!capability.enabled?capability.reason:undefined)??"Choose a project first"} icon={<Plus size={18} aria-hidden/>}/>;
  return <Composer key={`${identity}:${project}`} project={project} onAccessRevoked={()=>setRevoked(identity)}/>;
 }
 function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>void}){

@@ -24,7 +24,8 @@ for (const vp of VIEWPORTS) {
     test("/agents/sess-07 watches labelled fixture output", async ({ page }) => {
       await page.goto("/agents/sess-07");
       const pane = page.getByRole("region", { name: "Interactive agent terminal" });
-      await expect(pane.getByRole("status").filter({ hasText: "Watch only" })).toBeVisible();
+      // Control connects automatically when the policy allows it; there is no Watch only step.
+      await expect(pane.getByRole("status").filter({ hasText: "You have control" })).toBeVisible();
       await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
       await expect(pane.locator(".xterm-rows")).toContainText("Tests: 1 failed, 20 passed, 21 total");
       await noOverflow(page);

@@ -105,7 +105,10 @@ test.describe("phone", () => {
     await page.goto("/overview");
     const create = page.getByRole("button", { name: /create task/i });
     await expect(create).toBeDisabled({ timeout: 15_000 });
-    const hint = page.locator("#content").getByText("Choose a project first");
+    // The compact header keeps the reason out of the row: tapping the button shows it as a tooltip.
+    await create.click({ force: true });
+    const hint = page.locator("#content").getByRole("tooltip").filter({ hasText: "Choose a project first" });
+    await expect(hint).toBeInViewport({ ratio: 1 });
     const box = await hint.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThan(40);
     expect(box?.height ?? 0).toBeGreaterThan(10);
