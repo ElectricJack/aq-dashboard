@@ -212,10 +212,8 @@
 .taskCounts { padding-block: var(--space-2); }
 .observationDetails { margin-block-start: var(--space-2); font-size: var(--font-size-meta); color: var(--color-text-secondary); }
 .observationDetails summary { cursor: pointer; min-block-size: 28px; }
-.outcomeSection, .infrastructureSection { padding-block-start: var(--space-4); border-block-start: 1px solid var(--color-border); }
+.outcomeSection { padding-block-start: var(--space-4); border-block-start: 1px solid var(--color-border); }
 .outcomeSection { display: grid; gap: var(--space-3); }
-.infrastructureSection h3 { margin: 0; font-size: var(--font-size-body); }
-.capacityValue { margin: 0; font-size: var(--font-size-display); font-weight: 600; }
 .counts { justify-content: space-around; }
 .scopeDisclosure summary { cursor: pointer; min-block-size: 28px; }
 .recordedHeader { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
@@ -261,23 +259,6 @@
  .countIcon { inline-size: 20px; block-size: 20px; }
 }
 
-/* SBX25 disk storage inside the Capacity panel; bar follows the provider usage meter. */
-.storageList { list-style: none; margin: 0; padding: 0; display: grid; }
-.storageRow { display: grid; gap: var(--space-1); padding-block: var(--space-2); border-block-start: 1px solid var(--color-border); min-inline-size: 0; overflow-wrap: anywhere; }
-.storageList > .storageRow:first-child { border-block-start: 0; }
-.storageRow[data-level="unknown"] { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); }
-.storageHeading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--space-1) var(--space-3); }
-.storageLevel { font-size: var(--font-size-meta); }
-.storageRow[data-level="warning"] .storageLevel { color: var(--color-attention); }
-.storageRow[data-level="refusal"] .storageLevel { color: var(--color-error); }
-.storageBar { display: block; block-size: 8px; border-radius: 4px; background: var(--color-raised); overflow: hidden; }
-.storageBar > span { display: block; block-size: 100%; background: var(--color-success); }
-.storageRow[data-level="warning"] .storageBar > span { background: var(--color-attention); }
-.storageRow[data-level="refusal"] .storageBar > span { background: var(--color-error); }
-.storageFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-3); margin: 0; font-size: var(--font-size-meta); }
-.storageFacts dt { color: var(--color-text-secondary); }
-.storageFacts dd { margin: 0; font-variant-numeric: tabular-nums; }
-
 /* The Supervisor dock reduces the destination pane without resizing the window. */
 @container destination (max-width: 900px) {
  .columns { grid-template-columns: minmax(0, 1fr); }
@@ -299,14 +280,102 @@
  .attentionRow > .impact { grid-column: 2; justify-self: start; }
 }
 
-/* OV-D: compact Capacity so Pinned sessions starts above the 1440x900 fold. */
+/* Capacity uses the same secondary pane and keeps machine detail collapsed. */
 .capacityPanel { gap: var(--space-2); }
 .capacityPanel p { margin: 0; }
-.capacityPanel .infrastructureSection { display: grid; gap: var(--space-1); padding-block-start: var(--space-3); }
-.capacityPanel .capacityValue { font-size: var(--font-size-h1); }
-.moreCapacity { border-block-start: 1px solid var(--color-border); padding-block-start: var(--space-2); }
-.moreCapacity > summary { cursor: pointer; min-block-size: var(--control-height); line-height: var(--control-height); color: var(--color-text-secondary); font-size: var(--font-size-meta); }
-.moreCapacity > .infrastructureSection { margin-block-start: var(--space-2); }
+.capacityHeader, .resourceValue {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.capacityHeader a {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-block-size: 28px;
+  font-size: var(--font-size-meta);
+}
+.capacityValue {
+  font-size: var(--font-size-h3);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.capacityValue strong { font-size: var(--font-size-display); font-variant-numeric: tabular-nums; }
+.slotBar {
+  display: flex;
+  gap: 2px;
+  block-size: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.slotBar > span, .slotLegend > li { --slot-color: var(--color-text-secondary); }
+.slotBar > [data-kind="open"], .slotLegend > [data-kind="open"] { --slot-color: var(--color-success); }
+.slotBar > [data-kind="held"], .slotLegend > [data-kind="held"] { --slot-color: var(--color-attention); }
+.slotBar > span { background: var(--slot-color); min-inline-size: 2px; }
+.slotLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+.slotLegend > li { display: flex; align-items: center; gap: var(--space-1); }
+.slotLegend > li::before {
+  content: "";
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: var(--slot-color);
+}
+.slotLegend, .resourceGrid, .capacityMachines { list-style: none; margin: 0; padding: 0; }
+.resourceSection, .capacityDetails {
+  border-block-start: 1px solid var(--color-border);
+  margin-block-start: var(--space-1);
+}
+.resourceSection { display: grid; gap: var(--space-2); padding-block-start: var(--space-3); }
+.resourceSection h3 { margin: 0; font-size: var(--font-size-body); }
+.resourceGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.resourceGrid > li {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+.resourceValue { font-size: var(--font-size-meta); }
+.resourceValue > span { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+@media (max-width: 359px) {
+  .resourceValue { display: grid; justify-content: start; }
+}
+.resourceBar { overflow: hidden; block-size: 5px; border-radius: 999px; background: var(--color-raised); }
+.resourceBar > span { display: block; block-size: 100%; background: var(--color-success); }
+.capacityDetails > summary {
+  cursor: pointer;
+  padding-block: var(--space-2);
+  min-block-size: var(--control-height);
+  font-size: var(--font-size-meta);
+}
+.capacityMachines > li {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  border-block-start: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+.capacityHold { color: var(--color-attention); font-size: var(--font-size-meta); }
+.machineResources {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-meta);
+}
+.machineResources dt { color: var(--color-text-secondary); }
+.machineResources dd { margin: 0; font-variant-numeric: tabular-nums; }
 .footerLink { justify-self: end; }
 /* OV-C: Work in motion follows reference 01: status icon + toned label; phone rows stack as two-line cards. */
 .motionProject, .motionNow, .motionProgress { white-space: nowrap; }
@@ -354,7 +423,7 @@
 .panel h2 { font-size: calc(var(--font-size-body) + 4px); }
 .counts strong { font-size: calc(var(--font-size-body) + 4px); }
 .summary { font-size: calc(var(--font-size-body) + 2px); }
-.projectCard h3, .infrastructureSection h3 { font-size: var(--font-size-body); }
+.projectCard h3 { font-size: var(--font-size-body); }
 @media (max-width: 767px) {
  .counts strong { font-size: calc(var(--font-size-body) + 2px); }
  .summary { font-size: var(--font-size-body); }
