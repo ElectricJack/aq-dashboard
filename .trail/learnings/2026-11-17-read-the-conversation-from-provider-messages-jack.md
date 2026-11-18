@@ -16,7 +16,7 @@ touches:
 
 ## Decided
 
-Agents History opens native user and assistant text when it exists. Keep terminal archives independently readable because old sandboxes can be missing their native logs and terminal output can show startup and tool diagnostics that the conversation omits. Take one durable conversation snapshot after stop, when the native log is stable, and collect it from retained stopped sandboxes as well. This makes capture independent of browser connections and avoids overwriting archived content on retry.
+Agents History opens native user and assistant text when it exists. The first rollout kept the terminal archive as a fallback. The owner later removed it because the retained terminal text was unreadable. Take one durable conversation snapshot after stop, when the native log is stable, and collect it from retained stopped sandboxes as well. This makes capture independent of browser connections and avoids overwriting archived content on retry.
 
 ## Tried and ruled out
 

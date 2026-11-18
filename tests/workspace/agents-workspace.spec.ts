@@ -3,12 +3,18 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import bootstrap from "../../contracts/proposed/bootstrap.json" with { type: "json" };
 import requirements from "../../src/app/bundle-requirements.json" with { type: "json" };
+import { SESSIONS } from "../../src/mocks/inspectionData";
 import { SWARM_MOCKUP } from "../../src/mocks/swarm";
 
 // Labelled deterministic fixtures: actual browser, xterm and client transport;
 // HTTP and WebSocket peers below are simulated, never the owner's live agents.
 const uuid = (n: number) => `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const project = uuid(1), repository = uuid(2);
+const queuedSession = {
+  ...SESSIONS[0]!, id: uuid(50), label: "Fixture queued session",
+  project: { id: project, label: "Fixture project" },
+  observation: { ...SESSIONS[0]!.observation, state: "reported_stopped" },
+};
 const now = () => Date.now();
 const sessions = () => Array.from({ length: 5 }, (_, i) => ({
   id: uuid(10 + i), node_id: SWARM_MOCKUP.machines[0]!.nodes[i % 2]!.node.id,
@@ -23,10 +29,11 @@ async function fixture(page: Page, hostEnabled = false) {
   const hostInputs: string[] = [], hostStops: string[] = [];
   const agents = sessions(), connects = new Map<string, number>(), inputs = new Map<string, string>();
   const sockets = new Map<string, WebSocketRoute>(), stops: string[] = [], sizes: number[][] = [];
-  const chunks = Array.from({ length: 40 }, (_, i) => ({ sequence: i + 1,
-    text: i === 31 ? "ébegin needle" : i === 32 ? " across pages 🐈\n" : `Fixture retained line ${i + 1}\n` }));
-  const archive = (id = agents[0]!.id) => ({ ...agents.find(a => a.id === id)!, archive: { state: "complete", coverage: "complete", reason: null,
-    first_sequence: 1, last_sequence: 40, bytes: Buffer.byteLength(chunks.map(c => c.text).join("")), updated_at_ms: now() } });
+  const messages = [
+    { role: "user", text: "Explain the current scope." },
+    { role: "assistant", text: "The scope is limited to the fixture project.\nThis is a saved conversation." },
+  ];
+
   await page.route(url => url.pathname.startsWith("/api/"), async route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname;
     const scope = url.searchParams.get("scope");
@@ -38,20 +45,17 @@ async function fixture(page: Page, hostEnabled = false) {
       contracts: [{name:"dashboard-read",version:"dashboard-read-1",digest:`sha256:${"0".repeat(64)}`}],
       capabilities: [...new Set([...requirements.required_capabilities,"swarm.read",...(hostEnabled?["swarm.worker.control"]:[])])].map(name => ({ name, version: "1", enabled: ["sessions.read", "swarm.read", "tasks.create", "projects.read", ...(hostEnabled?["swarm.worker.control"]:[])].includes(name), reason:"Disabled in this fixture" })) } };
     else if (path === "/api/v1/swarm") json = { ...envelope, data: { ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: [] })) })) } };
-    else if (path === "/api/v1/projects" || path === "/api/v1/sessions") json = { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: path.endsWith("projects") ? 1 : 0, accuracy: "exact" } } };
+    else if (path === "/api/v1/projects" || path === "/api/v1/sessions") json = { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [queuedSession], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 1, accuracy: "exact" } } };
     else if (path.startsWith("/api/worker-terminals/") && !path.includes("/terminal/")) {
       if (path.endsWith("/stop")) { hostStops.push(hostShell!.id); hostShell!.desired_running=false; hostShell!.status="ended"; }
       else if (request.method()==="POST" && !hostShell?.desired_running) hostShell={id:uuid(99),status:"running",desired_running:true};
       json={ready:true,node_name:"Fixture WSL worker",shell:hostShell};
     }
     else if (path === "/api/manual-agents") json = { sessions: agents, workers: [], slots: [], projects: [], server_time_ms: now() };
-    else if (path === "/api/manual-agents/history") json = { sessions: [archive()], next_cursor: null, server_time_ms: now() };
-    else if (path.endsWith("/transcript/search")) {
-      const text = chunks.map(c => c.text).join(""), q = url.searchParams.get("q") ?? "";
-      json = { matches: [{ offset: Buffer.byteLength(text.slice(0, text.indexOf(q))), length: Buffer.byteLength(q), sequence: 32, excerpt: q }], next_after: null, has_more: false, through_sequence: 40, server_time_ms: now() };
-    } else if (path.endsWith("/transcript")) {
-      const after = Number(url.searchParams.get("after") ?? 0), limit = Number(url.searchParams.get("limit") ?? 32), end = Math.min(after + limit, 40);
-      json = { session: archive(path.split("/")[3]), chunks: chunks.slice(after, end), next_after: end, has_more: end < 40, through_sequence: 40, server_time_ms: now() };
+    else if (path === "/api/manual-agents/history") json = { sessions: [{ ...agents[0], conversation_available: true }], next_cursor: null, server_time_ms: now() };
+    else if (path.endsWith("/conversation")) json = { session_id: path.split("/").at(-2), project_id: project, conversation: { partial: false, messages } };
+    else if (/^\/api\/manual-agents\/[^/]+$/.test(path)) {
+      json = agents.find(a => a.id === path.split("/")[3]);
     } else if (path.endsWith("/terminal/connect")) {
       const id = path.split("/")[3]!; connects.set(id, (connects.get(id) ?? 0) + 1); json = { generation: connects.get(id) };
     } else if (path.endsWith("/stop")) {
@@ -74,7 +78,7 @@ async function fixture(page: Page, hostEnabled = false) {
     ws.onMessage(message=>{if(typeof message!=="string"){hostInputs.push(message.toString());ws.send(message);}});
     ws.send(JSON.stringify({kind:"ready",server_time_ms:now()}));ws.send(Buffer.from("\r\nFixture host shell\r\n$ "));
   });
-  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, chunks };
+  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, messages };
 }
 
 async function noOverflow(page: Page) {
@@ -150,21 +154,21 @@ test("tablet and phone switches preserve panes and an expanded terminal always h
   expect(f.sizes.every(([cols, rows]) => cols >= 80 && rows >= 8)).toBe(true);
 });
 
-test("retained history finds unloaded cross-page text and downloads the whole archive", async ({ page }) => {
+test("saved conversation supports search and download on desktop and phone", async ({ page }) => {
   const f = await fixture(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/agents/sessions?scope=project:${project}&session=manual:${f.agents[0]!.id}`);
   await expect(page).toHaveURL(/\/agents\/history\?/);
-  const output = page.getByLabel("Terminal transcript", { exact: true });
-  await expect(output).toContainText("Fixture retained line 1");
-  await page.getByRole("textbox", { name: "Find", exact: true }).fill("needle across pages");
+  const output = page.getByLabel("Saved conversation", { exact: true });
+  await expect(output).toContainText("Explain the current scope.");
+  await page.getByRole("textbox", { name: "Find in conversation", exact: true }).fill("fixture project");
   await page.getByRole("button", { name: "Find", exact: true }).click();
-  await expect(output.locator("mark")).toHaveText("needle across pages");
+  await expect(output.locator("mark")).toHaveText("fixture project");
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download retained output" }).click();
+  await page.getByRole("button", { name: "Download conversation" }).click();
   const saved = await download, stream = await saved.createReadStream(), parts: Buffer[] = [];
   for await (const part of stream!) parts.push(Buffer.from(part));
-  expect(Buffer.concat(parts).toString()).toBe(f.chunks.map(c => c.text).join(""));
+  expect(Buffer.concat(parts).toString()).toBe(f.messages.map(({ role, text }) => `${role === "user" ? "You" : "Agent"}\n${text}`).join("\n\n"));
   await noOverflow(page);
   await page.screenshot({ path: test.info().outputPath("history-1440.png") });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -174,6 +178,29 @@ test("retained history finds unloaded cross-page text and downloads the whole ar
   await page.getByRole("button", { name: "← Sessions" }).click();
   await expect(page.getByRole("textbox", { name: "Search sessions" })).toBeVisible();
   expect(f.connects.size).toBe(0);
+});
+
+test("queued sessions open the shared conversation on desktop and phone", async ({ page }) => {
+  const f = await fixture(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/agents/history?scope=project:${project}`);
+  await page.getByRole("button", { name: /Fixture queued session/ }).click();
+  const output = page.getByLabel("Saved conversation", { exact: true });
+  await expect(output).toContainText(f.messages[0]!.text);
+  await expect(output).toContainText("This is a saved conversation.");
+  await page.getByRole("textbox", { name: "Find in conversation" }).fill("fixture project");
+  await page.getByRole("button", { name: "Find", exact: true }).click();
+  await expect(output.locator("mark")).toHaveText("fixture project");
+  await expect(page.getByRole("link", { name: "Open session inspection" })).toHaveAttribute(
+    "href", `/agents/${queuedSession.id}?scope=project%3A${project}`,
+  );
+  await noOverflow(page);
+  await page.screenshot({ path: test.info().outputPath("queued-history-1440.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(output).toBeVisible();
+  await expect(page.getByRole("button", { name: "← Sessions" })).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: test.info().outputPath("queued-history-390.png") });
 });
 
 test("connection loss freezes only its pane and explicit reconnect never replays input", async ({page}) => {

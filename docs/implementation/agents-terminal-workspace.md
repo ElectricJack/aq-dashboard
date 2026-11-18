@@ -71,15 +71,8 @@ The archive implementation is `a17106c5` on `feat/session-transcript-archive` in
 - The separate raw-producer check reached exactly 134,217,728 bytes while the
   disposable agent continued and exited normally after drain.
 
-To repeat browser checks, run `pnpm test:workspace`. To repeat Docker capture and
-the producer cap, run `python3 scripts/qualify-manual-recording.py` with and without
-`--raw-limit` from the worker checkout. The server's ignored tests
-`manual_agents::retained_transcript_real_worker_docker_capture` and
-`manual_agents::retained_transcript_real_worker_corrupt_recovery` require a private
-test `DATABASE_URL`, `AQ_RECORDING_WORKER_DIR`, Docker and the existing
-`aq-bootstrap-tmux-proof:26.04` fixture image. Every Cargo invocation uses a timeout
-and each checkout's own target directory. Private fixture credentials are never
-included in saved evidence.
+Run `pnpm test:workspace` for the current compiled dashboard browser checks.
+The recorder checks above document the original rollout.
 
 ## Visual review and limits
 
