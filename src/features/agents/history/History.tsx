@@ -13,6 +13,7 @@ import { history } from '../../../api/sessionHistory';
 import { sessionConversation, type ConversationSource } from '../../../api/sessionConversation';
 import { Conversation } from './Conversation';
 import { AgentsTabs } from '../AgentsTabs';
+import { observedEnded, observedRunning } from '../labels';
 import styles from './History.module.css';
 
 function refusedRead(error:unknown) { return (error instanceof ApiError && [404,410].includes(error.status ?? 0)) || isProtectedReadFailure(error); }
@@ -28,7 +29,7 @@ export function History() {
  const selected = params.get('session'); const choose=(value:string)=>setParams(p=>{const n=new URLSearchParams(p); n.set('session',value);return n;});
  const internalRows = internal ? runs.data?.pages.flatMap(p=>p.runs) ?? [] : [];
  const manual = internal ? [] : listing.isError && isProtectedReadFailure(listing.error) ? [] : listing.data?.pages.flatMap(p=>p.sessions) ?? [];
- const nativeRows = internal ? [] : (native.isError && isProtectedReadFailure(native.error) ? [] : native.data?.pages.flatMap(p=>p.page.items) ?? []).filter(s=>{const text=`${s.label} ${s.task?.title ?? ''} ${s.project.label}`.toLowerCase(); return (!q || text.includes(q.toLowerCase())) && (!provider || s.profile.provider?.toLowerCase().includes(provider.toLowerCase())) && (!model || (s.profile.model ?? '').toLowerCase().includes(model.toLowerCase())) && (!status || (status==='ended' ? s.observation.state==='reported_stopped' : s.observation.state==='reported_running'));});
+ const nativeRows = internal ? [] : (native.isError && isProtectedReadFailure(native.error) ? [] : native.data?.pages.flatMap(p=>p.page.items) ?? []).filter(s=>{const text=`${s.label} ${s.task?.title ?? ''} ${s.project.label}`.toLowerCase(); return (!q || text.includes(q.toLowerCase())) && (!provider || s.profile.provider?.toLowerCase().includes(provider.toLowerCase())) && (!model || (s.profile.model ?? '').toLowerCase().includes(model.toLowerCase())) && (!status || (status==='ended' ? observedEnded(s.observation.state) : observedRunning(s.observation.state)));});
  const nativeId = selected?.startsWith('native:') ? selected.slice(7) : null;
  const activeNative = nativeId ? nativeRows.find(s => s.id === nativeId) : undefined;
  const manualId = selected?.startsWith('manual:') ? selected.slice(7) : null;

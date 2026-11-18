@@ -10,7 +10,6 @@ import {
 } from "../../api/adapters/inspection";
 import type { SessionDetail as SessionDetailWire, SessionSummary } from "../../api/wire/proposed";
 import { CountLabel } from "../../components/QueryStatus/CountLabel";
-import { FreshnessLabel } from "../../components/QueryStatus/FreshnessLabel";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import { formatAge } from "../../components/time/relative";
@@ -18,7 +17,8 @@ import { scopeSearch, useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { usePagedRead } from "../../app/usePagedRead";
 import { useRead } from "../../app/useRead";
-import { AUTHORITY_LABEL, controllerText, executionAuthorityText, OBSERVATION_LABEL, profileText } from "./labels";
+import { AUTHORITY_LABEL, controllerText, executionAuthorityText, observationReasonText, profileText } from "./labels";
+import { ObservationLabel, ObservationSummary, ObservationTimes } from "./ObservationState";
 import styles from "./Agents.module.css";
 import { AgentsTabs } from "./AgentsTabs";
 import { columnsForPane, InteractiveTerminal, MIN_PANE_COLUMNS } from "./InteractiveTerminal";
@@ -51,12 +51,6 @@ function compactSessionLabel(s: SessionView): string {
   if (!fallback) return s.label;
   const title = s.task?.title && s.task.title !== s.task.id ? s.task.title : null;
   return title ?? `Session ${s.id.slice(0, 8)}`;
-}
-
-/** An unknown process state was never reported, so it has no age and is not "stale" (server #97: quality unknown = not reported). */
-function ObservationAge({ session: s, serverTime }: { session: SessionView; serverTime: string }) {
-  if (s.observation.state === "unknown") return <span>not reported</span>;
-  return <FreshnessLabel serverTime={serverTime} observedAt={s.observation.observedAt} stale={s.observation.freshness === "stale"} />;
 }
 
 function LifecycleHistory({ session, serverTime }: { session: SessionView; serverTime: string }) {
@@ -114,8 +108,9 @@ function Roster({ search }: { search: string }) {
               </span>
               <span className={styles.meta}>{profileText(s.profile)}</span>
               <span className={styles.state}>
-                {OBSERVATION_LABEL[s.observation.state]} · <ObservationAge session={s} serverTime={serverTime} />
+                <ObservationSummary session={s} serverTime={serverTime} />
               </span>
+              <ObservationTimes session={s} serverTime={serverTime} />
               <span className={styles.meta}>Central state: {executionAuthorityText(s.executionAuthority)}</span>
               <span className={styles.meta}><LifecycleHistory session={s} serverTime={serverTime} /></span>
               <span className={styles.meta}>
@@ -149,10 +144,11 @@ function writeOpenTabs(ids: string[]) {
 }
 
 const TAB_STATUS: Record<SessionView["observation"]["state"], string> = {
-  reported_running: "Running", reported_stopped: "Stopped", unknown: "State unknown", unsupported: "Unsupported state",
+  working: "Working", quiet: "No progress lately", stale: "No recent activity", awaiting: "Starting", unknown: "Not observed", ended: "Ended",
+  reported_running: "Running", reported_stopped: "Stopped", unsupported: "Unsupported state",
 };
 function tabStatus(s: SessionView): string {
-  return TAB_STATUS[s.observation.state] + (s.observation.state !== "unknown" && s.observation.freshness === "stale" ? " (stale)" : "");
+  return TAB_STATUS[s.observation.state] + (s.observation.state !== "unknown" && s.observation.state !== "stale" && s.observation.freshness === "stale" ? " (stale)" : "");
 }
 
 type FocusState = { focusTab?: string } | null;
@@ -472,7 +468,8 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
   const live = !!s.terminal && terminal.enabled;
   // Message is offered when the server advertises session messages and this session accepts them (RA-14).
   const messageBlocked = messageUnavailable(s, bootstrap.capability(MESSAGE_CAPABILITY));
-  const facts = <><span>{OBSERVATION_LABEL[s.observation.state]}</span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{s.lastActivityAt ? `Last activity ${formatAge(serverTime, s.lastActivityAt)}` : "Last activity unknown"}</span></>;
+  const lastActivityAt = s.observation.lastObservationAt ?? s.lastActivityAt;
+  const facts = <><span><ObservationLabel session={s} /></span><span className={styles.footerCentral}>Central state: {executionAuthorityText(s.executionAuthority)}</span><span>{lastActivityAt ? `Last activity ${formatAge(serverTime, lastActivityAt)}` : "Last activity unknown"}</span></>;
   const taskLink = s.task && taskView.enabled
     ? <Link className={styles.taskLink} aria-label={s.task.title} to={{ pathname: `/work/${encodeURIComponent(s.task.id)}`, search: scopeSearch({ kind: "project", project_id: s.project.id }) }}><span className={styles.fullLabel}>{s.task.title}</span><span className={styles.compactLabel}>{s.task.title === s.task.id ? `Task ${s.task.id.slice(0, 8)}` : s.task.title}</span></Link>
     : <span className={styles.taskLink}>{s.task?.title ?? "No task"}</span>;
@@ -565,7 +562,9 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
         <dt>Recorded session label</dt><dd>{s.label}</dd>
         <dt>Project</dt><dd>{s.project.label}</dd>
         {s.task && <><dt>Task ID</dt><dd>{s.task.id}</dd></>}
-        <dt>Last process observation</dt><dd>{OBSERVATION_LABEL[s.observation.state]} · <ObservationAge session={s} serverTime={serverTime} /></dd>
+        <dt>Last process observation</dt><dd><ObservationSummary session={s} serverTime={serverTime} /></dd>
+        {observationReasonText(s.observation) && <><dt>Observation reason</dt><dd>{observationReasonText(s.observation)}</dd></>}
+        {s.observation.lastProgressAt && <><dt>Last progress</dt><dd><time dateTime={s.observation.lastProgressAt} title={s.observation.lastProgressAt}>{formatAge(serverTime, s.observation.lastProgressAt)}</time></dd></>}
         <dt>Authority location</dt>
         <dd>{AUTHORITY_LABEL[s.authority]}</dd>
         <dt>Central execution state</dt>
@@ -578,7 +577,7 @@ function SessionPage({ sessionId, search, view, onViewChange }: { sessionId: str
         <dt>Controller</dt>
         <dd>{controllerText(s.controller)}</dd>
         <dt>Last activity</dt>
-        <dd>{s.lastActivityAt ? formatAge(serverTime, s.lastActivityAt) : "Unknown"}</dd>
+        <dd>{(s.observation.lastObservationAt ?? s.lastActivityAt) ? formatAge(serverTime, (s.observation.lastObservationAt ?? s.lastActivityAt)!) : "Unknown"}</dd>
         <dt>Attempt</dt>
         <dd>{s.attemptId ?? "None"}</dd>
       </DetailList>

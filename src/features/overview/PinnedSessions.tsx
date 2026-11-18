@@ -8,6 +8,7 @@ import { useScope, scopeSearch } from '../../app/scope';
 import { useRead } from '../../app/useRead';
 import { Icon } from '../../components/icons';
 import { QueryStatus } from '../../components/QueryStatus/QueryStatus';
+import { OBSERVATION_LABEL } from '../agents/labels';
 import styles from './Overview.module.css';
 
 /** The server's fallback label embeds the full session UUID; keep user labels, shorten only that. */
@@ -28,7 +29,7 @@ export function PinnedSessions() {
    {pins.length===0?<p className={styles.meta}>No pinned sessions. Choose a session for this visit.</p>:<ul className={styles.snapshotList}>{pins.map(id=>{
     const session=available.find(s=>s.id===id);
     return <li key={id} className={styles.sessionRow}>{session?<>
-      <div><strong><Icon icon={Monitor} size={16}/> {sessionLabel(session)}</strong><span className={styles.meta}>{session.wait?.explanation ?? (session.observation.state==='reported_running'?'Running (reported)':session.observation.state==='reported_stopped'?'Stopped (reported)':'Process observation unknown')}{session.observation.freshness==='stale'&&' · Stale observation'}</span></div>
+      <div><strong><Icon icon={Monitor} size={16}/> {sessionLabel(session)}</strong><span className={styles.meta}>{session.wait?.explanation ?? (session.observation.state==='unknown'?'Process observation unknown':OBSERVATION_LABEL[session.observation.state])}{session.observation.freshness==='stale'&&' · Stale observation'}</span></div>
       <Link className={styles.action} to={{pathname:`/agents/${encodeURIComponent(id)}`,search:scopeSearch(scope)}} aria-label={`${session.wait?'Open':'Watch'}: ${sessionLabel(session)}`}>{session.wait?'Open':'Watch'} →</Link>
     </>:<span className={styles.meta}>Pinned session is outside the current snapshot. Open Agents to inspect.</span>}
     <button className={styles.pinButton} onClick={()=>setPins(pins.filter(pin=>pin!==id))} aria-label={`Unpin ${session?sessionLabel(session):'session'}`}>Unpin</button></li>;

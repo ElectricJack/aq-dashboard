@@ -141,3 +141,44 @@ test("Message is offered when the server advertises session messages and sends a
   expect((sent[0]!.payload as { message_id: string }).message_id).not.toBe(sent[0]!.operation_id);
 });
 
+
+test("the session list and inspector label each observation state with a reason and relative times", async () => {
+  renderApp("/agents");
+  const list = await screen.findByRole("list", { name: "Sessions" });
+  const row = (id: string) => list.querySelector<HTMLElement>(`li[data-session-id="${id}"]`)!;
+  await waitFor(() => expect(row(SESSIONS[0]!.id)).not.toBeNull());
+  expect(within(row(SESSIONS[0]!.id)).getByText("Working")).toBeInTheDocument();
+  expect(row(SESSIONS[0]!.id)).toHaveTextContent("Last activity 3s ago · Last progress 1m ago");
+  const quiet = row(SESSIONS[1]!.id);
+  expect(within(quiet).getByText("No progress lately")).toHaveAccessibleDescription(/no progress lately\. No progress was seen within the evidence window\./i);
+  expect(quiet).toHaveTextContent("Last progress 12m ago");
+  const stale = row(SESSIONS[2]!.id);
+  expect(within(stale).getByText("No recent activity")).toBeInTheDocument();
+  expect(stale).toHaveTextContent("Nothing was observed within the start-up grace period");
+  // An older payload without the added fields still renders its label and no activity line.
+  expect(row(SESSIONS[3]!.id)).toHaveTextContent("Running (reported)");
+  expect(row(SESSIONS[3]!.id)).not.toHaveTextContent("Last activity");
+});
+
+test("an unobserved session says why and shows no age; the inspector lists last activity and progress", async () => {
+  const base = nativeLifecycleSession({ started_at: null, stopped_at: null });
+  useLifecycleResponse({ ...base, observation: { ...base.observation, reason: "no_observation_source" } });
+  renderApp(`/agents/${SESSIONS[0]!.id}`);
+  const detail = await screen.findByRole("region", { name: SESSIONS[0]!.label });
+  expect(within(detail).getByText("Not observed")).toHaveAccessibleDescription(/not being observed.*No observation source is reporting for this session\./);
+  await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
+  const dialog = within(detail).getByRole("dialog", { name: "Session details" });
+  expect(dialog).toHaveTextContent("No observation source is reporting for this session");
+  expect(within(dialog).queryByText("Last progress")).toBeNull();
+});
+
+test("the inspector shows last activity and last progress from the observation", async () => {
+  renderApp(`/agents/${SESSIONS[1]!.id}`);
+  const detail = await screen.findByRole("region", { name: SESSIONS[1]!.label });
+  expect(within(detail).getByText("No progress lately")).toBeInTheDocument();
+  await userEvent.click(within(detail).getByRole("button", { name: "Session details" }));
+  const dialog = within(detail).getByRole("dialog", { name: "Session details" });
+  expect(within(dialog).getByText("Last activity").nextElementSibling).toHaveTextContent("3s ago");
+  expect(within(dialog).getByText("Last progress").nextElementSibling).toHaveTextContent("12m ago");
+  expect(within(dialog).getByText("Observation reason").nextElementSibling).toHaveTextContent("No progress was seen within the evidence window");
+});

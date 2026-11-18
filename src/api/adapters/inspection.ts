@@ -96,7 +96,9 @@ const READINESS = [
   "done",
   "canceled",
 ] as const;
-const OBSERVATIONS = ["unknown", "reported_running", "reported_stopped"] as const;
+const OBSERVATIONS = [
+  "unknown", "awaiting", "working", "quiet", "stale", "ended", "reported_running", "reported_stopped",
+] as const;
 
 export type ReadinessView = { state: Readiness["state"] | Unsupported; explanation: string };
 function adaptReadiness(r: Readiness): ReadinessView {
@@ -290,6 +292,11 @@ function executionAuthority(value: unknown): ExecutionAuthority | Unsupported | 
   return known(value, EXECUTION_AUTHORITIES);
 }
 
+/** Additive wire fields: anything but a non-empty string (including absent) is "not reported". */
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
 export type SessionView = {
   id: string;
   label: string;
@@ -302,6 +309,11 @@ export type SessionView = {
     state: ProcessObservation | Unsupported;
     observedAt: string;
     freshness: "fresh" | "stale";
+    /** Server's machine reason for the state (e.g. `no_observation_source`); null when absent. */
+    reason: string | null;
+    /** Last time the process was seen active / made progress; null when absent or not a string. */
+    lastObservationAt: string | null;
+    lastProgressAt: string | null;
   };
   wait: SessionSummary["wait"];
   controller: { state: SessionSummary["controller"]["state"] | Unsupported; label: string | null };
@@ -323,6 +335,9 @@ export function adaptSession(s: SessionSummary, serverTime: string): SessionView
       state: known(s.observation.state, OBSERVATIONS),
       observedAt: s.observation.observed_at,
       freshness: isStale(serverTime, s.observation.fresh_until) ? "stale" : "fresh",
+      reason: optionalString(s.observation.reason),
+      lastObservationAt: optionalString(s.observation.last_observation_at),
+      lastProgressAt: optionalString(s.observation.last_progress_at),
     },
     wait: s.wait,
     controller: { state: known(s.controller.state, CONTROLLER_STATES), label: s.controller.label },
