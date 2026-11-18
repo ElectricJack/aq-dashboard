@@ -2,7 +2,7 @@
 
 This frontend increment consumes the paired `human-graph-1` contract from AQ's human listener. It requires explicit `human.graph.read` version 1 capability plus the destination's task/knowledge capability. Proposed mock Work remains an explicitly separate `proposed-0` demo path. No production fallback calls machine Graph APIs.
 
-A selected authorized project is required; All projects offers the existing bounded project picker rather than fanning out across Graph workspaces. Work and Knowledge use dedicated response validators and principal/authorization/project/query-partitioned caches. Lists explicitly show loaded records, never a guessed project total, with at most four 25-record pages. Binding drift and duplicate IDs across pages refuse merging.
+When AQ advertises `human.work.tasks.read`, Work in All projects loads the 50 most recently updated tasks and offers cursor pagination, with search and task-state filters applied before pagination. Rows link to the task in its project. The project picker remains available on servers without this capability. Knowledge and the project-scoped Work list use principal/authorization/project/query-partitioned caches and show at most four 25-record pages. Binding drift and duplicate IDs across project-scoped pages refuse merging.
 
 Work exposes recorded task state, body, acceptance text and a bounded dependency neighborhood. It makes no execution-readiness, session or result claim from raw task state. The dependency view reuses the existing graph-layout algorithm, shows one-hop/truncated coverage, and keeps typed relationship labels. Mobile switches between graph and readable detail.
 
