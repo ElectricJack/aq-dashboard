@@ -14,6 +14,7 @@ import { Digest, TechnicalIdentity, shortDigest } from "./identity";
 import { Age, useObservedNow } from "./Age";
 import { ActivationActions } from "./ActivationActions";
 import { DefinitionWorkspace } from "./DefinitionWorkspace";
+import { PlaybookScopeUnavailable, playbookScopeUnavailable } from "./PlaybookScope";
 import { humanize } from "./RunTimeline";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import styles from "./Playbooks.module.css";
@@ -61,6 +62,7 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
   const title = kind === "definitions" ? "Playbook library" : "Deployments", singular = kind === "definitions" ? "definition" : "activation";
   const first = !compact && !selected && rows[0]?.kind === "definition" ? rows[0] : null;
   if (!capability.enabled) return <Panel title={title}>{selected && back()}<p role="status">{capability.reason}</p></Panel>;
+  if (playbookScopeUnavailable(project, pages.error)) return <PlaybookScopeUnavailable title={title} />;
   if (!pages.data || pages.isError || invalid || knownConflict) return <Panel title={title}>
     {selected && back(refresh)}
     <QueryStatus status={pages.isError || invalid || knownConflict ? "error" : "pending"} error={invalid ?? knownConflict ?? pages.error} label={`current playbook ${kind}`} onRetry={refresh} />

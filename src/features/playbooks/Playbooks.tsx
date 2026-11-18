@@ -14,6 +14,7 @@ import { useProjects } from "../../app/useProjects";
 import { CATALOG_CAPABILITY } from "../../api/adapters/playbookCatalog";
 import { CurrentCatalog } from "./CurrentCatalog";
 import { LoadedDefinitions } from "./LoadedDefinitions";
+import { PlaybookScopeUnavailable, playbookScopeUnavailable } from "./PlaybookScope";
 import { ChildWorkflows, WaitingOn } from "./RunRelations";
 import { Icon, runStatusIcon } from "../../components/icons";
 import { Age, useObservedNow } from "./Age";
@@ -78,6 +79,7 @@ export function Playbooks() {
   // Run links keep the list filters, so Back and "All runs" return to the same narrowed list.
   const listSearch = (() => { const p = new URLSearchParams(search); if (filter !== DEFAULT_STATE) p.set("state", filter); if (range !== DEFAULT_RANGE) p.set("range", range); const value = p.toString(); return value ? `?${value}` : ""; })();
   const rosterFailed = Boolean(runs.isError || invalid);
+  const scopeUnavailable = playbookScopeUnavailable(project, showRuns ? runs.error : admissions.error);
   // One retry for both reads when the roster and a deep-linked run fail together.
   const retryRuns = () => { void runs.refetch(); if (runId) void client.refetchQueries({ predicate: q => q.queryKey.includes("playbook-run") }); };
   const runsNow = useObservedNow(observedAt, runs.dataUpdatedAt);
@@ -130,7 +132,9 @@ export function Playbooks() {
       {!detail && <Link className={styles.sectionLink} to={{ pathname: "/playbooks", search: viewSearch() }}><Icon icon={ArrowLeft} size={16} />Back to library</Link>}
       <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:activations`} kind="activations" />
     </> : catalogEnabled ? <CurrentCatalog key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}:definitions`} kind="definitions" />
-      : <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} /> : showRuns ? <div className={styles.workspace} data-focused={Boolean(runId)}>
+      : <LoadedDefinitions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project}`} />
+    : scopeUnavailable ? <PlaybookScopeUnavailable title={showRuns ? "Recent runs" : "Start requests"} />
+    : showRuns ? <div className={styles.workspace} data-focused={Boolean(runId)}>
       {runId && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: viewSearch("runs") }}>All runs</Link>}
       <Panel title="Recent runs" className={styles.roster} actions={<div className={styles.rosterActions}>{runs.data && filtering && <span className={styles.meta}>Filtering loaded runs</span>}<StartRun /></div>}>
         <Link className={styles.sectionLink} to={{ pathname: "/playbooks", search: viewSearch("start-requests") }}>Start requests<Icon icon={ArrowRight} size={16} /></Link>
