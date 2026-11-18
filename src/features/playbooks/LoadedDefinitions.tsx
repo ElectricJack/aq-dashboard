@@ -10,6 +10,7 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { DefinitionWorkspace } from "./DefinitionWorkspace";
+import { PlaybookScopeUnavailable, playbookScopeUnavailable } from "./PlaybookScope";
 import { humanize } from "./RunTimeline";
 import { shortDigest } from "./identity";
 import { Age, useObservedNow } from "./Age";
@@ -37,6 +38,7 @@ export function LoadedDefinitions() {
   listParams.delete("definition");
   const back = selected && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listParams.toString() }}>All playbooks</Link>;
   if (!capability.enabled) return <Panel title="Playbook library">{back}<p role="status">{capability.reason}</p></Panel>;
+  if (playbookScopeUnavailable(project, query.error)) return <PlaybookScopeUnavailable title="Playbook library" />;
   if (!query.data || query.isError) return <Panel title="Playbook library">{back}<QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="loaded playbook definitions" onRetry={() => void query.refetch()} /></Panel>;
   return <div className={`${styles.workspace} ${styles.libraryWorkspace}`} data-focused={Boolean(selected)}>
     {back}

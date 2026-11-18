@@ -95,6 +95,23 @@ for (const vp of VIEWPORTS) {
   });
 }
 
+test("a project without playbooks can open the same view across all projects", async ({ page }) => {
+  const scope = "project:a22afccc-d61a-5f77-aef8-9fd73311c68a";
+  for (const [view, collection] of [
+    ["library", "Current playbook definitions"],
+    ["deployment", "Current playbook activations"],
+    ["runs", "Playbook runs"],
+    ["start-requests", "Playbook start requests"],
+  ]) {
+    await page.goto(`/playbooks?${new URLSearchParams({ scope, view })}`);
+    await expect(page.getByText("Playbooks are unavailable for the selected project.")).toBeVisible();
+    await expect(page.getByRole("list", { name: collection })).toHaveCount(0);
+    await page.getByRole("link", { name: "View playbooks across all projects" }).click();
+    await expect(page).toHaveURL(new RegExp(`/playbooks\\?view=${view}$`));
+    await expect(page.getByRole("list", { name: collection })).toBeVisible();
+  }
+});
+
 test("empty, failed and unavailable scenarios switch playbook reads", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/playbooks?view=runs&scenario=empty");
