@@ -36,23 +36,23 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("default runs announce no filter; view tabs fit and control a tabpanel", async ({ page }) => {
-      await page.goto("/playbooks");
+      await page.goto("/playbooks?view=runs");
       await expect(page.getByRole("list", { name: "Playbook runs" })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText("Filtering loaded runs")).toHaveCount(0);
       const tablist = page.getByRole("tablist", { name: "Playbook views" }), strip = (await tablist.boundingBox())!;
-      for (const name of ["Runs", "Definitions", "Activations", "Admissions"]) {
+      for (const name of ["Library", "Run history"]) {
         const tab = tablist.getByRole("tab", { name }), box = (await tab.boundingBox())!;
         expect(box.x).toBeGreaterThanOrEqual(strip.x - 1); expect(box.x + box.width).toBeLessThanOrEqual(strip.x + strip.width + 1);
         expect(await tab.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       }
-      const panel = page.getByRole("tabpanel", { name: "Runs" });
+      const panel = page.getByRole("tabpanel", { name: "Run history" });
       await expect(panel).toBeVisible();
-      await expect(tablist.getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-controls", (await panel.getAttribute("id"))!);
+      await expect(tablist.getByRole("tab", { name: "Run history" })).toHaveAttribute("aria-controls", (await panel.getAttribute("id"))!);
       await expectClean(page);
     });
 
     test("run filters survive a reload and carry into run links", async ({ page }) => {
-      await page.goto("/playbooks");
+      await page.goto("/playbooks?view=runs");
       await expect(page.getByRole("list", { name: "Playbook runs" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("combobox", { name: "Run state" }).selectOption("waiting");
       await page.getByRole("combobox", { name: "Time range" }).selectOption("all");

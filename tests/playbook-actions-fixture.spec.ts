@@ -20,7 +20,7 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("start run offers typed inputs from the current binding", async ({ page }) => {
-      await page.goto("/playbooks");
+      await page.goto("/playbooks?view=runs");
       const roster = page.getByRole("region", { name: "Recent runs" });
       const start = roster.getByRole("button", { name: "Start run" });
       await expect(start).toBeEnabled({ timeout: 30_000 });
@@ -64,9 +64,8 @@ for (const vp of VIEWPORTS) {
       await page.getByRole("list", { name: "Current playbook activations" }).getByRole("button").first().click();
       const panel = page.getByRole("region", { name: "Activation for new runs" });
       await expect(panel.getByText(/Activation affects future runs only/).first()).toBeVisible({ timeout: 30_000 });
-      // The fixture catalog has one definition, so activation has nothing else to bind.
-      await expect(panel.getByRole("button", { name: "Activate definition" })).toBeDisabled();
-      await expect(panel.getByText("No other definition is represented in this namespace")).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Activate definition" })).toBeEnabled();
+      await expect(panel.getByRole("button", { name: "Roll back activation" })).toBeVisible();
       await panel.scrollIntoViewIfNeeded();
       await expectClean(page);
       await page.screenshot({ path: `${evidence}/activation-${vp.name}.png`, fullPage: true });

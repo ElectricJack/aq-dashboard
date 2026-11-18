@@ -7,7 +7,7 @@ const waiting = "run-0000000000000284";
 const VIEWPORTS = [
   // The phone hides the roster while a run is focused, so the list is reviewed at /playbooks there.
   { name: "d", width: 1440, height: 900, path: `/playbooks/runs/${waiting}` },
-  { name: "m", width: 390, height: 844, path: "/playbooks" },
+  { name: "m", width: 390, height: 844, path: "/playbooks?view=runs" },
 ];
 
 async function expectNoAxeViolations(page: Page) {

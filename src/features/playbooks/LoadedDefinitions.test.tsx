@@ -37,15 +37,15 @@ test("definition selection has exact pins, startup provenance and no installed/a
   server.use(http.get("/api/playbooks/inspection/loaded-definitions", ({ request }) => { expect(new URL(request.url).searchParams.has("limit")).toBe(false); reads++; return HttpResponse.json(loadedDefinitions()); }));
   const { router } = renderApp("/playbooks?view=definitions");
   const list = await screen.findByRole("list", { name: "Loaded playbook definitions" });
-  await userEvent.click(within(list).getByRole("button", { name: "Inspect definition coding-policy" }));
+  await userEvent.click(within(list).getByRole("button", { name: /^Coding policy/ }));
   const detail = await screen.findByRole("region", { name: "Definition coding-policy" });
   expect(router.state.location.search).toContain(`definition=sha256%3A${"a".repeat(64)}`);
   expect(within(detail).getByText(`sha256:${"b".repeat(64)}`)).toBeInTheDocument();
   expect(within(detail).getByText(`sha256:${"d".repeat(64)}`)).toBeInTheDocument();
-  expect(within(detail).getByText("This startup configuration does not report current installation or activation.")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Playbooks loaded at startup" })).toBeInTheDocument();
   expect(reads).toBe(1); expect(screen.queryByRole("button", { name: "Activate" })).toBeNull();
-  await userEvent.click(screen.getByRole("link", { name: "All definitions" }));
-  await waitFor(() => expect(within(list).getByRole("button", { name: "Inspect definition coding-policy" })).toHaveFocus());
+  await userEvent.click(screen.getByRole("link", { name: "All playbooks" }));
+  await waitFor(() => expect(within(list).getByRole("button", { name: /^Coding policy/ })).toHaveFocus());
 });
 test("exact definition deep link renders literal text and truncated purpose explicitly", async () => {
   capability(); const raw = { ...loadedDefinition(), purpose: "<img src=x onerror=alert(1)>", purpose_truncated: true };
@@ -58,7 +58,7 @@ test("exact definition deep link renders literal text and truncated purpose expl
 test("definition outside loaded set is not a current catalog absence assertion", async () => {
   capability(); server.use(http.get("/api/playbooks/inspection/loaded-definitions", () => HttpResponse.json(loadedDefinitions())));
   renderApp(`/playbooks?view=definitions&definition=${encodeURIComponent(`sha256:${"f".repeat(64)}`)}`);
-  await screen.findByText("This artifact is not in the loaded startup configuration.");
+  await screen.findByText("This version is missing from the startup configuration.");
   expect(screen.queryByText("Not installed")).toBeNull();
 });
 test("failed refresh removes protected metadata instead of retaining an old detail", async () => {
@@ -66,6 +66,6 @@ test("failed refresh removes protected metadata instead of retaining an old deta
   renderApp(`/playbooks?view=definitions&definition=${encodeURIComponent(loadedDefinition().artifact)}`);
   await screen.findByRole("region", { name: "Definition coding-policy" });
   server.use(http.get("/api/playbooks/inspection/loaded-definitions", () => HttpResponse.json({}, { status: 503 })));
-  await userEvent.click(screen.getByRole("button", { name: "Refresh definitions" }));
+  await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByRole("alert"); expect(screen.queryByRole("region", { name: "Definition coding-policy" })).toBeNull();
 });

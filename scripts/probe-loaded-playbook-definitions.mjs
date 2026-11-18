@@ -16,46 +16,54 @@ page.on("request", request => { if (new URL(request.url()).origin !== url.origin
 try {
   const bootstrap = await (await page.request.get(new URL("/api/v1/bootstrap", origin).href)).json();
   const capability = bootstrap.data.capabilities.find(cap => cap.name === "playbooks.loaded-definitions.read");
+  const currentCatalog = bootstrap.data.capabilities.some(cap => cap.name === "playbooks.catalog.read" && cap.enabled);
   expect(capability?.enabled).toBe(true); expect(capability?.version).toBe("1");
   expect(bootstrap.data.product.dashboard_digest).toBe(`sha256:${bundleDigest}`);
   const actual = await (await page.request.get(new URL("/api/playbooks/inspection/loaded-definitions", origin).href)).json();
   expect(actual.source).toBe("runtime_startup_configuration"); expect(actual.current_catalog).toBe(false);
   expect(actual.items.map(item => item.artifact)).toEqual([artifact]);
   const definition = actual.items.find(item => item.artifact === artifact); expect(definition).toBeTruthy();
-  await page.goto(new URL("/playbooks?view=definitions", origin).href);
-  const list = page.getByRole("list", { name: "Loaded playbook definitions" });
-  await expect(list).toBeVisible(); await list.getByRole("button", { name: `Inspect definition ${definition.name}`, exact: true }).click();
+  const compiled = await (await page.request.get(new URL(`/api/playbooks/inspection/definitions/${encodeURIComponent(artifact)}/graph`, origin).href)).json();
+  expect(compiled.artifact).toBe(artifact);
+  expect(Object.keys(compiled.graph.entries)).toEqual(definition.entries);
+  await page.goto(new URL("/playbooks", origin).href);
+  const list = page.getByRole("list", { name: currentCatalog ? "Current playbook definitions" : "Loaded playbook definitions" });
+  const button = list.getByRole("button").filter({ has: page.getByTitle(artifact, { exact: true }) });
+  await expect(list).toBeVisible(); await button.click();
   const detail = page.getByRole("region", { name: `Definition ${definition.name}`, exact: true });
   await expect(detail).toBeVisible();
-  const pins = detail.getByRole("region", { name: "Immutable artifact", exact: true });
+  await expect(detail.getByRole("region", { name: "Workflow diagram" }).getByRole("button", { name: /Start/ }).first()).toBeVisible();
+  const pins = detail.locator("details");
+  await pins.getByText("Technical identity", { exact: true }).click();
   for (const [label, value] of [["Artifact", artifact], ["Executable fingerprint", definition.executable_fingerprint], ["Source digest", definition.source_digest], ["Compiler", definition.compiler]]) {
     await expect(pins.getByText(label, { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(value);
   }
-  await expect(detail.getByRole("region", { name: "Purpose", exact: true }).getByText(definition.purpose || "No purpose text was supplied.", { exact: true })).toBeVisible();
-  const entries = detail.getByRole("region", { name: "Entry points", exact: true });
-  for (const entry of definition.entries) await expect(entries.getByText(entry, { exact: true })).toBeVisible();
-  const dependencies = detail.getByRole("region", { name: "Declared dependencies", exact: true });
+  await expect(detail.getByText(definition.purpose, { exact: true })).toBeVisible();
+  for (const entry of definition.entries) await expect(pins.getByText("Entry points", { exact: true }).locator("xpath=following-sibling::dd[1]")).toContainText(entry);
+  const dependencies = pins.getByText("Declared dependencies", { exact: true }).locator("xpath=following-sibling::dd[1]");
   for (const [name, pin] of Object.entries(definition.dependency_pins)) {
     await expect(dependencies.getByText(name, { exact: true })).toBeVisible();
-    await expect(dependencies.getByText(name, { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(pin);
+    await expect(dependencies.getByText(pin, { exact: true })).toBeVisible();
   }
   await expect(page.getByRole("button", { name: /^(activate|install|create playbook)$/i })).toHaveCount(0);
-  await expect(detail.getByText("This startup configuration does not report current installation or activation.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: currentCatalog ? "Playbook library" : "Playbooks loaded at startup" })).toBeVisible();
+  await pins.getByText("Technical identity", { exact: true }).click();
   await page.screenshot({ path: join(output, "loaded-definitions-desktop.png"), fullPage: true });
-  await page.reload(); await expect(detail.getByText(artifact, { exact: true })).toBeVisible();
+  await page.reload(); await expect(detail.getByRole("region", { name: "Workflow diagram" })).toBeVisible();
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(detail).toBeVisible(); await expect(list).toBeHidden();
-    await expect(page.getByRole("button", { name: "All definitions", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "All playbooks", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     await page.screenshot({ path: join(output, `loaded-definitions-${width}.png`) });
-    await page.getByRole("button", { name: "All definitions", exact: true }).click();
+    await page.getByRole("link", { name: "All playbooks", exact: true }).click();
     await expect(list).toBeVisible();
-    await expect(list.getByRole("button", { name: `Inspect definition ${definition.name}`, exact: true })).toBeFocused();
-    await list.getByRole("button", { name: `Inspect definition ${definition.name}`, exact: true }).click();
+    await expect(button).toBeFocused();
+    await button.click();
   }
   expect(startupEngineReads).toBe(0); definitionsView = false;
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("link", { name: "All playbooks", exact: true }).click();
+  await page.getByRole("tab", { name: "Run history", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Recent runs", exact: true })).toBeVisible();
   await expect(page.getByText("No runs recorded in this configured namespace.", { exact: true })).toBeVisible();
   expect(errors).toEqual([]); expect(mutations).toEqual([]); expect(foreign).toEqual([]);

@@ -7,12 +7,17 @@ import { scopedKey } from "../../api/queryKeys";
 import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
-import { ActionButton, DetailList, Panel } from "../../components/layout/Workspace";
+import { ActionButton, Panel } from "../../components/layout/Workspace";
+import { useMediaQuery } from "../../components/useMediaQuery";
+import { DefinitionWorkspace } from "./DefinitionWorkspace";
+import { humanize } from "./RunTimeline";
+import { shortDigest } from "./identity";
 import { Age, useObservedNow } from "./Age";
 import styles from "./Playbooks.module.css";
 
 export function LoadedDefinitions() {
   const { bootstrap, queryContext } = useSession(); const [scope] = useScope(); const [params, setParams] = useSearchParams();
+  const compact = useMediaQuery("(max-width: 1199px)");
   const capability = bootstrap.capability(LOADED_DEFINITIONS_CAPABILITY);
   const project = scope.kind === "project" ? scope.project_id : null, selected = params.get("definition");
   const query = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-loaded-definitions", {}), enabled: capability.enabled, retry: false, refetchOnWindowFocus: false,
@@ -26,30 +31,27 @@ export function LoadedDefinitions() {
     previous.current = selected;
   }, [selected, item]);
   function select(artifact: string | null) { setParams(old => { const next = new URLSearchParams(old); if (artifact) next.set("definition", artifact); else next.delete("definition"); return next; }); }
-  if (!capability.enabled) return <Panel title="Loaded definitions"><p role="status">{capability.reason}</p></Panel>;
-  if (!query.data || query.isError) return <Panel title="Loaded definitions"><QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="loaded playbook definitions" onRetry={() => void query.refetch()} /></Panel>;
-  return <div className={styles.workspace} data-focused={Boolean(item)}>
-    {selected && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: (() => { const next = new URLSearchParams(params); next.delete("definition"); return next.toString(); })() }}>All definitions</Link>}
-    <Panel title="Loaded definitions" description={query.data.namespace.name} className={styles.roster}>
-      <p className={styles.meta}>Runtime startup configuration · captured <Age at={query.data.capturedAt} now={now} /></p>
+  const preview = !compact && !selected ? query.data?.items[0] : undefined;
+  const displayed = item ?? preview;
+  const listParams = new URLSearchParams(params);
+  listParams.delete("definition");
+  const back = selected && <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listParams.toString() }}>All playbooks</Link>;
+  if (!capability.enabled) return <Panel title="Playbook library">{back}<p role="status">{capability.reason}</p></Panel>;
+  if (!query.data || query.isError) return <Panel title="Playbook library">{back}<QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="loaded playbook definitions" onRetry={() => void query.refetch()} /></Panel>;
+  return <div className={`${styles.workspace} ${styles.libraryWorkspace}`} data-focused={Boolean(selected)}>
+    {back}
+    <Panel title="Playbooks loaded at startup" description={query.data.namespace.name} className={styles.roster}>
       <ul className={styles.runs} aria-label="Loaded playbook definitions">{query.data.items.map(row => <li key={row.artifact}>
-        <button ref={element => { if (element) buttons.current.set(row.artifact, element); else buttons.current.delete(row.artifact); }} className={styles.definitionLink} data-selected={row.artifact === selected} onClick={() => select(row.artifact)} aria-label={`Inspect definition ${row.name}`}>
-          <strong>{row.name}</strong><span>{row.entries.length} {row.entries.length === 1 ? "entry" : "entries"}</span><small>{row.artifact}</small>
+        <button ref={element => { if (element) buttons.current.set(row.artifact, element); else buttons.current.delete(row.artifact); }} className={styles.definitionLink}
+          data-selected={row.artifact === displayed?.artifact} aria-pressed={row.artifact === displayed?.artifact} onClick={() => select(row.artifact)}>
+          <strong>{humanize(row.name)}</strong><span>{row.entries.length} {row.entries.length === 1 ? "entry point" : "entry points"} · <small className={styles.pin} title={row.artifact}>{shortDigest(row.artifact)}</small></span>
         </button></li>)}</ul>
-      <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh definitions</ActionButton>
-    </Panel>
-    {item ? <section className={styles.inspector} aria-label={`Definition ${item.name}`}>
-      <div className={styles.runHeading}><h2 className={styles.definitionHeading} ref={heading} tabIndex={-1}>{item.name}</h2><span className={styles.badge}>Loaded configuration</span></div>
-      <Panel title="Purpose"><p className={styles.purpose}>{item.purpose || "No purpose text was supplied."}</p>{item.purposeTruncated && <p className={styles.meta}>Showing the first 4096 UTF-8 bytes of purpose text.</p>}</Panel>
-      <Panel title="Immutable artifact"><DetailList className={styles.definitionFacts}>
-        <dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd><dt>Executable fingerprint</dt><dd className={styles.pin}>{item.fingerprint}</dd>
-        <dt>Source digest</dt><dd className={styles.pin}>{item.sourceDigest}</dd><dt>Compiler</dt><dd>{item.compiler}</dd>
-      </DetailList></Panel>
-      <div className={styles.lower}>
-        <Panel title="Entry points"><ul className={`${styles.children} ${styles.entryPoints}`}>{item.entries.map(entry => <li key={entry}>{entry}</li>)}</ul></Panel>
-        <Panel title="Declared dependencies"><DetailList className={styles.definitionFacts}>{Object.entries(item.dependencies).map(([name, pin]) => <div className={styles.dependency} key={name}><dt>{name}</dt><dd className={styles.pin}>{pin}</dd></div>)}</DetailList>{Object.keys(item.dependencies).length === 0 ? <p>No dependency pins in this artifact.</p> : <p className={styles.meta}>Run dependencies are pinned when admitted.</p>}</Panel>
+      <div className={styles.catalogFooter}>
+        <p className={styles.meta}>Captured <Age at={query.data.capturedAt} now={now} /></p>
+        <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh</ActionButton>
       </div>
-      <p className={styles.meta}>This startup configuration does not report current installation or activation.</p>
-    </section> : <Panel title={selected ? "Definition not loaded" : "Select a definition"}><p>{selected ? "This artifact is not in the loaded startup configuration." : "Inspect an artifact's immutable pins, purpose and entry points."}</p><p className={styles.meta}>Current installed catalog and activation discovery are not available in this view.</p></Panel>}
+    </Panel>
+    {displayed ? <DefinitionWorkspace item={displayed} namespace={query.data.namespace} heading={heading} />
+      : selected && <Panel title="Definition not loaded"><p>This version is missing from the startup configuration.</p></Panel>}
   </div>;
 }

@@ -71,7 +71,8 @@ for (const vp of VIEWPORTS) {
       // Arrow keys move between enabled tabs and skip the disabled one.
       await events.focus(); await page.keyboard.press("ArrowRight");
       await expect(inspector.getByRole("tab", { name: "Definition" })).toBeFocused();
-      await expect(inspector.getByRole("link", { name: "Open in Definitions" })).toBeVisible();
+      await expect(inspector.getByRole("region", { name: "Workflow diagram" })).toBeVisible();
+      await expect(inspector.getByRole("link", { name: "Open in library" })).toBeVisible();
       await page.keyboard.press("ArrowLeft");
       await expect(events).toHaveAttribute("aria-selected", "true");
 

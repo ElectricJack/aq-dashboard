@@ -22,7 +22,7 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("run header row, pin strip and Technical identity", async ({ page }) => {
-      await page.goto("/playbooks");
+      await page.goto("/playbooks?view=runs");
       // A mouse click loads the route, so the programmatically focused H2 must not draw a ring.
       await page.getByRole("link", { name: new RegExp(`Worker recovery ${waiting}`) }).click({ timeout: 30_000 });
       const inspector = page.getByRole("region", { name: `Run ${waiting}` });
@@ -64,13 +64,13 @@ for (const vp of VIEWPORTS) {
     test("definition rows and detail keep full digests under Technical identity", async ({ page }) => {
       await page.goto("/playbooks?view=definitions");
       const list = page.getByRole("list", { name: "Current playbook definitions" });
-      const row = list.getByRole("button", { name: /^worker-recovery/ });
-      await expect(row).toHaveText(/worker-recovery\s*1 entry\s*a81c9e$/, { timeout: 30_000 });
+      const row = list.getByRole("button", { name: /^Worker recovery/ });
+      await expect(row).toHaveText(/Worker recovery\s*1 entry point · a81c9e$/, { timeout: 30_000 });
       await expect(row.getByTitle(fullArtifact)).toBeVisible();
       await row.click();
 
       const detail = page.getByRole("region", { name: "Definition worker-recovery" });
-      const h2 = detail.getByRole("heading", { level: 2, name: "worker-recovery" });
+      const h2 = detail.getByRole("heading", { level: 2, name: "Worker recovery" });
       await expect(h2).toBeFocused();
       expect(await h2.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none");
       const fingerprint = detail.getByText(`sha256:f1a9e2${"0".repeat(58)}`, { exact: true });

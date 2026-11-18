@@ -91,7 +91,7 @@ test("playbook_start_posts_typed_inputs", async () => {
   caps(); runs(); catalogs(); const posts: string[] = [];
   server.use(http.post("/api/v1/actions", async ({ request }) => { const text = await request.text(); posts.push(text); return HttpResponse.json(operation(JSON.parse(text).operation_id, "pending", BINDING), { status: 202 }); }),
     http.get("/api/v1/operations/:id", ({ params }) => HttpResponse.json(operation(String(params.id), "confirmed", BINDING))));
-  renderApp("/playbooks");
+  renderApp("/playbooks?view=runs");
   const roster = await screen.findByRole("region", { name: "Recent runs" });
   await waitFor(() => expect(within(roster).getByRole("button", { name: "Start run" })).toBeEnabled()); await userEvent.click(within(roster).getByRole("button", { name: "Start run" }));
   const dialog = await screen.findByRole("dialog", { name: "Start run" });
@@ -159,7 +159,7 @@ test("playbook_rollback_requires_confirmation_and_confirms", async () => {
 test("start run re-validates a shown input error when the offending input is removed (ISSUE-009)", async () => {
   caps(); runs(); catalogs(); const posts: string[] = [];
   server.use(http.post("/api/v1/actions", async ({ request }) => { posts.push(await request.text()); return HttpResponse.json({}, { status: 500 }); }));
-  renderApp("/playbooks");
+  renderApp("/playbooks?view=runs");
   const roster = await screen.findByRole("region", { name: "Recent runs" });
   await waitFor(() => expect(within(roster).getByRole("button", { name: "Start run" })).toBeEnabled()); await userEvent.click(within(roster).getByRole("button", { name: "Start run" }));
   const dialog = await screen.findByRole("dialog", { name: "Start run" });

@@ -13,10 +13,10 @@ function enabled(on = true) { server.use(http.get("/api/v1/bootstrap", () => Htt
 function responses() { enabled(); server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json(playbookPage([runRecord()]))), http.get("/api/playbooks/inspection/runs/:id", ({ params }) => HttpResponse.json(runDetail(String(params.id))))); }
 test("unconfigured capability makes no playbook request", async () => {
   enabled(false); let reads = 0; server.use(http.get("/api/playbooks/inspection/runs", () => { reads++; return HttpResponse.json({}); }));
-  renderApp("/playbooks"); await screen.findByText("Playbook runtime is not configured"); expect(reads).toBe(0);
+  renderApp("/playbooks?view=runs"); await screen.findByText("Playbook runtime is not configured"); expect(reads).toBe(0);
 });
 test("discovery opens exact run and shows pins, timeline and pending operation", async () => {
-  responses(); const { router } = renderApp("/playbooks");
+  responses(); const { router } = renderApp("/playbooks?view=runs");
   const list = await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(within(list).getByRole("link"));
   const detail = await screen.findByRole("region", { name: "Run run-0000000000000001" });
   expect(router.state.location.pathname).toBe("/playbooks/runs/run-0000000000000001");
@@ -34,26 +34,26 @@ test("discovery opens exact run and shows pins, timeline and pending operation",
   expect(within(detail).getByText(/^Observed \d+s ago$/)).toBeInTheDocument();
   expect(within(detail).getByRole("tab", { name: "Inputs & outputs" })).toHaveAttribute("aria-disabled", "true");
   await userEvent.click(within(detail).getByRole("tab", { name: "Definition" }));
-  expect(within(detail).getByRole("link", { name: "Open in Definitions" })).toHaveAttribute("href", `/playbooks?view=definitions&definition=sha256%3A${"a".repeat(64)}`);
+  expect(within(detail).getByRole("link", { name: "Open in library" })).toHaveAttribute("href", `/playbooks?definition=sha256%3A${"a".repeat(64)}`);
 });
 test("empty and failed discovery remain distinct and failure retries explicitly", async () => {
   enabled(); let reads = 0; server.use(http.get("/api/playbooks/inspection/runs", () => ++reads === 1 ? HttpResponse.json({}, { status: 503 }) : HttpResponse.json(playbookPage([]))));
-  renderApp("/playbooks"); await screen.findByRole("alert"); expect(screen.queryByText("No runs recorded in this configured namespace.")).toBeNull();
+  renderApp("/playbooks?view=runs"); await screen.findByRole("alert"); expect(screen.queryByText("No runs recorded in this configured namespace.")).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Try again" })); await screen.findByText("No runs recorded in this configured namespace."); expect(reads).toBe(2);
 });
 test("next run page uses exact cursor and keeps bounded rows", async () => {
   enabled(); const records = Array.from({ length: 25 }, (_, i) => runRecord(`run-${String(i + 1).padStart(16, "0")}`));
   server.use(http.get("/api/playbooks/inspection/runs", ({ request }) => { const q = new URL(request.url).searchParams; expect(q.get("limit")).toBe("25"); return HttpResponse.json(q.get("after") ? playbookPage([runRecord("run-0000000000000026")]) : playbookPage(records, records[24]!.id)); }));
-  renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("button", { name: "Load more runs" }));
+  renderApp("/playbooks?view=runs"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("button", { name: "Load more runs" }));
   await waitFor(() => expect(within(screen.getByRole("list", { name: "Playbook runs" })).getAllByRole("listitem")).toHaveLength(26));
 });
 test("admissions show pending without inventing an engine run", async () => {
   responses(); server.use(http.get("/api/playbooks/inspection/admissions", () => HttpResponse.json({ ...playbookPage([{ request_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", status: "pending", created_at_ms: 1, run_id: null, activation_revision: null, catalog_revision: null }]), revision: null })));
-  renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("tab", { name: "Admissions" }));
-  await screen.findByText("Engine run not confirmed"); expect(screen.queryByRole("link", { name: "Inspect admitted run" })).toBeNull();
+  renderApp("/playbooks?view=runs"); await screen.findByRole("list", { name: "Playbook runs" }); await userEvent.click(screen.getByRole("link", { name: "Start requests" }));
+  await screen.findByText("No run confirmed"); expect(screen.queryByRole("link", { name: "Open run" })).toBeNull();
 });
 test("loaded state filter describes only loaded rows", async () => {
-  responses(); renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" });
+  responses(); renderApp("/playbooks?view=runs"); await screen.findByRole("list", { name: "Playbook runs" });
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Run state" }), "completed"); await screen.findByText("No loaded runs match these filters.");
   expect(screen.getByText("Filtering loaded runs")).toBeInTheDocument();
   expect(screen.queryByText("No runs recorded in this configured namespace.")).toBeNull();
@@ -61,7 +61,7 @@ test("loaded state filter describes only loaded rows", async () => {
 test("run labels render as literal text and a forbidden read clears only its panel", async () => {
   enabled(); const badLabel = "<img src=x onerror=alert(1)>";
   server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json(playbookPage([{ ...runRecord(), entry: badLabel }]))));
-  const { queryClient } = renderApp("/playbooks");
+  const { queryClient } = renderApp("/playbooks?view=runs");
   await screen.findByText(badLabel); expect(document.querySelector('img[src="x"]')).toBeNull();
   server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json({}, { status: 403 })));
   await queryClient.invalidateQueries({ predicate: q => q.queryKey.includes("playbook-runs") });
@@ -71,7 +71,7 @@ test("run labels render as literal text and a forbidden read clears only its pan
 test("run rows show a short id, relative age and a loaded-rows time range", async () => {
   enabled(); const old = { ...runRecord("run-0000000000000002", "completed"), admitted_at_ms: PLAYBOOK_TIME - 2 * 86_400_000 };
   server.use(http.get("/api/playbooks/inspection/runs", () => HttpResponse.json(playbookPage([runRecord(), old]))));
-  renderApp("/playbooks"); const list = await screen.findByRole("list", { name: "Playbook runs" });
+  renderApp("/playbooks?view=runs"); const list = await screen.findByRole("list", { name: "Playbook runs" });
   const row = within(list).getByRole("link", { name: /run-0000000000000001/ });
   expect(row).toHaveTextContent(/Main\s*run-1\s*run-0000000000000001 · 5s ago/);
   expect(within(row).getByText("5s ago")).toHaveAttribute("dateTime", new Date(PLAYBOOK_TIME - 5000).toISOString());
@@ -83,7 +83,7 @@ test("run rows show a short id, relative age and a loaded-rows time range", asyn
 });
 
 test("default filters announce nothing; a chosen state is kept in the URL and restored (ISSUE-005, ISSUE-011)", async () => {
-  responses(); const { router } = renderApp("/playbooks"); const list = await screen.findByRole("list", { name: "Playbook runs" });
+  responses(); const { router } = renderApp("/playbooks?view=runs"); const list = await screen.findByRole("list", { name: "Playbook runs" });
   expect(screen.queryByText("Filtering loaded runs")).toBeNull();
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Run state" }), "waiting");
   expect(screen.getByText("Filtering loaded runs")).toBeInTheDocument();
@@ -100,10 +100,10 @@ test("filters from a shared URL are applied on load (ISSUE-011)", async () => {
   expect(screen.getByRole("combobox", { name: "Run state" })).toHaveValue("completed"); expect(screen.getByRole("combobox", { name: "Time range" })).toHaveValue("all");
 });
 test("view tabs control a tabpanel (ISSUE-010)", async () => {
-  responses(); renderApp("/playbooks"); await screen.findByRole("list", { name: "Playbook runs" });
-  const tab = screen.getByRole("tab", { name: "Runs" }), panel = screen.getByRole("tabpanel", { name: "Runs" });
+  responses(); renderApp("/playbooks?view=runs"); await screen.findByRole("list", { name: "Playbook runs" });
+  const tab = screen.getByRole("tab", { name: "Run history" }), panel = screen.getByRole("tabpanel", { name: "Run history" });
   expect(tab).toHaveAttribute("aria-controls", panel.id); expect(within(panel).getByRole("region", { name: "Recent runs" })).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: "Admissions" })).not.toHaveAttribute("aria-controls");
+  expect(screen.getByRole("tab", { name: "Library" })).not.toHaveAttribute("aria-controls");
 });
 test("a run deep link with both reads failing offers one retry that reloads both (ISSUE-010)", async () => {
   enabled(); let list = 0, detail = 0;
