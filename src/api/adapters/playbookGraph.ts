@@ -3,7 +3,7 @@ import type { Namespace } from "./playbooks";
 
 export const DEFINITION_GRAPH_CAPABILITY = "playbooks.definition-graph.read";
 export type StepKind = "invoke" | "decide" | "wait" | "for_each" | "call" | "join" | "return";
-export type Transition = { label: string; to: string; error: boolean };
+export type Transition = { label: string; to: string; error: boolean; reason?: string };
 export type StepFact = { label: string; value: string };
 export type StepUse = { producer: string; consumer: string; paths: string[]; purpose?: string };
 export type GraphStep = {
@@ -38,6 +38,13 @@ function adaptInspection(raw: unknown, steps: Map<string, GraphStep>) {
       }
     }
     if (summary || uses.length > 0) step.inspection = { summary, uses };
+    if (Array.isArray(entry.branches)) {
+      for (const branch of entry.branches) {
+        if (!isRecord(branch) || !text(branch.label) || !text(branch.to) || typeof branch.error !== "boolean" || !displayText(branch.reason)) continue;
+        const transition = step.transitions.find(edge => edge.label === branch.label && edge.error === branch.error && edge.to === branch.to);
+        if (transition && !transition.reason) transition.reason = branch.reason;
+      }
+    }
   }
 }
 

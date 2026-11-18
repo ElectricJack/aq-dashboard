@@ -34,8 +34,8 @@ test("step metadata cannot replace a compiled graph transition", () => {
     },
   }, artifact, namespace);
   expect(graph?.steps.get("read")?.transitions).toEqual([
-    { label: "observed", to: "next", error: false },
-    { label: "On error", to: "next", error: true },
+    { label: "observed", to: "next", error: false, reason: "Task details are available." },
+    { label: "On error", to: "next", error: true, reason: "The step could not proceed." },
   ]);
   expect(graph?.steps.get("read")?.inspection?.summary).toBe("Reads the task details.");
 });

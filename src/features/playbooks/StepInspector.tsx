@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type RefObject } from "react";
-import { ArrowUpRight, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, X } from "lucide-react";
 import type { GraphStep, StepUse } from "../../api/adapters/playbookGraph";
 import { ActionButton } from "../../components/layout/Workspace";
 import { humanize } from "./RunTimeline";
@@ -65,6 +65,7 @@ export function StepInspector({ step, kind, reachable, headingRef, onClose, onNa
     ? "Pauses the workflow until the deadline."
     : commandDescription ?? descriptions[step.kind];
   const uses = step.inspection?.uses.filter(use => reachable.has(use.producer) && reachable.has(use.consumer)) ?? [];
+  const branches = step.transitions.filter(transition => transition.reason);
   const description = step.inspection?.summary ?? fallbackDescription;
   const targetLabel = step.kind === "wait" ? "Event" : step.kind === "call" ? "Playbook entry" : "Command";
   const facts = (step.target || step.facts.length > 0) && <dl className={styles.facts}>
@@ -85,8 +86,17 @@ export function StepInspector({ step, kind, reachable, headingRef, onClose, onNa
       <div className={styles.stepDescription}>
         {description.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}
       </div>
-      {(facts || uses.length > 0) && <details className={styles.technicalDetails} key={step.id}>
+      {(facts || uses.length > 0 || branches.length > 0) && <details className={styles.technicalDetails} key={step.id}>
         <summary>Details</summary>
+        {branches.length > 0 && <div className={styles.branchDetails}>
+          <h4>Branch conditions</h4>
+          <dl>
+            {branches.map(({ label, to, error, reason }, index) => <div key={index}>
+              <dt><span data-error={error}>{humanize(label)}</span><ArrowRight size={14} aria-hidden />{humanize(to)}</dt>
+              <dd>{reason}</dd>
+            </div>)}
+          </dl>
+        </div>}
         {facts}
         <RelatedSteps direction="incoming" uses={uses.filter(use => use.consumer === step.id)} onNavigate={onNavigate} />
         <RelatedSteps direction="outgoing" uses={uses.filter(use => use.producer === step.id)} onNavigate={onNavigate} />

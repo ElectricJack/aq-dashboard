@@ -161,16 +161,29 @@ const ROUTING_INSPECTION = {
   read: {
     summary: "Looks up the task for this run and reads its current title, description, declared kind, and who set any existing route.\n\nIf the workflow requests an assessment, the agent uses those details to understand the work.",
     uses: [ROUTE_CHECK_USE, ASSESSMENT_USE],
+    branches: [
+      { label: "observed", to: "owned", error: false, reason: "The task was found and its details are available." },
+      { label: "refused", to: "skipped", error: false, reason: "The task is unknown or its project does not use automatic routing." },
+      { label: "On error", to: "failed", error: true, reason: "The step could not proceed, for example because its input was invalid or the runtime rejected the command." },
+    ],
   },
   owned: {
     summary: "Checks whether an owner has already chosen the route for this task. It compares task.facts.route, which came from the task lookup, with owner. This keeps a manually chosen route in place.",
     uses: [ROUTE_CHECK_USE],
+    branches: [
+      { label: "false", to: "ask", error: false, reason: "The route is unset or was chosen by the automatic router." },
+      { label: "true", to: "skipped", error: false, reason: "An owner already chose a route for this task." },
+      { label: "unknown", to: "failed", error: false, reason: "The condition could not be evaluated." },
+    ],
   },
   ask: {
     summary: "Asks an agent to classify the kind of work and assess its risk. The agent uses the task's title, description, and declared kind from the earlier task lookup.",
     uses: [ASSESSMENT_USE],
   },
 };
+const ROUTING_DESCRIPTION = `## Routing policy
+
+**Keep routes chosen by an owner.** Assess the kind of work and its risk when the task needs an automatic route.`;
 const RECOVERY_DESCRIPTION = `## When to use this playbook
 
 Use worker recovery when a stalled attempt needs to hand off its changes.
@@ -247,6 +260,7 @@ export function playbookHandlers(mode: PlaybookMode) {
           ] },
         }),
         ...(mode === "step-inspection" && artifact === ARTIFACT.routingInspection && {
+          description_markdown: ROUTING_DESCRIPTION,
           step_inspection: ROUTING_INSPECTION,
           step_facts: {
             read: [

@@ -128,6 +128,7 @@ for (const vp of VIEWPORTS) {
       const owned = diagram.getByRole("button", { name: "Decision Owned" });
       const ask = diagram.getByRole("button", { name: "Command Ask" });
       const inspector = page.getByRole("complementary", { name: "Step details" });
+      const description = page.getByRole("region", { name: "Description", exact: true });
       const later = inspector.getByRole("list", { name: "Used by later steps" });
       const earlier = inspector.getByRole("list", { name: "Uses from earlier steps" });
       await read.press("Enter");
@@ -135,14 +136,23 @@ for (const vp of VIEWPORTS) {
       await expect(inspector.getByRole("heading", { name: "Read", exact: true })).toBeVisible();
       await expect(inspector.getByText(/Looks up the task.*title, description, declared kind/)).toBeVisible();
       await expect(inspector.getByText(/If the workflow requests an assessment/)).toBeVisible();
-      await expect(inspector.getByRole("heading", { name: "Next steps" })).toHaveCount(0);
       await expect(diagram.getByRole("img", { name: /Read to .*Refused/ })).toBeAttached();
+      await expect(inspector.getByRole("heading", { name: "Branch conditions" })).toBeHidden();
       await expect(later).toBeHidden();
+      await expect(description.getByRole("heading", { name: "Routing policy" })).toBeVisible();
+      await expect(description.locator("strong")).toHaveText("Keep routes chosen by an owner.");
+      const workflowBounds = (await page.getByRole("region", { name: "Compiled workflow", exact: true }).boundingBox())!;
+      expect((await description.boundingBox())!.y).toBeGreaterThanOrEqual(workflowBounds.y + workflowBounds.height);
       await page.screenshot({ path: testInfo.outputPath("routing-read.png") });
       await expect(inspector.getByText("work.read", { exact: true })).toBeHidden();
       await inspector.getByText("Details", { exact: true }).click();
+      await expect(inspector.getByRole("heading", { name: "Branch conditions" })).toBeVisible();
+      await expect(inspector.getByText(/task is unknown or its project does not use automatic routing/)).toBeVisible();
+      await expect(inspector.getByText(/input was invalid or the runtime rejected the command/)).toBeVisible();
       await expect(inspector.getByText("work.read", { exact: true })).toBeVisible();
       await expect(later.getByRole("button", { name: "Owned", exact: true })).toBeVisible();
+      await inspector.getByRole("heading", { name: "Branch conditions" }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath("routing-read-branches.png") });
       await inspector.getByText("Details", { exact: true }).click();
 
       await owned.press("Enter");
