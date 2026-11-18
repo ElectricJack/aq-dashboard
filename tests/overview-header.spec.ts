@@ -1,7 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-// OV-A (reference 01-overview-v3.png): title, plain summary and Create task header.
+// OV-A (reference 01-overview-v3.png): title, plain summary and Create task header, in the compact one-row
+// form every destination shares (spec 0002, owner update 2026-11-10).
 const project = "00000000-0000-0000-0000-000000000001";
 const scoped = `/overview?scope=project:${project}`;
 const evidence = "docs/evidence/overview-ov-a";
@@ -27,10 +28,21 @@ function intersects(a: { x: number; y: number; width: number; height: number }, 
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
-async function expectStackedHeader(page: Page) {
+/** One title/action row: the summary sits inline after the title on desktop and is kept for assistive tech only on phones. */
+async function expectCompactHeader(page: Page, phone: boolean) {
   const h1 = await box(title(page));
   const line = await box(summary(page));
-  expect(h1.y + h1.height).toBeLessThanOrEqual(line.y);
+  const header = await box(page.locator("main [data-page-header]"));
+  expect(header.height).toBeLessThanOrEqual(48);
+  if (phone) {
+    // Clipped to a 1px box by the header, not removed: its text assertions above still read it.
+    const clip = await box(summary(page).locator("xpath=.."));
+    expect(clip.width).toBeLessThanOrEqual(1);
+    expect(clip.height).toBeLessThanOrEqual(1);
+  } else {
+    expect(line.x).toBeGreaterThanOrEqual(h1.x + h1.width);
+    expect(Math.abs(line.y + line.height / 2 - (h1.y + h1.height / 2))).toBeLessThanOrEqual(8);
+  }
 }
 
 async function expectNoAxeViolations(page: Page) {
@@ -44,17 +56,18 @@ for (const vp of VIEWPORTS) {
   test.describe(`${vp.width}x${vp.height}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("header stacks title over summary with a visible Create task", async ({ page }) => {
+    test("header keeps title and summary on one row with a visible Create task", async ({ page }) => {
       await page.goto("/overview");
       await expect(page.getByRole("region", { name: "Needs your attention" }).getByRole("listitem").first()).toBeVisible({ timeout: 15_000 });
       // SO-07: only projects reporting running work count as moving (one of the four mock projects runs nothing).
       await expect(summary(page)).toHaveText("3 items need you. Work is moving in 3 projects.");
-      await expectStackedHeader(page);
+      await expectCompactHeader(page, vp.name === "m");
       // All projects: the existing Work path asks for a project first.
       const create = page.getByRole("button", { name: /create task/i });
       await expect(create).toBeVisible();
       await expect(create).toBeDisabled();
-      await expect(page.getByText("Choose a project first")).toBeVisible();
+      // The reason is the button's description; SO-22 (overview-qa-2026-11-06.spec.ts) covers showing it.
+      await expect(create).toHaveAccessibleDescription("Choose a project first");
       if (vp.name === "d") await expect(create).toBeInViewport();
       else expect(intersects(await box(create), await box(title(page)))).toBe(false);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
@@ -65,7 +78,7 @@ for (const vp of VIEWPORTS) {
     test("project scope enables Create task and uses the zero summary form", async ({ page }) => {
       await page.goto(scoped);
       await expect(summary(page)).toHaveText("No items need you. No work is in motion.", { timeout: 15_000 });
-      await expectStackedHeader(page);
+      await expectCompactHeader(page, vp.name === "m");
       const create = page.getByRole("button", { name: /create task/i });
       await expect(create).toBeEnabled();
       if (vp.name === "d") await expect(create).toBeInViewport();
@@ -80,7 +93,7 @@ for (const vp of VIEWPORTS) {
         await expect(page.getByRole("heading", { level: 2, name: "Needs your attention" })).toBeVisible({ timeout: 20_000 });
         await expect(summary(page)).not.toHaveText(/Checking/, { timeout: 20_000 });
         if (name === "reads-failed") await expect(summary(page)).toHaveText("The overview summary is unavailable.");
-        await expectStackedHeader(page);
+        await expectCompactHeader(page, vp.name === "m");
         await expectNoAxeViolations(page);
         await page.screenshot({ path: `${evidence}/overview-A-${name}-${vp.name}.png` });
       }

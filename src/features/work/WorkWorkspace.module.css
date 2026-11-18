@@ -62,7 +62,8 @@
 @media (max-width:1199px) {
   .panes,.page[data-view=graph] .panes { grid-template-columns:minmax(0,1fr); }
   .emptyInspector { display:none; }
-  .page[data-detail=true][data-view=list] .toolbar,.page[data-detail=true][data-view=list] .mainPane { display:none; }
+  /* The task replaces the list and its filters; List | Graph stays so Graph opens from a task (W20). */
+  .page[data-detail=true][data-view=list] .toolbar > :not(.segmented),.page[data-detail=true][data-view=list] .mainPane { display:none; }
   .page[data-detail=true][data-view=graph] .inspector { display:none; }
 }
 @media (max-width:600px) {
