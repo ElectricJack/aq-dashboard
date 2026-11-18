@@ -23,10 +23,11 @@ async function fixture(page: Page, hostEnabled = false) {
   const hostInputs: string[] = [], hostStops: string[] = [];
   const agents = sessions(), connects = new Map<string, number>(), inputs = new Map<string, string>();
   const sockets = new Map<string, WebSocketRoute>(), stops: string[] = [], sizes: number[][] = [];
-  const chunks = Array.from({ length: 40 }, (_, i) => ({ sequence: i + 1,
-    text: i === 31 ? "ébegin needle" : i === 32 ? " across pages 🐈\n" : `Fixture retained line ${i + 1}\n` }));
-  const archive = (id = agents[0]!.id) => ({ ...agents.find(a => a.id === id)!, archive: { state: "complete", coverage: "complete", reason: null,
-    first_sequence: 1, last_sequence: 40, bytes: Buffer.byteLength(chunks.map(c => c.text).join("")), updated_at_ms: now() } });
+  const messages = [
+    { role: "user", text: "Explain the current scope." },
+    { role: "assistant", text: "The scope is limited to the fixture project.\nThis is a saved conversation." },
+  ];
+
   await page.route(url => url.pathname.startsWith("/api/"), async route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname;
     const scope = url.searchParams.get("scope");
@@ -45,13 +46,10 @@ async function fixture(page: Page, hostEnabled = false) {
       json={ready:true,node_name:"Fixture WSL worker",shell:hostShell};
     }
     else if (path === "/api/manual-agents") json = { sessions: agents, workers: [], slots: [], projects: [], server_time_ms: now() };
-    else if (path === "/api/manual-agents/history") json = { sessions: [archive()], next_cursor: null, server_time_ms: now() };
-    else if (path.endsWith("/transcript/search")) {
-      const text = chunks.map(c => c.text).join(""), q = url.searchParams.get("q") ?? "";
-      json = { matches: [{ offset: Buffer.byteLength(text.slice(0, text.indexOf(q))), length: Buffer.byteLength(q), sequence: 32, excerpt: q }], next_after: null, has_more: false, through_sequence: 40, server_time_ms: now() };
-    } else if (path.endsWith("/transcript")) {
-      const after = Number(url.searchParams.get("after") ?? 0), limit = Number(url.searchParams.get("limit") ?? 32), end = Math.min(after + limit, 40);
-      json = { session: archive(path.split("/")[3]), chunks: chunks.slice(after, end), next_after: end, has_more: end < 40, through_sequence: 40, server_time_ms: now() };
+    else if (path === "/api/manual-agents/history") json = { sessions: [{ ...agents[0], conversation_available: true }], next_cursor: null, server_time_ms: now() };
+    else if (path.endsWith("/conversation")) json = { session_id: path.split("/")[3], project_id: project, conversation: { partial: false, messages } };
+    else if (/^\/api\/manual-agents\/[^/]+$/.test(path)) {
+      json = agents.find(a => a.id === path.split("/")[3]);
     } else if (path.endsWith("/terminal/connect")) {
       const id = path.split("/")[3]!; connects.set(id, (connects.get(id) ?? 0) + 1); json = { generation: connects.get(id) };
     } else if (path.endsWith("/stop")) {
@@ -74,7 +72,7 @@ async function fixture(page: Page, hostEnabled = false) {
     ws.onMessage(message=>{if(typeof message!=="string"){hostInputs.push(message.toString());ws.send(message);}});
     ws.send(JSON.stringify({kind:"ready",server_time_ms:now()}));ws.send(Buffer.from("\r\nFixture host shell\r\n$ "));
   });
-  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, chunks };
+  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, messages };
 }
 
 async function noOverflow(page: Page) {
@@ -150,21 +148,21 @@ test("tablet and phone switches preserve panes and an expanded terminal always h
   expect(f.sizes.every(([cols, rows]) => cols >= 80 && rows >= 8)).toBe(true);
 });
 
-test("retained history finds unloaded cross-page text and downloads the whole archive", async ({ page }) => {
+test("saved conversation supports search and download on desktop and phone", async ({ page }) => {
   const f = await fixture(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/agents/sessions?scope=project:${project}&session=manual:${f.agents[0]!.id}`);
   await expect(page).toHaveURL(/\/agents\/history\?/);
-  const output = page.getByLabel("Terminal transcript", { exact: true });
-  await expect(output).toContainText("Fixture retained line 1");
-  await page.getByRole("textbox", { name: "Find", exact: true }).fill("needle across pages");
+  const output = page.getByLabel("Saved conversation", { exact: true });
+  await expect(output).toContainText("Explain the current scope.");
+  await page.getByRole("textbox", { name: "Find in conversation", exact: true }).fill("fixture project");
   await page.getByRole("button", { name: "Find", exact: true }).click();
-  await expect(output.locator("mark")).toHaveText("needle across pages");
+  await expect(output.locator("mark")).toHaveText("fixture project");
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download retained output" }).click();
+  await page.getByRole("button", { name: "Download conversation" }).click();
   const saved = await download, stream = await saved.createReadStream(), parts: Buffer[] = [];
   for await (const part of stream!) parts.push(Buffer.from(part));
-  expect(Buffer.concat(parts).toString()).toBe(f.chunks.map(c => c.text).join(""));
+  expect(Buffer.concat(parts).toString()).toBe(f.messages.map(({ role, text }) => `${role === "user" ? "You" : "Agent"}\n${text}`).join("\n\n"));
   await noOverflow(page);
   await page.screenshot({ path: test.info().outputPath("history-1440.png") });
   await page.setViewportSize({ width: 390, height: 844 });

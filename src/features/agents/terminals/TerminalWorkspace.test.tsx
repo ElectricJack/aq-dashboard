@@ -90,7 +90,7 @@ test('a native pane follows session detail into ended state without remounting',
   await queryClient.invalidateQueries({ predicate: q => q.queryKey.includes('session') });
   await waitFor(() => expect(pane).toHaveAttribute('data-input-enabled','false'));
   expect(mounts.counts.get(first.terminal!.id)).toBe(count);
-  expect(screen.getByText(/Native transcript availability/)).toBeInTheDocument();
+  expect(within(pane.closest("section")!).getByRole("link", { name: "History" })).toHaveAttribute("href", `/agents/history?session=native%3A${first.id}`);
 });
 
 test('refused manual roster refresh disconnects an open pane and clears its stale roster row', async () => {
@@ -100,7 +100,7 @@ test('refused manual roster refresh disconnects an open pane and clears its stal
   server.use(
     http.get('/api/v1/bootstrap', () => HttpResponse.json({...bootstrap,data:{...bootstrap.data,capabilities:[...bootstrap.data.capabilities.filter(c => !['swarm.read','tasks.create'].includes(c.name)),{name:'swarm.read',version:'1',enabled:true},{name:'tasks.create',version:'1',enabled:true}]}})),
     http.get('/api/manual-agents', () => refused ? new HttpResponse(null,{status:403}) : HttpResponse.json({sessions:[agent],workers:[],slots:[],projects:[],server_time_ms:2})),
-    http.get(`/api/manual-agents/${id}/transcript`, () => new HttpResponse(null,{status:403})),
+    http.get(`/api/manual-agents/${id}`, () => new HttpResponse(null,{status:403})),
   );
   const {queryClient} = renderApp('/agents');
   fireEvent.click(await screen.findByRole('button',{name:'Add Fixture private agent to workspace'}));

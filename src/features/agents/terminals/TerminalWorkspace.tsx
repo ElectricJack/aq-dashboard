@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { transcript } from "../../../api/sessionHistory";
+import { manualSession as fetchManualSession } from "../../../api/sessionHistory";
 import { adaptSessionDetail, type SessionDetailView } from "../../../api/adapters/inspection";
 import type { SessionDetail } from "../../../api/wire/proposed";
 import { ContractError } from "../../../api/adapters/contract";
@@ -87,31 +87,35 @@ function Pane({ row, selected, hidden, narrowHidden, expanded, project, present,
   const { queryContext } = useSession();
   const [error, setError] = useState<string | null>(null);
   const detail = useRead<SessionDetail, SessionDetailView>({ resource: "session", path: `/api/v1/sessions/${encodeURIComponent(row.id)}`, scope: project ? {kind:"project",project_id:project} : {kind:"all_authorized"}, enabled: !row.manual, pollMs: 5000, meta: PANEL_READ, adapt: (wire, time) => { if (wire.id !== row.id) throw new ContractError("Session identity changed"); return adaptSessionDetail(wire, time); } });
-  const manualEnded = row.status === "stopped" || row.status === "failed";
-  const archive = useQuery({ queryKey: ["pane-transcript", queryContext.principalId, queryContext.authorizationRevision, row.id], queryFn: ({signal}) => transcript(row.id, {limit: 32}, signal), enabled: row.manual && (manualEnded || row.status === "Loading" || !present), retry: false, refetchInterval: q => q.state.data && ["recording", "finalizing"].includes(q.state.data.session.archive.state) ? 3000 : false, meta: PANEL_READ });
-  const manualSession = archive.data?.session;
+  const manualDetail = useQuery({
+    queryKey: ["manual-session", queryContext.principalId, queryContext.authorizationRevision, project, row.id],
+    queryFn: ({ signal }) => fetchManualSession(row.id, signal),
+    enabled: row.manual && (row.status === "Loading" || !present),
+    retry: false,
+    meta: PANEL_READ,
+  });
+  const manualSession = manualDetail.data;
   const nativeSession = detail.data?.view;
   const refusal = (e: unknown) => isProtectedReadFailure(e) || (e instanceof ApiError && [404, 410].includes(e.status ?? 0));
-  const rejected = row.manual ? refusal(archive.error) || isProtectedReadFailure(manual?.error) : refusal(detail.error);
+  const rejected = row.manual ? refusal(manualDetail.error) || isProtectedReadFailure(manual?.error) : refusal(detail.error);
   const resolvedProject = row.manual ? manualSession?.project_id ?? row.projectId : nativeSession?.project.id ?? row.projectId;
   const outsideScope = !!project && !!resolvedProject && project !== resolvedProject;
   const permitted = !rejected && !outsideScope;
-  const status = row.manual ? !present || row.status === "Loading" ? manualSession?.status ?? (row.status === "Loading" ? archive.isError ? "Unavailable" : "Loading" : row.status) : row.status : nativeSession ? nativeSession.lifecycle?.stoppedAt || nativeSession.observation.state === "reported_stopped" ? "stopped" : nativeSession.observation.state === "reported_running" ? `Running${nativeSession.observation.freshness === "stale" ? " (stale)" : ""}` : "State unknown" : row.status === "Loading" ? (detail.isError ? "Unavailable" : "Loading") : "State unknown";
+  const status = row.manual ? !present || row.status === "Loading" ? manualSession?.status ?? (row.status === "Loading" ? manualDetail.isError ? "Unavailable" : "Loading" : row.status) : row.status : nativeSession ? nativeSession.lifecycle?.stoppedAt || nativeSession.observation.state === "reported_stopped" ? "stopped" : nativeSession.observation.state === "reported_running" ? `Running${nativeSession.observation.freshness === "stale" ? " (stale)" : ""}` : "State unknown" : row.status === "Loading" ? (detail.isError ? "Unavailable" : "Loading") : "State unknown";
   const ended = status === "stopped" || status === "failed";
   const terminalId = row.manual ? manualSession?.id ?? row.terminal : nativeSession?.terminal?.id ?? row.terminal;
   const title = !permitted ? "Unavailable agent" : row.manual ? manualSession?.spec.project_name ?? row.project : nativeSession?.task?.title ?? nativeSession?.label ?? row.project;
   const [started, setStarted] = useState(row.status === "running" || (!row.manual && !!row.terminal));
   useEffect(() => { if (terminalId && !ended && permitted && (row.manual ? status === "running" : status !== "Loading" && status !== "Unavailable")) setStarted(true); }, [terminalId, ended, permitted, status, row.manual]);
-  const saved = ended && permitted && archive.data && archive.data.session.archive.state === "complete" && !archive.data.has_more && archive.data.chunks.length > 0 ? archive.data.chunks.map(c => c.text).join("") : null;
-  const archiveState = archive.data?.session.archive.state;
   const historyParams = new URLSearchParams(search); historyParams.set("session", `${row.manual ? "manual" : "native"}:${row.id}`);
   return <section className={styles.pane} data-selected={selected || undefined} data-hidden={hidden || undefined} data-narrow-hidden={narrowHidden || undefined} onFocusCapture={onFocus} onClick={onFocus} aria-label={`${title} terminal`}>
     <header className={styles.paneHead}><strong>{title}</strong><span>{!permitted ? "Unavailable" : status}</span><button onClick={onExpand}>{expanded ? "Restore" : "Expand"}</button>{row.manual && permitted && !ended && status !== "Loading" && <button disabled={status === "stopping"} onClick={() => void manual?.stop(row.id).catch(() => setError("Stop could not be confirmed."))}>Stop</button>}<button onClick={onClose} aria-label={`Close ${title} pane`}>Close</button></header>
     {error && <p role="alert">{error}</p>}
     {!permitted && <p role="status" className={styles.empty}>This session is unavailable in this scope. Close this pane to free its slot.</p>}
-    {permitted && ended && <div className={styles.ended} role="status">{status === "failed" ? "Failed" : "Ended"} · {row.manual ? archiveState === "not_recorded" ? "Not recorded" : archiveState === "complete" ? "Saved transcript" : archive.isError ? "Saved transcript unavailable" : "Saving final output" : "Native transcript availability is in History"}. <Link to={{ pathname: "/agents/history", search: `?${historyParams}` }}>History</Link></div>}
-    {saved && <pre className={styles.transcript} aria-label="Terminal transcript">{saved}</pre>}
-    {permitted && <div className={styles.live} hidden={!!saved}>{started && terminalId ? <InteractiveTerminal terminalId={terminalId} name={row.key} label={`${title} terminal output`} manual={row.manual} inputEnabled={!ended} compact /> : <p className={styles.empty}>{ended ? "No live output was observed." : (row.manual ? archive.isError && row.status === "Loading" : detail.isError && !nativeSession) ? "Session unavailable. You can close this pane or retry later." : terminalId ? "Starting agent…" : row.status === "Loading" ? "Loading session…" : "No terminal is available for this session."}</p>}</div>}
+    {permitted && ended && <div className={styles.ended} role="status">
+      {status === "failed" ? "Failed" : "Ended"} · <Link to={{ pathname: "/agents/history", search: `?${historyParams}` }}>History</Link>
+    </div>}
+    {permitted && <div className={styles.live}>{started && terminalId ? <InteractiveTerminal terminalId={terminalId} name={row.key} label={`${title} terminal output`} manual={row.manual} inputEnabled={!ended} compact /> : <p className={styles.empty}>{ended ? "No live output was observed." : (row.manual ? manualDetail.isError && row.status === "Loading" : detail.isError && !nativeSession) ? "Session unavailable. You can close this pane or retry later." : terminalId ? "Starting agent…" : row.status === "Loading" ? "Loading session…" : "No terminal is available for this session."}</p>}</div>}
   </section>;
 }
 

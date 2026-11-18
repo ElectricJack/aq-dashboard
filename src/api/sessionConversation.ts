@@ -1,17 +1,11 @@
-import { ApiError, apiGet } from './client';
+import { apiGet } from './client';
 import { ContractError, isRecord } from './adapters/contract';
 
 export type ConversationMessage = { role: 'user' | 'assistant'; text: string };
 export type Conversation = { messages: ConversationMessage[]; partial: boolean };
 
 export async function sessionConversation(id: string, project: string | undefined, signal: AbortSignal) {
-  let value: unknown;
-  try {
-    value = await apiGet(`/api/manual-agents/${encodeURIComponent(id)}/conversation`, signal);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return { kind: 'unsupported' } as const;
-    throw error;
-  }
+  const value = await apiGet<unknown>(`/api/manual-agents/${encodeURIComponent(id)}/conversation`, signal);
   if (!isRecord(value) || value.session_id !== id || typeof value.project_id !== 'string') {
     throw new ContractError('Invalid conversation session');
   }
