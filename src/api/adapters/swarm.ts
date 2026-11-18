@@ -78,10 +78,13 @@ const holds = (v: unknown): HoldReasonView[] => list<HoldReason>(v).filter(isRec
 
 function load(l: MachineLoad | null | undefined): LoadView | null {
   if (!isRecord(l)) return null;
+  const cpu = num(l.cpu_busy_bps);
+  const memory = num(l.memory_used_bps);
+  if (cpu === null || memory === null || cpu < 0 || cpu > 10_000 || memory < 0 || memory > 10_000) return null;
   return {
     source: oneOf(l.source, ["linux", "windows_host"] as const, "unknown" as const),
     hostProbe: oneOf(l.host_probe, ["not_applicable", "fresh", "stale", "missing"] as const, "not_applicable"),
-    cpuPercent: percent(l.cpu_busy_bps), memoryPercent: percent(l.memory_used_bps),
+    cpuPercent: percent(cpu), memoryPercent: percent(memory),
     cpuAvgPercent: l.cpu_avg_15m_bps == null ? null : percent(l.cpu_avg_15m_bps), memoryAvgPercent: l.memory_avg_15m_bps == null ? null : percent(l.memory_avg_15m_bps),
     samples: num(l.samples_15m) ?? 0, observedAt: text(l.observed_at) ?? "", fresh: l.fresh === true,
   };

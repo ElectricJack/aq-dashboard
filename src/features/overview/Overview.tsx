@@ -254,7 +254,7 @@ function Attention({ view, attention, total, serverTime, complete, search }: {
         complete && <p className={styles.empty}>Nothing needs your attention</p>
       )}
       {partialWorkers && (
-        <p className={styles.meta}>Offline workers are listed here only when the server can relate them to recorded work. Capacity › More capacity › Worker nodes shows every heartbeat.</p>
+        <p className={styles.meta}>Offline workers are listed here when they are linked to recorded work. Swarm shows worker status.</p>
       )}
     </section>
   );
@@ -419,7 +419,7 @@ export function Overview() {
         <Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link>
       </section>
       </section>
-      </div><Infrastructure serverTime={serverTime} /></div>
+      </div><Infrastructure /></div>
     </div>
   );
 }

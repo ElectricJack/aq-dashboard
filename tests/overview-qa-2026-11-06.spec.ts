@@ -50,10 +50,10 @@ test.describe("desktop", () => {
     await expect(page).toHaveURL(/\/work\?scope=project(%3A|:)agent-queue$/);
   });
 
-  test("SO-09: Inspect eligibility keeps the project scope", async ({ page }) => {
+  test("SO-09: the Capacity link keeps the project scope", async ({ page }) => {
     await page.goto(`/overview?scope=project:${project}`);
-    const link = page.getByRole("link", { name: /Inspect eligibility/ });
-    await expect(link).toHaveAttribute("href", `/settings?scope=project%3A${project}`, { timeout: 15_000 });
+    const link = page.getByRole("link", { name: "Open Swarm" });
+    await expect(link).toHaveAttribute("href", `/agents/swarm?scope=project%3A${project}`, { timeout: 15_000 });
   });
 
   test("SO-17: section headings scale with Settings › Text size", async ({ page }) => {
