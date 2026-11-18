@@ -102,10 +102,6 @@
 .hostedCommand summary { cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 .hostedCommand code { margin-block-start: var(--space-1); }
 
-.launch { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border-subtle, #334155); }
-.launch label { display: grid; gap: 6px; }
-.launch select { width: 100%; min-height: var(--control-height); background: var(--surface-raised, #17202d); color: inherit; border: 1px solid var(--border-subtle, #334155); border-radius: 6px; padding: 8px; }
-
 .terminal > :global([data-interactive-terminal]) { flex: 1; min-block-size: 480px; }
 .stage[data-focus] { grid-template-columns: minmax(0, 1fr); }
 .stage[data-focus] > :first-child { display: none; }
@@ -121,14 +117,6 @@
 .stage[data-viewport-fit] .flow, .stage[data-viewport-fit] > :first-child > section { height: auto; flex: 1; min-block-size: 0; }
 .stage[data-viewport-fit] .pane, .stage[data-viewport-fit] .terminal, .stage[data-viewport-fit] .terminal > :global([data-interactive-terminal]) { min-block-size: 0; }
 .stage[data-focus] > :first-child { display: none; }
-
-.loginCommand { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; margin: 6px 0; }
-
-.loginChoices { padding: 0; gap: 8px; font-size: 12px; }
-.loginChoices label { display: inline-flex; align-items: center; gap: 4px; }
-.loginChoices input { margin: 0; }
-
-.diagnosticDetails { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 11px; }
 
 /* The handle occupies the existing ten-pixel gutter. Both content nodes stay mounted while resizing. */
 @media (min-width: 1024px) {
@@ -148,10 +136,17 @@
 .stage[data-pane-closed] > .divider, .stage[data-pane-closed] > .pane { display: none; }
 .pane { min-inline-size: 0; }
 
+@media (max-width: 767px) {
+  /* The compact Agents shell uses the same padding top and bottom, above a fixed phone nav. */
+  .pane[data-worker] { margin-block-end: calc(var(--touch-target) + var(--space-3) + env(safe-area-inset-bottom)); }
+}
+
 @media (min-width: 1024px) {
   /* Narrow inspectors can exceed the workspace height; retain access to their final controls. */
   .stage:not([data-wide]) .pane { overflow-y: auto; }
   .stage:not([data-wide]) .pane > * { flex-shrink: 0; }
+  .stage .pane[data-worker] { overflow: hidden; }
+  .stage .pane[data-worker] > :last-child { flex: 1 1 0; }
 }
 /* A short desktop window (1280×720, a laptop or a projector): the legend is one line so the tree keeps the height. */
 @media (min-width: 1024px) and (max-height: 899px) { .legend { flex-wrap: nowrap; gap: 10px; margin-block: 2px 0; white-space: nowrap; overflow: hidden; } }

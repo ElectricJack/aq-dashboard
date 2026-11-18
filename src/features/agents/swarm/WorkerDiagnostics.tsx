@@ -6,7 +6,7 @@ import {useSession,PANEL_READ} from '../../../app/session';
 import {queryKey} from '../../../api/queryKeys';
 import {ActionButton} from '../../../components/layout/Workspace';
 import {hostedWorkerCommand,useWorkerInstaller} from './AddMachine';
-import styles from './Swarm.module.css';
+import styles from './WorkerInspector.module.css';
 type Report={ok:boolean;phase?:string;error?:string;details?:Record<string,unknown>};
 type Job={id:string;node_id:string;kind:'sandbox_startup_v1'|'receiver_update_v1';status:'queued'|'running'|'completed';result:Report|null};
 type Receiver={node_id:string;seen_at_ms:number;version:number};
@@ -20,11 +20,12 @@ export function WorkerDiagnostics({nodeId}:{nodeId:string}){
  const active=job?.status==='queued'||job?.status==='running';
  const installer=useWorkerInstaller();const install=hostedWorkerCommand(installer.origin,installer.digest,true);
  async function request(kind:Job['kind']){if(lock.current)return;lock.current=true;setBusy(true);setError(null);const change=pending??{operation_id:crypto.randomUUID(),kind,...(kind==='receiver_update_v1'?{installer_sha256:import.meta.env.VITE_AQ_WORKER_INSTALL_SHA256}:{})};setPending(change);try{const receipt=await apiSend<unknown>('POST',`/api/worker-diagnostics/${encodeURIComponent(nodeId)}`,change);if(!isRecord(receipt)||receipt.operation_id!==change.operation_id)throw new ContractError('Invalid worker check receipt');setPending(null);await client.invalidateQueries({predicate:q=>q.queryKey.includes('worker-diagnostics')});}catch(e){if(e instanceof ApiError&&(e.status??0)>=400&&(e.status??0)<500)setPending(null);setError(e instanceof ApiError?e.serverMessage??'Worker check could not be requested.':'Confirmation is pending. Retry the same request.');}finally{setBusy(false);lock.current=false;}}
- return <section className={styles.launch} aria-label="Worker diagnostics">
-  <div className={`${styles.actions} ${styles.loginChoices}`}><span>Diagnostics</span><ActionButton disabled={busy||active&&!pending} onClick={()=>void request('sandbox_startup_v1')}>{busy?'Sending…':pending?'Retry request':'Run checks'}</ActionButton>{receiver&&<ActionButton disabled={busy||active||!install||!!pending} onClick={()=>void request('receiver_update_v1')}>Update controls</ActionButton>}</div>
-  <p role="status" className={styles.actionNote}>{query.isError?'Worker diagnostics are unavailable.':active?job.status==='running'?'Worker is running the checks.':'Checks queued. Waiting for the worker.':job?.result?job.result.ok?job.kind==='receiver_update_v1'?'Worker controls updated remotely.':job.result.details?.network_tools_restored?'Sandbox startup passed. AQ networking tools were restored.':'Sandbox startup and tmux passed.':`${job.result.phase??'Worker check'}: ${job.result.error??'Check failed.'}`:receiver?'Run sandbox checks remotely without opening a terminal.':'One worker update enables remote checks and future remote updates.'}</p>
-  {!receiver&&install&&<details><summary>Enable remote controls</summary><p className={styles.actionNote}>Open this dashboard on the worker’s PC and run the copied command once in WSL. Enrollment and logins are kept.</p><code className={styles.loginCommand}>{install}</code><ActionButton onClick={()=>{void navigator.clipboard.writeText(install).then(()=>setError('Worker update command copied.'),()=>setError('Copy the command above.'));}}>Copy worker update</ActionButton></details>}
-  {job?.result?.details&&<details><summary>Check details</summary><pre className={styles.diagnosticDetails}>{JSON.stringify(job.result.details,null,2)}</pre></details>}
-  {error&&<p role="status" className={styles.actionNote}>{error}</p>}
+ return <section className={styles.group} aria-label="Worker diagnostics">
+  <h3>Remote checks</h3>
+  <p role="status" className={styles.note}>{query.isError?'Worker diagnostics are unavailable.':active?job.status==='running'?'Worker is running the checks.':'Checks queued. Waiting for the worker.':job?.result?job.result.ok?job.kind==='receiver_update_v1'?'Worker controls updated remotely.':job.result.details?.network_tools_restored?'Sandbox startup passed. AQ networking tools were restored.':'Sandbox startup and tmux passed.':`${job.result.phase??'Worker check'}: ${job.result.error??'Check failed.'}`:receiver?'Run sandbox checks remotely without opening a terminal.':'One worker update enables remote checks and future remote updates.'}</p>
+  <div className={styles.actions}><ActionButton disabled={busy||active&&!pending} onClick={()=>void request('sandbox_startup_v1')}>{busy?'Sending…':pending?'Retry request':'Run checks'}</ActionButton>{receiver&&<ActionButton disabled={busy||active||!install||!!pending} onClick={()=>void request('receiver_update_v1')}>Update controls</ActionButton>}</div>
+  {!receiver&&install&&<details className={styles.more}><summary>Enable remote controls</summary><p className={styles.note}>Open this dashboard on the worker’s PC and run the copied command once in WSL. Enrollment and logins are kept.</p><code className={styles.command}>{install}</code><ActionButton onClick={()=>{void navigator.clipboard.writeText(install).then(()=>setError('Worker update command copied.'),()=>setError('Copy the command above.'));}}>Copy worker update</ActionButton></details>}
+  {job?.result?.details&&<details className={styles.more}><summary>Check details</summary><pre className={styles.diagnosticDetails}>{JSON.stringify(job.result.details,null,2)}</pre></details>}
+  {error&&<p role="status" className={styles.note}>{error}</p>}
  </section>;
 }

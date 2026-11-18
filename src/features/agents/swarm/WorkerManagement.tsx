@@ -8,8 +8,7 @@ import { queryKey } from "../../../api/queryKeys";
 import { useSession, PANEL_READ } from "../../../app/session";
 import { ActionButton } from "../../../components/layout/Workspace";
 import styles from "./Swarm.module.css";
-import {WorkerDiagnostics} from "./WorkerDiagnostics";
-import {WorkerLogins} from "./WorkerLogins";
+import inspectorStyles from "./WorkerInspector.module.css";
 
 type Setting = {
   kind: "machine" | "node";
@@ -70,7 +69,7 @@ export function WorkerManagement(props: Props) {
     {query.isError ? "Worker settings could not be loaded." : "Loading worker settings…"}
   </p>;
   const current = query.data.settings.find(s => s.kind === props.kind && s.id === props.id);
-  return <><ManagementForm key={`${props.kind}:${props.id}:${current?.revision ?? 0}`} {...props} current={current} />{props.kind === "node" && <><WorkerLogins key={props.id} nodeId={props.id}/><WorkerDiagnostics key={props.id} nodeId={props.id}/></>}</>;
+  return <ManagementForm key={`${props.kind}:${props.id}:${current?.revision ?? 0}`} {...props} current={current} />;
 }
 
 type Change = { operation_id: string; expected_revision: number; label: string; max_agents: number | null; remove: boolean };
@@ -120,13 +119,13 @@ function ManagementForm({ kind, id, name, maximum, current }: Props & { current:
       setBusy(false);
     }
   }
-  return <form className={styles.management} aria-label={kind === "machine" ? "Machine settings" : "Worker node settings"} onSubmit={event => { event.preventDefault(); void save(false); }}>
+  return <form className={kind === "machine" ? styles.management : `${styles.management} ${inspectorStyles.settings}`} aria-label={kind === "machine" ? "Machine settings" : "Worker node settings"} onSubmit={event => { event.preventDefault(); void save(false); }}>
     <label>Name<input value={label} maxLength={64} onChange={event => setLabel(event.target.value)} disabled={busy || !!pending} /></label>
     <label>Max agents<input type="number" min={0} max={kind === "node" ? 8 : 2_147_483_647} step={1} value={limit} placeholder={`Automatic${maximum === null ? "" : ` (${maximum})`}`} onChange={event => setLimit(event.target.value)} disabled={busy || !!pending} /></label>
     <p className={styles.actionNote}>{kind === "machine" ? "Total across this machine’s workers." : "Total across this worker’s projects."} Leave blank for automatic capacity.</p>
-    <div className={styles.managementActions}>
+    <div className={kind === "machine" ? styles.managementActions : inspectorStyles.settingsActions}>
       <ActionButton type="submit" disabled={!valid || busy || pending?.remove}>{busy ? "Saving…" : pending ? "Retry save" : "Save"}</ActionButton>
-      <ActionButton onClick={() => void save(true)} disabled={busy || pending?.remove === false}>{pending?.remove ? "Retry removal" : kind === "machine" ? "Remove machine" : "Remove worker node"}</ActionButton>
+      <ActionButton className={kind === "node" ? inspectorStyles.remove : undefined} onClick={() => void save(true)} disabled={busy || pending?.remove === false}>{pending?.remove ? "Retry removal" : kind === "machine" ? "Remove machine" : "Remove worker node"}</ActionButton>
     </div>
     {message && <p role="status" className={styles.actionNote}>{message}</p>}
   </form>;

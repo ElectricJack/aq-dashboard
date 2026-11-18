@@ -15,6 +15,70 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 }
 
+test("tree and board share the worker inspector and preserve drafts across tabs", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/agents/swarm?view=tree");
+  await page.getByRole("region", { name: "Swarm tree" }).getByRole("button", { name: /^local-1,/ }).click();
+
+  const pane = page.getByRole("complementary", { name: "Properties" });
+  const capacity = pane.getByRole("region", { name: "Worker capacity" });
+  await expect(capacity).toContainText("3 of 3 slots busy");
+  await expect(pane).toContainText("Heartbeat");
+  await expect(pane.getByRole("button", { name: "Open terminal" })).toBeEnabled();
+  await expect(pane.getByRole("button", { name: "Push logins" })).toBeHidden();
+
+  const overview = pane.getByRole("tab", { name: "Overview" });
+  await overview.focus();
+  await overview.press("ArrowRight");
+  await expect(pane.getByRole("tab", { name: "Settings" })).toBeFocused();
+  const name = pane.getByRole("textbox", { name: "Name" });
+  await name.fill("Draft label");
+  await overview.click();
+  await expect(name).toBeHidden();
+  await page.getByRole("button", { name: "Board", exact: true }).click();
+  await expect(pane.getByRole("heading", { name: "local-1" })).toBeVisible();
+  await pane.getByRole("tab", { name: "Settings" }).click();
+  await expect(name).toHaveValue("Draft label");
+  await expect(pane.getByRole("button", { name: "Remove worker node" })).toBeVisible();
+  await pane.getByRole("tab", { name: "Logins" }).click();
+  await expect(pane.getByRole("button", { name: "Push logins" })).toBeEnabled();
+  await pane.getByRole("tab", { name: "Diagnostics" }).click();
+  await expect(pane.getByText("docker-local", { exact: true })).toBeVisible();
+  await expect(pane.getByRole("button", { name: "Run checks" })).toBeEnabled();
+  await expect(pane.getByRole("button", { name: "Drain node" })).toBeDisabled();
+
+  const boardWorker = page.getByRole("region", { name: "Swarm board" }).getByRole("button", { name: /^local-2/ });
+  await boardWorker.click();
+  await expect(pane.getByRole("heading", { name: "local-2" })).toBeVisible();
+  await expect(pane.getByRole("button", { name: "Run checks" })).toBeHidden();
+  await pane.getByRole("button", { name: "Close worker details" }).click();
+  await expect(pane).toBeHidden();
+  await expect(boardWorker).toBeFocused();
+});
+
+test("worker details reflow and return focus to the board at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await page.goto("/agents/swarm?view=board");
+  const worker = page.getByRole("region", { name: "Swarm board" }).getByRole("button", { name: /^studio-1/ });
+  await worker.click();
+
+  const pane = page.getByRole("complementary", { name: "Properties" });
+  await expect(pane.getByRole("heading", { name: "studio-1" })).toBeFocused();
+  await expect(pane.getByText("Capability report expired", { exact: true })).toBeVisible();
+  await pane.getByRole("tab", { name: "Diagnostics" }).click();
+  await noOverflow(page);
+  const results = await new AxeBuilder({ page }).include('[aria-label="Properties"]')
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(results.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(", ")}`)).toEqual([]);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const serviceNote = pane.getByText("Use the machine’s controls to manage the worker service.");
+  const phoneNav = page.getByRole("navigation", { name: "Primary (compact)" });
+  const [noteBox, navBox] = await Promise.all([serviceNote.boundingBox(), phoneNav.boundingBox()]);
+  expect(noteBox!.y + noteBox!.height).toBeLessThan(navBox!.y);
+  await pane.getByRole("button", { name: "Close worker details" }).click();
+  await expect(worker).toBeFocused();
+});
+
 for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
