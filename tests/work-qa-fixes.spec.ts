@@ -15,15 +15,16 @@ async function axe(page: Page) {
 test.describe("desktop", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("WD-01: List drops the graph root and Graph re-roots on the selected task", async ({ page }) => {
+  test("WD-01: List drops the graph root and Gantt keeps the selected task", async ({ page }) => {
     await page.goto(`/work/${id(0x104)}?${scope}&view=graph&root=${id(0x104)}`);
     await page.getByRole("button", { name: "List", exact: true }).click();
     await expect(page).not.toHaveURL(/root=/);
     await page.getByRole("list", { name: "Tasks" }).getByRole("link", { name: /Fixture: Replay reconciliation/ }).click();
     await expect(inspector(page).getByRole("heading", { name: "Fixture: Replay reconciliation" })).toBeVisible();
-    await page.getByRole("button", { name: "Graph", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`root=${id(0x105)}`));
-    await expect(page.getByRole("region", { name: "Scrollable task graph" }).getByRole("link", { name: /Fixture: Replay reconciliation/ })).toBeVisible();
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    await expect(page).toHaveURL(/view=gantt/);
+    await expect(page).not.toHaveURL(/root=/);
+    await expect(page.getByRole("region", { name: "Scrollable dependency tracks" }).getByRole("link", { name: /Fixture: Replay reconciliation/ })).toHaveAttribute("aria-current", "page");
   });
 
   test("WD-02/WD-09: the inspector shows a copyable task ID and no Open full task link", async ({ page, context }) => {

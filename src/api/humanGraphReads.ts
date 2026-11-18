@@ -20,9 +20,9 @@ export function useGraphList(project:string,kind:GraphNode["kind"],q:string) {
     refetchOnWindowFocus:false,refetchOnMount:false,
   });
 }
-export function useGraphDetail(project:string,kind:GraphNode["kind"],id:string,pinned?:string) {
+export function useGraphDetail(project:string,kind:GraphNode["kind"],id:string,pinned?:string,refetchInterval?:number) {
   const {queryContext}=useSession();
-  return useQuery({queryKey:queryKey(queryContext,"human-graph-detail",{project,kind,id,pinned}),enabled:validGraphId(project)&&validGraphId(id),
+  return useQuery({queryKey:queryKey(queryContext,"human-graph-detail",{project,kind,id,pinned}),enabled:validGraphId(project)&&validGraphId(id),refetchInterval,
     queryFn:async({signal})=>adaptGraphDetail(await apiGet<unknown>(`${graphPath(project,kind,id)}${pinned?`?revision=${encodeURIComponent(pinned)}`:""}`,signal),project,kind,id,pinned),
   });
 }

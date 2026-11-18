@@ -44,6 +44,7 @@ test.describe("desktop", () => {
 
   test("SO-16: a Work in motion project opens that project in Work", async ({ page }) => {
     await page.goto("/overview");
+    await page.getByText("Project activity summary", { exact: true }).click();
     const link = page.getByRole("rowheader", { name: "agent-queue" }).getByRole("link", { name: "agent-queue" });
     await expect(link).toBeVisible({ timeout: 15_000 });
     await link.click();

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
-import { List, ListChecks, Workflow } from "lucide-react";
+import { ChartGantt, List, ListChecks } from "lucide-react";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
@@ -12,6 +12,8 @@ import { ProjectChoice, pathFor, withoutRevision } from "../knowledge/HumanNodeW
 import inspectorStyles from "../knowledge/HumanNodeWorkspace.module.css";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { HumanTaskGraph, PHONE_QUERY, PhoneGraphView, graphListTarget } from "./graph/HumanTaskGraph";
+import { DependencyGantt } from "./gantt/DependencyGantt";
+import { GANTT_POLL_MS } from "./gantt/ganttData";
 import { HumanTaskInspector, TaskInspectorUnavailable } from "./HumanTaskInspector";
 import { listStatus, recordMarker, workStateFilter } from "./labels";
 import { StatusIcon } from "./StatusIcon";
@@ -27,15 +29,23 @@ export function WorkWorkspace({ action }: { action?: ReactNode }) {
   const id = useParams().taskId;
   const [params] = useSearchParams();
   if (scope.kind !== "project") {
+    if (params.get("view") === "gantt") {
+      const taskProject = params.get("taskProject");
+      const selected = validGraphId(id) && validGraphId(taskProject) ? id : undefined;
+      return <TaskWorkspace key="all" id={selected} detailProject={selected ? taskProject! : undefined} action={action}/>;
+    }
     const allProjects = bootstrap.capability("human.work.tasks.read").enabled;
     if (allProjects && id) {
       const listParams = new URLSearchParams(params);
-      for (const name of ["view", "root", "focus", "revision"]) listParams.delete(name);
+      for (const name of ["view", "root", "focus", "revision", "taskProject"]) listParams.delete(name);
       return <Navigate to={{ pathname: "/work", search: listParams.toString() }} replace/>;
     }
     return <div className={styles.page} data-view="list">
       <WorkHead action={action}/>
-      {allProjects ? <AllProjectWorkList/> : <ProjectChoice kind="task" id={id}/>}
+      {allProjects ? <AllProjectWorkList views={<WorkView/>}/> : <>
+        <Toolbar className={styles.toolbar}><WorkView/></Toolbar>
+        <ProjectChoice kind="task" id={id}/>
+      </>}
     </div>;
   }
   const missing = <p role="status">This item does not exist or is not available to you.</p>;
@@ -51,18 +61,43 @@ function WorkHead({ action, project, children }: { action?: ReactNode; project?:
   </PageHeader>;
 }
 
-function TaskWorkspace({ project, id, action }: { project: string; id?: string; action?: ReactNode }) {
+function WorkView() {
+  const [params, setParams] = useSearchParams();
+  const showGantt = params.get("view") === "gantt" || params.get("view") === "graph";
+  function changeView(gantt: boolean) {
+    setParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (gantt) next.set("view", "gantt");
+      else {
+        next.delete("view");
+        const taskProject = next.get("taskProject");
+        if (!next.has("scope") && validGraphId(taskProject)) next.set("scope", `project:${taskProject}`);
+        next.delete("taskProject");
+      }
+      next.delete("root");
+      next.delete("focus");
+      return next;
+    });
+  }
+  return <nav aria-label="Work view" className={styles.segmented}>
+    <ActionButton aria-pressed={!showGantt} onClick={() => changeView(false)}><List size={18} aria-hidden />List</ActionButton>
+    <ActionButton aria-pressed={showGantt} onClick={() => changeView(true)}><ChartGantt size={18} aria-hidden />Gantt</ActionButton>
+  </nav>;
+}
+
+function TaskWorkspace({ project, detailProject = project, id, action }: { project?: string; detailProject?: string; id?: string; action?: ReactNode }) {
   const [params, setParams] = useSearchParams();
   const q = (params.get("q") ?? "").slice(0, 256);
   const state = workStateFilter(params.get("state"));
   const graph = params.get("view") === "graph";
-  const query = useGraphList(project, "task", q);
+  const gantt = params.get("view") === "gantt";
+  const query = useGraphList(gantt ? "" : project ?? "", "task", q);
   let rows: GraphNode[] = [], mergeError: unknown;
   try { rows = mergeGraphPages(query.data?.pages ?? []); } catch (e) { mergeError = e; }
   // The attempt status per held task: an ended attempt that still holds the task reads as held, not running (P1-01).
   const held = new Map((query.data?.pages ?? []).flatMap(page => page.data.executions.map(e => [e.task_id, e.status] as const)));
   // The inspected task's work read (shared with the inspector, no extra request): its row follows AQ's `held`.
-  const selectedWork = useTaskWork(project, id ?? "").data?.data;
+  const selectedWork = useTaskWork(detailProject ?? "", id ?? "", gantt ? GANTT_POLL_MS : undefined).data?.data;
   // Expand (spec 0004 §3): the inspector takes the full width; `?focus=1` keeps it linkable across reloads.
   const focused = !!id && params.get("focus") === "1";
   const filtered = rows.filter(n => !state || n.task_state === state);
@@ -76,9 +111,6 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   const update = (key: string, value: string) => setParams(p => {
     const n = new URLSearchParams(p);
     if (value) n.set(key, value); else n.delete(key);
-    // The graph root belongs to one graph visit: List drops it, and opening Graph re-roots on the selection (WD-01).
-    if (key === "view" && !value) n.delete("root");
-    if (key === "view" && value === "graph" && id) n.set("root", id);
     return n;
   });
   // Esc restores the split, unless a dialog, menu or field is handling the key.
@@ -95,6 +127,7 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
   });
 
   const phone = useMediaQuery(PHONE_QUERY);
+  const stacked = useMediaQuery("(max-width: 999px)");
   const workspace = useRef<HTMLDivElement>(null), previous = useRef<{ id?: string; graph: boolean }>({ graph: false }), mounted = useRef(false);
   useEffect(() => {
     const before = previous.current; previous.current = { id, graph };
@@ -109,35 +142,36 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
       const target = id && !graph ? element.querySelector<HTMLElement>(`[data-work-inspector] .${inspectorStyles.detail}:not([aria-busy=true]) h2[data-inspector-title]`) : restore ? [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a => new URL(a.href).pathname === pathFor("task", restore)) : undefined;
       if (!target) return false;
       if (target.tagName === "H2") target.tabIndex = -1;
-      target.focus(arrival ? { focusVisible: false } as FocusOptions : undefined); return true;
+      const preventScroll = gantt && !stacked;
+      target.focus({ preventScroll, ...(arrival ? { focusVisible: false } : {}) } as FocusOptions);
+      return true;
     };
     if (focus()) return;
     const observer = new MutationObserver(() => { if (focus()) observer.disconnect(); });
     observer.observe(element, { childList: true, subtree: true }); return () => observer.disconnect();
-  }, [id, graph, phone]);
+  }, [id, graph, gantt, phone, stacked]);
 
   const graphStatus = unavailable || !query.data
     ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/>
     : <p>{rows.length ? "No loaded tasks match this state." : "No tasks returned for this search."}</p>;
   // Phone keeps the dedicated full-viewport graph view (with Back to list) even before a root is known (WK-F).
   const graphPanel = graphRoot
-    ? <HumanTaskGraph project={project} root={graphRoot} selected={id} search={search}/>
+    && project ? <HumanTaskGraph project={project} root={graphRoot} selected={id} search={search}/>
     : phone ? <PhoneGraphView backTo={graphListTarget(search)}><div className={styles.phoneGraphStatus}>{graphStatus}</div></PhoneGraphView>
     : <Panel title="Dependency graph">{graphStatus}</Panel>;
 
-  return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={graph ? "graph" : "list"} data-focus={focused || undefined}>
+  return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={gantt ? "gantt" : graph ? "graph" : "list"} data-focus={focused || undefined}>
     <WorkHead action={action} project={query.data?.pages[0]?.project.name} />
     <Toolbar className={styles.toolbar}>
-      <nav aria-label="Work view" className={styles.segmented}>
-        <ActionButton aria-pressed={!graph} onClick={() => update("view", "")}><List size={18} aria-hidden/>List</ActionButton>
-        <ActionButton aria-pressed={graph} onClick={() => update("view", "graph")}><Workflow size={18} aria-hidden/>Graph</ActionButton>
-      </nav>
-      <WorkFilters q={q} state={state} onChange={update}/>
+      <WorkView/>
+      <WorkFilters q={q} state={state} onChange={update} allProjects={!project} gantt={gantt}/>
       {graph && <div className={styles.graphActions} data-work-graph-actions/>}
     </Toolbar>
     <div className={styles.panes}>
       <div className={styles.mainPane}>
-        {graph ? graphPanel : <Panel title={listTitle} actions={<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh list</ActionButton>}>
+        {gantt ? <Panel title="Dependency tracks">
+          <DependencyGantt project={project} selected={id} search={search} focused={focused}/>
+        </Panel> : graph ? graphPanel : <Panel title={listTitle} actions={<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh list</ActionButton>}>
           {unavailable || !query.data ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/> : <>
             {!filtered.length && <p>{rows.length ? "No loaded tasks match this state." : "No records returned for this search."}</p>}
             {/* One line per task (spec 0004 item 16): the bullet carries the status, the title truncates and shows in full on hover. */}
@@ -152,14 +186,23 @@ function TaskWorkspace({ project, id, action }: { project: string; id?: string; 
           </>}
         </Panel>}
       </div>
-      <div className={styles.inspector} data-work-inspector>
-        {id ? <TaskDetail key={id} project={project} id={id} search={search} focused={focused} onFocus={on => update("focus", on ? "1" : "")}/> : <Panel title="Task inspector" className={styles.emptyInspector}><ListChecks size={34} aria-hidden/><p>Select a task to read its content and exact revision.</p></Panel>}
-      </div>
+      {(!gantt || id) && <div className={styles.inspector} data-work-inspector>
+        {id && detailProject ? <>
+          {gantt && <Link className={styles.closeTask} to={{ pathname: "/work", search: withoutFocus(search) }} preventScrollReset>Close task</Link>}
+          <TaskDetail key={id} project={detailProject} id={id} search={search} focused={focused} pollMs={gantt ? GANTT_POLL_MS : undefined} onFocus={on => update("focus", on ? "1" : "")}/></> : !gantt && <Panel title="Task inspector" className={styles.emptyInspector}><ListChecks size={34} aria-hidden/><p>Select a task to read its content and exact revision.</p></Panel>}
+      </div>}
     </div>
   </div>;
 }
 
-/** List rows never carry a graph root: the next Graph visit roots on the row's task. */
+function withoutFocus(search: string) {
+  const params = new URLSearchParams(withoutRevision(search));
+  params.delete("focus");
+  params.delete("taskProject");
+  return `?${params}`;
+}
+
+/** List rows drop the root used by legacy graph links. */
 function withoutRoot(search: string) {
   const params = new URLSearchParams(search);
   params.delete("root");
@@ -167,11 +210,16 @@ function withoutRoot(search: string) {
   return value ? `?${value}` : "";
 }
 
-function TaskDetail({ project, id, search, focused, onFocus }: { project: string; id: string; search: string; focused: boolean; onFocus(on: boolean): void }) {
-  const query = useGraphDetail(project, "task", id);
+function TaskDetail({ project, id, search, focused, pollMs, onFocus }: { project: string; id: string; search: string; focused: boolean; pollMs?: number; onFocus(on: boolean): void }) {
+  const query = useGraphDetail(project, "task", id, undefined, pollMs);
   // A missing or pending task keeps the "All tasks" exit; aria-busy keeps focus off its placeholder heading (WK-E).
   if (!query.data) return <TaskInspectorUnavailable className={inspectorStyles.detail} search={withoutRevision(search)} busy={!query.isError}
     status={<QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this record" onRetry={() => void query.refetch()}/>}/>;
   const notice = query.isError ? <p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={() => void query.refetch()}>Refresh record</ActionButton></p> : undefined;
-  return <HumanTaskInspector className={inspectorStyles.detail} record={query.data} search={withoutRevision(search)} notice={notice} focused={focused} onFocus={onFocus}/>;
+  const params = new URLSearchParams(withoutRevision(search));
+  if (params.has("taskProject")) {
+    params.set("scope", `project:${project}`);
+    params.delete("taskProject");
+  }
+  return <HumanTaskInspector className={inspectorStyles.detail} record={query.data} search={params.size ? `?${params}` : ""} notice={notice} focused={focused} onFocus={onFocus}/>;
 }

@@ -9,8 +9,9 @@ const EVIDENCE = process.env.OVC_EVIDENCE;
 
 async function open(page: Page) {
   await page.goto("/overview");
+  await page.getByText("Project activity summary", { exact: true }).click();
   await expect(page.getByRole("rowheader", { name: "agent-queue" })).toBeVisible({ timeout: 15_000 });
-  return page.getByRole("region", { name: "Work in motion", exact: true });
+  return page.getByRole("region", { name: "Project activity summary, scrollable", exact: true });
 }
 
 const toneOf = (page: Page, project: string) =>

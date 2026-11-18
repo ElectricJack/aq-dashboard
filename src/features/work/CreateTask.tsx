@@ -64,7 +64,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
   try{
    const record=adaptGraphDetail(await apiGet<unknown>(graphPath(project,"task",value.task_id),signal),project,"task",value.task_id);
    if(record.project.workspace_id!==value.receipt.workspace_id)throw new Error("Task workspace changed");
-   if(current(ticket)){setCreated(record.data);setReadError(null);void client.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","all-project-work","overview-task-contributions"].includes(String(q.queryKey[4]))});}
+   if(current(ticket)){setCreated(record.data);setReadError(null);void client.invalidateQueries({predicate:q=>q.queryKey[0]==="aq"&&q.queryKey[1]===queryContext.principalId&&["human-graph-list","human-graph-gantt","all-project-work","overview-task-contributions"].includes(String(q.queryKey[4]))});}
   }catch(reason){if(current(ticket)){if(reason instanceof ApiError&&reason.status===401){revokeAccess(reason);return;}if(reason instanceof ApiError&&reason.status===426){reportIncompatible("tasks.create");return;}if(reason instanceof ApiError&&reason.status===403)reportAccessDenied(reason);setCreated(null);setReadError(reason instanceof ApiError&&reason.status===403?"The creation receipt is confirmed, but AQ refused reading the task record.":"The creation receipt is confirmed, but the task record could not be read. Check the task record again.");}}
  }
  async function execute(kind:"submit"|"lookup"|"recover",id:string,intent?:FrozenTaskCreate){

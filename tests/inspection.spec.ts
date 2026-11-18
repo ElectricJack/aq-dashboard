@@ -96,8 +96,7 @@ test("graph nodes are keyboard reachable and selection keeps positions", async (
 // sheet); "Open task" opens the detail, and Back returns to the graph on the selected node.
 test("phone: Graph opens from a task, a node opens its detail and Back returns to the graph", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(work);
-  await page.getByRole("button", { name: "Graph" }).click();
+  await page.goto(`${work}&view=graph`);
   const graph = page.getByRole("region", { name: "Dependency graph" });
   await expect(graph).toBeVisible();
   const node = () => graph.getByRole("region", { name: "Scrollable task graph" }).getByRole("link", { name: /Fixture: verify recovery/ });

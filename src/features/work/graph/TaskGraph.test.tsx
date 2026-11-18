@@ -9,9 +9,6 @@ import { TaskGraphCanvas } from "./HumanTaskGraph";
 import { layoutGraph } from "./layout";
 const server=setupServer(...handlersFor("default"));beforeAll(()=>server.listen({onUnhandledFrame:"error"}));afterEach(()=>{server.resetHandlers();vi.restoreAllMocks();});afterAll(()=>server.close());
 const scope=`?scope=project:${fixtureProject.id}`,root=fixtureTasks[0]!.id;
-test("switching to Graph roots the served neighborhood at the selection",async()=>{
- const {router}=renderApp(`/work/${root}${scope}`);await screen.findByRole("heading",{name:fixtureTasks[0]!.title});await userEvent.click(screen.getByRole("button",{name:"Graph"}));await screen.findByRole("region",{name:"Dependency graph"});expect(new URLSearchParams(router.state.location.search).get("root")).toBe(root);
-});
 test("Graph keeps a bounded navigation workspace and textual relationships",async()=>{
  renderApp(`/work/${root}${scope}&view=graph`);const region=await screen.findByRole("region",{name:"Dependency graph"});const canvas=await within(region).findByRole("region",{name:"Scrollable task graph"});await within(canvas).findByRole("link",{name:new RegExp(fixtureTasks[1]!.title)});expect(within(canvas).getAllByRole("link").length).toBeGreaterThan(1);expect(canvas).toHaveAttribute("tabindex","0");
  const relation=within(region).getByText((_,el)=>el?.tagName==="LI"&&el.textContent===`${fixtureTasks[0]!.title} must finish before ${fixtureTasks[1]!.title}`);expect(within(relation).getByRole("link",{name:fixtureTasks[1]!.title})).toHaveAttribute("href",expect.stringContaining(`/work/${fixtureTasks[1]!.id}`));

@@ -110,3 +110,14 @@
 }
 
 .page { gap:var(--space-3); } .segmented { margin-block-start:0; }
+
+/* Keep the dependency tracks wider than the inspector on desktop. */
+.page[data-view=gantt] .panes { grid-template-columns: minmax(0, 1fr); }
+.page[data-view=gantt] .closeTask { display:inline-flex; align-items:center; min-block-size:var(--control-height); margin-block-end:var(--space-1); }
+@media (min-width: 1000px) {
+  .page[data-view=gantt][data-detail=true]:not([data-focus]) .panes { grid-template-columns:minmax(0, 1.65fr) minmax(310px, 1fr); }
+}
+@media (max-width: 999px) {
+  .page[data-view=gantt][data-detail=true] .mainPane,
+  .page[data-view=gantt][data-detail=true] .search { display:none; }
+}

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import { PANEL_READ, useSession } from "../../app/session";
@@ -12,7 +13,7 @@ import { StatusIcon } from "./StatusIcon";
 import { WorkFilters } from "./WorkFilters";
 import styles from "./WorkWorkspace.module.css";
 
-export function AllProjectWorkList() {
+export function AllProjectWorkList({ views }: { views?: ReactNode }) {
   const [params, setParams] = useSearchParams();
   const q = (params.get("q") ?? "").slice(0, 256).trim();
   const state = workStateFilter(params.get("state"));
@@ -60,6 +61,7 @@ export function AllProjectWorkList() {
 
   return <>
     <Toolbar className={styles.toolbar}>
+      {views}
       <WorkFilters q={q} state={state} onChange={update} allProjects/>
     </Toolbar>
     <div className={styles.mainPane}>

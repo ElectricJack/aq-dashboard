@@ -48,7 +48,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       const canvas = page.getByRole("region", { name: "Scrollable task graph" });
       await expect(canvas.getByRole("link").first()).toBeVisible();
       await expect(page.getByText(/Select a task from the list/)).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Graph", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByRole("button", { name: "Gantt", exact: true })).toHaveAttribute("aria-pressed", "true");
       if (vp.width >= 1200) {
         const ratio = await page.evaluate(() => {
           const graph = document.querySelector("[aria-label='Scrollable task graph']")!.closest("section")!;

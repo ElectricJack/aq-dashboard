@@ -29,10 +29,8 @@ test.describe("phone 390x844", () => {
     await expectAxeClean(page);
   });
 
-  test("Graph opens a full-viewport view with Back to list; a node tap keeps view=graph and opens the sheet", async ({ page }) => {
-    await page.goto(LIST);
-    await page.getByRole("list", { name: "Tasks" }).locator("li").first().waitFor();
-    await page.getByRole("navigation", { name: "Work view" }).getByRole("button", { name: "Graph" }).click();
+  test("A legacy Graph link opens a full-viewport view with Back to list; a node tap keeps view=graph and opens the sheet", async ({ page }) => {
+    await page.goto(`${LIST}&view=graph`);
     const region = page.getByRole("region", { name: "Dependency graph" });
     await expect(region).toBeVisible();
     const box = (await region.boundingBox())!;
