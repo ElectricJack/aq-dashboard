@@ -42,13 +42,12 @@ test.describe("desktop", () => {
     }
   });
 
-  test("SO-16: a Work in motion project opens that project in Work", async ({ page }) => {
+  test("SO-16: a Work in motion task opens that task in Work Gantt", async ({ page }) => {
     await page.goto("/overview");
-    await page.getByText("Project activity summary", { exact: true }).click();
-    const link = page.getByRole("rowheader", { name: "agent-queue" }).getByRole("link", { name: "agent-queue" });
-    await expect(link).toBeVisible({ timeout: 15_000 });
+    const tracks = page.getByRole("region", { name: "Scrollable dependency tracks" });
+    const link = tracks.getByRole("link", { name: /Replay reconciliation/ }).locator("[data-gantt-label]");
     await link.click();
-    await expect(page).toHaveURL(/\/work\?scope=project(%3A|:)agent-queue$/);
+    await expect(page).toHaveURL(/\/work\/00000000-0000-0000-0000-000000000105\?.*view=gantt/);
   });
 
   test("SO-09: Inspect eligibility keeps the project scope", async ({ page }) => {

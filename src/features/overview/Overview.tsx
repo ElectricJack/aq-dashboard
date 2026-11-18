@@ -280,12 +280,12 @@ function ProjectUnavailable() {
   );
 }
 
-function ProjectActivitySummary({ rows, serverTime, complete, canOpenWork, label }: {
-  rows: OverviewView["inMotion"]; serverTime: string; complete: boolean; canOpenWork: boolean; label: string;
+function ProjectActivitySummary({ rows, serverTime, complete, canOpenWork }: {
+  rows: OverviewView["inMotion"]; serverTime: string; complete: boolean; canOpenWork: boolean;
 }) {
   return <>
-    <div className={styles.tableWrap} role="region" aria-label={`${label}, scrollable`} tabIndex={0}>
-      <table aria-label={label} className={`${styles.table} ${styles.motionTable}`}>
+    <div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
+      <table aria-label="Work in motion" className={`${styles.table} ${styles.motionTable}`}>
         <thead>
           <tr>
             <th scope="col">Project</th>
@@ -370,8 +370,6 @@ export function Overview() {
   const attention = dedupeAttention(view.attention);
   const needsYou = reconcileNeedsYou(view.counts.needs_you, attention.length);
   const canOpenWork = bootstrap.capability("tasks.read").enabled;
-  const motionSummary = <ProjectActivitySummary rows={view.inMotion} serverTime={serverTime} complete={complete} canOpenWork={canOpenWork}
-    label={canShowGantt ? "Project activity summary" : "Work in motion"} />;
   return (
     <div className={styles.layout}>
       <OverviewHeader>{attentionSentence(needsYou)} {motionSentence(view.inMotion, complete)}</OverviewHeader>
@@ -405,8 +403,7 @@ export function Overview() {
       <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
-        {gantt}
-        {gantt ? <details className={styles.observationDetails}><summary>Project activity summary</summary>{motionSummary}</details> : motionSummary}
+        {gantt || <ProjectActivitySummary rows={view.inMotion} serverTime={serverTime} complete={complete} canOpenWork={canOpenWork} />}
         {taskContributions && <details className={styles.observationDetails}><summary>Recorded task details</summary><RecordedTasks embedded serverTime={serverTime} /></details>}
       <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
         <h2 id="outcomes-heading">Recent outcomes</h2>

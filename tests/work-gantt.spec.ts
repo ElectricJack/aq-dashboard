@@ -13,6 +13,8 @@ test("Overview opens the selected task in Work Gantt and keeps the chart beside 
   await page.goto("/overview");
   const motion = page.getByRole("region", { name: "Work in motion", exact: true });
   const tracks = page.getByRole("region", { name: chartName });
+  await expect(motion.getByText("Project activity summary", { exact: true })).toHaveCount(0);
+  await expect(motion.getByText(/^Dependencies \(\d+\)$/)).toHaveCount(0);
   await motion.getByRole("link", { name: /Replay reconciliation Running/ }).locator("[data-gantt-label]").click();
   await expect(page).toHaveURL(new RegExp(`/work/${replay}.*view=gantt`));
   const detail = page.getByRole("region", { name: "Fixture: Replay reconciliation", exact: true });
@@ -81,7 +83,7 @@ test.describe("phone Gantt", () => {
     await page.getByRole("link", { name: "Close task" }).tap();
     await expect(zoom).toBeVisible();
     await expect(tracks.getByRole("link", { name: /Replay reconciliation/ })).toBeFocused();
-    if (process.env.GANTT_EVIDENCE) await page.screenshot({ path: testInfo.outputPath("gantt-phone.png") });
+    if (process.env.GANTT_EVIDENCE) await page.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-phone.png") });
   });
 });
 
@@ -134,6 +136,9 @@ test("story points set bar lengths and a shared dependent waits for the latest f
   const path = (index: number) => connector(index).getAttribute("d");
   await expect(running).toBeVisible();
   await expect(running).toHaveAccessibleName(/2 dependents/);
+  await expect(running).toHaveAccessibleDescription(/Blocks Fixture: Approve recovery plan, Fixture: Implement safe recovery/);
+  await expect(join).toHaveAccessibleDescription(/Waits for Fixture: Approve recovery plan, Fixture: Implement safe recovery/);
+  await expect(page.getByText(/^Dependencies \(\d+\)$/)).toHaveCount(0);
   await expect(join).toHaveCount(1);
   await expect(join).toHaveAccessibleName(/2 prerequisites/);
   const firstColumn = await offset(running);
@@ -164,7 +169,7 @@ test("story points set bar lengths and a shared dependent waits for the latest f
   await expect(connector(0)).toHaveAttribute("data-highlight", "true");
   await expect(connector(1)).toHaveAttribute("data-highlight", "true");
   if (process.env.GANTT_EVIDENCE) {
-    await page.screenshot({ path: testInfo.outputPath("gantt-branching-desktop.png") });
+    await page.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-branching-desktop.png") });
     const overview = await page.context().newPage();
     await overview.setViewportSize({ width: 1440, height: 900 });
     await overview.goto("/overview");
@@ -173,7 +178,7 @@ test("story points set bar lengths and a shared dependent waits for the latest f
     await motion.getByRole("button", { name: "Zoom out" }).click();
     await motion.getByRole("button", { name: "Zoom out" }).click();
     await motion.evaluate(el => el.scrollIntoView({ block: "center" }));
-    await overview.screenshot({ path: testInfo.outputPath("gantt-branching-overview.png") });
+    await overview.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-branching-overview.png") });
     await overview.close();
   }
   await bar(running).click();

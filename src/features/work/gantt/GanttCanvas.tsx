@@ -51,11 +51,11 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
     connected.add(edge.source.key);
     connected.add(edge.target.key);
   }
-  const counts = new Map<string, { incoming: number; outgoing: number }>();
-  for (const task of layout.tasks) counts.set(task.key, { incoming: 0, outgoing: 0 });
+  const connections = new Map<string, { prerequisites: string[]; dependents: string[] }>();
+  for (const task of layout.tasks) connections.set(task.key, { prerequisites: [], dependents: [] });
   for (const edge of layout.edges) {
-    counts.get(edge.target.key)!.incoming++;
-    counts.get(edge.source.key)!.outgoing++;
+    connections.get(edge.target.key)!.prerequisites.push(edge.source.title);
+    connections.get(edge.source.key)!.dependents.push(edge.target.title);
   }
 
   function measureViewport() {
@@ -236,13 +236,15 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
         {rows.map(task => {
           if (task.kind === "project") return <div key={task.id} className={styles.group}><span title={task.title}>{task.title}</span></div>;
           const label = TASK_STATUS_LABEL[task.status];
-          const { incoming, outgoing } = counts.get(task.key)!;
+          const { prerequisites, dependents } = connections.get(task.key)!;
+          const incoming = prerequisites.length, outgoing = dependents.length;
+          const descriptionId = incoming || outgoing ? `${uid}-connections-${task.key}` : undefined;
           const details = [
             task.storyPoints === null ? "Unestimated" : `${task.storyPoints} story ${task.storyPoints === 1 ? "point" : "points"}`,
             incoming && `${incoming} ${incoming === 1 ? "prerequisite" : "prerequisites"}`,
             outgoing && `${outgoing} ${outgoing === 1 ? "dependent" : "dependents"}`,
           ].filter(Boolean).map(text => ` · ${text}`).join("");
-          return <Link key={task.key} to={linkTo(task)} preventScrollReset draggable={false} className={styles.task} aria-current={task.key === selection?.key ? "page" : undefined}
+          return <Link key={task.key} aria-describedby={descriptionId} to={linkTo(task)} preventScrollReset draggable={false} className={styles.task} aria-current={task.key === selection?.key ? "page" : undefined}
             title={`${task.title} · ${label}${details}`} data-status={task.status} data-root={task.start === 0 || undefined} data-unestimated={task.storyPoints === null || undefined}
             data-connected={connected.has(task.key) || undefined} data-task-id={task.id}
             onMouseEnter={() => setActive(task.key)} onMouseLeave={() => setActive(undefined)} onFocus={() => setActive(task.key)} onBlur={() => setActive(undefined)}>
@@ -255,6 +257,10 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
             <span className={styles.barHitArea} data-gantt-bar aria-hidden style={{ marginInlineStart: barStart(task, zoom), width: barWidth(task, zoom) }}>
               <span className={styles.bar} />
             </span>
+            {descriptionId && <span hidden id={descriptionId}>
+              {incoming ? `Waits for ${prerequisites.join(", ")}. ` : ""}
+              {outgoing ? `Blocks ${dependents.join(", ")}.` : ""}
+            </span>}
           </Link>;
         })}
       </div>
@@ -264,9 +270,5 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
       {layout.tasks.some(task => task.storyPoints === null) && " Dashed bars use a one-point placeholder for unestimated tasks."}
       <span className="visually-hidden"> Arrow keys pan. Plus and minus zoom. Zero resets the zoom.</span>
     </p>
-    {layout.edges.length > 0 && <details className={styles.relationships}>
-      <summary>Dependencies ({layout.edges.length})</summary>
-      <ul>{layout.edges.map(edge => <li key={edge.id}><Link to={linkTo(edge.source)}>{edge.source.title}</Link> must finish before <Link to={linkTo(edge.target)}>{edge.target.title}</Link></li>)}</ul>
-    </details>}
   </div>;
 }

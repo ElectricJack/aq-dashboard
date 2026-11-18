@@ -171,14 +171,11 @@
 .task:focus-visible { outline: none; }
 .task:focus-visible .taskLabel, .task:focus-visible .bar { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .chartHint { margin-block: var(--space-2) 0; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
-.relationships, .message {
+.message {
   margin-block-start: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-meta);
 }
-.relationships ul { padding-inline-start: var(--space-5); max-block-size: 220px; overflow: auto; }
-.relationships li { margin-block: var(--space-2); }
-.relationships summary { padding-block: var(--space-2); cursor: pointer; }
 .openGantt { font-size: var(--font-size-meta); }
 @media (max-width: 600px) {
   .chart, .chart[data-compact] { --gantt-axis-width: clamp(116px, 36vw, 168px); }
@@ -188,7 +185,7 @@
   .task[data-status=running] .taskTitle { translate: 0 -6px; }
 }
 @media (pointer: coarse) {
-  .controls button, .relationships summary { min-block-size: 44px; }
+  .controls button { min-block-size: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .barHitArea, .edges > path { transition: none; }
