@@ -68,7 +68,7 @@ Routes:
 | `/results`, `/results/:resultId/revisions/:revision` | Feed mode, filters; immutable result deep link |
 | `/decisions`, `/decisions/:decisionId` | Kind/status filter and exact subject revision |
 | `/agents`, `/agents/swarm`, `/agents/history`, `/agents/:sessionId` | Terminal workspace, Swarm, History and legacy session detail; `/agents/sessions` redirects to History |
-| `/playbooks`, `/playbooks/runs/:runId` | Runs/definitions/activations and selection |
+| `/playbooks`, `/playbooks/runs/:runId` | Workflow library, deployments, run history and start requests |
 | `/knowledge`, `/knowledge/:nodeId` | Scope/search/category; optional pinned revision |
 | `/settings` | Identity, display/accessibility preferences, authorized configuration links |
 
@@ -152,7 +152,9 @@ Capture only the intended application/test scenario. AQ enforces authorized uplo
 
 ## 8. Playbooks and Knowledge
 
-**Playbooks.** Separate Runs, Definitions and Activations. A run shows its pinned artifact and transitive dependency versions, step timeline, current wait, child runs, pending operations, receipts and authorized actions. Updating an active definition does not relabel existing runs. Source editing, compilation, installation and activation are separate operations. Compilation validates structure; it is not proof of faithful policy translation. Human gates appear only where configured. Resuming a run cannot bypass the outstanding domain decision. Mobile uses a vertical step timeline and one detail page.
+**Playbooks.** Open the Library first. Show the playbook purpose and its compiled workflow for the selected entry point. The diagram shows step kinds, branch outcomes and error paths, with details available by selecting a step. On wide screens the library previews the first playbook beside the list. Compact screens open one playbook at a time with a link back to the library. Deployments show which version each binding uses for new runs and contain the activation and rollback controls.
+
+Run history shows each execution's pinned artifact and dependency versions, step timeline, current wait, child runs, pending operations, receipts and authorized actions. The Definition tab shows the compiled workflow for the pinned artifact and entry point. Start requests sit under Run history and indicate whether each retained request produced a run. Human gates appear where configured and remain authoritative when a run resumes. Mobile uses a vertical execution timeline.
 
 **Knowledge.** Search/filter by scope, category, lifecycle and verification independently. Detail shows document content, exact revision, author/provenance, sources, linked work, revision history, verification assertions and validity/review dates. Current and pinned history are unmistakable. A verifier's assertion is not proof of task completion. Retirement and successor links do not erase historical revisions. Authoring, correction, verification and retirement use separate permitted actions and expected versions; no generic JSON editor. Mobile opens one full document, with section navigation and metadata disclosures.
 

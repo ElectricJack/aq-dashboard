@@ -13,6 +13,7 @@ import { SERVER_TIME } from "./inspectionData";
 export const PLAYBOOK_CAPABILITIES = [
   "playbooks.inspect",
   "playbooks.catalog.read",
+  "playbooks.definition-graph.read",
   // PROPOSED playbook action capabilities (dashboard-actions-1 kinds); not offered by aq-server main yet.
   "playbooks.runs.start",
   "playbooks.runs.cancel",
@@ -100,16 +101,40 @@ const EFFECTS: Record<string, Effect[]> = {
 
 const ADMISSIONS = [{ request_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", status: "admitted", created_at_ms: minutesAgo(1, 5), run_id: runId(291), activation_revision: "3", catalog_revision: "5" }];
 
-/** Current catalog: the waiting run's pinned definition and its activation, from the contract examples. */
-const DEFINITION = (() => {
+/** Current catalog represents two fixture artifacts, in digest order. */
+function definition(artifact: string, name: string, purpose: string, entries: string[]) {
   const item = structuredClone(examples.definitions.items[0]!);
-  Object.assign(item.record.metadata, {
-    artifact: ARTIFACT.recovery, executable_fingerprint: sha("f1a9e2"), source_digest: sha("50c3e7"),
-    name: "worker-recovery", purpose: "Fixture: recover a stalled worker attempt after a human review. Mock-mode data for design review, not an installed playbook.", entries: ["worker-recovery"],
-  });
-  item.key = ARTIFACT.recovery;
+  Object.assign(item.record.metadata, { artifact, executable_fingerprint: sha("f1a9e2"), source_digest: sha("50c3e7"), name, purpose, entries, dependencies: {} });
+  item.key = artifact;
   return item;
-})();
+}
+const DEFINITIONS = [
+  definition(ARTIFACT.recovery, "worker-recovery", "Recover a stalled worker attempt. Preserve its source and request a human review before starting recovery.", ["worker-recovery"]),
+  definition(ARTIFACT.validate, "validate-candidate", "Check that a candidate is ready to integrate, or validate the inputs to a recovery.", ["validate-candidate", "validate-recovery-inputs"]),
+];
+
+function step(id: string, kind: string, target: string | null, successors: Record<string, string> = {}, on_error: string | null = null) {
+  return { id, kind, target, edges: Object.entries(successors).map(([label, to]) => ({ label, to })), on_error };
+}
+function graph(entries: Record<string, string>, steps: ReturnType<typeof step>[]) {
+  return { entries, steps: Object.fromEntries(steps.map(row => [row.id, row])) };
+}
+const GRAPHS = new Map([
+  [ARTIFACT.recovery, graph({ "worker-recovery": "inspect-attempt" }, [
+    step("inspect-attempt", "invoke", "task.inspect_attempt", { found: "retain-source" }),
+    step("retain-source", "invoke", "git.retain_source", { retained: "request-review" }, "stop-recovery"),
+    step("request-review", "wait", "decision.resolved", { approved: "start-recovery", denied: "stop-recovery" }),
+    step("start-recovery", "call", "recovery-plan/start"),
+    step("stop-recovery", "return", null),
+  ])],
+  [ARTIFACT.validate, graph({ "validate-candidate": "prepare-candidate", "validate-recovery-inputs": "report-inputs" }, [
+    step("prepare-candidate", "invoke", "checks.prepare", { ready: "run-checks" }),
+    step("run-checks", "invoke", "checks.run", { passed: "accept-candidate", failed: "reject-candidate" }),
+    step("accept-candidate", "return", null),
+    step("reject-candidate", "return", null),
+    step("report-inputs", "invoke", "recovery.report_inputs"),
+  ])],
+]);
 const ACTIVATION = (() => {
   const item = structuredClone(examples.activations.items[0]!);
   Object.assign(item.record.metadata, { binding: "worker-recovery", artifact: ARTIFACT.recovery });
@@ -164,6 +189,14 @@ export function playbookHandlers(mode: PlaybookMode) {
       const refused = refuse(new URL(request.url)); if (refused) return refused;
       return HttpResponse.json(inspectionPage(mode === "empty" ? [] : ADMISSIONS));
     }),
+    http.get(`${base}/definitions/:artifact/graph`, ({ request, params }) => {
+      const refused = refuse(new URL(request.url)); if (refused) return refused;
+      const artifact = String(params.artifact);
+      return HttpResponse.json({
+        api_version: "playbooks-definition-graph-1", namespace: PLAYBOOK_FIXTURE_NAMESPACE,
+        artifact, graph: mode === "empty" ? null : GRAPHS.get(artifact) ?? null,
+      });
+    }),
     http.get(`${base}/catalog/:kind`, ({ request, params }) => {
       const url = new URL(request.url);
       const kind = params.kind === "definitions" || params.kind === "activations" ? params.kind : null;
@@ -173,7 +206,7 @@ export function playbookHandlers(mode: PlaybookMode) {
       const incarnation = url.searchParams.get("incarnation"), revision = url.searchParams.get("metadata_revision");
       if ((incarnation && incarnation !== source.incarnation) || (revision && revision !== source.metadata_revision)) return failure(409, "catalog_changed", "The catalog changed since it was observed.");
       const exact = url.searchParams.get("exact"), after = url.searchParams.get("after");
-      const all = mode === "empty" ? [] : [kind === "definitions" ? DEFINITION : ACTIVATION];
+      const all = mode === "empty" ? [] : kind === "definitions" ? DEFINITIONS : [ACTIVATION];
       return HttpResponse.json(catalog(kind, all.filter((item) => (!exact || item.key === exact) && (!after || item.key > after))));
     }),
   ];

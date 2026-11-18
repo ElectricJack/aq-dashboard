@@ -1,5 +1,28 @@
 # Playbooks inspection UI
 
+## Workflow library
+
+The Playbooks page opens the compiled workflow library. The v1 node graph
+informs the layout, labeled branches, and step inspection. The
+`06-playbooks.png` reference still guides Run history. Deployments show version
+selection and rollback. Start requests live under Run history alongside the
+runs they explain.
+
+The server serves a bounded, owner-scoped graph for the exact artifact,
+including historical run pins. Older servers and versions without a stored
+graph still show available metadata. The library does not include workflow
+editing or a run overlay.
+
+Codex reviewed the [desktop library](../evidence/playbooks-graph-first/desktop.png),
+[phone library](../evidence/playbooks-graph-first/phone-library.png), and
+[phone graph detail](../evidence/playbooks-graph-first/phone.png) with labeled
+fixtures. The isolated AQ runtime also served the production dashboard bundle
+`cb96379b98002d8d569eb9bd7a4352565b6c38a574e78c522261c1e9032ce527` for
+current-catalog and pinned-run browser checks. The catalog probe checked
+1440, 390, and 320px, including metadata reflow for long names.
+
+## Run inspection
+
 The Playbooks feature consumes the `playbooks-inspection-1` human API described in [API-05](../../../aq-server/docs/implementation/API-05-playbooks-inspection.md). Its real capability is `playbooks.inspect` version 1; a disabled capability makes no inspection request.
 
 This first increment replaces the placeholder with bounded run discovery, exact artifact/dependency pins, current step/status, public receipts, pending operations and child workflows. Admissions are separate from confirmed runs. Filters describe loaded rows, pagination is explicit and decimal revisions/sequences never pass through Number. Project/namespace mismatches and malformed response shape refuse rendering. Query keys participate in the existing current-identity/authorization cache fence.
