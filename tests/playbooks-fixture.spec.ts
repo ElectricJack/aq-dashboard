@@ -73,24 +73,113 @@ for (const vp of VIEWPORTS) {
         await expect(page.getByRole("link", { name: "All playbooks" })).toBeVisible();
       }
       const review = diagram.getByRole("button", { name: "Wait Request review" });
-      await expect(review).toBeVisible();
+      await expect(review).toBeVisible({ timeout: 10_000 });
       await expect(diagram.getByRole("img", { name: /Request review to Start recovery.*Approved/ })).toBeAttached();
       await expect(diagram.getByRole("img", { name: /Retain source to Stop recovery.*On error/ })).toBeAttached();
       const fit = diagram.getByRole("button", { name: /fit view/i });
       await fit.click();
-      await page.screenshot({ path: testInfo.outputPath("compiled-workflow.png") });
+      const details = page.getByRole("complementary", { name: "Step details" });
+      await expect(details).toHaveCount(0);
+      const description = page.getByRole("heading", { name: "When to use this playbook" });
+      await expect(description).toBeVisible();
+      await expect(page.locator("strong").filter({ hasText: /^Preserve the source$/ })).toBeVisible();
       await review.focus();
       await page.keyboard.press("Enter");
       await expect(review).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByRole("list", { name: "Outgoing transitions" }).getByRole("button", { name: /Approved.*Start recovery/ })).toBeVisible();
+      await expect(details.getByRole("heading", { name: "Request review" })).toBeVisible();
+      await details.getByText("Details", { exact: true }).click();
+      await expect(details.getByText("decision.resolved")).toBeVisible();
+      await expect(details.getByText("review_decision")).toBeVisible();
+      await details.getByText("Details", { exact: true }).click();
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({ path: testInfo.outputPath("step-inspector.png") });
+      await description.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath("playbook-description.png") });
+      if (vp.width < 1200) {
+        await page.setViewportSize({ width: 320, height: vp.height });
+        await expectNoHorizontalOverflow(page);
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+      }
+      await diagram.getByRole("button", { name: /Call playbook Start recovery/ }).press("Enter");
+      await expect(details.getByRole("heading", { name: "Start recovery" })).toBeVisible();
+      await details.getByRole("button", { name: "Close step details" }).click();
+      await expect(details).toHaveCount(0);
+      await expect(diagram.getByRole("button", { name: /Call playbook Start recovery/ })).toBeFocused();
       if (vp.width < 1200) await page.getByRole("link", { name: "All playbooks" }).click();
       await library.getByRole("button", { name: /^Validate candidate/ }).click();
       await page.getByRole("combobox", { name: "Entry point" }).selectOption("validate-recovery-inputs");
       await expect(diagram.getByRole("button", { name: /Report inputs/ })).toBeVisible();
       await expect(diagram.getByRole("button", { name: /Run checks/ })).toHaveCount(0);
+      await expect(description).toHaveCount(0);
       expect(runReads).toEqual([]);
       await expectNoHorizontalOverflow(page);
       await expectNoAxeViolations(page);
+    });
+
+    test("the step inspector explains the selected routing step in context", async ({ page }, testInfo) => {
+      test.setTimeout(45_000);
+      await page.goto("/playbooks?scenario=playbook-step-inspection");
+      const library = page.getByRole("list", { name: "Current playbook definitions" });
+      await expect(page.getByText("Fixture: project coding policy")).toBeVisible({ timeout: 20_000 });
+      if (vp.width < 1200) await library.getByRole("button", { name: /^Task routing/ }).click();
+
+      const diagram = page.getByRole("region", { name: "Workflow diagram" });
+      const read = diagram.getByRole("button", { name: /^Command.*Read$/ });
+      const owned = diagram.getByRole("button", { name: "Decision Owned" });
+      const ask = diagram.getByRole("button", { name: "Command Ask" });
+      const inspector = page.getByRole("complementary", { name: "Step details" });
+      const description = page.getByRole("region", { name: "Description", exact: true });
+      const later = inspector.getByRole("list", { name: "Used by later steps" });
+      const earlier = inspector.getByRole("list", { name: "Uses from earlier steps" });
+      await read.press("Enter");
+      await expect(read).toHaveAttribute("aria-pressed", "true");
+      await expect(inspector.getByRole("heading", { name: "Read", exact: true })).toBeVisible();
+      await expect(inspector.getByText(/Looks up the task.*title, description, declared kind/)).toBeVisible();
+      await expect(inspector.getByText(/If the workflow requests an assessment/)).toBeVisible();
+      await expect(diagram.getByRole("img", { name: /Read to .*Refused/ })).toBeAttached();
+      await expect(inspector.getByRole("heading", { name: "Branch conditions" })).toBeHidden();
+      await expect(later).toBeHidden();
+      await expect(description.getByRole("heading", { name: "Routing policy" })).toBeVisible();
+      await expect(description.locator("strong")).toHaveText("Keep routes chosen by an owner.");
+      const workflowBounds = (await page.getByRole("region", { name: "Compiled workflow", exact: true }).boundingBox())!;
+      expect((await description.boundingBox())!.y).toBeGreaterThanOrEqual(workflowBounds.y + workflowBounds.height);
+      await page.screenshot({ path: testInfo.outputPath("routing-read.png") });
+      await expect(inspector.getByText("work.read", { exact: true })).toBeHidden();
+      await inspector.getByText("Details", { exact: true }).click();
+      await expect(inspector.getByRole("heading", { name: "Branch conditions" })).toBeVisible();
+      await expect(inspector.getByText(/task is unknown or its project does not use automatic routing/)).toBeVisible();
+      await expect(inspector.getByText(/input was invalid or the runtime rejected the command/)).toBeVisible();
+      await expect(inspector.getByText("work.read", { exact: true })).toBeVisible();
+      await expect(later.getByRole("button", { name: "Owned", exact: true })).toBeVisible();
+      await inspector.getByRole("heading", { name: "Branch conditions" }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath("routing-read-branches.png") });
+      await inspector.getByText("Details", { exact: true }).click();
+
+      await owned.press("Enter");
+      await expect(inspector.getByRole("heading", { name: "Owned", exact: true })).toBeVisible();
+      await expect(inspector.getByText(/Checks whether an owner has already chosen the route.*task\.facts\.route.*with owner.*keeps a manually chosen route/)).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("routing-owned.png") });
+
+      await ask.press("Enter");
+      await expect(inspector.getByRole("heading", { name: "Ask", exact: true })).toBeVisible();
+      await expect(inspector.getByText(/classify the kind of work and assess its risk.*title, description, and declared kind/)).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({ path: testInfo.outputPath("routing-ask.png") });
+      await expectNoAxeViolations(page);
+
+      await inspector.getByText("Details", { exact: true }).click();
+      for (const field of ["title", "description", "kind"]) await expect(earlier.getByText(`task.facts.${field}`, { exact: true })).toBeVisible();
+      await earlier.getByRole("button", { name: "Read", exact: true }).press("Enter");
+      await expect(inspector.getByRole("heading", { name: "Read", exact: true })).toBeVisible();
+      await ask.press("Enter");
+      await expect(inspector.getByRole("heading", { name: "Ask", exact: true })).toBeVisible();
+      if (vp.width < 1200) {
+        await page.setViewportSize({ width: 320, height: vp.height });
+        await expectNoHorizontalOverflow(page);
+      }
+      await inspector.getByRole("button", { name: "Close step details" }).press("Enter");
+      await expect(inspector).toHaveCount(0);
+      await expect(ask).toBeFocused();
     });
   });
 }

@@ -1,7 +1,10 @@
 .panel {
+  --graph-height: clamp(295px, 38vh, 430px);
   display: grid;
   gap: var(--space-3);
 }
+.graphContainer { container-type: inline-size; }
+.graphLayout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 .panel > div:first-child { margin-block-end: 0; }
 .entry {
   display: flex;
@@ -32,14 +35,22 @@
 }
 .canvas {
   min-inline-size: 0;
-  block-size: clamp(295px, 38vh, 430px);
+  block-size: var(--graph-height);
   --xy-background-color: var(--color-canvas);
 }
-.controls {
+.toolbar, .controls {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+}
+.toolbar {
+  justify-content: space-between;
   border-block-end: 1px solid var(--color-border);
   background: var(--color-panel);
+}
+.toolbar > span {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
 }
 .controls button {
   inline-size: var(--control-height);
@@ -97,55 +108,130 @@
 }
 .port { opacity: 0; pointer-events: none; }
 .stepDetail {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: var(--space-3);
-  padding-block-start: var(--space-2);
-}
-.stepIdentity {
-  display: grid;
-  align-content: start;
-  gap: var(--space-1);
+  align-self: start;
+  min-inline-size: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-raised);
   overflow-wrap: anywhere;
 }
-.stepIdentity > span, .stepIdentity code {
+.stepHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.stepHeader h3 { margin: 0; }
+.stepKind, .facts dt {
   color: var(--color-text-secondary);
   font-size: var(--font-size-meta);
 }
-.transitions {
-  display: flex;
-  align-content: start;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+.closeStep { flex: none; }
+.stepDescription p { margin: var(--space-2) 0 0; }
+.facts {
+  display: grid;
   gap: var(--space-2);
+  margin-block: var(--space-3) 0;
+  font-size: var(--font-size-meta);
+}
+.facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: var(--space-2); }
+.facts dd { margin: 0; }
+.detailSection, .technicalDetails {
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+.detailSection h4, .branchDetails h4 { margin: 0 0 var(--space-2); font-size: var(--font-size-meta); }
+.branchDetails { margin-block-start: var(--space-2); }
+.branchDetails dl { display: grid; gap: var(--space-2); margin: 0; font-size: var(--font-size-meta); }
+.branchDetails dt { display: flex; align-items: center; gap: var(--space-1); color: var(--color-text); }
+.branchDetails dt svg { flex: none; color: var(--color-text-secondary); }
+.branchDetails dt span[data-error="true"] { color: var(--color-attention); }
+.branchDetails dd { margin: var(--space-1) 0 0; color: var(--color-text-secondary); }
+.useHint, .usePurpose {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+.useHint, .usePurpose { margin: 0; }
+.useHint { margin-block-end: var(--space-1); }
+.relatedSteps {
+  display: grid;
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.transitions li { min-inline-size: 0; max-inline-size: 100%; }
-.transitions button {
+.relatedSteps > li { min-inline-size: 0; }
+.relatedStep {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  min-inline-size: var(--control-height);
+  max-inline-size: 100%;
   min-block-size: var(--control-height);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
+  padding: 0 var(--space-1);
+  border: 0;
   border-radius: var(--radius-control);
-  background: var(--color-canvas);
-  color: var(--color-text);
+  background: transparent;
+  color: var(--color-accent);
   font: inherit;
   font-size: var(--font-size-meta);
-  overflow-wrap: anywhere;
+  font-weight: 600;
   text-align: start;
   cursor: pointer;
 }
-.transitions button:hover { border-color: var(--color-accent); }
-.transitions button svg { flex: none; color: var(--color-text-secondary); }
-.transitions button span { color: var(--color-accent); }
-.transitions button span[data-error="true"] { color: var(--color-attention); }
+.relatedStep:hover { text-decoration: underline; }
+.relatedStep svg { flex: none; }
+.usedPaths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-meta);
+}
+.usedPaths li { min-inline-size: 0; max-inline-size: 100%; }
+.usedPaths code { color: var(--color-text); overflow-wrap: anywhere; }
+.technicalDetails { padding-block-start: var(--space-1); }
+.technicalDetails summary {
+  align-content: center;
+  min-block-size: var(--control-height);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+  cursor: pointer;
+}
+.technicalDetails[open] .facts { margin-block-start: var(--space-1); }
+
+@container (min-width: 630px) {
+  .graphLayout[data-inspecting="true"] { grid-template-columns: minmax(0, 1fr) minmax(238px, 33%); }
+  .stepDetail {
+    display: flex;
+    flex-direction: column;
+    max-block-size: calc(var(--graph-height) + var(--control-height) + 3px);
+  }
+  .stepBody { min-block-size: 0; overflow: auto; }
+  .stepBody :is(button, summary):focus-visible { outline-offset: -2px; }
+}
+.markdown {
+  max-inline-size: 75ch;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.markdown > :first-child { margin-block-start: 0; }
+.markdown > :last-child { margin-block-end: 0; }
+.markdown :is(h3, h4, h5, h6) { margin-block-end: var(--space-1); line-height: 1.35; }
+.markdown :is(h3, h4, h5, h6) + * { margin-block-start: 0; }
+.markdown :is(pre, blockquote) {
+  margin-inline: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 2px solid var(--color-border);
+  background: var(--color-canvas);
+}
+.markdown pre { white-space: pre-wrap; }
+.markdown a { color: var(--color-accent); }
 
 @media (max-width: 760px) {
-  .canvas { block-size: clamp(350px, 49vh, 440px); }
-  .stepDetail { grid-template-columns: minmax(0, 1fr); }
-  .transitions { justify-content: flex-start; }
+  .panel { --graph-height: clamp(350px, 49vh, 440px); }
 }

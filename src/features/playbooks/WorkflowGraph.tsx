@@ -1,14 +1,14 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import dagre from "@dagrejs/dagre";
 import { useQuery } from "@tanstack/react-query";
 import {
   Background, BaseEdge, getViewportForBounds, Handle, MarkerType, Position, ReactFlow,
   type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance,
 } from "@xyflow/react";
-import { ArrowRight, CircleStop, GitBranch, GitMerge, Hourglass, Maximize, Minus, Play, Plus, Repeat, Terminal, Workflow } from "lucide-react";
+import { CircleStop, GitBranch, GitMerge, Hourglass, Maximize, Minus, Play, Plus, Repeat, Terminal, Workflow } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 import { apiGet } from "../../api/client";
-import { adaptDefinitionGraph, DEFINITION_GRAPH_CAPABILITY, type DefinitionGraph, type GraphStep } from "../../api/adapters/playbookGraph";
+import { adaptDefinitionGraph, DEFINITION_GRAPH_CAPABILITY, type DefinitionGraph, type DefinitionInspection, type GraphStep } from "../../api/adapters/playbookGraph";
 import type { Namespace } from "../../api/adapters/playbooks";
 import { scopedKey } from "../../api/queryKeys";
 import { useScope } from "../../app/scope";
@@ -17,6 +17,8 @@ import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { humanize } from "./RunTimeline";
+import { PlaybookDescription } from "./PlaybookDescription";
+import { StepInspector } from "./StepInspector";
 import styles from "./WorkflowGraph.module.css";
 
 const kinds = {
@@ -112,70 +114,103 @@ function layout(graph: DefinitionGraph, start: string, vertical: boolean) {
     };
   });
   const bounds = diagram.graph();
-  return { nodes, edges, bounds: { x: 0, y: 0, width: bounds.width!, height: bounds.height! } };
+  return { nodes, edges, reachable: order, bounds: { x: 0, y: 0, width: bounds.width!, height: bounds.height! } };
 }
 
 function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start: string; vertical: boolean }) {
-  const [stepId, setStep] = useState(start);
+  const [stepId, setStep] = useState<string | null>(null);
   const flow = useRef<ReactFlowInstance<StepNode, PathEdge>>(null);
   const canvas = useRef<HTMLDivElement>(null);
-  const { nodes, edges, bounds } = useMemo(() => layout(graph, start, vertical), [graph, start, vertical]);
+  const canvasSize = useRef({ width: 0, height: 0 });
+  const heading = useRef<HTMLHeadingElement>(null);
+  const focusHeading = useRef(false);
+  const hintId = useId();
+  const { nodes, edges, reachable, bounds } = useMemo(() => layout(graph, start, vertical), [graph, start, vertical]);
   const selectedNodes = useMemo(() => nodes.map(node => {
     const selected = node.id === stepId;
     return { ...node, selected, domAttributes: { "aria-pressed": selected } };
   }), [nodes, stepId]);
-  const step = graph.steps.get(stepId) ?? graph.steps.get(start)!;
-  function fit() {
+  const step = stepId === null ? undefined : graph.steps.get(stepId);
+  const open = Boolean(step);
+  const fit = useCallback(() => {
     if (!canvas.current || !flow.current) return;
     const { clientWidth, clientHeight } = canvas.current;
     if (clientWidth && clientHeight) {
       void flow.current.setViewport(getViewportForBounds(bounds, clientWidth, clientHeight, minZoom, 1, 0.09));
     }
+  }, [bounds]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const instance = flow.current;
+      if (!instance || !canvas.current) return;
+      const { clientWidth, clientHeight } = canvas.current;
+      const previous = canvasSize.current;
+      if (!clientWidth || (clientWidth === previous.width && clientHeight === previous.height)) return;
+      canvasSize.current = { width: clientWidth, height: clientHeight };
+      const node = nodes.find(node => node.id === stepId);
+      if (node) {
+        const zoom = instance.getZoom();
+        const bounds = { ...node.position, width: node.width!, height };
+        void instance.setViewport(getViewportForBounds(bounds, clientWidth, clientHeight, zoom, zoom, 0));
+      } else {
+        fit();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fit, nodes, stepId]);
+  useEffect(() => {
+    if (stepId && (vertical || focusHeading.current)) heading.current?.focus({ preventScroll: !vertical });
+    focusHeading.current = false;
+  }, [vertical, stepId]);
+  function closeStep() {
+    canvas.current?.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(stepId ?? "")}"]`)?.focus();
+    setStep(null);
   }
   function goTo(id: string) {
     const node = nodes.find(node => node.id === id);
+    if (!node) return;
+    if (id === stepId) heading.current?.focus({ preventScroll: !vertical });
+    else focusHeading.current = true;
     setStep(id);
-    if (node && flow.current) {
+    if (flow.current) {
       const zoom = Math.max(0.78, flow.current.getZoom());
       void flow.current.setCenter(node.position.x + node.width! / 2, node.position.y + height / 2, { zoom });
     }
   }
-  return <>
-    <div className={styles.frame} role="region" aria-label="Workflow diagram">
-      <div className={styles.controls} role="group" aria-label="Workflow view controls">
-        <ActionButton aria-label="Zoom in" title="Zoom in" onClick={() => void flow.current?.zoomIn()}><Plus size={16} aria-hidden /></ActionButton>
-        <ActionButton aria-label="Zoom out" title="Zoom out" onClick={() => void flow.current?.zoomOut()}><Minus size={16} aria-hidden /></ActionButton>
-        <ActionButton aria-label="Fit view" title="Fit view" onClick={fit}><Maximize size={16} aria-hidden /></ActionButton>
+  return <div className={styles.graphContainer}>
+    <div className={styles.graphLayout} data-inspecting={open}>
+      <div className={styles.frame} role="region" aria-label="Workflow diagram" aria-describedby={hintId}>
+        <div className={styles.toolbar}>
+          <span id={hintId}>Select a step for details</span>
+          <div className={styles.controls} role="group" aria-label="Workflow view controls">
+            <ActionButton aria-label="Zoom in" title="Zoom in" onClick={() => void flow.current?.zoomIn()}><Plus size={16} aria-hidden /></ActionButton>
+            <ActionButton aria-label="Zoom out" title="Zoom out" onClick={() => void flow.current?.zoomOut()}><Minus size={16} aria-hidden /></ActionButton>
+            <ActionButton aria-label="Fit view" title="Fit view" onClick={fit}><Maximize size={16} aria-hidden /></ActionButton>
+          </div>
+        </div>
+        <div ref={canvas} className={styles.canvas}>
+          <ReactFlow<StepNode, PathEdge> nodes={selectedNodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
+            colorMode="dark" minZoom={minZoom} maxZoom={2}
+            nodesDraggable={false} nodesConnectable={false} edgesFocusable={false} zoomOnScroll={false}
+            deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}
+            elevateNodesOnSelect={false} proOptions={{ hideAttribution: true }} ariaLabelConfig={graphLabels}
+            onInit={instance => {
+              flow.current = instance;
+              if (canvas.current) canvasSize.current = { width: canvas.current.clientWidth, height: canvas.current.clientHeight };
+              fit();
+            }}
+            onNodeClick={(_, node) => setStep(node.id)}
+            onNodesChange={changes => {
+              const selection = changes.find(change => change.type === "select" && change.selected);
+              if (selection?.type === "select") setStep(selection.id);
+            }}>
+            <Background color="var(--color-border)" gap={17} size={1} />
+          </ReactFlow>
+        </div>
       </div>
-      <div ref={canvas} className={styles.canvas}>
-        <ReactFlow<StepNode, PathEdge> nodes={selectedNodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
-          colorMode="dark" minZoom={minZoom} maxZoom={2}
-          nodesDraggable={false} nodesConnectable={false} edgesFocusable={false} zoomOnScroll={false}
-          deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}
-          elevateNodesOnSelect={false} proOptions={{ hideAttribution: true }} ariaLabelConfig={graphLabels}
-          onInit={instance => { flow.current = instance; fit(); }}
-          onNodeClick={(_, node) => setStep(node.id)}
-          onNodesChange={changes => {
-            const selection = changes.find(change => change.type === "select" && change.selected);
-            if (selection?.type === "select") setStep(selection.id);
-          }}>
-          <Background color="var(--color-border)" gap={17} size={1} />
-        </ReactFlow>
-      </div>
+      {step && <StepInspector step={step} kind={kinds[step.kind].label} reachable={reachable} headingRef={heading} onClose={closeStep} onNavigate={goTo} />}
     </div>
-    <div className={styles.stepDetail}>
-      <div aria-live="polite" className={styles.stepIdentity}>
-        <span>{kinds[step.kind].label}</span>
-        <strong>{humanize(step.id)}</strong>
-        {step.target && <code>{step.target}</code>}
-      </div>
-      {step.transitions.length > 0 && <ul className={styles.transitions} aria-label="Outgoing transitions">
-        {step.transitions.map(({ label, to, error }, index) => <li key={index}>
-          <button type="button" onClick={() => goTo(to)}><span data-error={error}>{humanize(label)}</span><ArrowRight size={14} aria-hidden />{humanize(to)}</button>
-        </li>)}
-      </ul>}
-    </div>
-  </>;
+  </div>;
 }
 
 function GraphWorkspace({ graph, initialEntry }: { graph: DefinitionGraph; initialEntry?: string }) {
@@ -194,14 +229,16 @@ function GraphWorkspace({ graph, initialEntry }: { graph: DefinitionGraph; initi
   </Panel>;
 }
 
-export function WorkflowGraph({ artifact, namespace, entry }: { artifact: string; namespace: Namespace; entry?: string }) {
+export function WorkflowGraph({ artifact, namespace, entry, showDescription = false }: {
+  artifact: string; namespace: Namespace; entry?: string; showDescription?: boolean;
+}) {
   const [scope] = useScope();
   const { bootstrap, queryContext } = useSession();
   const capability = bootstrap.capability(DEFINITION_GRAPH_CAPABILITY);
-  const query = useQuery<DefinitionGraph | null>({
+  const query = useQuery<DefinitionInspection>({
     enabled: capability.enabled,
     queryKey: scopedKey(queryContext, scope, "playbook-definition-graph", { artifact, namespace }),
-    staleTime: query => query.state.data ? 60_000 : 0,
+    staleTime: query => query.state.data?.graph ? 60_000 : 0,
     retry: false,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams({ project_id: namespace.projectId });
@@ -209,13 +246,14 @@ export function WorkflowGraph({ artifact, namespace, entry }: { artifact: string
       return adaptDefinitionGraph(raw, artifact, namespace);
     },
   });
-  if (capability.enabled && query.data && !query.isError) {
-    return <GraphWorkspace key={artifact} graph={query.data} initialEntry={entry} />;
-  }
-  return <Panel title="Compiled workflow">
+  const inspection = capability.enabled && !query.isError ? query.data : undefined;
+  return <>
+    {inspection?.graph ? <GraphWorkspace key={artifact} graph={inspection.graph} initialEntry={entry} /> : <Panel title="Compiled workflow">
     {!capability.enabled ? <p>Compiled graphs are unavailable on this AQ server.</p>
       : query.isError || query.isPending ?
         <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="the compiled workflow" onRetry={() => void query.refetch()} />
         : <p>No compiled graph was recorded for this version.</p>}
-  </Panel>;
+    </Panel>}
+    {showDescription && inspection?.descriptionMarkdown && <PlaybookDescription markdown={inspection.descriptionMarkdown} />}
+  </>;
 }
