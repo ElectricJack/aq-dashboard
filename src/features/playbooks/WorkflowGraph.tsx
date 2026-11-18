@@ -132,7 +132,6 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
   }), [nodes, stepId]);
   const step = stepId === null ? undefined : graph.steps.get(stepId);
   const open = Boolean(step);
-  const explained = Boolean(step?.inspection || step?.transitions.some(transition => transition.reason));
   const fit = useCallback(() => {
     if (!canvas.current || !flow.current) return;
     const { clientWidth, clientHeight } = canvas.current;
@@ -179,7 +178,7 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
     }
   }
   return <div className={styles.graphContainer}>
-    <div className={styles.graphLayout} data-inspecting={open} data-explained={explained}>
+    <div className={styles.graphLayout} data-inspecting={open}>
       <div className={styles.frame} role="region" aria-label="Workflow diagram" aria-describedby={hintId}>
         <div className={styles.toolbar}>
           <span id={hintId}>Select a step for details</span>

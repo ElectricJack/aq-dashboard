@@ -159,32 +159,16 @@ const ASSESSMENT_USE = {
 };
 const ROUTING_INSPECTION = {
   read: {
-    summary: "Uses the task ID in subject to read the task's current details and revision.",
-    uses: [ASSESSMENT_USE, ROUTE_CHECK_USE],
-    branches: [
-      { label: "observed", to: "owned", error: false, reason: "The host found the task and returned its details." },
-      { label: "refused", to: "skipped", error: false, reason: "The task is unknown or its project does not use automatic routing." },
-      { label: "On error", to: "failed", error: true, reason: "The step could not proceed, for example because its input was invalid or the runtime rejected the command." },
-    ],
+    summary: "Looks up the task for this run and reads its current title, description, declared kind, and who set any existing route.\n\nIf the workflow requests an assessment, the agent uses those details to understand the work.",
+    uses: [ROUTE_CHECK_USE, ASSESSMENT_USE],
   },
   owned: {
-    summary: "Checks whether an owner already set the task's route by comparing task.facts.route with owner.",
+    summary: "Checks whether an owner has already chosen the route for this task. It compares task.facts.route, which came from the task lookup, with owner. This keeps a manually chosen route in place.",
     uses: [ROUTE_CHECK_USE],
-    branches: [
-      { label: "false", to: "ask", error: false, reason: "The task has no route or its route was set by the router." },
-      { label: "true", to: "skipped", error: false, reason: "An owner already set the task's route." },
-      { label: "unknown", to: "failed", error: false, reason: "The condition could not be evaluated." },
-    ],
   },
   ask: {
-    summary: "Requests a model assessment using the task's title, description, and kind.",
+    summary: "Asks an agent to classify the kind of work and assess its risk. The agent uses the task's title, description, and declared kind from the earlier task lookup.",
     uses: [ASSESSMENT_USE],
-    branches: [
-      { label: "accepted", to: "await", error: false, reason: "The host queued the assessment and returned a handle." },
-      { label: "assessed", to: "assume", error: false, reason: "A completed assessment was available." },
-      { label: "failed", to: "assume", error: false, reason: "The host could not get a usable assessment, for example because the provider was unavailable or the deadline passed." },
-      { label: "refused", to: "assume", error: false, reason: "The request did not run, for example because it exceeded the host's budget cap." },
-    ],
   },
 };
 const RECOVERY_DESCRIPTION = `## When to use this playbook

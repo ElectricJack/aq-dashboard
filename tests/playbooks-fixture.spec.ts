@@ -87,8 +87,10 @@ for (const vp of VIEWPORTS) {
       await page.keyboard.press("Enter");
       await expect(review).toHaveAttribute("aria-pressed", "true");
       await expect(details.getByRole("heading", { name: "Request review" })).toBeVisible();
+      await details.getByText("Details", { exact: true }).click();
       await expect(details.getByText("decision.resolved")).toBeVisible();
       await expect(details.getByText("review_decision")).toBeVisible();
+      await details.getByText("Details", { exact: true }).click();
       await expectNoHorizontalOverflow(page);
       await page.screenshot({ path: testInfo.outputPath("step-inspector.png") });
       await description.scrollIntoViewIfNeeded();
@@ -98,7 +100,7 @@ for (const vp of VIEWPORTS) {
         await expectNoHorizontalOverflow(page);
         await page.setViewportSize({ width: vp.width, height: vp.height });
       }
-      await details.getByRole("button", { name: /Approved.*Start recovery/ }).click();
+      await diagram.getByRole("button", { name: /Call playbook Start recovery/ }).press("Enter");
       await expect(details.getByRole("heading", { name: "Start recovery" })).toBeVisible();
       await details.getByRole("button", { name: "Close step details" }).click();
       await expect(details).toHaveCount(0);
@@ -114,7 +116,7 @@ for (const vp of VIEWPORTS) {
       await expectNoAxeViolations(page);
     });
 
-    test("the step inspector explains routing branches and where fields are used", async ({ page }, testInfo) => {
+    test("the step inspector explains the selected routing step in context", async ({ page }, testInfo) => {
       test.setTimeout(45_000);
       await page.goto("/playbooks?scenario=playbook-step-inspection");
       const library = page.getByRole("list", { name: "Current playbook definitions" });
@@ -123,51 +125,43 @@ for (const vp of VIEWPORTS) {
 
       const diagram = page.getByRole("region", { name: "Workflow diagram" });
       const read = diagram.getByRole("button", { name: /^Command.*Read$/ });
+      const owned = diagram.getByRole("button", { name: "Decision Owned" });
       const ask = diagram.getByRole("button", { name: "Command Ask" });
       const inspector = page.getByRole("complementary", { name: "Step details" });
-      const transitions = inspector.getByRole("list", { name: "Outgoing transitions" });
       const later = inspector.getByRole("list", { name: "Used by later steps" });
       const earlier = inspector.getByRole("list", { name: "Uses from earlier steps" });
       await read.press("Enter");
       await expect(read).toHaveAttribute("aria-pressed", "true");
       await expect(inspector.getByRole("heading", { name: "Read", exact: true })).toBeVisible();
-      await expect(inspector.getByText(/Uses the task ID in subject/)).toBeVisible();
-      await expect(transitions.getByRole("button", { name: "Observed Owned" })).toHaveAccessibleDescription(/found the task and returned its details/);
-      await expect(transitions.getByRole("button", { name: "Refused Skipped" })).toHaveAccessibleDescription(/task is unknown or its project does not use automatic routing/);
-      await expect(transitions.getByRole("button", { name: "On error Failed" })).toHaveAccessibleDescription(/input was invalid or the runtime rejected the command/);
-      await expect(later.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Owned", exact: true }) })).toContainText("task.facts.route");
-      const assessment = later.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Ask", exact: true }) });
-      for (const field of ["title", "description", "kind"]) await expect(assessment.getByText(`task.facts.${field}`, { exact: true })).toBeVisible();
-      await expect(inspector.getByText("If the workflow reaches these steps.")).toBeVisible();
+      await expect(inspector.getByText(/Looks up the task.*title, description, declared kind/)).toBeVisible();
+      await expect(inspector.getByText(/If the workflow requests an assessment/)).toBeVisible();
+      await expect(inspector.getByRole("heading", { name: "Next steps" })).toHaveCount(0);
+      await expect(diagram.getByRole("img", { name: /Read to .*Refused/ })).toBeAttached();
+      await expect(later).toBeHidden();
       await page.screenshot({ path: testInfo.outputPath("routing-read.png") });
-      await transitions.evaluate(list => list.scrollIntoView({ block: "center" }));
-      await page.screenshot({ path: testInfo.outputPath("routing-read-outcomes.png") });
       await expect(inspector.getByText("work.read", { exact: true })).toBeHidden();
       await inspector.getByText("Details", { exact: true }).click();
       await expect(inspector.getByText("work.read", { exact: true })).toBeVisible();
+      await expect(later.getByRole("button", { name: "Owned", exact: true })).toBeVisible();
       await inspector.getByText("Details", { exact: true }).click();
 
-      await transitions.getByRole("button", { name: "Observed Owned" }).press("Enter");
+      await owned.press("Enter");
       await expect(inspector.getByRole("heading", { name: "Owned", exact: true })).toBeVisible();
-      await expect(inspector.getByText(/Checks whether an owner already set the task's route by comparing task\.facts\.route with owner/)).toBeVisible();
-      await expect(earlier.getByRole("button", { name: "Read", exact: true })).toBeVisible();
-      await expect(transitions.getByRole("button", { name: "True Skipped" })).toHaveAccessibleDescription(/An owner already set the task's route/);
-      await expect(transitions.getByRole("button", { name: "False Ask" })).toHaveAccessibleDescription(/no route or its route was set by the router/);
-      await expect(transitions.getByRole("button", { name: "Unknown Failed" })).toHaveAccessibleDescription(/condition could not be evaluated/);
+      await expect(inspector.getByText(/Checks whether an owner has already chosen the route.*task\.facts\.route.*with owner.*keeps a manually chosen route/)).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath("routing-owned.png") });
 
-      await transitions.getByRole("button", { name: "False Ask" }).press("Enter");
+      await ask.press("Enter");
       await expect(inspector.getByRole("heading", { name: "Ask", exact: true })).toBeVisible();
-      await expect(inspector.getByText(/Requests a model assessment using the task's title, description, and kind/)).toBeVisible();
-      for (const field of ["title", "description", "kind"]) await expect(earlier.getByText(`task.facts.${field}`, { exact: true })).toBeVisible();
-      await expect(transitions.getByRole("button", { name: "Accepted Await" })).toHaveAccessibleDescription(/queued the assessment/);
+      await expect(inspector.getByText(/classify the kind of work and assess its risk.*title, description, and declared kind/)).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await page.screenshot({ path: testInfo.outputPath("routing-ask.png") });
       await expectNoAxeViolations(page);
 
+      await inspector.getByText("Details", { exact: true }).click();
+      for (const field of ["title", "description", "kind"]) await expect(earlier.getByText(`task.facts.${field}`, { exact: true })).toBeVisible();
       await earlier.getByRole("button", { name: "Read", exact: true }).press("Enter");
       await expect(inspector.getByRole("heading", { name: "Read", exact: true })).toBeVisible();
-      await later.getByRole("button", { name: "Ask", exact: true }).press("Enter");
+      await ask.press("Enter");
       await expect(inspector.getByRole("heading", { name: "Ask", exact: true })).toBeVisible();
       if (vp.width < 1200) {
         await page.setViewportSize({ width: 320, height: vp.height });

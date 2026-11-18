@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, type RefObject } from "react";
-import { ArrowRight, ArrowUpRight, X } from "lucide-react";
-import type { GraphStep, StepUse, Transition } from "../../api/adapters/playbookGraph";
+import { ArrowUpRight, X } from "lucide-react";
+import type { GraphStep, StepUse } from "../../api/adapters/playbookGraph";
 import { ActionButton } from "../../components/layout/Workspace";
 import { humanize } from "./RunTimeline";
 import styles from "./WorkflowGraph.module.css";
 
 const descriptions = {
-  invoke: "Runs a command and follows the path for its result.",
-  decide: "Checks a condition and follows the path for its result.",
+  invoke: "Runs the configured command.",
+  decide: "Evaluates the step's configured condition.",
   wait: "Pauses the workflow until the expected event or deadline.",
   for_each: "Runs the loop body for each item, then continues to the next step.",
   call: "Starts a run at an entry point in another playbook.",
@@ -48,21 +48,6 @@ function RelatedSteps({ uses, direction, onNavigate }: {
   </div>;
 }
 
-function NextStep({ transition: { label, to, error, reason }, onNavigate }: {
-  transition: Transition;
-  onNavigate: (id: string) => void;
-}) {
-  const reasonId = useId();
-  return <li>
-    <button type="button" aria-describedby={reason ? reasonId : undefined} onClick={() => onNavigate(to)}>
-      <span className={styles.transitionOutcome} data-error={error}>{humanize(label)}</span>
-      <ArrowRight size={14} aria-hidden />
-      <span>{humanize(to)}</span>
-    </button>
-    {reason && <p id={reasonId} className={styles.transitionReason}>{reason}</p>}
-  </li>;
-}
-
 export function StepInspector({ step, kind, reachable, headingRef, onClose, onNavigate }: {
   step: GraphStep;
   kind: string;
@@ -80,7 +65,7 @@ export function StepInspector({ step, kind, reachable, headingRef, onClose, onNa
     ? "Pauses the workflow until the deadline."
     : commandDescription ?? descriptions[step.kind];
   const uses = step.inspection?.uses.filter(use => reachable.has(use.producer) && reachable.has(use.consumer)) ?? [];
-  const explained = step.inspection?.summary || uses.length > 0 || step.transitions.some(transition => transition.reason);
+  const description = step.inspection?.summary ?? fallbackDescription;
   const targetLabel = step.kind === "wait" ? "Event" : step.kind === "call" ? "Playbook entry" : "Command";
   const facts = (step.target || step.facts.length > 0) && <dl className={styles.facts}>
     {step.target && <div><dt>{targetLabel}</dt><dd><code>{step.target}</code></dd></div>}
@@ -97,19 +82,14 @@ export function StepInspector({ step, kind, reachable, headingRef, onClose, onNa
       </ActionButton>
     </header>
     <div ref={body} className={styles.stepBody}>
-      <p className={styles.stepDescription}>{step.inspection?.summary ?? fallbackDescription}</p>
-      {!explained && facts}
-      <RelatedSteps direction="incoming" uses={uses.filter(use => use.consumer === step.id)} onNavigate={onNavigate} />
-      <RelatedSteps direction="outgoing" uses={uses.filter(use => use.producer === step.id)} onNavigate={onNavigate} />
-      {step.transitions.length > 0 && <div className={styles.detailSection}>
-        <h4>Next steps</h4>
-        <ul className={styles.transitions} aria-label="Outgoing transitions">
-          {step.transitions.map((transition, index) => <NextStep key={index} transition={transition} onNavigate={onNavigate} />)}
-        </ul>
-      </div>}
-      {explained && facts && <details className={styles.technicalDetails} key={step.id}>
+      <div className={styles.stepDescription}>
+        {description.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+      </div>
+      {(facts || uses.length > 0) && <details className={styles.technicalDetails} key={step.id}>
         <summary>Details</summary>
         {facts}
+        <RelatedSteps direction="incoming" uses={uses.filter(use => use.consumer === step.id)} onNavigate={onNavigate} />
+        <RelatedSteps direction="outgoing" uses={uses.filter(use => use.producer === step.id)} onNavigate={onNavigate} />
       </details>}
     </div>
   </aside>;

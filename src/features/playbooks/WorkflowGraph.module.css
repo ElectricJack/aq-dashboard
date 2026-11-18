@@ -128,7 +128,7 @@
   font-size: var(--font-size-meta);
 }
 .closeStep { flex: none; }
-.stepDescription { margin-block: var(--space-2) 0; }
+.stepDescription p { margin: var(--space-2) 0 0; }
 .facts {
   display: grid;
   gap: var(--space-2);
@@ -143,20 +143,19 @@
   border-block-start: 1px solid var(--color-border);
 }
 .detailSection h4 { margin: 0 0 var(--space-2); font-size: var(--font-size-meta); }
-.useHint, .usePurpose, .transitionReason {
+.useHint, .usePurpose {
   color: var(--color-text-secondary);
   font-size: var(--font-size-meta);
 }
 .useHint, .usePurpose { margin: 0; }
 .useHint { margin-block-end: var(--space-1); }
-.relatedSteps, .transitions {
+.relatedSteps {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.relatedSteps { gap: var(--space-1); }
 .relatedSteps > li { min-inline-size: 0; }
 .relatedStep {
   display: inline-flex;
@@ -189,45 +188,6 @@
 }
 .usedPaths li { min-inline-size: 0; max-inline-size: 100%; }
 .usedPaths code { color: var(--color-text); overflow-wrap: anywhere; }
-.transitions > li {
-  position: relative;
-  min-inline-size: 0;
-  max-inline-size: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-canvas);
-}
-.transitions > li:hover { border-color: var(--color-accent); }
-.transitions button {
-  display: grid;
-  grid-template-columns: minmax(0, auto) auto minmax(0, 1fr);
-  inline-size: 100%;
-  align-items: center;
-  gap: var(--space-1);
-  min-block-size: var(--control-height);
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-size-meta);
-  overflow-wrap: anywhere;
-  text-align: start;
-  cursor: pointer;
-}
-.transitions button::after {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  content: "";
-}
-.transitions button:focus-visible { outline: none; }
-.transitions button:focus-visible::after { outline: 3px solid var(--color-focus); outline-offset: -2px; }
-.transitions button svg { color: var(--color-text-secondary); }
-.transitionOutcome { color: var(--color-accent); }
-.transitionOutcome[data-error="true"] { color: var(--color-attention); }
-.transitionReason { margin: 0; padding: 0 var(--space-2) var(--space-2); }
 .technicalDetails { padding-block-start: var(--space-1); }
 .technicalDetails summary {
   align-content: center;
@@ -240,7 +200,6 @@
 
 @container (min-width: 630px) {
   .graphLayout[data-inspecting="true"] { grid-template-columns: minmax(0, 1fr) minmax(238px, 33%); }
-  .graphLayout[data-explained="true"] { --graph-height: clamp(350px, 55vh, 505px); }
   .stepDetail {
     display: flex;
     flex-direction: column;
