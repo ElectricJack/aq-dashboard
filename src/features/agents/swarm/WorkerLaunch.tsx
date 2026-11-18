@@ -3,8 +3,8 @@ import {useSearchParams,Link} from 'react-router';
 import {ActionButton} from '../../../components/layout/Workspace';
 import type {NodeView} from '../../../api/adapters/swarm';
 import {useManualAgents,capacity,launchProfileKey as profileKey,selectionOf} from './manualAgents';
-import styles from './Swarm.module.css';
-export function WorkerLaunch({node}:{node:NodeView}){
+import styles from './WorkerInspector.module.css';
+export function WorkerLaunch({node,canPushLogins}:{node:NodeView;canPushLogins:boolean}){
  const manual=useManualAgents();const [,setParams]=useSearchParams();const [selected,setSelected]=useState('');const [provider,setProvider]=useState('anthropic');const [profile,setProfile]=useState('');const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState(false);const lock=useRef(false);
  if(!manual)return null;
  const fleet=manual.fleet,worker=fleet?.workers.find(w=>w.node_id===node.id);
@@ -23,21 +23,44 @@ export function WorkerLaunch({node}:{node:NodeView}){
  }
  async function change(delta:number){if(!manual||!chosen||lock.current)return;lock.current=true;setBusy(true);setError(null);try{await manual.setSlots(node.id,chosen.id,slots+delta);}catch(e){setError(e instanceof Error?e.message:'Slot change could not be confirmed');}finally{lock.current=false;setBusy(false);}}
  return <section className={styles.launch} aria-label="Interactive agents">
-  <label>Project<select aria-label="Agent project" value={chosen?.id??''} onChange={e=>{setSelected(e.target.value);setParams(previous=>{const p=new URLSearchParams(previous);p.set('scope',`project:${e.target.value}`);return p;},{replace:true});}} disabled={busy||!!manual.project}>
-   {choices.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-  </select></label>
-  <label>Provider<select aria-label="Agent provider" value={activeProvider??''} onChange={e=>{setProvider(e.target.value);setProfile('');}} disabled={busy}>
-   {providers.map(p=><option key={p} value={p}>{p==='openai'?'Codex':'Claude'}</option>)}
-  </select></label>
-  <label>Level<select aria-label="Agent level" value={intelligence?profileKey(intelligence):''} onChange={e=>setProfile(e.target.value)} disabled={busy||!profiles.length}>
-   {profiles.map(p=><option key={profileKey(p)} value={profileKey(p)}>{p.name} · {p.model} · {p.reasoning}</option>)}
-  </select></label>
-  {!intelligence&&available&&<p className={styles.actionNote}>No level lists a model for this provider. <Link to="/settings?tab=intelligence">Manage levels</Link></p>}
-  <div className={styles.actions}><ActionButton onClick={()=>void launch()} disabled={busy||!available||!chosen||!intelligence}>{busy?'Starting…':'Launch agent'}</ActionButton></div>
-  <p className={styles.actionNote}>Starts an interactive agent. Connect in the graph and work with it until you stop it.</p>
-  {chosen&&<><div className={styles.actions} aria-label="Project worker slots"><ActionButton aria-label="Remove project slot" onClick={()=>void change(-1)} disabled={busy||!available||slots===0}>−</ActionButton><span>{slots} project slot{slots===1?'':'s'}</span><ActionButton aria-label="Add project slot" onClick={()=>void change(1)} disabled={busy||!available||slots>=(worker?.max_slots??0)}>+</ActionButton></div><p className={styles.actionNote}>Removing a busy slot lets its agent continue until stopped.</p></>}
-  {!available&&<p role="status" className={styles.actionNote}>This worker has not reported agent support yet. Use Push logins above to finish provider setup.</p>}
-  {!chosen&&fleet&&worker&&<p className={styles.actionNote}>No started project is configured on this worker. <Link to="/settings?tab=projects">Manage projects</Link></p>}
+  <h3>Interactive agents</h3>
+  {!available&&<p role="status" className={styles.note}>
+   {!fleet ? manual.error ? "Agent launch information could not be loaded." : "Loading agent launch information…" : node.health!=="online" ? "Agent launch requires an online worker." : "This worker has not reported agent support yet."}
+   {fleet&&node.health==="online"&&canPushLogins&&" Use the Logins tab to finish provider setup."}
+  </p>}
+  {worker&&<>
+   <div className={styles.launchOptions}>
+    <label className={styles.field}>Project
+     <select aria-label="Agent project" value={chosen?.id??''} onChange={e=>{setSelected(e.target.value);setParams(previous=>{const p=new URLSearchParams(previous);p.set('scope',`project:${e.target.value}`);return p;},{replace:true});}} disabled={busy||!!manual.project||!choices.length}>
+      {!chosen&&<option value="">None available</option>}
+      {choices.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+     </select>
+    </label>
+    <label className={styles.field}>Provider
+     <select aria-label="Agent provider" value={activeProvider??''} onChange={e=>{setProvider(e.target.value);setProfile('');}} disabled={busy||!providers.length}>
+      {!providers.length&&<option value="">None reported</option>}
+      {providers.map(p=><option key={p} value={p}>{p==='openai'?'Codex':'Claude'}</option>)}
+     </select>
+    </label>
+   </div>
+   {!chosen&&<p className={styles.note}>No started project is available in this scope. <Link to="/settings?tab=projects">Manage projects</Link></p>}
+   <label className={styles.field}>Level
+    <select aria-label="Agent level" title={intelligence&&`${intelligence.name} · ${intelligence.model} · ${intelligence.reasoning}`} value={intelligence?profileKey(intelligence):''} onChange={e=>setProfile(e.target.value)} disabled={busy||!profiles.length}>
+     {!profiles.length&&<option value="">None available</option>}
+     {profiles.map(p=><option key={profileKey(p)} value={profileKey(p)}>{p.name} · {p.model} · {p.reasoning}</option>)}
+    </select>
+   </label>
+   {!intelligence&&available&&<p className={styles.note}>No level lists a model for this provider. <Link to="/settings?tab=intelligence">Manage levels</Link></p>}
+   <div className={styles.actions}><ActionButton className={styles.primary} onClick={()=>void launch()} disabled={busy||!available||!chosen||!intelligence}>{busy?'Starting…':'Launch agent'}</ActionButton></div>
+   {chosen&&<div className={styles.projectSlots}>
+    <div className={styles.actions} role="group" aria-label="Project worker slots">
+     <strong>{slots} project slot{slots===1?'':'s'}</strong>
+     <ActionButton aria-label="Remove project slot" onClick={()=>void change(-1)} disabled={busy||!available||slots===0}>−</ActionButton>
+     <ActionButton aria-label="Add project slot" onClick={()=>void change(1)} disabled={busy||!available||slots>=worker.max_slots}>+</ActionButton>
+    </div>
+    <p className={styles.note}>Removing a busy slot lets its agent continue until stopped.</p>
+   </div>}
+  </>}
   {error&&<p role="alert">{error}</p>}
  </section>;
 }

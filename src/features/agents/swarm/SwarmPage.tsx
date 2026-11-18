@@ -46,6 +46,9 @@ function SwarmPageBody() {
   // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.
   const pane = useRef<HTMLElement>(null);
   const focusPane = useRef(false);
+  const stage = useRef<HTMLDivElement>(null);
+  const workerTrigger = useRef<HTMLElement | null>(null);
+  const restoreWorkerFocus = useRef(false);
   const held = useRef<{ param: string; view: SwarmView; selection: Selection; misses: number; seenAt: number } | null>(null);
 
   // A selection id that no longer exists in the tree shows the empty pane, after holding the last known object for a few polls.
@@ -62,19 +65,26 @@ function SwarmPageBody() {
   } else if (!selectParam) held.current = null;
 
   const select = (s: Selection) => {
+    if (s.kind === "node") workerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     focusPane.current = true;
     setParams(prev => { const next = new URLSearchParams(prev); next.set("select", selectionId(s)); return next; }, { replace: true });
   };
   // On a narrow viewport the pane is below the tree: bring it into view and move focus to its heading.
   useEffect(() => {
+    if (restoreWorkerFocus.current && !shown.selection) {
+      restoreWorkerFocus.current = false;
+      const trigger = workerTrigger.current;
+      if (trigger && stage.current?.firstElementChild?.contains(trigger)) trigger.focus();
+      else stage.current?.focus();
+      workerTrigger.current = null;
+    }
     if (!focusPane.current || !shown.selection) return;
     focusPane.current = false;
     if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1023px)").matches) {
       pane.current?.scrollIntoView?.({ block: "start" });
-      pane.current?.querySelector<HTMLElement>("h2")?.focus();
+      pane.current?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
     }
   });
-  const stage = useRef<HTMLDivElement>(null);
   const [stageWidth, setStageWidth] = useState(1000);
   const storageKey = `aq.swarm.tree-width:${queryContext.principalId}`;
   const [preference, setPreference] = useState<{ key: string; percent: number } | null>(null);
@@ -90,6 +100,7 @@ function SwarmPageBody() {
   // With nothing selected the properties pane is closed and the tree or the board takes the width; selecting opens it.
   const paneClosed = !shown.selection && !!view;
   const clear = () => setParams(prev => { const next = new URLSearchParams(prev); next.delete("select"); next.delete("focus"); return next; }, { replace: true });
+  const closeWorker = () => { restoreWorkerFocus.current = true; clear(); };
   const setMode = (next: SwarmViewMode) => {
     setStoredMode(next);
     try { localStorage.setItem(modeKey, next); } catch { /* The view still switches when storage is unavailable. */ }
@@ -150,7 +161,7 @@ function SwarmPageBody() {
     {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
     <SwarmStatusHeader />
     {view && <SwarmSummary view={view} anchor={anchor} mode={mode} onMode={setMode} stale={stale} />}
-    <div ref={stage} className={styles.stage} style={desktop && !focused && !paneClosed ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-view={mode} data-pane-closed={paneClosed || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
+    <div ref={stage} tabIndex={-1} className={styles.stage} style={desktop && !focused && !paneClosed ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-view={mode} data-pane-closed={paneClosed || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
       {view
         ? mode === "board"
           ? <SlotBoard view={view} anchor={anchor} selected={shown.selection} onSelect={select} />
@@ -176,7 +187,7 @@ function SwarmPageBody() {
           const next = event.key === "Home" ? minPercent : event.key === "End" ? maxPercent : event.key === "ArrowLeft" ? treePercent - (event.shiftKey ? 10 : 2) : event.key === "ArrowRight" ? treePercent + (event.shiftKey ? 10 : 2) : null;
           if (next !== null) { event.preventDefault(); resize(next); }
         }} />
-      <aside ref={pane} className={styles.pane} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} />}</aside>
+      <aside ref={pane} className={styles.pane} data-worker={shown.selection?.kind === "node" || undefined} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} onCloseWorker={closeWorker} />}</aside>
     </div>
   </>;
 }

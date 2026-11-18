@@ -1,18 +1,16 @@
 import { agentClassLabel } from "../../../api/adapters/swarm";
 import { Link, useLocation } from "react-router";
-import type { HoldReasonView, MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
+import type { HoldReasonView, MachineView, SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
-import { ActionButton, DetailList } from "../../../components/layout/Workspace";
+import { DetailList } from "../../../components/layout/Workspace";
 import { useProjects } from "../../../app/useProjects";
 import { useProviderUsage } from "../../../app/useProviderUsage";
-import { useSession } from "../../../app/session";
-import { HostTerminalAction } from "../host/HostTerminalAction";
-import { WorkerLaunch } from "./WorkerLaunch";
 import { AgentPane, scopeOnly } from "./AgentPane";
 import { AddMachine } from "./AddMachine";
 import { OwnerAvailability } from "./OwnerAvailability";
 import { MachineControls } from "./MachineControls";
 import { WorkerManagement } from "./WorkerManagement";
+import { WorkerInspector } from "./WorkerInspector";
 import { HELD_TEXT, showWaiting, type Selection } from "./graph";
 import { taskLabel } from "./slots";
 import styles from "./Swarm.module.css";
@@ -31,15 +29,6 @@ function Settings({ label }: { label: string }) {
   const { search } = useLocation();
   return <Link className={styles.linkButton} to={{ pathname: "/settings", search: scopeOnly(search) }}>{label}</Link>;
 }
-function NodeControls({node}: {node: NodeView}) {
-  const { bootstrap, queryContext } = useSession();
-  const enabled = bootstrap.capability("swarm.worker.control").enabled;
-  return <>
-    <div className={styles.actions}><HostTerminalAction nodeId={node.id}/><WorkerLaunch key={`${node.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} node={node}/>{["Drain node", "Restart", "View logs"].map(l => <ActionButton key={l} disabled>{l}</ActionButton>)}</div>
-    <p className={styles.actionNote}>{enabled ? "Drain node, restart and logs are not available yet. Use the machine's controls." : "Worker start, stop and drain are not available on this server yet."}</p>
-  </>;
-}
-
 function availabilityText(view: SwarmView): string {
   const a = view.server.ownerAvailability;
   if (!a) return "unknown";
@@ -102,27 +91,6 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
   </>;
 }
 
-function NodePane({ n, serverTime }: { n: NodeView; serverTime: string }) {
-  return <>
-    <Head kicker="Worker node" title={n.name} />
-    <WorkerManagement kind="node" id={n.id} name={n.name} maximum={n.slots.total} />
-    {n.slots.scope === "All projects" && <p className={styles.actionNote}>Slots across projects. Select a project above to see its limit.</p>}
-    <DetailList className={styles.facts}>
-      <dt>Backend</dt><dd>{n.backendKind ?? "unknown"}</dd>
-      <dt>{n.slots.scope === "All projects" ? "Slots across projects" : n.slots.scope ? `${n.slots.scope} slots` : "Slots"}</dt><dd>{n.slots.total===null?"Capacity not reported":`${n.slots.occupied}/${n.slots.total} slots`}</dd>
-      {n.slots.idle!==null&&<><dt>Available</dt><dd>{n.slots.idle}</dd></>}
-      {n.slots.target!==undefined&&<><dt>Draining to</dt><dd>{n.slots.target} project slots</dd></>}
-      <dt>Heartbeat</dt><dd>{n.lastSeenAt ? formatAge(serverTime, n.lastSeenAt) : "never"}</dd>
-      <dt>Service</dt><dd>{n.service === "unreported" ? "not reported" : n.service}</dd>
-      <dt>Version</dt><dd>{`aq-worker ${n.workerVersion}`}</dd>
-      <dt>Sandbox image</dt><dd>{n.sandboxTemplates.length ? n.sandboxTemplates.map(t => <div key={t}>{`${t.slice(0, 13)}…`}</div>) : "none advertised"}</dd>
-      <dt>Channel</dt><dd>{n.agentChannel === "ready" ? "agent channel ready" : n.agentChannel === "unavailable" ? "agent channel unavailable" : "not reported"}</dd>
-      <Holding holds={n.holding} />
-    </DetailList>
-    <NodeControls node={n} />
-  </>;
-}
-
 function find(view: SwarmView, selection: Selection) {
   for (const m of view.machines) for (const n of m.nodes) {
     if (selection.kind === "node" && n.id === selection.nodeId) return { m, n };
@@ -145,12 +113,12 @@ function Empty() {
   </>;
 }
 
-export function SwarmPane({ view, selection, ready, note }: { view: SwarmView; selection: Selection | null; ready: number | null; note?: string | null }) {
+export function SwarmPane({ view, selection, ready, note, onCloseWorker }: { view: SwarmView; selection: Selection | null; ready: number | null; note?: string | null; onCloseWorker(): void }) {
   if (!selection) return <Empty />;
-  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} /></>;
+  return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} onCloseWorker={onCloseWorker} /></>;
 }
 
-function Body({ view, selection, ready }: { view: SwarmView; selection: Selection; ready: number | null }) {
+function Body({ view, selection, ready, onCloseWorker }: { view: SwarmView; selection: Selection; ready: number | null; onCloseWorker(): void }) {
   if (selection.kind === "server") return <ServerPane view={view} ready={ready} />;
   if (selection.kind === "waiting") {
     const n = view.waiting.agents.length || ready || 0;
@@ -176,7 +144,7 @@ function Body({ view, selection, ready }: { view: SwarmView; selection: Selectio
   const hit = find(view, selection);
   if (!hit) return <Empty />;
   if (selection.kind === "machine") return <MachinePane key={hit.m.id} m={hit.m} serverTime={view.serverTime} />;
-  if (selection.kind === "node" && hit.n) return <NodePane n={hit.n} serverTime={view.serverTime} />;
+  if (selection.kind === "node" && hit.n) return <WorkerInspector key={hit.n.id} node={hit.n} machine={hit.m} serverTime={view.serverTime} onClose={onCloseWorker} />;
   if (selection.kind === "free" && hit.n) {
     const hold = hit.m.state === "holding" ? hit.m.holding[0] : undefined;
     return <>
