@@ -1,3 +1,5 @@
+import { StoryPointsField } from "../work/StoryPointsField";
+import { storyPointsProblem } from "../../api/adapters/storyPoints";
 import { useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
@@ -17,20 +19,20 @@ import { classLabel } from "../work/inspector/TaskRoute";
 import { NO_ROUTE, RouteFields, type RouteChoice } from "./RouteFields";
 import styles from "./RecordActions.module.css";
 
-type Draft={title:string;body:string;acceptance:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;priority:string;confirm:boolean};
+type Draft={title:string;body:string;acceptance:string;storyPoints:string;labels:string;labelsEdited:boolean;category:string;reason:string;blocker:string;blockerQuery:string;edge:string;successor:string;verdict:string;url:string;restoreRevision:string;priority:string;confirm:boolean};
 /** `aq:priority` bounds (dashboard-actions `task.reprioritize`): an integer, higher runs first. */
 const PRIORITY=/^-?(0|[1-9][0-9]{0,6})$/,PRIORITY_MAX=1_000_000;
 const CATEGORIES=["fact","decision","policy","procedure","incident","reference","note"];
 /** The content revision before the current one: for a just-retired record, the last active revision. */
 const previousRevision=(current:string|undefined)=>current&&/^[1-9][0-9]*$/.test(current)?String(BigInt(current)>1n?BigInt(current)-1n:1n):"";
 const RESTORE_REVISION=/^[1-9][0-9]{0,15}$/;
-function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",blockerQuery:"",edge:"",successor:"",verdict:"verified",url:"",restoreRevision:previousRevision(n?.content_revision),priority:"",confirm:false};}
+function draftFor(record:ActionContext,author:boolean):Draft {const n=author?undefined:record.data;return {title:n?.title??"",body:n?.body??"",acceptance:n?.acceptance_criteria??"",storyPoints:n?.story_points?.toString()??"",labels:n?.labels.join(", ")??"",labelsEdited:false,category:n?.content_type??"note",reason:"",blocker:"",blockerQuery:"",edge:"",successor:"",verdict:"verified",url:"",restoreRevision:previousRevision(n?.content_revision),priority:"",confirm:false};}
 /** Fields the edit dialogs submit; compared field by field after a conflict reload (WDR-01). */
-type EditField="title"|"body"|"acceptance"|"labels"|"category";
-const EDIT_FIELD_LABEL:Record<EditField,string>={title:"Title",body:"Description",acceptance:"Acceptance criteria",labels:"Labels",category:"Category"};
-const editFields=(k:ActionKind):EditField[]=>k==="task.edit"?["title","body","acceptance","labels"]:k==="knowledge.correct"?["title","body","labels","category"]:[];
+type EditField="title"|"body"|"acceptance"|"storyPoints"|"labels"|"category";
+const EDIT_FIELD_LABEL:Record<EditField,string>={title:"Title",body:"Description",acceptance:"Acceptance criteria",storyPoints:"Story points",labels:"Labels",category:"Category"};
+const editFields=(k:ActionKind):EditField[]=>k==="task.edit"?["title","body","acceptance","storyPoints","labels"]:k==="knowledge.correct"?["title","body","labels","category"]:[];
 const labelSet=(v:string)=>[...new Set(v.split(",").map(x=>x.trim()).filter(Boolean))].join(", ");
-const fieldValue=(d:Draft,f:EditField)=>f==="labels"?labelSet(d.labels):d[f];
+const fieldValue=(d:Draft,f:EditField)=>f==="labels"?labelSet(d.labels):f==="storyPoints"?d.storyPoints.trim():d[f];
 /** What "Reload current versions" did to the draft: fields refreshed from AQ, and fields both sides changed. */
 type Rebased={version:string;refreshed:EditField[];overlapping:{field:EditField;current:string}[]};
 /**
@@ -81,6 +83,7 @@ export function RecordActions(props:{record:ActionContext;author?:boolean;pinned
 }
 function Actions({record,author=false,pinned,kinds:only,variant="default",execution}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient(), navigate=useNavigate();
+  const canSetStoryPoints=bootstrap.capability("tasks.story_points").enabled;
   const routeKinds:ActionKind[]=!execution?.routing?[]:execution.routing.state==="routed"?["task.route.set","task.route.clear"]:["task.route.set"];
   const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize",...(execution?.role?["task.role.set"]:[]),"task.cancel","task.delete","task.retry","task.dependency.add","task.dependency.remove",...routeKinds] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
@@ -146,7 +149,13 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       if(labels&&(labels.length>16||labels.some(v=>new TextEncoder().encode(v).length>128)))throw new Error("Use at most 16 labels, each up to 128 bytes.");
       const titleProblem=validateTitle(draft.title,"bytes");if(titleProblem)throw new Error(titleProblem);
       if(new TextEncoder().encode(draft.body).length>32768||new TextEncoder().encode(draft.acceptance).length>8192)throw new Error("Shorten the description or acceptance criteria.");
-      return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
+      const points = draft.storyPoints.trim();
+      const pointsChanged = k==="task.edit" && canSetStoryPoints && points !== (baseline.data?.story_points?.toString() ?? "");
+      const pointsProblem = pointsChanged ? storyPointsProblem(points) : null;
+      if (pointsProblem) throw new Error(pointsProblem);
+      return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),
+        ...(pointsChanged?{story_points:points ? Number(points) : null}:{}),
+        ...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
     }
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
@@ -207,7 +216,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
       {error&&<p role="alert">{error}</p>}
       {rebased&&!intent&&editing&&<RebaseNotice rebased={rebased} draft={draft} onUseCurrent={(field,value)=>{setDraft(v=>({...v,[field]:value,...(field==="labels"?{labelsEdited:true}:{})}));setRebased(r=>r&&{...r,overlapping:r.overlapping.filter(o=>o.field!==field)});}}/>}
       {kind&&<form onSubmit={e=>void submit(e)}><fieldset className={styles.fields} disabled={busy||!!intent||accessLost}>
-        {editing&&<><label>Title<input value={draft.title} required maxLength={512} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{(CATEGORIES.includes(draft.category)?CATEGORIES:[...CATEGORIES,draft.category]).map(v=><option key={v} value={v}>{knowledgeCategoryLabel(v)}</option>)}</select></label>}</>}
+        {editing&&<><label>Title<input value={draft.title} required maxLength={512} onChange={e=>update("title",e.target.value)}/></label><label>Description<textarea rows={6} value={draft.body} onChange={e=>update("body",e.target.value)}/></label>{kind==="task.edit"&&<label>Acceptance criteria<textarea rows={4} value={draft.acceptance} onChange={e=>update("acceptance",e.target.value)}/></label>}{kind==="task.edit"&&canSetStoryPoints&&<StoryPointsField value={draft.storyPoints} onChange={value=>update("storyPoints",value)}/>}<label>Labels (comma separated)<input value={draft.labels} onChange={e=>update("labels",e.target.value)}/></label>{kind!=="task.edit"&&<label>Category<select value={draft.category} onChange={e=>update("category",e.target.value)}>{(CATEGORIES.includes(draft.category)?CATEGORIES:[...CATEGORIES,draft.category]).map(v=><option key={v} value={v}>{knowledgeCategoryLabel(v)}</option>)}</select></label>}</>}
         {kind==="task.dependency.add"&&<BlockerPicker query={draft.blockerQuery} blocker={draft.blocker} self={record.data?.id} existing={blockerIds} search={blockerSearch} candidates={candidates} onQuery={v=>update("blockerQuery",v)} onPick={id=>update("blocker",id)}/>}
         {kind==="task.dependency.remove"&&<><label>Dependency<select required value={draft.edge} onChange={e=>update("edge",e.target.value)}><option value="">Choose a blocker</option>{dependency.data?.data.edges.filter(e=>e.target===record.data?.id&&e.edge_type==="blocks").map(e=><option key={e.id} value={e.id}>{dependency.data?.data.nodes.find(n=>n.id===e.source)?.title??e.source} · edge version {e.version}</option>)}</select></label>{dependency.isError&&<p role="alert">Dependencies unavailable. Close and reopen to check again.</p>}</>}
         {["knowledge.verify","knowledge.retire"].includes(kind)&&<label>Reason<textarea required rows={3} value={draft.reason} maxLength={1024} onChange={e=>update("reason",e.target.value)}/></label>}

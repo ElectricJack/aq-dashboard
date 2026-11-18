@@ -6,7 +6,7 @@ import { queryKey } from "../../../api/queryKeys";
 import { PANEL_READ, useSession } from "../../../app/session";
 import { listStatus, type TaskStatus } from "../labels";
 
-export type GanttTask = { id: string; title: string; status: TaskStatus };
+export type GanttTask = { id: string; title: string; status: TaskStatus; storyPoints: number | null };
 export type GanttDependency = { id: string; source: string; target: string };
 export type GanttProject = { id: string; label: string };
 export type GanttSnapshot = { project: GanttProject; tasks: GanttTask[]; dependencies: GanttDependency[]; partial: boolean };
@@ -84,7 +84,7 @@ async function readGantt(project: string, signal: AbortSignal): Promise<GanttSna
     const display = lifecycle === "active" && prerequisites.has(id) ? "waiting" : lifecycle;
     // A canceled prerequisite may still prevent progress. Keep it visible only while it has dependents.
     if (display === "canceled" && !dependencies.some(edge => edge.source === id)) return [];
-    return [{ id, title: node.title, status: display }];
+    return [{ id, title: node.title, status: display, storyPoints: node.story_points ?? null }];
   });
   const visible = new Set(tasks.map(task => task.id));
   return {

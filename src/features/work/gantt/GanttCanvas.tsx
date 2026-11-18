@@ -6,7 +6,7 @@ import { useMediaQuery } from "../../../components/useMediaQuery";
 import { TASK_STATUS_LABEL } from "../labels";
 import { StatusIcon } from "../StatusIcon";
 import type { GanttLayout, PositionedTask } from "./ganttLayout";
-import { BAR_WIDTH, RULER_HEIGHT, STEP_WIDTH, barStart, dependencyPaths } from "./ganttConnectors";
+import { AXIS_INSET, POINT_WIDTH, RULER_HEIGHT, barStart, barWidth, dependencyPaths, plotPoint } from "./ganttConnectors";
 import styles from "./Gantt.module.css";
 
 const MIN_ZOOM = 0.5;
@@ -26,11 +26,18 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
   const seenSelection = useRef<string | undefined>(undefined);
   const zoomAt = useRef<{ point: number; original: number } | null>(null);
   const drag = useRef<Drag | null>(null);
+  const suppressClick = useRef(false);
   const [zoom, setZoom] = useState(1);
+  const [visible, setVisible] = useState({ left: 0, width: 0 });
   const [active, setActive] = useState<string>();
   const touch = useMediaQuery("(pointer: coarse)");
   const rowHeight = touch ? 44 : 34;
-  const width = layout.columnCount * STEP_WIDTH * zoom;
+  const width = plotPoint(layout.totalPoints, zoom) + 30;
+  const unit = POINT_WIDTH * zoom;
+  const interval = unit < 30 ? 2 : 1;
+  const firstTick = Math.max(0, Math.floor((visible.left - AXIS_INSET) / (unit * interval)) * interval);
+  const lastTick = Math.min(layout.totalPoints, Math.ceil((visible.left + visible.width) / (unit * interval)) * interval);
+  const ticks = Array.from({ length: Math.max(0, Math.floor((lastTick - firstTick) / interval) + 1) }, (_, i) => firstTick + i * interval);
   const height = layout.rowCount * rowHeight;
   const rows = [...layout.groups, ...layout.tasks].sort((a, b) => a.row - b.row);
   const paths = useMemo(() => dependencyPaths(layout.edges, rowHeight, zoom), [layout.edges, rowHeight, zoom]);
@@ -51,13 +58,30 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
     counts.get(edge.source.key)!.outgoing++;
   }
 
+  function measureViewport() {
+    const el = viewport.current;
+    if (!el) return;
+    const left = el.scrollLeft;
+    const width = el.clientWidth - (axis.current?.offsetWidth ?? 0);
+    setVisible(current => current.left === left && current.width === width ? current : { left, width });
+  }
+
+  useLayoutEffect(() => {
+    measureViewport();
+    if (typeof ResizeObserver === "undefined" || !viewport.current) return;
+    const observer = new ResizeObserver(measureViewport);
+    observer.observe(viewport.current);
+    if (axis.current) observer.observe(axis.current);
+    return () => observer.disconnect();
+  }, []);
+
   function zoomTo(next: number, clientX?: number) {
     const el = viewport.current;
     const scale = clampZoom(next);
     if (!el || scale === zoom) return;
     const railWidth = axis.current?.offsetWidth ?? 0;
     const point = clientX === undefined ? (el.clientWidth - railWidth) / 2 : Math.max(0, clientX - railWidth);
-    zoomAt.current = { point, original: (el.scrollLeft + point) / zoom };
+    zoomAt.current = { point, original: (el.scrollLeft + point - AXIS_INSET) / zoom };
     setZoom(scale);
   }
 
@@ -65,9 +89,20 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
     const el = viewport.current;
     if (!el) return;
     function wheel(event: WheelEvent) {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      event.preventDefault();
-      zoomTo(zoom - Math.sign(event.deltaY) * ZOOM_STEP, event.clientX - el!.getBoundingClientRect().left);
+      const target = viewport.current;
+      if (!target) return;
+      const x = event.clientX - target.getBoundingClientRect().left;
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        zoomTo(zoom - Math.sign(event.deltaY) * ZOOM_STEP, x);
+        return;
+      }
+      // Preserve native two-axis trackpad movement and vertical scrolling over task names.
+      if (event.deltaX || (!event.shiftKey && x < (axis.current?.offsetWidth ?? 0))) return;
+      const scale = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? target.clientWidth : 1;
+      const before = target.scrollLeft;
+      target.scrollLeft += event.deltaY * scale;
+      if (before !== target.scrollLeft) event.preventDefault();
     }
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
@@ -80,32 +115,34 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
     if (zoomAt.current) {
       const { point, original } = zoomAt.current;
       zoomAt.current = null;
-      el.scrollLeft = original * zoom - point;
+      el.scrollLeft = original * zoom + AXIS_INSET - point;
     } else if (prior.current && prior.current !== layout && (el.scrollLeft || el.scrollTop) && !drag.current) {
       const positions = new Map(layout.tasks.map(task => [task.key, task]));
       const anchor = prior.current.tasks.find(task => {
-        const x = barStart(task) * zoom, y = task.row * rowHeight;
-        return positions.has(task.key) && x + BAR_WIDTH * zoom > el.scrollLeft && x < el.scrollLeft + plotWidth
+        const x = barStart(task, zoom), y = task.row * rowHeight;
+        return positions.has(task.key) && x + barWidth(task, zoom) > el.scrollLeft && x < el.scrollLeft + plotWidth
           && y + rowHeight > el.scrollTop && y < el.scrollTop + el.clientHeight - RULER_HEIGHT;
       });
       if (anchor) {
         const next = positions.get(anchor.key)!;
-        if (el.scrollLeft > 0) el.scrollLeft += (next.column - anchor.column) * STEP_WIDTH * zoom;
+        if (el.scrollLeft > 0) el.scrollLeft += (next.start - anchor.start) * unit;
         if (el.scrollTop > 0) el.scrollTop += (next.row - anchor.row) * rowHeight;
       }
     }
     prior.current = layout;
     if (!selected) seenSelection.current = undefined;
     if (selection && seenSelection.current !== selected) {
-      const x = barStart(selection) * zoom, y = selection.row * rowHeight;
-      if (x < el.scrollLeft || x + BAR_WIDTH * zoom > el.scrollLeft + plotWidth) el.scrollLeft = x - 8;
+      const x = barStart(selection, zoom), y = selection.row * rowHeight;
+      if (x < el.scrollLeft || x + barWidth(selection, zoom) > el.scrollLeft + plotWidth) el.scrollLeft = x - 8;
       if (y < el.scrollTop || y + rowHeight > el.scrollTop + el.clientHeight - RULER_HEIGHT) el.scrollTop = y;
       seenSelection.current = selected;
     }
-  }, [layout, rowHeight, selected, selection, zoom]);
+    measureViewport();
+  }, [layout, rowHeight, selected, selection, unit, zoom]);
 
   function startDrag(event: PointerEvent<HTMLDivElement>) {
-    if (event.pointerType === "touch" || event.button !== 0 || (event.target as Element).closest("a,button")) return;
+    suppressClick.current = false;
+    if (event.pointerType === "touch" || event.button !== 0) return;
     const el = event.currentTarget;
     drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, left: el.scrollLeft, top: el.scrollTop, moved: false };
   }
@@ -127,6 +164,7 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
 
   function stopDrag(event: PointerEvent<HTMLDivElement>) {
     if (event.pointerId !== drag.current?.id) return;
+    suppressClick.current = drag.current.moved;
     drag.current = null;
     delete event.currentTarget.dataset.dragging;
   }
@@ -166,15 +204,22 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
       </div>
     </div>
     <div className={styles.viewport} ref={viewport} style={{
-      "--plot-width": `${width}px`, "--step-width": `${STEP_WIDTH * zoom}px`, "--row-height": `${rowHeight}px`, "--ruler-height": `${RULER_HEIGHT}px`,
+      "--plot-width": `${width}px`, "--step-width": `${unit * interval}px`, "--plot-inset": `${AXIS_INSET}px`, "--row-height": `${rowHeight}px`, "--ruler-height": `${RULER_HEIGHT}px`,
     } as CSSProperties} role="region" aria-label="Scrollable dependency tracks" tabIndex={0} aria-describedby={`${uid}-keys`}
       onKeyDown={handleKey} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={stopDrag} onPointerCancel={stopDrag}
-      onLostPointerCapture={stopDrag} onPointerLeave={event => { if (!drag.current?.moved) stopDrag(event); }}>
+      onLostPointerCapture={stopDrag} onPointerLeave={event => { if (!drag.current?.moved) stopDrag(event); }}
+      onScroll={measureViewport} onClickCapture={event => {
+        if (event.detail > 0 && suppressClick.current) {
+          event.preventDefault();
+          event.stopPropagation();
+          suppressClick.current = false;
+        }
+      }}>
       <div className={styles.ruler}>
         <span className={styles.axisHeading} ref={axis}>Task</span>
-        {Array.from({ length: layout.columnCount }, (_, column) => <span key={column} className={styles.step}>
-          {column === 0 ? "Start" : `Step ${column}`}
-        </span>)}
+        <div className={styles.plotRuler} aria-label="Story points" role="group">
+          {ticks.map(points => <span key={points} className={styles.tick} style={{ left: plotPoint(points, zoom) }}>{points}</span>)}
+        </div>
       </div>
       <div className={styles.plot}>
         <svg className={styles.edges} width={width} height={height} aria-hidden>
@@ -193,11 +238,12 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
           const label = TASK_STATUS_LABEL[task.status];
           const { incoming, outgoing } = counts.get(task.key)!;
           const details = [
+            task.storyPoints === null ? "Unestimated" : `${task.storyPoints} story ${task.storyPoints === 1 ? "point" : "points"}`,
             incoming && `${incoming} ${incoming === 1 ? "prerequisite" : "prerequisites"}`,
             outgoing && `${outgoing} ${outgoing === 1 ? "dependent" : "dependents"}`,
           ].filter(Boolean).map(text => ` · ${text}`).join("");
-          return <Link key={task.key} to={linkTo(task)} preventScrollReset className={styles.task} aria-current={task.key === selection?.key ? "page" : undefined}
-            title={`${task.title} · ${label}${details}`} data-status={task.status} data-root={task.column === 0 || undefined}
+          return <Link key={task.key} to={linkTo(task)} preventScrollReset draggable={false} className={styles.task} aria-current={task.key === selection?.key ? "page" : undefined}
+            title={`${task.title} · ${label}${details}`} data-status={task.status} data-root={task.start === 0 || undefined} data-unestimated={task.storyPoints === null || undefined}
             data-connected={connected.has(task.key) || undefined} data-task-id={task.id}
             onMouseEnter={() => setActive(task.key)} onMouseLeave={() => setActive(undefined)} onFocus={() => setActive(task.key)} onBlur={() => setActive(undefined)}>
             <span className={styles.taskLabel} data-gantt-label>
@@ -206,14 +252,18 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
               <span className={task.status === "running" ? styles.taskStatus : "visually-hidden"}> {label}</span>
               {details && <span className="visually-hidden">{details}</span>}
             </span>
-            <span className={styles.barHitArea} data-gantt-bar aria-hidden style={{ marginInlineStart: barStart(task) * zoom, width: BAR_WIDTH * zoom }}>
+            <span className={styles.barHitArea} data-gantt-bar aria-hidden style={{ marginInlineStart: barStart(task, zoom), width: barWidth(task, zoom) }}>
               <span className={styles.bar} />
             </span>
           </Link>;
         })}
       </div>
     </div>
-    <p id={`${uid}-keys`} className="visually-hidden">Arrow keys pan the tracks. Plus and minus zoom. Zero resets the zoom.</p>
+    <p id={`${uid}-keys`} className={styles.chartHint}>
+      <strong>Story points.</strong> Scroll or drag across the chart to pan.
+      {layout.tasks.some(task => task.storyPoints === null) && " Dashed bars use a one-point placeholder for unestimated tasks."}
+      <span className="visually-hidden"> Arrow keys pan. Plus and minus zoom. Zero resets the zoom.</span>
+    </p>
     {layout.edges.length > 0 && <details className={styles.relationships}>
       <summary>Dependencies ({layout.edges.length})</summary>
       <ul>{layout.edges.map(edge => <li key={edge.id}><Link to={linkTo(edge.source)}>{edge.source.title}</Link> must finish before <Link to={linkTo(edge.target)}>{edge.target.title}</Link></li>)}</ul>

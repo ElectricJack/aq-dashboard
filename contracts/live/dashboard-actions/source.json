@@ -1,11 +1,11 @@
 {
   "repository": "ElectricJack/aq-server",
-  "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
+  "commit": "f0c2ae9971df21c44cdf859a8e6fdabc2812ca8e",
   "path": "protocol/dashboard-actions/v1",
   "files": {
-    "README.md": "eaababbf2f72d0e64a5e3706731e617d38d1c743f9b2e22e2a5b0beeddc26dd7",
+    "README.md": "d35b169ac078fbf738654b87dc2b66cb0066f32b3c49bfdba50acce52f1887d6",
     "check.py": "93663d861ce6f0a30f534c1b46a3bd958144f8b2f5bb3afda6e4e97003dcee69",
-    "fixtures/compatibility.json": "aad6be7ed5facef977441bcc2d4d8108ef37d8a7c37dccc06c6b1282cba4d3db",
+    "fixtures/compatibility.json": "c9c29815390197d8df4c8fa8dfb7c3fa2768a6af276ebdb50f963e059194717a",
     "fixtures/error-401.json": "ccc3d4b79829f669503cef4df40eb06d88395eaec0724752764e92c75a64a706",
     "fixtures/error-403.json": "5d8bd59da37608ceb3a66a932cbd4fcf46424faf8d1d1e6102819c181b492052",
     "fixtures/error-404.json": "ff3cc4d49435b25135cd4837162aab2bfbfb06c0d4b669edfc8a7b416ce60780",
@@ -64,7 +64,7 @@
     "fixtures/request-worker-revoke.json": "e6e58f00ef19479a998efcade21fc5244a3c5bfa70e40ada47785723a388bf1a",
     "fixtures/request-worker-start.json": "6213c0fa721d36f0000df26e8a43cc216352c4fe83b3606d2b4f578aeca53216",
     "fixtures/request-worker-stop.json": "41815318757b9eae179766cb4fe4332f7d500a101ee4b8df2d4773afe3796ea2",
-    "schema.json": "4c850a63a6bd4ca5a28799056b13880a736561873179391e1713f536f1d8bc29"
+    "schema.json": "a1e1b0c228b4b1035f75a80a74d2cc7470b10696eb7039225642f839802c553f"
   },
-  "note": "Copied from aq-server branch feat/role-catalog at 09ee5e98 (spec 0014: task role, task.role.set, no profile_hint; unchanged since 9bca5002). Re-pin when that branch merges to main."
+  "note": "Copied from aq-server with story points support."
 }

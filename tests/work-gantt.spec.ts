@@ -24,7 +24,7 @@ test("Overview opens the selected task in Work Gantt and keeps the chart beside 
   expect(axe.violations.map(v => v.id)).toEqual([]);
 });
 
-test("keyboard zoom and drag pan preserve the All projects chart through selection", async ({ page }) => {
+test("wheel, keyboard zoom and drag pan preserve the All projects chart through selection", async ({ page }) => {
   await page.setViewportSize({ width: 1150, height: 820 });
   await page.goto("/work?view=gantt");
   const tracks = page.getByRole("region", { name: chartName });
@@ -40,12 +40,20 @@ test("keyboard zoom and drag pan preserve the All projects chart through selecti
   const rootLabel = tracks.getByRole("link", { name: /Replay reconciliation/ }).locator("[data-gantt-label]");
   const initialLabelX = (await rootLabel.boundingBox())!.x;
   const box = (await tracks.boundingBox())!;
-  await page.mouse.move(box.x + 300, box.y + box.height - 30);
+  await page.mouse.move(box.x + 380, box.y + box.height - 28);
+  await page.mouse.wheel(0, 190);
+  await expect.poll(() => tracks.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Return to start" }).click();
+  await expect.poll(() => tracks.evaluate(el => el.scrollLeft)).toBe(0);
+  // Drag can start on a task name without opening its inspector.
+  const label = (await rootLabel.boundingBox())!;
+  await page.mouse.move(label.x + 120, label.y + label.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + 170, box.y + box.height - 30, { steps: 5 });
+  await page.mouse.move(label.x + 45, label.y + label.height / 2, { steps: 5 });
   await page.mouse.up();
   await expect.poll(() => tracks.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
   expect((await rootLabel.boundingBox())!.x).toBe(initialLabelX);
+  await expect(page).toHaveURL(/\/work\?view=gantt$/);
   await page.getByRole("button", { name: "Return to start" }).click();
   await expect.poll(() => tracks.evaluate(el => el.scrollLeft)).toBe(0);
   await rootLabel.click();
@@ -77,15 +85,15 @@ test.describe("phone Gantt", () => {
   });
 });
 
-test("a running task fans out to separate rows, joins once, and disappears on completion", async ({ page }, testInfo) => {
+test("story points set bar lengths and a shared dependent waits for the latest finish", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const fixture = JSON.parse(readFileSync("contracts/live/human-graph/examples/task.json", "utf8")) as GraphEnvelope<GraphNode>;
   const id = (suffix: string) => `00000000-0000-0000-0000-000000000${suffix}`;
   const items = [
-    { ...fixture.data, id: replay, title: "Fixture: Replay reconciliation", task_state: "active" },
-    { ...fixture.data, id: id("104"), title: "Fixture: Approve recovery plan", task_state: "active" },
-    { ...fixture.data, id: id("106"), title: "Fixture: Implement safe recovery", task_state: "draft" },
-    { ...fixture.data, id: id("107"), title: "Fixture: Validate crash recovery", task_state: "draft" },
+    { ...fixture.data, id: replay, title: "Fixture: Replay reconciliation", task_state: "active", story_points: 5 },
+    { ...fixture.data, id: id("104"), title: "Fixture: Approve recovery plan", task_state: "active", story_points: 3 },
+    { ...fixture.data, id: id("106"), title: "Fixture: Implement safe recovery", task_state: "draft", story_points: 8 },
+    { ...fixture.data, id: id("107"), title: "Fixture: Validate crash recovery", task_state: "draft", story_points: null },
   ];
   const dependencies = [[replay, id("104")], [replay, id("106")], [id("104"), id("107")], [id("106"), id("107")]]
     .map(([source, target], index) => ({ id: id(`20${index}`), source, target, edge_type: "blocks", version: "1", description: null,
@@ -136,7 +144,17 @@ test("a running task fans out to separate rows, joins once, and disappears on co
   const implementationY = (await bar(implementation).boundingBox())!.y;
   expect(approvalY).not.toBe(implementationY);
   expect((await bar(join).boundingBox())!.y).toBeGreaterThan(Math.max(approvalY, implementationY));
-  expect(await offset(join)).toBeGreaterThan(secondColumn);
+  const joinStart = await offset(join);
+  const unit = (secondColumn - firstColumn) / 5;
+  expect(joinStart - secondColumn).toBe(8 * unit);
+  const approvalWidth = (await bar(approval).boundingBox())!.width;
+  const implementationWidth = (await bar(implementation).boundingBox())!.width;
+  expect(implementationWidth - approvalWidth).toBe(5 * unit);
+  await expect(join).toHaveAccessibleName(/Unestimated/);
+  await expect(join).toHaveAttribute("data-unestimated", "true");
+  const ruler = tracks.getByRole("group", { name: "Story points" });
+  await expect(ruler.getByText("0", { exact: true })).toBeVisible();
+  await expect(ruler.getByText("5", { exact: true })).toBeVisible();
   const forkSegment = (d: string | null) => d?.split(" V ")[0];
   expect(forkSegment(await path(0))).toBe(forkSegment(await path(1)));
   expect(await path(0)).not.toBe(await path(1));
@@ -152,6 +170,8 @@ test("a running task fans out to separate rows, joins once, and disappears on co
     await overview.goto("/overview");
     const motion = overview.getByRole("region", { name: "Work in motion", exact: true });
     await expect(motion.locator("[data-gantt-dependency]")).toHaveCount(4);
+    await motion.getByRole("button", { name: "Zoom out" }).click();
+    await motion.getByRole("button", { name: "Zoom out" }).click();
     await motion.evaluate(el => el.scrollIntoView({ block: "center" }));
     await overview.screenshot({ path: testInfo.outputPath("gantt-branching-overview.png") });
     await overview.close();
@@ -163,6 +183,6 @@ test("a running task fans out to separate rows, joins once, and disappears on co
   await page.clock.fastForward(21_000);
   await expect(tracks.getByRole("link", { name: /Replay reconciliation/ })).toHaveCount(0);
   await expect.poll(() => offset(tracks.getByRole("link", { name: /Approve recovery plan Active/ }))).toBe(firstColumn);
-  await expect.poll(() => offset(join)).toBe(secondColumn);
+  await expect.poll(() => offset(join)).toBe(joinStart - 5 * unit);
   await expect(page.getByRole("heading", { name: "Fixture: Replay reconciliation", exact: true })).toBeVisible();
 });

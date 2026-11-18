@@ -1,3 +1,4 @@
+import { StoryPointsField } from "./StoryPointsField";
 import {useEffect,useId,useLayoutEffect,useRef,useState} from "react";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {Link,useSearchParams} from "react-router";
@@ -17,7 +18,7 @@ import {RoleSelect} from "./taskRole";
 import {UnavailableAction} from "../knowledge/KnowledgeActions";
 import styles from "./CreateTask.module.css";
 const blank:TaskDraft={title:"",body:"",acceptance_criteria:"",task_state:"draft"};
-function validDraft(value:unknown):value is TaskDraft{return isRecord(value)&&typeof value.title==="string"&&value.title.length<=1024&&typeof value.body==="string"&&typeof value.acceptance_criteria==="string"&&(value.task_state==="draft"||value.task_state==="active")&&(value.role===undefined||(typeof value.role==="string"&&value.role.length<=128));}
+function validDraft(value:unknown):value is TaskDraft{return isRecord(value)&&typeof value.title==="string"&&value.title.length<=1024&&typeof value.body==="string"&&typeof value.acceptance_criteria==="string"&&(value.task_state==="draft"||value.task_state==="active")&&(value.role===undefined||(typeof value.role==="string"&&value.role.length<=128))&&(value.storyPoints===undefined||(typeof value.storyPoints==="string"&&value.storyPoints.length<=16));}
 export function CreateTaskAction(){
  const {bootstrap,queryContext}=useSession();const [scope]=useScope();const capability=bootstrap.capability("tasks.create");
  const identity=`${queryContext.principalId}:${queryContext.authorizationRevision}`;const [revoked,setRevoked]=useState<string|null>(null);
@@ -28,7 +29,7 @@ export function CreateTaskAction(){
  return <Composer key={`${identity}:${project}`} project={project} onAccessRevoked={()=>setRevoked(identity)}/>;
 }
 function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>void}){
- const {queryContext,reportIncompatible,reportAccessDenied}=useSession();const client=useQueryClient();const [params,setParams]=useSearchParams();const raw=params.get("operation");const selectedOperation=validGraphId(raw)?raw:undefined;
+ const {bootstrap,queryContext,reportIncompatible,reportAccessDenied}=useSession();const client=useQueryClient();const [params,setParams]=useSearchParams();const raw=params.get("operation");const selectedOperation=validGraphId(raw)?raw:undefined;
  const [open,setOpen]=useState(!!selectedOperation);const [draft,setDraft]=useDraft(`task-create:${project}`,blank,validDraft);const [frozenIntent,setFrozen]=useState<FrozenTaskCreate|null>(null);
  const [operationStatus,setStatus]=useState<TaskOperation|null>(null);const [verifiedTask,setCreated]=useState<GraphNode|null>(null);const [error,setError]=useState<string|null>(null);const [readError,setReadError]=useState<string|null>(null);const [busy,setBusy]=useState(false);
  // The server has no record of this operation id (404 on lookup): it was refused before it was recorded, or is still in flight (WD-06).
@@ -90,10 +91,11 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  async function submit(event:React.FormEvent){
   event.preventDefault();if(busyRef.current||operation||!context.data||context.isFetching)return;
   // AQ counts the (trimmed) title in UTF-8 bytes, like Edit (WDR-03): accented letters and emoji take 2 to 4.
-  const problem=validateTitle(draft.title.trim(),"bytes")??validateTaskDraft(draft);if(problem){setError(problem);return;}
+  const requestDraft = canSetStoryPoints ? draft : {...draft,storyPoints:undefined};
+  const problem=validateTitle(draft.title.trim(),"bytes")??validateTaskDraft(requestDraft);if(problem){setError(problem);return;}
   busyRef.current=true;setBusy(true);setError(null);
   const preparation=sequence.current;
-  try{const intent=await freezeTaskCreate(project,queryContext.principalId,context.data.revision,draft);if(!current(preparation))return;setStatus(null);setCreated(null);setReadError(null);frozenRef.current=intent;setFrozen(intent);operationParam(intent.operationId);await execute("submit",intent.operationId,intent);}
+  try{const intent=await freezeTaskCreate(project,queryContext.principalId,context.data.revision,requestDraft);if(!current(preparation))return;setStatus(null);setCreated(null);setReadError(null);frozenRef.current=intent;setFrozen(intent);operationParam(intent.operationId);await execute("submit",intent.operationId,intent);}
   catch{if(current(preparation)){setError("The task request could not be prepared. Your draft is preserved.");setBusy(false);busyRef.current=false;}}
  }
  async function recover(){if(!operation||busyRef.current||!status?.recovery.allowed)return;busyRef.current=true;setBusy(true);await execute("recover",operation,frozenRef.current?.operationId===operation?frozenRef.current:undefined);}
@@ -101,6 +103,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
  /** Leave an operation AQ never recorded and return to the composer with the local draft (WD-06). */
  function startOver(){if(!operation||unrecorded?.id!==operation||busyRef.current)return;frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setReadError(null);setError(null);setUnrecorded(null);initialLookup.current=null;operationParam();void context.refetch();}
  function revise(){if(!status||!["conflict","rejected","confirmed"].includes(status.state)||busyRef.current)return;if(status.state==="confirmed")setDraft({...blank});frozenRef.current=null;setFrozen(null);setStatus(null);setCreated(null);setReadError(null);setError(null);initialLookup.current=null;operationParam();void context.refetch();}
+ const canSetStoryPoints=bootstrap.capability("tasks.story_points").enabled;
  function leaveConfirmedTask(){setOpen(false);clearPrivate();}
  const terminal=status&&["conflict","rejected","confirmed"].includes(status.state);
  return <>
@@ -114,6 +117,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
      <label>Title<input value={draft.title} required maxLength={512} onChange={e=>setDraft(v=>({...v,title:e.target.value}))}/></label>
      <label>Description<textarea value={draft.body} rows={6} onChange={e=>setDraft(v=>({...v,body:e.target.value}))}/></label>
      <label>Acceptance criteria<textarea value={draft.acceptance_criteria} rows={4} onChange={e=>setDraft(v=>({...v,acceptance_criteria:e.target.value}))}/></label>
+     {canSetStoryPoints && <StoryPointsField value={draft.storyPoints ?? ""} onChange={storyPoints=>setDraft(v=>({...v,storyPoints}))}/>}
      <label>Initial task state<select value={draft.task_state} onChange={e=>setDraft(v=>({...v,task_state:e.target.value as TaskDraft["task_state"]}))}><option value="draft">Draft</option><option value="active">Active</option></select></label>
      <RoleSelect project={project} value={draft.role??""} onChange={role=>setDraft(v=>({...v,role}))} hintClassName={styles.meta}/>
     </fieldset>
@@ -125,6 +129,7 @@ function Composer({project,onAccessRevoked}:{project:string;onAccessRevoked:()=>
      <label>Title<input readOnly value={draft.title}/></label>
      <label>Description<textarea readOnly rows={6} value={draft.body}/></label>
      <label>Acceptance criteria<textarea readOnly rows={4} value={draft.acceptance_criteria}/></label>
+     {canSetStoryPoints && <StoryPointsField value={draft.storyPoints ?? ""}/>}
      <p>Initial task state: {draft.task_state}</p>
      <p>Role: {draft.role||"project default"}</p>
     </div>

@@ -1,6 +1,6 @@
 import { ganttTaskPriority, type GanttSnapshot, type GanttTask } from "./ganttData";
 
-export type PositionedTask = GanttTask & { kind: "task"; key: string; project: string; row: number; column: number };
+export type PositionedTask = GanttTask & { kind: "task"; key: string; project: string; row: number; start: number; span: number };
 type PositionedEdge = { id: string; source: PositionedTask; target: PositionedTask };
 type ProjectRow = { kind: "project"; id: string; title: string; row: number };
 
@@ -9,9 +9,12 @@ export function layoutGantt(projects: GanttSnapshot[], grouped: boolean, search:
   const edges: PositionedEdge[] = [];
   const groups: ProjectRow[] = [];
   let rowCount = 0;
-  let columnCount = 1;
+  let totalPoints = 1;
   let unresolved = false;
 
+  // Keep unestimated tasks and their dependencies visible with a distinct,
+  // explicitly labelled one-point placeholder.
+  const span = (task: GanttTask) => task.storyPoints ?? 1;
   for (const project of projects) {
     const order = (a: GanttTask, b: GanttTask) => ganttTaskPriority(a.status) - ganttTaskPriority(b.status) || a.id.localeCompare(b.id);
     const byId = new Map(project.tasks.map(task => [task.id, task]));
@@ -21,18 +24,18 @@ export function layoutGantt(projects: GanttSnapshot[], grouped: boolean, search:
       incoming.get(edge.target)!.add(edge.source);
       outgoing.get(edge.source)!.add(edge.target);
     }
-    const columns = new Map<string, number>();
+    const starts = new Map<string, number>();
     const tracks = new Map<string, number>();
     const remaining = new Map([...incoming].map(([id, sources]) => [id, sources.size]));
     const roots = project.tasks.filter(task => !remaining.get(task.id)).sort(order).map(task => task.id);
     const queue = [...roots];
     roots.forEach((id, index) => {
-      columns.set(id, 0);
+      starts.set(id, 0);
       tracks.set(id, index);
     });
     for (const id of queue) {
       for (const target of outgoing.get(id)!) {
-        columns.set(target, Math.max(columns.get(target) ?? 0, columns.get(id)! + 1));
+        starts.set(target, Math.max(starts.get(target) ?? 0, starts.get(id)! + span(byId.get(id)!)));
         tracks.set(target, Math.max(tracks.get(target) ?? 0, tracks.get(id)!));
         const count = remaining.get(target)! - 1;
         remaining.set(target, count);
@@ -54,16 +57,18 @@ export function layoutGantt(projects: GanttSnapshot[], grouped: boolean, search:
 
     const positioned = new Map<string, PositionedTask>();
     function place(id: string) {
-      const column = columns.get(id) ?? 0;
-      columnCount = Math.max(columnCount, column + 1);
-      const task: PositionedTask = { ...byId.get(id)!, kind: "task", key: `${project.project.id}/${id}`, project: project.project.id, row: rowCount++, column };
+      const item = byId.get(id)!;
+      const start = starts.get(id) ?? 0;
+      const length = span(item);
+      totalPoints = Math.max(totalPoints, start + length);
+      const task: PositionedTask = { ...item, kind: "task", key: `${project.project.id}/${id}`, project: project.project.id, row: rowCount++, start, span: length };
       positioned.set(id, task);
       tasks.push(task);
     }
-    // Order each track by dependency step so fork siblings stay together and joins sit
+    // Order each track by starting point so fork siblings stay together and joins sit
     // below all of their prerequisites, including prerequisites on earlier tracks.
     const visited = new Set(queue);
-    queue.sort((a, b) => tracks.get(a)! - tracks.get(b)! || columns.get(a)! - columns.get(b)! || order(byId.get(a)!, byId.get(b)!));
+    queue.sort((a, b) => tracks.get(a)! - tracks.get(b)! || starts.get(a)! - starts.get(b)! || order(byId.get(a)!, byId.get(b)!));
     for (const id of queue) if (matches.has(id)) place(id);
     // Unsorted nodes indicate cyclic dependencies or work downstream of them.
     // Display their observed links and avoid assigning a dependency order through the cycle.
@@ -78,7 +83,7 @@ export function layoutGantt(projects: GanttSnapshot[], grouped: boolean, search:
     }
   }
 
-  return { tasks, edges, groups, rowCount, columnCount, unresolved };
+  return { tasks, edges, groups, rowCount, totalPoints, unresolved };
 }
 
 export type GanttLayout = ReturnType<typeof layoutGantt>;

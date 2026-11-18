@@ -38,7 +38,7 @@
   font-size: var(--font-size-xs);
   font-weight: 600;
 }
-.axisHeading, .step { display: flex; align-items: center; flex: none; padding-inline: var(--space-3); }
+.axisHeading { display: flex; align-items: center; flex: none; padding-inline: var(--space-3); }
 .axisHeading {
   position: sticky;
   inset-inline-start: 0;
@@ -48,14 +48,23 @@
   background: var(--color-raised);
   color: var(--color-text);
 }
-.step { inline-size: var(--step-width); }
-.step + .step { border-inline-start: 1px solid var(--gantt-guide); }
+.plotRuler { position: relative; flex: 1; min-inline-size: 0; }
+.tick {
+  position: absolute;
+  inset-block-end: 0;
+  padding-inline-start: var(--space-1);
+  padding-block-end: 4px;
+  border-inline-start: 1px solid var(--gantt-guide);
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 .plot {
   position: relative;
   background-image: repeating-linear-gradient(to right, var(--gantt-guide) 0 1px, transparent 1px var(--step-width));
   background-repeat: no-repeat;
-  background-size: calc(100% - var(--gantt-axis-width)) 100%;
-  background-position: var(--gantt-axis-width) 0;
+  background-size: calc(var(--plot-width) - var(--plot-inset)) 100%;
+  background-position: calc(var(--gantt-axis-width) + var(--plot-inset)) 0;
 }
 .group {
   block-size: var(--row-height);
@@ -156,10 +165,12 @@
 .task[data-status=held] .bar { background: var(--color-attention); }
 .task[data-status=canceled] .bar { background: var(--color-status-canceled); }
 .task[data-status=draft] .bar { background: color-mix(in srgb, var(--color-status-draft) 63%, var(--color-panel)); }
+.task[data-unestimated] .bar { border: 1px dashed var(--color-text-secondary); background: transparent; }
 .task:hover .taskLabel, .task[data-connected] .taskLabel, .task[aria-current] .taskLabel { background: var(--color-raised); }
 .task:hover .bar, .task[aria-current] .bar { box-shadow: 0 0 0 2px var(--color-canvas), 0 0 0 3px var(--color-accent); }
 .task:focus-visible { outline: none; }
 .task:focus-visible .taskLabel, .task:focus-visible .bar { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.chartHint { margin-block: var(--space-2) 0; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 .relationships, .message {
   margin-block-start: var(--space-2);
   color: var(--color-text-secondary);
