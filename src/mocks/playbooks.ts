@@ -135,6 +135,13 @@ const GRAPHS = new Map([
     step("report-inputs", "invoke", "recovery.report_inputs"),
   ])],
 ]);
+const RECOVERY_DESCRIPTION = `## When to use this playbook
+
+Use worker recovery when a stalled attempt needs to hand off its changes.
+
+1. **Preserve the source** from the stalled attempt.
+2. Wait for a human to review the recovery plan.
+3. Start recovery if the plan is approved.`;
 const ACTIVATION = (() => {
   const item = structuredClone(examples.activations.items[0]!);
   Object.assign(item.record.metadata, { binding: "worker-recovery", artifact: ARTIFACT.recovery });
@@ -195,6 +202,14 @@ export function playbookHandlers(mode: PlaybookMode) {
       return HttpResponse.json({
         api_version: "playbooks-definition-graph-1", namespace: PLAYBOOK_FIXTURE_NAMESPACE,
         artifact, graph: mode === "empty" ? null : GRAPHS.get(artifact) ?? null,
+        ...(mode !== "empty" && artifact === ARTIFACT.recovery && {
+          description_markdown: RECOVERY_DESCRIPTION,
+          step_facts: { "request-review": [
+            { label: "Matches event fields", value: "decision_id" },
+            { label: "Deadline", value: "1 h" },
+            { label: "Stores result as", value: "review_decision" },
+          ] },
+        }),
       });
     }),
     http.get(`${base}/catalog/:kind`, ({ request, params }) => {

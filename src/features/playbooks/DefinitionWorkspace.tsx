@@ -21,7 +21,7 @@ export function DefinitionWorkspace({ item, namespace, heading }: {
       {item.purpose && <p className={styles.purpose}>{item.purpose}</p>}
       {item.purposeTruncated && <p className={styles.meta}>Showing the first 4096 UTF-8 bytes of purpose text.</p>}
     </header>
-    <WorkflowGraph artifact={item.artifact} namespace={namespace} />
+    <WorkflowGraph artifact={item.artifact} namespace={namespace} showDescription />
     <TechnicalIdentity>
       <dt>Artifact</dt><dd className={styles.pin}>{item.artifact}</dd>
       <dt>Executable fingerprint</dt><dd className={styles.pin}>{item.fingerprint}</dd>
