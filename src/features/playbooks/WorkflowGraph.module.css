@@ -1,7 +1,10 @@
 .panel {
+  --graph-height: clamp(295px, 38vh, 430px);
   display: grid;
   gap: var(--space-3);
 }
+.graphContainer { container-type: inline-size; }
+.graphLayout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 .panel > div:first-child { margin-block-end: 0; }
 .entry {
   display: flex;
@@ -32,14 +35,22 @@
 }
 .canvas {
   min-inline-size: 0;
-  block-size: clamp(295px, 38vh, 430px);
+  block-size: var(--graph-height);
   --xy-background-color: var(--color-canvas);
 }
-.controls {
+.toolbar, .controls {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+}
+.toolbar {
+  justify-content: space-between;
   border-block-end: 1px solid var(--color-border);
   background: var(--color-panel);
+}
+.toolbar > span {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
 }
 .controls button {
   inline-size: var(--control-height);
@@ -97,26 +108,43 @@
 }
 .port { opacity: 0; pointer-events: none; }
 .stepDetail {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: var(--space-3);
-  padding-block-start: var(--space-2);
-}
-.stepIdentity {
-  display: grid;
-  align-content: start;
-  gap: var(--space-1);
+  align-self: start;
+  min-inline-size: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-raised);
   overflow-wrap: anywhere;
 }
-.stepIdentity > span, .stepIdentity code {
+.stepHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.stepHeader h3 { margin: 0; }
+.stepKind, .facts dt {
   color: var(--color-text-secondary);
   font-size: var(--font-size-meta);
 }
+.closeStep { flex: none; }
+.stepDescription { margin-block: var(--space-2) 0; }
+.facts {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: var(--space-3) 0;
+  font-size: var(--font-size-meta);
+}
+.facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: var(--space-2); }
+.facts dd { margin: 0; }
+.nextSteps {
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+.nextSteps h4 { margin: 0 0 var(--space-2); font-size: var(--font-size-meta); }
 .transitions {
-  display: flex;
-  align-content: start;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-2);
   margin: 0;
   padding: 0;
@@ -124,7 +152,9 @@
 }
 .transitions li { min-inline-size: 0; max-inline-size: 100%; }
 .transitions button {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto minmax(0, 1fr);
+  inline-size: 100%;
   align-items: center;
   gap: var(--space-1);
   min-block-size: var(--control-height);
@@ -144,8 +174,28 @@
 .transitions button span { color: var(--color-accent); }
 .transitions button span[data-error="true"] { color: var(--color-attention); }
 
+@container (min-width: 630px) {
+  .graphLayout[data-inspecting="true"] { grid-template-columns: minmax(0, 1fr) minmax(238px, 33%); }
+  .stepDetail { max-block-size: calc(var(--graph-height) + var(--control-height) + 3px); overflow: auto; }
+}
+.markdown {
+  max-inline-size: 75ch;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.markdown > :first-child { margin-block-start: 0; }
+.markdown > :last-child { margin-block-end: 0; }
+.markdown :is(h3, h4, h5, h6) { margin-block-end: var(--space-1); line-height: 1.35; }
+.markdown :is(h3, h4, h5, h6) + * { margin-block-start: 0; }
+.markdown :is(pre, blockquote) {
+  margin-inline: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 2px solid var(--color-border);
+  background: var(--color-canvas);
+}
+.markdown pre { white-space: pre-wrap; }
+.markdown a { color: var(--color-accent); }
+
 @media (max-width: 760px) {
-  .canvas { block-size: clamp(350px, 49vh, 440px); }
-  .stepDetail { grid-template-columns: minmax(0, 1fr); }
-  .transitions { justify-content: flex-start; }
+  .panel { --graph-height: clamp(350px, 49vh, 440px); }
 }
