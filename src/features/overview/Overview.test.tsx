@@ -163,7 +163,7 @@ test('SO-06: one Worker offline row per worker, not attributed to a project',asy
  expect(rows).toHaveLength(1);
  expect(rows[0]).toHaveTextContent('Installation-wide');
  expect(rows[0]).not.toHaveTextContent('Synthetic authority fixture');
- expect(within(region).getByText(/Worker nodes shows every heartbeat/)).toBeVisible();
+ expect(within(region).getByText(/Swarm shows worker status/)).toBeVisible();
 });
 
 test('SO-07: summary and counts never claim fewer items than the attention list shows',async()=>{
@@ -192,10 +192,10 @@ test('SO-07: work is moving only when a project reports running work',async()=>{
  expect(attentionSentence(reconcileNeedsYou({value:null,accuracy:'unknown'},0))).toMatch(/unknown/);
 });
 
-test('SO-09: Inspect eligibility keeps the project scope',async()=>{
+test('SO-09: the Capacity link keeps the project scope',async()=>{
  renderApp('/overview?scope=project:quilt-trader');
- const link=await screen.findByRole('link',{name:/Inspect eligibility/});
- expect(link).toHaveAttribute('href','/settings?scope=project%3Aquilt-trader');
+ const link=await screen.findByRole('link',{name:'Open Swarm'});
+ expect(link).toHaveAttribute('href','/agents/swarm?scope=project%3Aquilt-trader');
 });
 
 test('SO-11: an unknown project scope says the project is unavailable, with a way back',async()=>{
@@ -214,17 +214,4 @@ test('SO-16: a Work in motion task opens its inspector in Work Gantt', async () 
   const motion = await screen.findByRole('region', { name: 'Scrollable dependency tracks' });
   const link = await within(motion).findByRole('link', { name: /Replay reconciliation/ });
   expect(link).toHaveAttribute('href', '/work/00000000-0000-0000-0000-000000000105?scope=project%3A00000000-0000-0000-0000-000000000001&view=gantt');
-});
-
-test('SO-17: worker heartbeats read as ages, not raw timestamps',async()=>{
- const {http,HttpResponse}=await import('msw');
- await liveOverview(data=>data);
- server.use(http.get('/api/workers',()=>HttpResponse.json([{id:'w1',name:'worker-one',status:'offline',last_seen_at:'1970-01-01T00:06:40.000Z'}])));
- renderApp('/overview');
- await userEvent.click(await screen.findByText('More capacity'));
- await userEvent.click(await screen.findByText('Inspect heartbeat observations'));
- const time=await screen.findByText('10m ago');
- expect(time.tagName).toBe('TIME');
- expect(time).toHaveAttribute('dateTime','1970-01-01T00:06:40.000Z');
- expect(screen.queryByText('1970-01-01T00:06:40.000Z')).toBeNull();
 });
