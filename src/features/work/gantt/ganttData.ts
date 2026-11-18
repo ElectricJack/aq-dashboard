@@ -16,8 +16,8 @@ export const GANTT_PROJECT_LIMIT = 4;
 const TASK_LIMIT = GRAPH_PAGE_SIZE * GRAPH_MAX_PAGES;
 
 const inTrack = (node: GraphNode) => !node.deleted && !node.retired && node.task_state !== "completed";
-const taskOrder: Partial<Record<TaskStatus, number>> = { running: 0, held: 1, active: 2, draft: 3, canceled: 5 };
-export const ganttTaskPriority = (status: TaskStatus) => taskOrder[status] ?? 4;
+const taskOrder: Partial<Record<TaskStatus, number>> = { running: 0, held: 1, active: 2, waiting: 3, draft: 4, canceled: 6 };
+export const ganttTaskPriority = (status: TaskStatus) => taskOrder[status] ?? 5;
 
 async function readGantt(project: string, signal: AbortSignal): Promise<GanttSnapshot> {
   const path = graphPath(project, "task");

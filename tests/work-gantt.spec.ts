@@ -13,7 +13,7 @@ test("Overview opens the selected task in Work Gantt and keeps the chart beside 
   await page.goto("/overview");
   const motion = page.getByRole("region", { name: "Work in motion", exact: true });
   const tracks = page.getByRole("region", { name: chartName });
-  await motion.getByRole("link", { name: /Replay reconciliation Running/ }).click();
+  await motion.getByRole("link", { name: /Replay reconciliation Running/ }).locator("[data-gantt-label]").click();
   await expect(page).toHaveURL(new RegExp(`/work/${replay}.*view=gantt`));
   const detail = page.getByRole("region", { name: "Fixture: Replay reconciliation", exact: true });
   await expect(detail).toBeVisible();
@@ -32,17 +32,23 @@ test("keyboard zoom and drag pan preserve the All projects chart through selecti
   await page.keyboard.press("+");
   await page.keyboard.press("+");
   await page.keyboard.press("+");
-  const zoom = page.getByRole("button", { name: "Zoom 138%. Reset zoom" });
+  await page.keyboard.press("+");
+  await page.keyboard.press("+");
+  await page.keyboard.press("+");
+  const zoom = page.getByRole("button", { name: "Zoom 175%. Reset zoom" });
   await expect(zoom).toBeVisible();
+  const rootLabel = tracks.getByRole("link", { name: /Replay reconciliation/ }).locator("[data-gantt-label]");
+  const initialLabelX = (await rootLabel.boundingBox())!.x;
   const box = (await tracks.boundingBox())!;
   await page.mouse.move(box.x + 300, box.y + box.height - 30);
   await page.mouse.down();
   await page.mouse.move(box.x + 170, box.y + box.height - 30, { steps: 5 });
   await page.mouse.up();
   await expect.poll(() => tracks.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  expect((await rootLabel.boundingBox())!.x).toBe(initialLabelX);
   await page.getByRole("button", { name: "Return to start" }).click();
   await expect.poll(() => tracks.evaluate(el => el.scrollLeft)).toBe(0);
-  await tracks.getByRole("link", { name: /Replay reconciliation/ }).click();
+  await rootLabel.click();
   await expect(page).toHaveURL(new RegExp(`taskProject=${project}`));
   await expect(tracks.getByText("Contract fixture", { exact: true })).toBeVisible();
   await expect(zoom).toBeVisible();
@@ -52,7 +58,7 @@ test("keyboard zoom and drag pan preserve the All projects chart through selecti
 test.describe("phone Gantt", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test("tracks pan internally and a task can close back to the same chart", async ({ page }) => {
+  test("tracks pan internally and a task can close back to the same chart", async ({ page }, testInfo) => {
     await page.goto(`/work?${scope}`);
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const tracks = page.getByRole("region", { name: chartName });
@@ -62,15 +68,17 @@ test.describe("phone Gantt", () => {
     await page.getByRole("button", { name: "Zoom out" }).tap();
     const zoom = page.getByRole("button", { name: "Zoom 88%. Reset zoom" });
     await expect(zoom).toBeVisible();
-    await tracks.getByRole("link", { name: /Replay reconciliation/ }).tap();
+    await tracks.getByRole("link", { name: /Replay reconciliation/ }).locator("[data-gantt-label]").tap();
     await expect(page.getByRole("heading", { name: "Fixture: Replay reconciliation", exact: true })).toBeVisible();
     await page.getByRole("link", { name: "Close task" }).tap();
     await expect(zoom).toBeVisible();
     await expect(tracks.getByRole("link", { name: /Replay reconciliation/ })).toBeFocused();
+    if (process.env.GANTT_EVIDENCE) await page.screenshot({ path: testInfo.outputPath("gantt-phone.png") });
   });
 });
 
-test("a live completion hides the finished bar and moves its fork and join left", async ({ page }) => {
+test("a running task fans out to separate rows, joins once, and disappears on completion", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   const fixture = JSON.parse(readFileSync("contracts/live/human-graph/examples/task.json", "utf8")) as GraphEnvelope<GraphNode>;
   const id = (suffix: string) => `00000000-0000-0000-0000-000000000${suffix}`;
   const items = [
@@ -84,7 +92,7 @@ test("a live completion hides the finished bar and moves its fork and join left"
       source_revision: null, target_revision: null }));
   const attempt = { attempt_id: id("301"), session_id: id("302"), status: "running" };
   await page.clock.install();
-  await page.addInitScript(({ project, items, dependencies, replay, attempt }) => {
+  await page.context().addInitScript(({ project, items, dependencies, replay, attempt }) => {
     const fetch = window.fetch.bind(window);
     window.fetch = (input, init) => {
       const url = new URL(input instanceof Request ? input.url : input, window.location.href);
@@ -110,16 +118,45 @@ test("a live completion hides the finished bar and moves its fork and join left"
   const tracks = page.getByRole("region", { name: chartName });
   const running = tracks.getByRole("link", { name: /Replay reconciliation Running/ });
   const approval = tracks.getByRole("link", { name: /Approve recovery plan Waiting/ });
+  const implementation = tracks.getByRole("link", { name: /Implement safe recovery/ });
   const join = tracks.getByRole("link", { name: /Validate crash recovery/ });
-  const offset = (link: typeof running) => link.evaluate(el => (el as HTMLElement).offsetLeft);
+  const bar = (link: typeof running) => link.locator("[data-gantt-bar]");
+  const offset = (link: typeof running) => bar(link).evaluate(el => (el as HTMLElement).offsetLeft);
+  const connector = (index: number) => tracks.locator(`[data-gantt-dependency$="/${id(`20${index}`)}"]`);
+  const path = (index: number) => connector(index).getAttribute("d");
   await expect(running).toBeVisible();
+  await expect(running).toHaveAccessibleName(/2 dependents/);
   await expect(join).toHaveCount(1);
   await expect(join).toHaveAccessibleName(/2 prerequisites/);
   const firstColumn = await offset(running);
   const secondColumn = await offset(approval);
   expect(secondColumn).toBeGreaterThan(firstColumn);
+  expect(await offset(implementation)).toBe(secondColumn);
+  const approvalY = (await bar(approval).boundingBox())!.y;
+  const implementationY = (await bar(implementation).boundingBox())!.y;
+  expect(approvalY).not.toBe(implementationY);
+  expect((await bar(join).boundingBox())!.y).toBeGreaterThan(Math.max(approvalY, implementationY));
   expect(await offset(join)).toBeGreaterThan(secondColumn);
-  await running.click();
+  const forkSegment = (d: string | null) => d?.split(" V ")[0];
+  expect(forkSegment(await path(0))).toBe(forkSegment(await path(1)));
+  expect(await path(0)).not.toBe(await path(1));
+  const bend = (d: string | null) => d?.match(/ H ([-\d.]+) V /)?.[1];
+  expect(bend(await path(2))).not.toBe(bend(await path(3)));
+  await running.locator("[data-gantt-label]").hover();
+  await expect(connector(0)).toHaveAttribute("data-highlight", "true");
+  await expect(connector(1)).toHaveAttribute("data-highlight", "true");
+  if (process.env.GANTT_EVIDENCE) {
+    await page.screenshot({ path: testInfo.outputPath("gantt-branching-desktop.png") });
+    const overview = await page.context().newPage();
+    await overview.setViewportSize({ width: 1440, height: 900 });
+    await overview.goto("/overview");
+    const motion = overview.getByRole("region", { name: "Work in motion", exact: true });
+    await expect(motion.locator("[data-gantt-dependency]")).toHaveCount(4);
+    await motion.evaluate(el => el.scrollIntoView({ block: "center" }));
+    await overview.screenshot({ path: testInfo.outputPath("gantt-branching-overview.png") });
+    await overview.close();
+  }
+  await bar(running).click();
   await expect(page.getByRole("heading", { name: "Fixture: Replay reconciliation", exact: true })).toBeVisible();
 
   await page.evaluate(() => sessionStorage.setItem("gantt-fixture-completed", "true"));

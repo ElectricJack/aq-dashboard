@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import { ArrowRight, Minus, Plus, RotateCcw } from "lucide-react";
 import { ActionButton } from "../../../components/layout/Workspace";
@@ -6,54 +6,34 @@ import { useMediaQuery } from "../../../components/useMediaQuery";
 import { TASK_STATUS_LABEL } from "../labels";
 import { StatusIcon } from "../StatusIcon";
 import type { GanttLayout, PositionedTask } from "./ganttLayout";
+import { BAR_WIDTH, RULER_HEIGHT, STEP_WIDTH, barStart, dependencyPaths } from "./ganttConnectors";
 import styles from "./Gantt.module.css";
 
-const COLUMN = 234;
-const GAP = 32;
-const LABEL_HEIGHT = 30;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.75;
 const ZOOM_STEP = 0.125;
 const PAN = 58;
 
 type Drag = { id: number; x: number; y: number; left: number; top: number; moved: boolean };
-type Point = { x: number; y: number };
 const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
-const xFor = (task: PositionedTask) => task.column * COLUMN + 8;
-
-function edgePath(from: PositionedTask, to: PositionedTask, rowHeight: number) {
-  const sy = (from.row + 0.5) * rowHeight;
-  const ty = (to.row + 0.5) * rowHeight;
-  const tx = xFor(to) - 2;
-  const sx = xFor(from) + COLUMN - GAP;
-  if (from.column === to.column) {
-    const gutter = sx + 12;
-    return `M ${sx} ${sy} H ${gutter} V ${ty - rowHeight / 2 + 2} H ${tx - 4} V ${ty} H ${tx}`;
-  }
-  if (to.column < from.column || to.column - from.column > 1) {
-    const gutter = (from.row + 1) * rowHeight - 1;
-    return `M ${sx} ${sy} H ${sx + 8} V ${gutter} H ${tx - 9} V ${ty} H ${tx}`;
-  }
-  const bend = tx - 9;
-  return `M ${sx} ${sy} H ${bend} V ${ty} H ${tx}`;
-}
-
 export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
   layout: GanttLayout; compact: boolean; fullView?: ReactNode; selected?: string; linkTo: (task: PositionedTask) => To;
 }) {
   const uid = useId().replace(/[^a-z0-9_-]/gi, "");
   const viewport = useRef<HTMLDivElement>(null);
+  const axis = useRef<HTMLSpanElement>(null);
   const prior = useRef<GanttLayout | null>(null);
   const seenSelection = useRef<string | undefined>(undefined);
-  const zoomAt = useRef<{ point: Point; original: Point } | null>(null);
+  const zoomAt = useRef<{ point: number; original: number } | null>(null);
   const drag = useRef<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
   const [active, setActive] = useState<string>();
   const touch = useMediaQuery("(pointer: coarse)");
-  const rowHeight = touch ? 56 : 36;
-  const barHeight = touch ? 44 : 28;
-  const width = layout.columnCount * COLUMN;
+  const rowHeight = touch ? 44 : 34;
+  const width = layout.columnCount * STEP_WIDTH * zoom;
   const height = layout.rowCount * rowHeight;
+  const rows = [...layout.groups, ...layout.tasks].sort((a, b) => a.row - b.row);
+  const paths = useMemo(() => dependencyPaths(layout.edges, rowHeight, zoom), [layout.edges, rowHeight, zoom]);
   const selection = layout.tasks.find(task => task.id === selected);
   const highlighted = active ?? selection?.key;
   const emphasizedEdges = new Set<string>();
@@ -64,15 +44,20 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
     connected.add(edge.source.key);
     connected.add(edge.target.key);
   }
-  const incoming = new Map<string, number>();
-  for (const edge of layout.edges) incoming.set(edge.target.key, (incoming.get(edge.target.key) ?? 0) + 1);
+  const counts = new Map<string, { incoming: number; outgoing: number }>();
+  for (const task of layout.tasks) counts.set(task.key, { incoming: 0, outgoing: 0 });
+  for (const edge of layout.edges) {
+    counts.get(edge.target.key)!.incoming++;
+    counts.get(edge.source.key)!.outgoing++;
+  }
 
-  function zoomTo(next: number, anchor?: Point) {
+  function zoomTo(next: number, clientX?: number) {
     const el = viewport.current;
     const scale = clampZoom(next);
     if (!el || scale === zoom) return;
-    const point = anchor ?? { x: el.clientWidth / 2, y: Math.max(0, el.clientHeight - LABEL_HEIGHT) / 2 };
-    zoomAt.current = { point, original: { x: (el.scrollLeft + point.x) / zoom, y: (el.scrollTop + point.y) / zoom } };
+    const railWidth = axis.current?.offsetWidth ?? 0;
+    const point = clientX === undefined ? (el.clientWidth - railWidth) / 2 : Math.max(0, clientX - railWidth);
+    zoomAt.current = { point, original: (el.scrollLeft + point) / zoom };
     setZoom(scale);
   }
 
@@ -82,11 +67,7 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
     function wheel(event: WheelEvent) {
       if (!(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
-      const bounds = el!.getBoundingClientRect();
-      zoomTo(zoom - Math.sign(event.deltaY) * ZOOM_STEP, {
-        x: event.clientX - bounds.left,
-        y: Math.max(0, event.clientY - bounds.top - LABEL_HEIGHT),
-      });
+      zoomTo(zoom - Math.sign(event.deltaY) * ZOOM_STEP, event.clientX - el!.getBoundingClientRect().left);
     }
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
@@ -95,30 +76,30 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
   useLayoutEffect(() => {
     const el = viewport.current;
     if (!el) return;
+    const plotWidth = el.clientWidth - (axis.current?.offsetWidth ?? 0);
     if (zoomAt.current) {
       const { point, original } = zoomAt.current;
       zoomAt.current = null;
-      el.scrollLeft = original.x * zoom - point.x;
-      el.scrollTop = original.y * zoom - point.y;
+      el.scrollLeft = original * zoom - point;
     } else if (prior.current && prior.current !== layout && (el.scrollLeft || el.scrollTop) && !drag.current) {
       const positions = new Map(layout.tasks.map(task => [task.key, task]));
       const anchor = prior.current.tasks.find(task => {
-        const x = xFor(task) * zoom, y = task.row * rowHeight * zoom;
-        return positions.has(task.key) && x + COLUMN * zoom > el.scrollLeft && x < el.scrollLeft + el.clientWidth
-          && y + rowHeight * zoom > el.scrollTop && y < el.scrollTop + el.clientHeight - LABEL_HEIGHT;
+        const x = barStart(task) * zoom, y = task.row * rowHeight;
+        return positions.has(task.key) && x + BAR_WIDTH * zoom > el.scrollLeft && x < el.scrollLeft + plotWidth
+          && y + rowHeight > el.scrollTop && y < el.scrollTop + el.clientHeight - RULER_HEIGHT;
       });
       if (anchor) {
         const next = positions.get(anchor.key)!;
-        if (el.scrollLeft > 0) el.scrollLeft += (next.column - anchor.column) * COLUMN * zoom;
-        if (el.scrollTop > 0) el.scrollTop += (next.row - anchor.row) * rowHeight * zoom;
+        if (el.scrollLeft > 0) el.scrollLeft += (next.column - anchor.column) * STEP_WIDTH * zoom;
+        if (el.scrollTop > 0) el.scrollTop += (next.row - anchor.row) * rowHeight;
       }
     }
     prior.current = layout;
     if (!selected) seenSelection.current = undefined;
     if (selection && seenSelection.current !== selected) {
-      const x = xFor(selection) * zoom, y = selection.row * rowHeight * zoom;
-      if (x < el.scrollLeft || x + (COLUMN - GAP) * zoom > el.scrollLeft + el.clientWidth) el.scrollLeft = x - 8;
-      if (y < el.scrollTop || y + rowHeight * zoom > el.scrollTop + el.clientHeight - LABEL_HEIGHT) el.scrollTop = y;
+      const x = barStart(selection) * zoom, y = selection.row * rowHeight;
+      if (x < el.scrollLeft || x + BAR_WIDTH * zoom > el.scrollLeft + plotWidth) el.scrollLeft = x - 8;
+      if (y < el.scrollTop || y + rowHeight > el.scrollTop + el.clientHeight - RULER_HEIGHT) el.scrollTop = y;
       seenSelection.current = selected;
     }
   }, [layout, rowHeight, selected, selection, zoom]);
@@ -184,44 +165,52 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
         <ActionButton onClick={goToStart} aria-label="Return to start" title="Return to start"><RotateCcw size={15} aria-hidden /></ActionButton>
       </div>
     </div>
-    <div className={styles.viewport} ref={viewport} role="region" aria-label="Scrollable dependency tracks" tabIndex={0} aria-describedby={`${uid}-keys`}
+    <div className={styles.viewport} ref={viewport} style={{
+      "--plot-width": `${width}px`, "--step-width": `${STEP_WIDTH * zoom}px`, "--row-height": `${rowHeight}px`, "--ruler-height": `${RULER_HEIGHT}px`,
+    } as CSSProperties} role="region" aria-label="Scrollable dependency tracks" tabIndex={0} aria-describedby={`${uid}-keys`}
       onKeyDown={handleKey} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={stopDrag} onPointerCancel={stopDrag}
       onLostPointerCapture={stopDrag} onPointerLeave={event => { if (!drag.current?.moved) stopDrag(event); }}>
-      <div className={styles.labels} style={{ width: width * zoom }}>
-        {Array.from({ length: layout.columnCount }, (_, column) => <span key={column} style={{ width: COLUMN * zoom }}>
-          {column === 0 ? "Front of track" : `Dependency step ${column}`}
+      <div className={styles.ruler}>
+        <span className={styles.axisHeading} ref={axis}>Task</span>
+        {Array.from({ length: layout.columnCount }, (_, column) => <span key={column} className={styles.step}>
+          {column === 0 ? "Start" : `Step ${column}`}
         </span>)}
       </div>
-      <div className={styles.sizer} style={{ width: width * zoom, height: height * zoom }}>
-        <div className={styles.stage} data-zoom={zoom} style={{
-          width, height, transform: `scale(${zoom})`,
-          backgroundSize: `${COLUMN}px ${rowHeight}px`, backgroundPositionX: "-1px",
-        }}>
-          {layout.groups.map(group => <div key={group.id} className={styles.group} style={{ top: rowHeight * group.row, height: rowHeight }}>{group.title}</div>)}
-          <svg className={styles.edges} width={width} height={height} aria-hidden>
-            <defs><marker id={`${uid}-arrow`} viewBox="0 0 8 8" markerWidth="7" markerHeight="7" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" /></marker>
-              <marker id={`${uid}-arrow-active`} viewBox="0 0 8 8" markerWidth="7" markerHeight="7" refX="7" refY="4" orient="auto"><path className={styles.activeArrow} d="M0 0 L8 4 L0 8 Z" /></marker></defs>
-            {layout.edges.map(edge => {
-              const emphasized = emphasizedEdges.has(edge.id);
-              return <path key={edge.id} d={edgePath(edge.source, edge.target, rowHeight)} data-highlight={emphasized || undefined}
-                markerEnd={`url(#${uid}-arrow${emphasized ? "-active" : ""})`} />;
-            })}
-          </svg>
-          {layout.tasks.map(task => {
-            const label = TASK_STATUS_LABEL[task.status];
-            const showStatus = task.status === "running" || task.status === "held" || task.status === "canceled";
-            const blockers = incoming.get(task.key) ?? 0;
-            const dependency = blockers ? ` · ${blockers} ${blockers === 1 ? "prerequisite" : "prerequisites"}` : "";
-            return <Link key={task.key} to={linkTo(task)} preventScrollReset className={styles.task} aria-current={task.key === selection?.key ? "page" : undefined}
-              title={`${task.title} · ${label}${dependency}`} data-status={task.status} data-connected={connected.has(task.key) || undefined}
-              onMouseEnter={() => setActive(task.key)} onMouseLeave={() => setActive(undefined)} onFocus={() => setActive(task.key)} onBlur={() => setActive(undefined)}
-              style={{ left: xFor(task), top: task.row * rowHeight + (rowHeight - barHeight) / 2, width: COLUMN - GAP, height: barHeight }}>
-              <StatusIcon status={task.status} decorative size={14} /><span className={styles.taskTitle}>{task.title}</span>
-              <span className={showStatus ? styles.taskStatus : "visually-hidden"}> {label}</span>
-              {dependency && <span className="visually-hidden">{dependency}</span>}
-            </Link>;
+      <div className={styles.plot}>
+        <svg className={styles.edges} width={width} height={height} aria-hidden>
+          <defs>
+            <marker id={`${uid}-arrow`} viewBox="0 0 8 8" markerWidth="7" markerHeight="7" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8 Z" /></marker>
+            <marker id={`${uid}-arrow-active`} viewBox="0 0 8 8" markerWidth="7" markerHeight="7" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path className={styles.activeArrow} d="M0 0 L8 4 L0 8 Z" /></marker>
+          </defs>
+          {layout.edges.map(edge => {
+            const emphasized = emphasizedEdges.has(edge.id);
+            return <path key={edge.id} data-gantt-dependency={edge.id} d={paths.get(edge.id)} data-highlight={emphasized || undefined}
+              markerEnd={`url(#${uid}-arrow${emphasized ? "-active" : ""})`} />;
           })}
-        </div>
+        </svg>
+        {rows.map(task => {
+          if (task.kind === "project") return <div key={task.id} className={styles.group}><span title={task.title}>{task.title}</span></div>;
+          const label = TASK_STATUS_LABEL[task.status];
+          const { incoming, outgoing } = counts.get(task.key)!;
+          const details = [
+            incoming && `${incoming} ${incoming === 1 ? "prerequisite" : "prerequisites"}`,
+            outgoing && `${outgoing} ${outgoing === 1 ? "dependent" : "dependents"}`,
+          ].filter(Boolean).map(text => ` · ${text}`).join("");
+          return <Link key={task.key} to={linkTo(task)} preventScrollReset className={styles.task} aria-current={task.key === selection?.key ? "page" : undefined}
+            title={`${task.title} · ${label}${details}`} data-status={task.status} data-root={task.column === 0 || undefined}
+            data-connected={connected.has(task.key) || undefined} data-task-id={task.id}
+            onMouseEnter={() => setActive(task.key)} onMouseLeave={() => setActive(undefined)} onFocus={() => setActive(task.key)} onBlur={() => setActive(undefined)}>
+            <span className={styles.taskLabel} data-gantt-label>
+              <StatusIcon status={task.status} decorative size={14} />
+              <span className={styles.taskTitle}>{task.title}</span>
+              <span className={task.status === "running" ? styles.taskStatus : "visually-hidden"}> {label}</span>
+              {details && <span className="visually-hidden">{details}</span>}
+            </span>
+            <span className={styles.barHitArea} data-gantt-bar aria-hidden style={{ marginInlineStart: barStart(task) * zoom, width: BAR_WIDTH * zoom }}>
+              <span className={styles.bar} />
+            </span>
+          </Link>;
+        })}
       </div>
     </div>
     <p id={`${uid}-keys`} className="visually-hidden">Arrow keys pan the tracks. Plus and minus zoom. Zero resets the zoom.</p>
