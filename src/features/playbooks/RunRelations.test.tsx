@@ -2,7 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { adaptRunDetail, type Run } from "../../api/adapters/playbooks";
 import { runDetail } from "../../test/playbooks";
-import { ChildWorkflows, WaitingOn, shortRunId, waitKind } from "./RunRelations";
+import { ChildWorkflows, WaitingOn, waitKind } from "./RunRelations";
+import { shortRunId } from "./identity";
 
 const detail = adaptRunDetail(runDetail(), null, "run-0000000000000001");
 const parent: Run = { ...detail.run, pendingKind: "decision", reason: "Paused for review.", children: ["run-0000000000000002", "run-0000000000000003"] };
@@ -15,6 +16,7 @@ test("wait kinds have typed labels and unknown kinds keep their words", () => {
   expect(waitKind("external_signal").label).toBe("External signal");
   expect(shortRunId("run-0000000000000285")).toBe("run-285");
   expect(shortRunId("custom-run")).toBe("custom-run");
+  expect(shortRunId(`sha256:${"a".repeat(64)}`)).toBe("sha256:aaaaaa…");
 });
 
 test("waiting on shows the typed kind, reason and pending operations without an invented decision link", () => {

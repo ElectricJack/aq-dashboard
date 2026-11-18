@@ -12,7 +12,7 @@ API completion and visual completion are separate. A successful endpoint, compon
 | Work | `02-work-explorer-v3.png` | List/graph switch and filters; prominent dependency workspace; contextual inspector; graph navigation and selection remain usable |
 | Decisions | `03-decision-workspace-v3.png` | Inbox navigation, substantial evidence/proposal workspace, supporting context and clearly placed decision controls |
 | Supervisor | `04-supervisor-chat.png`, `09-supervisor-full-desktop.png`, `12-supervisor-mobile.png` | Docked/full presentation of one conversation; readable message width; context chips and composer; keyboard-aware phone layout |
-| Playbooks | `06-playbooks.png` | Runs/Definitions/Activations navigation, useful run list and selected step timeline, visible waits/child runs/receipts |
+| Playbooks | `06-playbooks.png` (run history) and the v1 playbook graph (library) | Library opens first with a workflow diagram and step details. Run history keeps the run list, timeline, waits, child runs and receipts. Compact layouts open one detail at a time. |
 | Knowledge | `07-knowledge-v2.png` | Searchable/filterable library, readable document content and sources, contextual metadata/verification; document hierarchy rather than a generic record dump |
 | Agents | `08-agents-focus-desktop.png`, `11-agent-mobile-v2.png` | One large readable output workspace, compact session tabs/switcher, status footer, on-demand details; phone focus and an accessible exit |
 | Results | `10-results-desktop-v2.png`, `13-results-mobile-v2.png` | Centered evidence feed and distinct cards; exact result context; substantial media when supported; selected discussion panel and phone composition |

@@ -7,6 +7,7 @@ import { statusLabel, type Effect, type Page, type Run } from "../../api/adapter
 import { Icon } from "../../components/icons";
 import { Panel } from "../../components/layout/Workspace";
 import { humanize } from "./RunTimeline";
+import { shortRunId } from "./identity";
 import styles from "./Playbooks.module.css";
 
 /**
@@ -44,12 +45,9 @@ function StatusGlyph({ status }: { status: string | null }) {
   return <span className={styles.glyph} data-state={status ?? "unknown"}><Icon icon={glyph} size={20} /></span>;
 }
 
-/** `run-0000000000000285` → `run-285`; other ids are shown as recorded. */
-export function shortRunId(id: string) { return id.replace(/^run-0+(?=\d)/, "run-"); }
-
 function RunLink({ id, search }: { id: string; search: string }) {
   return <Link className={styles.relationLink} title={id} to={{ pathname: `/playbooks/runs/${encodeURIComponent(id)}`, search }}>
-    {shortRunId(id)}<Icon icon={ArrowRight} size={16} />
+    <span>{shortRunId(id)}</span><Icon icon={ArrowRight} size={16} />
   </Link>;
 }
 

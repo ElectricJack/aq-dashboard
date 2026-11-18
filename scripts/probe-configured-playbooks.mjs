@@ -27,22 +27,26 @@ try {
   const detail = await actual(`/api/playbooks/inspection/runs/${encodeURIComponent(run)}?limit=25`);
   expect(detail.run.children).toContain(child); expect(detail.receipts.items.length).toBeGreaterThan(0);
   expect(detail.observation_is_atomic).toBe(false); expect(detail.run.status).toBe("completed");
-  await page.goto(new URL("/playbooks", origin).href, { waitUntil: "domcontentloaded" });
+  await page.goto(new URL("/playbooks?view=runs", origin).href, { waitUntil: "domcontentloaded" });
+  const runPath = id => `/playbooks/runs/${encodeURIComponent(id)}`;
   const roster = page.getByRole("list", { name: "Playbook runs" });
-  await expect(roster.getByRole("link", { name: `Inspect ${run}`, exact: true })).toBeVisible();
-  await roster.getByRole("link", { name: `Inspect ${run}`, exact: true }).click();
+  await roster.locator(`a[href="${runPath(run)}"]`).click();
   const inspector = page.getByRole("region", { name: `Run ${run}`, exact: true });
-  await expect(inspector).toBeVisible(); await expect(inspector.getByRole("region", { name: "Pinned execution", exact: true }).locator("dl").first().locator("dd").first()).toHaveText(artifact);
-  await expect(inspector.getByRole("list", { name: "Execution timeline" })).toContainText("child admitted");
-  await expect(inspector.getByRole("link", { name: child, exact: true })).toBeVisible();
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByRole("list", { name: "Execution timeline" })).toContainText("Call");
+  await inspector.getByRole("tab", { name: "Definition", exact: true }).click();
+  await expect(inspector.getByRole("region", { name: "Workflow diagram" }).getByRole("button", { name: /Start Call/ })).toBeVisible();
+  await expect(inspector.getByRole("region", { name: "Pinned definition" }).getByTitle(artifact, { exact: true })).toBeVisible();
+  await inspector.getByRole("tab", { name: "Execution" }).click();
+  const childLink = inspector.locator(`a[href="${runPath(child)}"]`);
+  await expect(childLink).toBeVisible();
   await expect(page.getByText(/Mock data/)).toHaveCount(0);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(output, "playbooks-desktop.png"), fullPage: true });
-  await inspector.getByRole("link", { name: child, exact: true }).click();
+  await childLink.click();
   const childView = page.getByRole("region", { name: `Run ${child}`, exact: true });
-  await expect(childView.getByRole("region", { name: "Pinned execution", exact: true }).locator("dl").first().locator("dd").first()).toHaveText(childArtifact);
-  await expect(childView.getByRole("link", { name: "Parent workflow", exact: true })).toBeVisible();
-  await childView.getByRole("link", { name: "Parent workflow", exact: true }).click();
+  await expect(childView.getByTitle(childArtifact, { exact: true })).toBeVisible();
+  await childView.locator(`a[href="${runPath(run)}"]`).click();
   await expect(inspector).toBeVisible(); await page.reload(); await expect(inspector).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("link", { name: "All runs", exact: true })).toBeVisible();
@@ -51,14 +55,16 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(output, "playbooks-mobile.png"), fullPage: true });
   await page.getByRole("link", { name: "All runs", exact: true }).click(); await expect(roster).toBeVisible();
-  await page.getByRole("button", { name: "Admissions", exact: true }).click();
-  await expect(page.getByRole("list", { name: "Playbook admissions" })).toContainText("engine accepted");
+  await page.getByRole("link", { name: "Start requests", exact: true }).click();
+  const requests = page.getByRole("list", { name: "Playbook start requests" });
+  await expect(requests).toContainText("Run created");
+  await expect(requests.getByRole("link", { name: "Open run" })).toHaveAttribute("href", runPath(run));
   expect(mutations).toEqual([]); expect(errors).toEqual([]); expect(apiReads).toBeGreaterThan(0);
   const result = { passed: true, elapsed_ms: Math.round(performance.now() - started), origin: origin.href,
     run, child, artifact, child_artifact: childArtifact, receipt_count: detail.receipts.items.length,
     namespace: runs.namespace.id, read_only_browser: true, api_reads: apiReads,
     screenshots: [join(output, "playbooks-desktop.png"), join(output, "playbooks-mobile.png")],
-    note: "Actual protected engine and compiled bundle; labelled development parent/child admitted through typed owner APIs. No interception/provider; definitions and activation discovery remain deferred." };
+    note: "Actual protected engine and compiled bundle with labelled development parent and child runs, the pinned graph, and start requests." };
   await writeFile(join(output, "result.json"), JSON.stringify(result, null, 2) + "\n"); console.log(JSON.stringify(result));
 } catch (error) {
   await page.screenshot({ path: join(output, "failure.png"), fullPage: true }).catch(() => undefined);
