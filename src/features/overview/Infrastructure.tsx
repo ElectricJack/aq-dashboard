@@ -118,7 +118,8 @@ export function Infrastructure() {
       </div>
       {!capability.enabled ? <p className={styles.meta}>{capability.reason}</p>
         : swarm.data ? <>
-          <RetainedNotice query={swarm} className={styles.warning} />
+          {/* The page already says when the browser is offline; this panel only reports its own failed refresh. */}
+          <RetainedNotice query={swarm} className={styles.warning} showOffline={false} />
           <p className={styles.meta}>Installation-wide</p>
           <CapacityRead {...swarm.data} />
         </> : <QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="fleet capacity" onRetry={() => void swarm.refetch()} />}
