@@ -89,7 +89,8 @@ export function connectNativeTerminal(options: Options): TerminalConnection {
 
   return {
     takeControl: async () => { await input?.takeControl(); },
-    release: async () => { await viewer?.release(); await input?.release(); },
+    // Start both releases now: their synchronous state must land before the caller's own (Disconnected).
+    release: async () => { await Promise.all([viewer?.release(), input?.release()]); },
     sendInput(bytes) { if (!showingViewer || viewerState?.canRepaint) input?.sendInput(bytes); },
     sendEscape() { if (!showingViewer || viewerState?.canRepaint) input?.sendEscape(); },
     repaint,
