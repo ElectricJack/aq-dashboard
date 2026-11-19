@@ -16,7 +16,7 @@ API completion and visual completion are separate. A successful endpoint, compon
 | Knowledge | `07-knowledge-v2.png` | Searchable/filterable library, readable document content and sources, contextual metadata/verification; document hierarchy rather than a generic record dump |
 | Agents | `08-agents-focus-desktop.png`, `11-agent-mobile-v2.png` | One large readable output workspace, compact session tabs/switcher, status footer, on-demand details; phone focus and an accessible exit |
 | Results | `10-results-desktop-v2.png`, `13-results-mobile-v2.png` | Centered evidence feed and distinct cards; exact result context; substantial media when supported; selected discussion panel and phone composition |
-| Agents › Swarm | `14-swarm-tree-v3.png` | Top-down tree with the server at the root; machine cards with CPU/RAM bars; dashed free slots, greyed dashed offline, amber holding and booting, amber waiting branch; properties pane on the right that opens the agent terminal; controls bar deferred to phase 3 |
+| Agents › Swarm | `14-swarm-tree-v3.png` (tree); `swarm-tree-v4.html` (2026-11-11 revised controls prototype) | Preserve the tree and properties composition. Replace header sliders with a collapsible status summary, Reduced usage switch and direct Settings › Swarm link. Provider/class concurrency matrices and saved Normal/Reduced profiles live in Settings. Production phase 3 and its live visual acceptance remain open. |
 | Settings | Shared product design; no separate selected PNG | Consistent shell, panels, controls, spacing and disclosures; technical identities grouped under details |
 
 ## Required review for each visual delivery
