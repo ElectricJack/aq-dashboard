@@ -5,7 +5,7 @@ import { ContractError } from "../../../api/adapters/contract";
 import { ActionButton } from "../../../components/layout/Workspace";
 import { formatAge } from "../../../components/time/relative";
 import { actionRequest, type ActionOperation, type FrozenAction } from "../../actions/actionClient";
-import { OBSERVATION_LABEL } from "../labels";
+import { OBSERVATION_LABEL, observationReasonText } from "../labels";
 import { freezeNudge, NUDGE_MAX_BYTES, nudgeState, nudgeUnsupported, type NudgeState } from "./nudge";
 import styles from "./Operations.module.css";
 
@@ -17,7 +17,7 @@ export function HealthView({ session: s, serverTime }: { session: SessionDetailV
   return <section aria-label="Health" className={styles.view}>
     <h3>Health</h3>
     <ul aria-label="Health observations" className={styles.facts}>
-      <li><strong>Heartbeat</strong><span>{OBSERVATION_LABEL[s.observation.state]} · {s.observation.state === "unknown" ? "not reported" : <>observed {time(serverTime, s.observation.observedAt)}{s.observation.freshness === "stale" && " · stale"}</>}</span></li>
+      <li><strong>Heartbeat</strong><span>{OBSERVATION_LABEL[s.observation.state]} · {s.observation.state === "unknown" ? (observationReasonText(s.observation) ?? "not reported") : <>observed {time(serverTime, s.observation.observedAt)}{s.observation.freshness === "stale" && " · stale"}</>}</span></li>
       <li><strong>Provider output</strong><span>{s.lastOutputAt ? <>Last output {time(serverTime, s.lastOutputAt)}</> : NOT_REPORTED}</span></li>
       <li><strong>Semantic progress</strong><span>{NOT_REPORTED}</span></li>
       <li><strong>Wait observation</strong><span>{s.wait ? <>{s.wait.explanation} · wait {s.wait.id.slice(0, 8)} · observation time not reported</> : "No wait observed"}</span></li>

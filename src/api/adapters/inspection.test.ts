@@ -281,3 +281,32 @@ test("malformed lifecycle timestamps and an orphan stop are contract errors", ()
     { started_at: null },
   ]) expect(() => adaptSession(session({ lifecycle } as never), T)).toThrow(/contract/i);
 });
+
+test("session observation carries the state's reason and last activity / progress times when present", () => {
+  const value = adaptSession(session({
+    observation: {
+      state: "quiet", observed_at: T, fresh_until: T,
+      reason: "no_progress_within_evidence_window",
+      last_observation_at: "2026-10-31T11:59:30.000Z",
+      last_progress_at: "2026-10-31T11:50:00.000Z",
+    },
+  }), T);
+  expect(value.observation).toEqual({
+    state: "quiet", observedAt: T, freshness: "fresh",
+    reason: "no_progress_within_evidence_window",
+    lastObservationAt: "2026-10-31T11:59:30.000Z",
+    lastProgressAt: "2026-10-31T11:50:00.000Z",
+  });
+});
+
+test.each(["unknown", "awaiting", "working", "quiet", "stale", "ended"] as const)("observation state %s is recognised", (state) => {
+  expect(adaptSession(session({ observation: { state, observed_at: T, fresh_until: T } }), T).observation.state).toBe(state);
+});
+
+test("a payload without the added observation fields still adapts, and an unknown state is unsupported", () => {
+  const older = adaptSession(session(), T).observation;
+  expect(older).toMatchObject({ state: "reported_running", reason: null, lastObservationAt: null, lastProgressAt: null });
+  const nulls = adaptSession(session({ observation: { state: "unknown", observed_at: T, fresh_until: T, reason: null, last_observation_at: null, last_progress_at: null } }), T).observation;
+  expect(nulls).toMatchObject({ reason: null, lastObservationAt: null, lastProgressAt: null });
+  expect(adaptSession(session({ observation: { state: "paused" as "working", observed_at: T, fresh_until: T } }), T).observation.state).toBe("unsupported");
+});

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { observedEnded, observedRunning } from "../labels";
 import { Link, useLocation } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { manualSession as fetchManualSession } from "../../../api/sessionHistory";
@@ -101,7 +102,7 @@ function Pane({ row, selected, hidden, narrowHidden, expanded, project, present,
   const resolvedProject = row.manual ? manualSession?.project_id ?? row.projectId : nativeSession?.project.id ?? row.projectId;
   const outsideScope = !!project && !!resolvedProject && project !== resolvedProject;
   const permitted = !rejected && !outsideScope;
-  const status = row.manual ? !present || row.status === "Loading" ? manualSession?.status ?? (row.status === "Loading" ? manualDetail.isError ? "Unavailable" : "Loading" : row.status) : row.status : nativeSession ? nativeSession.lifecycle?.stoppedAt || nativeSession.observation.state === "reported_stopped" ? "stopped" : nativeSession.observation.state === "reported_running" ? `Running${nativeSession.observation.freshness === "stale" ? " (stale)" : ""}` : "State unknown" : row.status === "Loading" ? (detail.isError ? "Unavailable" : "Loading") : "State unknown";
+  const status = row.manual ? !present || row.status === "Loading" ? manualSession?.status ?? (row.status === "Loading" ? manualDetail.isError ? "Unavailable" : "Loading" : row.status) : row.status : nativeSession ? nativeSession.lifecycle?.stoppedAt || observedEnded(nativeSession.observation.state) ? "stopped" : observedRunning(nativeSession.observation.state) ? `Running${nativeSession.observation.freshness === "stale" ? " (stale)" : ""}` : "State unknown" : row.status === "Loading" ? (detail.isError ? "Unavailable" : "Loading") : "State unknown";
   const ended = status === "stopped" || status === "failed";
   const terminalId = row.manual ? manualSession?.id ?? row.terminal : nativeSession?.terminal?.id ?? row.terminal;
   const title = !permitted ? "Unavailable agent" : row.manual ? manualSession?.spec.project_name ?? row.project : nativeSession?.task?.title ?? nativeSession?.label ?? row.project;

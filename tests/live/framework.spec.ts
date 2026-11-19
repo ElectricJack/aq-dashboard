@@ -132,7 +132,7 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   await detail.getByRole("button", { name: "Session details", exact: true }).click();
   await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(detailApi.execution_authority));
   await expectLifecycle(detail, detailApi);
-  if (detailApi.observation.state === "unknown") await expect(detail).toContainText("State unknown");
+  if (detailApi.observation.state === "unknown") await expect(detail).toContainText("Not observed");
   if (detailApi.terminal && watchEnabled) {
     const tail = detail.getByRole("region", { name: "Read-only output tail" });
     await expect(tail).toBeVisible();

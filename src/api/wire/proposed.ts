@@ -126,8 +126,13 @@ export type ActionDescriptor = {
 
 /** aq-graph TaskState. */
 export type TaskState = "draft" | "active" | "completed" | "canceled";
-/** agent-q lifecycle ProcessObservation. */
-export type ProcessObservation = "unknown" | "reported_running" | "reported_stopped";
+/**
+ * agent-q ProcessObservation. `awaiting`..`ended` are the dashboard-read/v1 states (aq-server #187);
+ * `reported_running` and `reported_stopped` are what older servers sent and still render.
+ */
+export type ProcessObservation =
+  | "unknown" | "awaiting" | "working" | "quiet" | "stale" | "ended"
+  | "reported_running" | "reported_stopped";
 /** Server-derived readiness; the browser never computes it from the graph. */
 export type ReadinessState =
   | "draft"
@@ -244,7 +249,15 @@ export type SessionSummary = {
   project: ProjectRef;
   profile: { provider: string | null; model: string | null; harness: string | null };
   authority: "central" | "remote" | "unknown";
-  observation: { state: ProcessObservation; observed_at: Timestamp; fresh_until: Timestamp };
+  observation: {
+    state: ProcessObservation;
+    observed_at: Timestamp;
+    fresh_until: Timestamp;
+    /** Optional additive fields; absent on older servers. */
+    reason?: string | null;
+    last_observation_at?: Timestamp | null;
+    last_progress_at?: Timestamp | null;
+  };
   wait: { id: Id; explanation: string } | null;
   controller: { state: "none" | "held" | "unknown"; label: string | null };
   terminal: EntityRef | null;

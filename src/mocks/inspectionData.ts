@@ -160,11 +160,14 @@ export const SESSIONS: SessionDetail[] = SESSION_SEEDS.map((t, i) => ({
     ? { provider: "anthropic", model: "claude-opus-5-5", harness: "claude-code" }
     : { provider: "openai", model: "gpt-5.3-codex", harness: "codex" },
   authority: i === 0 ? "central" : "remote",
-  observation: {
-    state: "reported_running",
-    observed_at: at(i === 2 ? 5 : 0.05),
-    fresh_until: i === 2 ? at(4) : at(-0.5),
-  },
+  // Fixtures cover working, quiet and stale; later sessions keep the older `reported_running` payload, which has none of the added fields.
+  observation: i === 0
+    ? { state: "working", observed_at: at(0.05), fresh_until: at(-0.5), last_observation_at: at(0.05), last_progress_at: at(1) }
+    : i === 1
+      ? { state: "quiet", observed_at: at(0.05), fresh_until: at(-0.5), reason: "no_progress_within_evidence_window", last_observation_at: at(0.05), last_progress_at: at(12) }
+      : i === 2
+        ? { state: "stale", observed_at: at(5), fresh_until: at(4), reason: "no_observation_within_grace", last_observation_at: at(5) }
+        : { state: "reported_running", observed_at: at(0.05), fresh_until: at(-0.5) },
   wait: null,
   controller: i === 1 ? { state: "held", label: "Sample Owner" } : { state: "none", label: null },
   terminal: { type: "terminal", id: `term-${t.execution.session_id}` },
