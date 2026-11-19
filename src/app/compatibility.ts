@@ -27,6 +27,7 @@ export function capabilitiesForResource(resource: string): string[] {
   if (resource.startsWith("result-")) return ["results.read"];
   if (resource.startsWith("playbook-current-")) return ["playbooks.catalog.read"];
   if (resource === "playbook-loaded-definitions") return ["playbooks.loaded-definitions.read"];
+  if (resource === "playbook-definition-graph") return ["playbooks.definition-graph.read"];
   if (resource.startsWith("playbook-")) return ["playbooks.inspect"];
   if (resource.startsWith("terminal-")) return ["terminal.watch"];
   return [];

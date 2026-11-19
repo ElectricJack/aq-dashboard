@@ -106,6 +106,8 @@ for (const vp of VIEWPORTS) {
         await page.screenshot({ path: `${EVIDENCE}/knowledge-doc-fixture-${vp.name}.png`, fullPage: true });
         await main.locator("[role=tabpanel]").locator("xpath=..").screenshot({ path: `${EVIDENCE}/knowledge-doc-fixture-panel-${vp.name}.png` });
       }
+      // Back to the top: scrolled here, the page header's Add record sits half under the pinned shell bar, which axe reads as a clipped target.
+      await page.evaluate(() => window.scrollTo(0, 0));
       await expectAxeClean(page);
 
       // The Sources tab shows the same typed rows; Technical reference opens on demand.

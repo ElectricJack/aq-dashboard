@@ -29,7 +29,7 @@ async function openActivation(page: Page) {
   await expect(page).toHaveURL(/[?&]activation=/);
 }
 async function backControl(page: Page) {
-  const back = page.getByRole("link", { name: /^All (runs|activations)$/ });
+  const back = page.getByRole("link", { name: /^All (runs|deployments)$/ });
   await expect(back).toBeVisible();
   return { tag: await back.evaluate((el) => el.tagName), className: await back.getAttribute("class") };
 }
@@ -38,24 +38,25 @@ for (const vp of VIEWPORTS) {
   test.describe(`${vp.width}x${vp.height}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("subtitle sits 4-8px under the H1 and the view tabs stay on one row", async ({ page }) => {
+    test("the library opens first beneath the compact header", async ({ page }) => {
       await page.goto("/playbooks");
-      await expect(page.getByRole("list", { name: "Playbook runs" })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("list", { name: "Current playbook definitions" })).toBeVisible({ timeout: 30_000 });
       const h1 = await box(page.getByRole("heading", { level: 1, name: "Playbooks" }));
-      const subtitle = await box(page.getByText("Inspect policy and follow each execution.", { exact: true }));
-      const gap = subtitle.y - (h1.y + h1.height);
-      expect(gap).toBeGreaterThanOrEqual(4);
-      expect(gap).toBeLessThanOrEqual(8);
+      await expect(page.getByText("Inspect policy and follow each execution.", { exact: true })).toHaveCount(0);
       const tablist = page.getByRole("tablist", { name: "Playbook views" });
+      const header = await box(page.locator("main [data-page-header]"));
+      expect(h1.y + h1.height).toBeLessThanOrEqual(header.y + header.height);
+      const gap = (await box(tablist)).y - (header.y + header.height);
+      expect(gap).toBeGreaterThanOrEqual(4);
+      expect(gap).toBeLessThanOrEqual(32);
       expect((await box(tablist)).height).toBeLessThan(56);
-      await expect(tablist.getByRole("tab")).toHaveText(["Runs", "Definitions", "Activations", "Admissions"]);
-      await expect(tablist.getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-selected", "true");
+      await expect(tablist.getByRole("tab")).toHaveText(["Library", "Run history"]);
+      await expect(tablist.getByRole("tab", { name: "Library" })).toHaveAttribute("aria-selected", "true");
       // Arrow keys move between views (automatic activation).
-      await tablist.getByRole("tab", { name: "Runs" }).focus();
+      await tablist.getByRole("tab", { name: "Library" }).focus();
       await page.keyboard.press("ArrowRight");
-      await expect(tablist.getByRole("tab", { name: "Definitions" })).toBeFocused();
-      await expect(tablist.getByRole("tab", { name: "Definitions" })).toHaveAttribute("aria-selected", "true");
-      await page.goto("/playbooks");
+      await expect(tablist.getByRole("tab", { name: "Run history" })).toBeFocused();
+      await expect(tablist.getByRole("tab", { name: "Run history" })).toHaveAttribute("aria-selected", "true");
       await expect(page.getByRole("list", { name: "Playbook runs" })).toBeVisible({ timeout: 30_000 });
       await expectNoHorizontalOverflow(page);
       await expectNoAxeViolations(page);
@@ -83,13 +84,13 @@ for (const vp of VIEWPORTS) {
         await expect(tablist).toBeHidden();
         const activationBack = await backControl(page);
         expect(activationBack).toEqual(runBack);
-        expect((await box(page.getByRole("link", { name: "All activations" }))).y).toBeLessThan((await box(activationHeading)).y);
+        expect((await box(page.getByRole("link", { name: "All deployments" }))).y).toBeLessThan((await box(activationHeading)).y);
         expect((await box(activationHeading)).y).toBeLessThan(844);
         await expectNoHorizontalOverflow(page);
         await expectNoAxeViolations(page);
         await page.screenshot({ path: `${evidence}/playbooks-act-${vp.name}.png` });
         // The back control returns to the activation list.
-        await page.getByRole("link", { name: "All activations" }).click();
+        await page.getByRole("link", { name: "All deployments" }).click();
         await expect(page).not.toHaveURL(/[?&]activation=/);
         await expect(tablist).toBeVisible();
       } else {
@@ -101,7 +102,7 @@ for (const vp of VIEWPORTS) {
         await page.screenshot({ path: `${evidence}/playbooks-run-${vp.name}.png` });
         await openActivation(page);
         await expect(page.getByRole("region", { name: /^Activation / }).getByRole("heading", { level: 2 }).first()).toBeVisible({ timeout: 30_000 });
-        await expect(page.getByRole("link", { name: "All activations" })).toBeHidden();
+        await expect(page.getByRole("link", { name: "All deployments" })).toBeHidden();
         await expectNoAxeViolations(page);
         await page.screenshot({ path: `${evidence}/playbooks-act-${vp.name}.png` });
       }

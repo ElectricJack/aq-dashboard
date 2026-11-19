@@ -138,7 +138,10 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
             <h2 id={titleId} data-inspector-title="" title={n.title}>{n.title}</h2>
             <div className={styles.actions}><RecordActions record={record} variant={compact ? "menu" : "compact"} execution={facts} /></div>
           </div>
-          <StatusBadge work={w} lifecycle={n.task_state} ended={ended} />
+          <div className={styles.statusLine}>
+            <StatusBadge work={w} lifecycle={n.task_state} ended={ended} />
+            {n.story_points !== undefined && <span className={styles.estimate}>{n.story_points === null ? "Unestimated" : `${n.story_points} story ${n.story_points === 1 ? "point" : "points"}`}</span>}
+          </div>
         </header>
         <div className={styles.identity}>
           <p className={styles.taskId}><span className="visually-hidden">Task ID </span><IdValue id={n.id} label="task ID" full /></p>

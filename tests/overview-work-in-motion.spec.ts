@@ -8,9 +8,21 @@ import { expect, test, type Page } from "@playwright/test";
 const EVIDENCE = process.env.OVC_EVIDENCE;
 
 async function open(page: Page) {
+  await page.addInitScript(() => {
+    const fetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const response = await fetch(input, init);
+      const url = new URL(input instanceof Request ? input.url : input, location.href);
+      if (url.pathname !== "/api/v1/bootstrap" || !response.ok) return response;
+      const bootstrap = await response.json();
+      const graph = bootstrap.data.capabilities.find((capability: { name: string }) => capability.name === "human.graph.read");
+      if (graph) graph.enabled = false;
+      return Response.json(bootstrap);
+    };
+  });
   await page.goto("/overview");
   await expect(page.getByRole("rowheader", { name: "agent-queue" })).toBeVisible({ timeout: 15_000 });
-  return page.getByRole("region", { name: "Work in motion", exact: true });
+  return page.getByRole("region", { name: "Work in motion, scrollable", exact: true });
 }
 
 const toneOf = (page: Page, project: string) =>
@@ -23,7 +35,7 @@ for (const vp of [
   test.describe(`${vp.name} ${vp.width}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test("constraint status, no overflow, unbroken identifiers, axe clean", async ({ page }) => {
+    test("fallback constraint status, no overflow, unbroken identifiers, axe clean", async ({ page }) => {
       const section = await open(page);
 
       // Status: toned label with a decorative icon beside visible text.

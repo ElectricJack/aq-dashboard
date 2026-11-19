@@ -8,16 +8,18 @@ API completion and visual completion are separate. A successful endpoint, compon
 
 | Page | Reference | Preserve in the implementation |
 | --- | --- | --- |
-| Overview | `01-overview-v3.png` | Compact status band; attention/work/outcomes main column; capacity/health/pinned-session secondary column; clear hierarchy and dense useful rows |
-| Work | `02-work-explorer-v3.png` | List/graph switch and filters; prominent dependency workspace; contextual inspector; graph navigation and selection remain usable |
+| Overview | `01-overview-v3.png` | Compact status band; attention/work/outcomes main column; capacity/health/pinned-session secondary column; clear hierarchy and a compact dependency Gantt |
+| Work | `02-work-explorer-v3.png` | List/Gantt switch and filters; prominent dependency chart; contextual inspector; pan, zoom and task selection |
 | Decisions | `03-decision-workspace-v3.png` | Inbox navigation, substantial evidence/proposal workspace, supporting context and clearly placed decision controls |
 | Supervisor | `04-supervisor-chat.png`, `09-supervisor-full-desktop.png`, `12-supervisor-mobile.png` | Docked/full presentation of one conversation; readable message width; context chips and composer; keyboard-aware phone layout |
-| Playbooks | `06-playbooks.png` | Runs/Definitions/Activations navigation, useful run list and selected step timeline, visible waits/child runs/receipts |
+| Playbooks | `06-playbooks.png` (run history) and the v1 playbook graph (library) | Library opens first with a workflow diagram and step details. Run history keeps the run list, timeline, waits, child runs and receipts. Compact layouts open one detail at a time. |
 | Knowledge | `07-knowledge-v2.png` | Searchable/filterable library, readable document content and sources, contextual metadata/verification; document hierarchy rather than a generic record dump |
 | Agents | `08-agents-focus-desktop.png`, `11-agent-mobile-v2.png` | One large readable output workspace, compact session tabs/switcher, status footer, on-demand details; phone focus and an accessible exit |
 | Results | `10-results-desktop-v2.png`, `13-results-mobile-v2.png` | Centered evidence feed and distinct cards; exact result context; substantial media when supported; selected discussion panel and phone composition |
 | Agents › Swarm | `14-swarm-tree-v3.png` (tree); `swarm-tree-v4.html` (2026-11-11 revised controls prototype) | Preserve the tree and properties composition, with the owner’s latest changes: two provider sliders in one row with automatic saving and measured burn estimates; Max agents in each Intelligence row, using its existing Save. Agent/free-slot cards stack two columns wide beneath each worker. The desktop tree/properties divider is draggable and keyboard-adjustable; phones keep the stacked layout. Older v4 controls are superseded. |
 | Settings | Shared product design; no separate selected PNG | Consistent shell, panels, controls, spacing and disclosures; technical identities grouped under details |
+
+The owner approved the Overview and Work Gantt design on November 18, 2026. The approved design uses a pinned task rail, story-point bars, branching dependency arrows and mouse panning. The chart is the primary view of project activity and dependencies. [Gantt reference](https://www.gantt.com/wp-content/uploads/2024/09/creating-gantt-charts-hero.png)
 
 ## Required review for each visual delivery
 

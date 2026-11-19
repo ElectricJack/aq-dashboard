@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-// RS-G (references 10-results-desktop-v2.png, 13-results-mobile-v2.png): subtitle,
+// RS-G (references 10-results-desktop-v2.png, 13-results-mobile-v2.png): compact header,
 // one toolbar row with inline media/time filters, and More filters for task/custom range.
 const VIEWPORTS = [
   { name: "d", width: 1440, height: 900 },
@@ -39,11 +39,12 @@ for (const vp of VIEWPORTS) {
       const scope = await box(page, page.getByRole("main").getByRole("combobox", { name: "Scope" }));
       const m = await box(page, media), t = await box(page, time);
       if (vp.name === "d") {
-        // Subtitle under the h1; tabs, project, media and time in one row, in that order.
-        const h1 = await box(page, page.getByRole("heading", { level: 1, name: "Results" }));
-        const subtitle = await box(page, page.getByText("See what changed. Give feedback where it matters."));
-        expect(subtitle.y).toBeGreaterThanOrEqual(h1.y + h1.height - 1);
-        expect(subtitle.y).toBeLessThan(h1.y + h1.height + 16);
+        // No subtitle row (spec 0002, owner update 2026-11-10): the toolbar follows the compact title row.
+        // Tabs, project, media and time in one row, in that order.
+        const header = await box(page, page.locator("main [data-page-header]"));
+        await expect(page.getByText("See what changed. Give feedback where it matters.")).toHaveCount(0);
+        expect(tabs.y).toBeGreaterThanOrEqual(header.y + header.height);
+        expect(tabs.y).toBeLessThan(header.y + header.height + 24);
         for (const b of [scope, m, t]) expect(Math.abs(b.y + b.height / 2 - (tabs.y + tabs.height / 2))).toBeLessThan(4);
         expect(tabs.x + tabs.width).toBeLessThanOrEqual(scope.x);
         expect(scope.x + scope.width).toBeLessThanOrEqual(m.x);

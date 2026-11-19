@@ -64,11 +64,11 @@ Routes:
 | --- | --- |
 | `/overview` | Scope and attention filter |
 | `/supervisor` | Stable global conversation; optional message/context reference |
-| `/work`, `/work/:taskId` | Scope, list/graph, filters, sort, selected task/revision |
+| `/work`, `/work/:taskId` | Scope, List/Gantt, filters, sort, selected task/revision |
 | `/results`, `/results/:resultId/revisions/:revision` | Feed mode, filters; immutable result deep link |
 | `/decisions`, `/decisions/:decisionId` | Kind/status filter and exact subject revision |
 | `/agents`, `/agents/swarm`, `/agents/history`, `/agents/:sessionId` | Terminal workspace, Swarm, History and legacy session detail; `/agents/sessions` redirects to History |
-| `/playbooks`, `/playbooks/runs/:runId` | Runs/definitions/activations and selection |
+| `/playbooks`, `/playbooks/runs/:runId` | Workflow library, deployments, run history and start requests |
 | `/knowledge`, `/knowledge/:nodeId` | Scope/search/category; optional pinned revision |
 | `/settings` | Identity, display/accessibility preferences, authorized configuration links |
 
@@ -78,9 +78,9 @@ Use IDs and filters in URLs, never secrets, message bodies or draft content. Bro
 
 **Overview.** Lead with Needs attention: pending human decisions, blocked or failed work requiring intervention, and uncertain operations requiring reconciliation. Each row shows reason, impact, age, exact subject and next permitted action. Follow with active work and recent results. Capacity and operational health are secondary. Empty attention means “Nothing needs your attention” only after a successful complete query; loading or failed reads must not resemble an empty queue.
 
-**Work.** List and graph use the same scope/filter/selection. Rows show title, project, lifecycle, execution observation, blocker/wait reason, relevant agent and latest result. Detail contains requirements, acceptance criteria, dependency explanation, attempts, evidence, source/delivery state and history. Server explanations determine readiness; the browser must not derive runnable status from a graph traversal.
+**Work.** List and Gantt share project scope and task selection. Rows show title, project, lifecycle, execution observation, blocker/wait reason, relevant agent and latest result. Detail contains requirements, acceptance criteria, dependency explanation, attempts, evidence, source/delivery state and history. Server explanations determine readiness; the browser must not derive runnable status from a graph traversal.
 
-The graph initially renders a bounded neighborhood around the selected task, with a 100-node target cap and explicit omitted counts/expansion controls. Hierarchy, execution dependencies and informational evidence links have distinct styling and labels. Stable positions preserve orientation when data changes. A textual dependency list offers the same navigation without graph interaction. Mobile opens a dedicated graph view deliberately; task lists remain the default.
+**Dependency Gantt.** Work in motion and Work use the same chart. The task rail stays pinned while the user pans and zooms. Each unfinished task has one bar sized by story points, and a dependent starts after the latest finish among its unfinished prerequisites. Arrows show forks and joins, and each task exposes its related task names to assistive technology. Completed tasks disappear on refresh and downstream work moves left. Overview task links open Work Gantt. In Work, selection opens the right-hand inspector or a dedicated detail view on narrow screens. The task list is the default Work view.
 
 **Decisions.** One inbox can discover reviews, questions and failure interventions, but each retains its domain-specific form and permission. Show exact source/task/result revision, requested judgment, evidence availability, previous responses and downstream effect. Approve/reject/answer binds that revision. A newer subject shows a superseded warning; no automatic retargeting. The mobile action bar must not hide evidence or keyboard focus. Submission remains pending until the server confirms; a conflict retains the draft and presents a deliberate refresh/review path.
 
@@ -152,7 +152,9 @@ Capture only the intended application/test scenario. AQ enforces authorized uplo
 
 ## 8. Playbooks and Knowledge
 
-**Playbooks.** Separate Runs, Definitions and Activations. A run shows its pinned artifact and transitive dependency versions, step timeline, current wait, child runs, pending operations, receipts and authorized actions. Updating an active definition does not relabel existing runs. Source editing, compilation, installation and activation are separate operations. Compilation validates structure; it is not proof of faithful policy translation. Human gates appear only where configured. Resuming a run cannot bypass the outstanding domain decision. Mobile uses a vertical step timeline and one detail page.
+**Playbooks.** Open the Library first. Show the playbook purpose and its compiled workflow for the selected entry point. The diagram shows step kinds, branch outcomes and error paths, with details available by selecting a step. On wide screens the library previews the first playbook beside the list. Compact screens open one playbook at a time with a link back to the library. Deployments show which version each binding uses for new runs and contain the activation and rollback controls.
+
+Run history shows each execution's pinned artifact and dependency versions, step timeline, current wait, child runs, pending operations, receipts and authorized actions. The Definition tab shows the compiled workflow for the pinned artifact and entry point. Start requests sit under Run history and indicate whether each retained request produced a run. Human gates appear where configured and remain authoritative when a run resumes. Mobile uses a vertical execution timeline.
 
 **Knowledge.** Search/filter by scope, category, lifecycle and verification independently. Detail shows document content, exact revision, author/provenance, sources, linked work, revision history, verification assertions and validity/review dates. Current and pinned history are unmistakable. A verifier's assertion is not proof of task completion. Retirement and successor links do not erase historical revisions. Authoring, correction, verification and retirement use separate permitted actions and expected versions; no generic JSON editor. Mobile opens one full document, with section navigation and metadata disclosures.
 

@@ -39,8 +39,11 @@ export const SURFACES: Surface[] = [
     ready: async (page) => { await expect(h(page, 1, "Overview")).toBeVisible(); await expect(page.getByRole("region", { name: "Capacity" })).toBeVisible(); },
   },
   {
-    id: "work", assets: ["02-work-explorer-v3.png"], path: `/work/${ROOT}?${scope}&view=graph&root=${ROOT}`,
-    ready: async (page) => { await expect(page.getByRole("region", { name: "Dependency graph" })).toBeVisible(); },
+    id: "work", assets: ["02-work-explorer-v3.png"], path: `/work/${ROOT}?${scope}&view=gantt`,
+    ready: async (page, vp) => {
+      if (vp.width < 1000) await page.getByRole("link", { name: "Close task" }).click();
+      await expect(page.getByRole("region", { name: "Scrollable dependency tracks" })).toBeVisible();
+    },
   },
   {
     id: "decisions", assets: ["03-decision-workspace-v3.png"], path: `/decisions/${DECISION}`,

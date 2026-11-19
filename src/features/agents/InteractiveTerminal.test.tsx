@@ -21,7 +21,8 @@ vi.mock('@xterm/xterm', () => ({ Terminal: class {
   onBinary() { return { dispose() {} }; } onResize() { return { dispose() {} }; }
   dispose() { mocks.dispose(); } scrollLines() {} focus() {}
 } }));
-vi.mock('../../api/interactiveTerminalClient', () => ({ connectInteractiveTerminal: (options: { state: typeof mocks.state }) => {
+// A running native terminal is opened through the native chooser (finite relay or live attempt stream).
+vi.mock('../../api/nativeTerminalClient', () => ({ connectNativeTerminal: (options: { state: typeof mocks.state }) => {
   mocks.state = options.state;
   return { close: mocks.close, sendInput: mocks.sendInput, resize: vi.fn(), release: vi.fn() };
 } }));

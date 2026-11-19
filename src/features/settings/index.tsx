@@ -12,6 +12,7 @@ import { IntelligenceLevels } from "./IntelligenceLevels";
 import { ExecutionProfiles } from "./ExecutionProfiles";
 import { SelectionDefaults } from "./SelectionDefaults";
 import { InternalWorkSettings } from "./InternalWorkSettings";
+import { DeliverySettings } from "./DeliverySettings";
 import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 import { RoutingDocumentDraftProvider } from "./RoutingDocumentDraft";
 import { ProfileSnapshotNote } from "./ProfileDocuments";
@@ -22,12 +23,14 @@ import styles from "./Settings.module.css";
 const TABS = [
   { id: "identity", label: "Identity" }, { id: "display", label: "Display" },
   { id: "providers", label: "Providers" }, { id: "roles", label: "Roles" }, { id: "intelligence", label: "Intelligence" }, { id: "execution", label: "Execution" },
+  // Epic 0 (spec 0016): compiled in only when the build sets VITE_DELIVERY_PLAYBOOK=true.
+  ...(import.meta.env.VITE_DELIVERY_PLAYBOOK === "true" ? [{ id: "delivery", label: "Delivery" }] as const : []),
   { id: "connection", label: "Connection" },
   { id: "projects", label: "Projects" }, { id: "notifications", label: "Notifications" },
 ] as const;
 type Tab = typeof TABS[number]["id"];
 /** Tabs that hold drafts: once opened they stay mounted, so switching tabs does not lose unsaved text. */
-const DRAFT_TABS: readonly Tab[] = ["providers", "roles", "intelligence", "execution"];
+const DRAFT_TABS: readonly Tab[] = ["providers", "roles", "intelligence", "execution", "delivery"];
 export function Component() { return <IntelligenceDraftProvider><SettingsContent /></IntelligenceDraftProvider>; }
 function SettingsContent() {
   const drafts = useIntelligenceDrafts();
@@ -61,6 +64,7 @@ function SettingsContent() {
           <IntelligenceLevels /><SelectionDefaults /><ProfileSnapshotNote scope="intelligence" />
           <div className={styles.sections}><InternalWorkSettings /><RoutingDocumentDraftProvider><RoutingPolicyEditor /></RoutingDocumentDraftProvider></div></>}
         {tab.id === "execution" && <><ExecutionProfiles /><ProfileSnapshotNote scope="execution" /></>}
+        {tab.id === "delivery" && <DeliverySettings />}
       </> : selected === tab.id && <>
         {tab.id === "identity" && <Panel title="Identity" description="The account this dashboard is signed in with.">
           <DetailList><dt>Signed in as</dt><dd>{bootstrap.principal.displayName}</dd></DetailList>

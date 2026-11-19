@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-// KN-B (reference 07-knowledge-v2.png): page header with "Add record" on the title row,
+// KN-B (reference 07-knowledge-v2.png): compact page header with "Add record" on the title row,
 // document header with one action slot, short dates and no disabled-button wall.
 const project = "00000000-0000-0000-0000-000000000001";
 const record = "00000000-0000-0000-0000-000000000005";
@@ -41,7 +41,8 @@ for (const vp of VIEWPORTS) {
     test("library header keeps Add record on the title row without a caption", async ({ page }) => {
       await page.goto(library);
       await expect(page.getByRole("list", { name: "Knowledge records" })).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("Find the decisions, procedures, and evidence behind the work.", { exact: true })).toBeVisible();
+      // Compact header (spec 0002, owner update 2026-11-10): no introductory subtitle row.
+      await expect(page.getByText("Find the decisions, procedures, and evidence behind the work.", { exact: true })).toHaveCount(0);
       await expectAddRecordOnTitleRow(page);
       await expect(page.getByText("Not offered by this AQ server")).toHaveCount(0);
       // Tap/focus reveals the reason as a tooltip tied to the button.

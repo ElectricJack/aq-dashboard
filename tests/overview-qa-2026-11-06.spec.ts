@@ -42,12 +42,12 @@ test.describe("desktop", () => {
     }
   });
 
-  test("SO-16: a Work in motion project opens that project in Work", async ({ page }) => {
+  test("SO-16: a Work in motion task opens that task in Work Gantt", async ({ page }) => {
     await page.goto("/overview");
-    const link = page.getByRole("rowheader", { name: "agent-queue" }).getByRole("link", { name: "agent-queue" });
-    await expect(link).toBeVisible({ timeout: 15_000 });
+    const tracks = page.getByRole("region", { name: "Scrollable dependency tracks" });
+    const link = tracks.getByRole("link", { name: /Replay reconciliation/ }).locator("[data-gantt-label]");
     await link.click();
-    await expect(page).toHaveURL(/\/work\?scope=project(%3A|:)agent-queue$/);
+    await expect(page).toHaveURL(/\/work\/00000000-0000-0000-0000-000000000105\?.*view=gantt/);
   });
 
   test("SO-09: Inspect eligibility keeps the project scope", async ({ page }) => {
@@ -105,7 +105,10 @@ test.describe("phone", () => {
     await page.goto("/overview");
     const create = page.getByRole("button", { name: /create task/i });
     await expect(create).toBeDisabled({ timeout: 15_000 });
-    const hint = page.locator("#content").getByText("Choose a project first");
+    // The compact header keeps the reason out of the row: tapping the button shows it as a tooltip.
+    await create.click({ force: true });
+    const hint = page.locator("#content").getByRole("tooltip").filter({ hasText: "Choose a project first" });
+    await expect(hint).toBeInViewport({ ratio: 1 });
     const box = await hint.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThan(40);
     expect(box?.height ?? 0).toBeGreaterThan(10);

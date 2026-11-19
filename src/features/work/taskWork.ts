@@ -174,10 +174,10 @@ export function useTaskRoutes(id: string, enabled: boolean) {
 }
 
 /** Readiness, blockers, parent and the holding attempt; `undefined` while unknown (pending, failed or not served). */
-export function useTaskWork(project: string, id: string) {
+export function useTaskWork(project: string, id: string, refetchInterval?: number) {
   const { queryContext } = useSession();
   return useQuery({
-    queryKey: queryKey(queryContext, "human-graph-task-work", { project, id }), enabled: validGraphId(project) && validGraphId(id), refetchOnWindowFocus: false, meta: PANEL_READ, ...readRetry,
+    queryKey: queryKey(queryContext, "human-graph-task-work", { project, id }), enabled: validGraphId(project) && validGraphId(id), refetchInterval, refetchOnWindowFocus: false, meta: PANEL_READ, ...readRetry,
     queryFn: async ({ signal }) => adaptTaskWork(await apiGet<unknown>(`${graphPath(project, "task", id)}/work`, signal), project, id),
   });
 }

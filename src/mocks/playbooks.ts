@@ -13,16 +13,18 @@ import { SERVER_TIME } from "./inspectionData";
 export const PLAYBOOK_CAPABILITIES = [
   "playbooks.inspect",
   "playbooks.catalog.read",
+  "playbooks.definition-graph.read",
   // PROPOSED playbook action capabilities (dashboard-actions-1 kinds); not offered by aq-server main yet.
   "playbooks.runs.start",
   "playbooks.runs.cancel",
   "playbooks.activations.activate",
   "playbooks.activations.rollback",
 ] as const;
-export type PlaybookMode = "ok" | "empty" | "failed" | "unavailable";
+export type PlaybookMode = "ok" | "empty" | "failed" | "unavailable" | "step-inspection";
 
 /** `?scenario=` switches for playbook reads: empty rows, failed reads, or an unconfigured runtime. */
 export function playbookMode(name: string | null | undefined): PlaybookMode {
+  if (name === "playbook-step-inspection") return "step-inspection";
   if (name === "empty") return "empty";
   if (name === "failed" || name === "reads-failed") return "failed";
   if (name === "unavailable") return "unavailable";
@@ -53,7 +55,7 @@ export const WAITING_RUN_ID = runId(284);
 export const CHILD_RUN_ID = runId(285);
 
 /** Pinned artifacts; the waiting run's artifact is the current definition below. */
-const ARTIFACT = { recovery: sha("a81c9e"), report: sha("5e7a01"), integrate: sha("1c0de2"), route: sha("7a5c91"), validate: sha("b4d1d8") };
+const ARTIFACT = { recovery: sha("a81c9e"), report: sha("5e7a01"), integrate: sha("1c0de2"), route: sha("7a5c91"), validate: sha("b4d1d8"), routingInspection: sha("e101ca") };
 const DEPENDENCIES = { checks: sha("c4ec5a"), "recovery-plan": sha("9e7c31") };
 
 type RunView = {
@@ -100,16 +102,95 @@ const EFFECTS: Record<string, Effect[]> = {
 
 const ADMISSIONS = [{ request_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", status: "admitted", created_at_ms: minutesAgo(1, 5), run_id: runId(291), activation_revision: "3", catalog_revision: "5" }];
 
-/** Current catalog: the waiting run's pinned definition and its activation, from the contract examples. */
-const DEFINITION = (() => {
+/** Current catalog represents two fixture artifacts, in digest order. */
+function definition(artifact: string, name: string, purpose: string, entries: string[]) {
   const item = structuredClone(examples.definitions.items[0]!);
-  Object.assign(item.record.metadata, {
-    artifact: ARTIFACT.recovery, executable_fingerprint: sha("f1a9e2"), source_digest: sha("50c3e7"),
-    name: "worker-recovery", purpose: "Fixture: recover a stalled worker attempt after a human review. Mock-mode data for design review, not an installed playbook.", entries: ["worker-recovery"],
-  });
-  item.key = ARTIFACT.recovery;
+  Object.assign(item.record.metadata, { artifact, executable_fingerprint: sha("f1a9e2"), source_digest: sha("50c3e7"), name, purpose, entries, dependencies: {} });
+  item.key = artifact;
   return item;
-})();
+}
+const DEFINITIONS = [
+  definition(ARTIFACT.recovery, "worker-recovery", "Recover a stalled worker attempt. Preserve its source and request a human review before starting recovery.", ["worker-recovery"]),
+  definition(ARTIFACT.validate, "validate-candidate", "Check that a candidate is ready to integrate, or validate the inputs to a recovery.", ["validate-candidate", "validate-recovery-inputs"]),
+];
+const ROUTING_DEFINITION = definition(ARTIFACT.routingInspection, "task-routing",
+  "Keep owner-set routes and assess tasks that still need an automatic routing decision.", ["main"]);
+
+function step(id: string, kind: string, target: string | null, successors: Record<string, string> = {}, on_error: string | null = null) {
+  return { id, kind, target, edges: Object.entries(successors).map(([label, to]) => ({ label, to })), on_error };
+}
+function graph(entries: Record<string, string>, steps: ReturnType<typeof step>[]) {
+  return { entries, steps: Object.fromEntries(steps.map(row => [row.id, row])) };
+}
+const GRAPHS = new Map([
+  [ARTIFACT.recovery, graph({ "worker-recovery": "inspect-attempt" }, [
+    step("inspect-attempt", "invoke", "task.inspect_attempt", { found: "retain-source" }),
+    step("retain-source", "invoke", "git.retain_source", { retained: "request-review" }, "stop-recovery"),
+    step("request-review", "wait", "decision.resolved", { approved: "start-recovery", denied: "stop-recovery" }),
+    step("start-recovery", "call", "recovery-plan/start"),
+    step("stop-recovery", "return", null),
+  ])],
+  [ARTIFACT.validate, graph({ "validate-candidate": "prepare-candidate", "validate-recovery-inputs": "report-inputs" }, [
+    step("prepare-candidate", "invoke", "checks.prepare", { ready: "run-checks" }),
+    step("run-checks", "invoke", "checks.run", { passed: "accept-candidate", failed: "reject-candidate" }),
+    step("accept-candidate", "return", null),
+    step("reject-candidate", "return", null),
+    step("report-inputs", "invoke", "recovery.report_inputs"),
+  ])],
+  [ARTIFACT.routingInspection, graph({ main: "read" }, [
+    step("read", "invoke", "work.read", { observed: "owned", refused: "skipped" }, "failed"),
+    step("owned", "decide", null, { false: "ask", true: "skipped", unknown: "failed" }),
+    step("ask", "invoke", "judgment.assess", { accepted: "await", assessed: "assume", failed: "assume", refused: "assume" }, "assume"),
+    step("await", "join", null, { completed: "route", no_match: "assume", timeout: "assume" }, "assume"),
+    step("assume", "invoke", "work.route", { refused: "refused", routed: "routed", stale: "skipped" }, "failed"),
+    step("route", "invoke", "work.route", { refused: "refused", routed: "routed", stale: "skipped" }, "failed"),
+    step("failed", "return", null),
+    step("refused", "return", null),
+    step("routed", "return", null),
+    step("skipped", "return", null),
+  ])],
+]);
+const ROUTE_CHECK_USE = {
+  producer: "read", consumer: "owned", paths: ["task.facts.route"], purpose: "Route check",
+};
+const ASSESSMENT_USE = {
+  producer: "read", consumer: "ask", paths: ["task.facts.title", "task.facts.description", "task.facts.kind"],
+  purpose: "Assessment context",
+};
+const ROUTING_INSPECTION = {
+  read: {
+    summary: "Looks up the task for this run and reads its current title, description, declared kind, and who set any existing route.\n\nIf the workflow requests an assessment, the agent uses those details to understand the work.",
+    uses: [ROUTE_CHECK_USE, ASSESSMENT_USE],
+    branches: [
+      { label: "observed", to: "owned", error: false, reason: "The task was found and its details are available." },
+      { label: "refused", to: "skipped", error: false, reason: "The task is unknown or its project does not use automatic routing." },
+      { label: "On error", to: "failed", error: true, reason: "The step could not proceed, for example because its input was invalid or the runtime rejected the command." },
+    ],
+  },
+  owned: {
+    summary: "Checks whether an owner has already chosen the route for this task. It compares task.facts.route, which came from the task lookup, with owner. This keeps a manually chosen route in place.",
+    uses: [ROUTE_CHECK_USE],
+    branches: [
+      { label: "false", to: "ask", error: false, reason: "The route is unset or was chosen by the automatic router." },
+      { label: "true", to: "skipped", error: false, reason: "An owner already chose a route for this task." },
+      { label: "unknown", to: "failed", error: false, reason: "The condition could not be evaluated." },
+    ],
+  },
+  ask: {
+    summary: "Asks an agent to classify the kind of work and assess its risk. The agent uses the task's title, description, and declared kind from the earlier task lookup.",
+    uses: [ASSESSMENT_USE],
+  },
+};
+const ROUTING_DESCRIPTION = `## Routing policy
+
+**Keep routes chosen by an owner.** Assess the kind of work and its risk when the task needs an automatic route.`;
+const RECOVERY_DESCRIPTION = `## When to use this playbook
+
+Use worker recovery when a stalled attempt needs to hand off its changes.
+
+1. **Preserve the source** from the stalled attempt.
+2. Wait for a human to review the recovery plan.
+3. Start recovery if the plan is approved.`;
 const ACTIVATION = (() => {
   const item = structuredClone(examples.activations.items[0]!);
   Object.assign(item.record.metadata, { binding: "worker-recovery", artifact: ARTIFACT.recovery });
@@ -164,6 +245,37 @@ export function playbookHandlers(mode: PlaybookMode) {
       const refused = refuse(new URL(request.url)); if (refused) return refused;
       return HttpResponse.json(inspectionPage(mode === "empty" ? [] : ADMISSIONS));
     }),
+    http.get(`${base}/definitions/:artifact/graph`, ({ request, params }) => {
+      const refused = refuse(new URL(request.url)); if (refused) return refused;
+      const artifact = String(params.artifact);
+      return HttpResponse.json({
+        api_version: "playbooks-definition-graph-1", namespace: PLAYBOOK_FIXTURE_NAMESPACE,
+        artifact, graph: mode === "empty" ? null : GRAPHS.get(artifact) ?? null,
+        ...(mode !== "empty" && artifact === ARTIFACT.recovery && {
+          description_markdown: RECOVERY_DESCRIPTION,
+          step_facts: { "request-review": [
+            { label: "Matches event fields", value: "decision_id" },
+            { label: "Deadline", value: "1 h" },
+            { label: "Stores result as", value: "review_decision" },
+          ] },
+        }),
+        ...(mode === "step-inspection" && artifact === ARTIFACT.routingInspection && {
+          description_markdown: ROUTING_DESCRIPTION,
+          step_inspection: ROUTING_INSPECTION,
+          step_facts: {
+            read: [
+              { label: "Input fields", value: "subject" },
+              { label: "Stores result as", value: "task" },
+            ],
+            owned: [{ label: "Checks", value: "task.facts.route" }],
+            ask: [
+              { label: "Input fields", value: "budget, context, fields, flags, question, rationale_max_bytes, subject" },
+              { label: "Stores result as", value: "j" },
+            ],
+          },
+        }),
+      });
+    }),
     http.get(`${base}/catalog/:kind`, ({ request, params }) => {
       const url = new URL(request.url);
       const kind = params.kind === "definitions" || params.kind === "activations" ? params.kind : null;
@@ -173,7 +285,8 @@ export function playbookHandlers(mode: PlaybookMode) {
       const incarnation = url.searchParams.get("incarnation"), revision = url.searchParams.get("metadata_revision");
       if ((incarnation && incarnation !== source.incarnation) || (revision && revision !== source.metadata_revision)) return failure(409, "catalog_changed", "The catalog changed since it was observed.");
       const exact = url.searchParams.get("exact"), after = url.searchParams.get("after");
-      const all = mode === "empty" ? [] : [kind === "definitions" ? DEFINITION : ACTIVATION];
+      const definitions = mode === "step-inspection" ? [ROUTING_DEFINITION] : DEFINITIONS;
+      const all = mode === "empty" ? [] : kind === "definitions" ? definitions : [ACTIVATION];
       return HttpResponse.json(catalog(kind, all.filter((item) => (!exact || item.key === exact) && (!after || item.key > after))));
     }),
   ];

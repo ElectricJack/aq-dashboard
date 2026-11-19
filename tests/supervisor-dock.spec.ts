@@ -49,8 +49,9 @@ test.describe("phone-390", () => {
   test("phone does not dock: the supervisor opens as its own page", async ({ page }) => {
     await page.goto("/overview");
     await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open supervisor" })).toBeHidden();
-    await page.goto("/supervisor");
+    // The header launcher stays on phones (spec 0002, owner update 2026-11-10) and navigates instead of docking.
+    await page.getByRole("button", { name: "Open supervisor" }).click();
+    await expect(page).toHaveURL(/\/supervisor$/);
     const conversation = page.getByRole("region", { name: "Global supervisor conversation" });
     await expect(conversation.getByRole("heading", { level: 1, name: "Global supervisor" })).toBeVisible();
     await expect(page.locator("[data-docked]")).toHaveCount(0);

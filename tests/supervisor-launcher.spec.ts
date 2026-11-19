@@ -23,8 +23,17 @@ async function occludedControls(page: Page) {
     return [...document.querySelectorAll<HTMLElement>(
       "main a[href], main button, main input, main textarea, main select, main summary, main [tabindex]:not([tabindex='-1'])",
     )].filter((el) => {
-      const r = el.getBoundingClientRect();
-      const y0 = Math.max(r.top, top), y1 = Math.min(r.bottom, bottom), x0 = Math.max(r.left, 0), x1 = Math.min(r.right, innerWidth);
+      // A Gantt link spans the plot for positioning. Its pinned label is the clickable control.
+      const hitArea = el.querySelector("[data-gantt-label]") ?? el;
+      const r = hitArea.getBoundingClientRect();
+      let y0 = Math.max(r.top, top), y1 = Math.min(r.bottom, bottom), x0 = Math.max(r.left, 0), x1 = Math.min(r.right, innerWidth);
+      // A scroller clips its content: a control scrolled out of one (a key in the phone key bar) is not covered by anything.
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const s = getComputedStyle(p);
+        if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+        const c = p.getBoundingClientRect();
+        y0 = Math.max(y0, c.top); y1 = Math.min(y1, c.bottom); x0 = Math.max(x0, c.left); x1 = Math.min(x1, c.right);
+      }
       if (y1 - y0 < 1 || x1 - x0 < 1 || !el.checkVisibility({ visibilityProperty: true })) return false;
       const hit = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
       return !hit || !(hit === el || el.contains(hit));
@@ -53,16 +62,20 @@ for (const vp of VIEWPORTS) {
       test(`launcher never covers content on ${path}`, async ({ page }) => {
         await ready(page, path);
         const launcher = page.getByRole("button", { name: "Open supervisor" });
-        if (vp.width >= 1200) {
-          await expect(launcher).toBeVisible();
-          expect(await launcher.evaluate((el) => getComputedStyle(el).position)).not.toMatch(/fixed|sticky|absolute/);
-          // In normal flow above the destination: no overlap with any page content.
-          const box = (await launcher.boundingBox())!;
-          const destination = (await page.locator("main [data-supervisor-destination]").boundingBox())!;
-          expect(box.y + box.height).toBeLessThanOrEqual(destination.y);
-        } else {
-          await expect(launcher).toBeHidden();
-        }
+        // Every width: the launcher is in normal flow in the page's title/action row (spec 0002, owner update
+        // 2026-11-10), beside the title and above everything else on the page.
+        await expect(launcher).toBeVisible();
+        expect(await launcher.evaluate((el) => getComputedStyle(el).position)).not.toMatch(/fixed|sticky|absolute/);
+        const header = page.locator("main [data-page-header]");
+        await expect(header.getByRole("button", { name: "Open supervisor" })).toHaveCount(1);
+        const box = (await launcher.boundingBox())!, row = (await header.boundingBox())!, h1 = (await header.locator("h1").boundingBox())!;
+        expect(box.y).toBeGreaterThanOrEqual(row.y - 1);
+        expect(box.y + box.height).toBeLessThanOrEqual(row.y + row.height + 1);
+        expect(box.x).toBeGreaterThanOrEqual(h1.x + h1.width);
+        const below = await page.locator("main [data-page-header] ~ *").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).filter((r) => r.height > 0).map((r) => r.top + scrollY));
+        for (const top of below) expect(top).toBeGreaterThanOrEqual(row.y + row.height - 1);
+        // Phones keep a full touch target with the label as the accessible name only.
+        if (vp.width < 768) expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
         await expectNoOcclusionWhileScrolling(page);
         const results = await new AxeBuilder({ page })
           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])

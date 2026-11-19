@@ -18,7 +18,7 @@ beforeEach(()=>vi.stubGlobal("crypto",webcrypto));
 afterEach(()=>{server.resetHandlers();vi.unstubAllGlobals();vi.restoreAllMocks();});afterAll(()=>server.close());
 const scope=`?scope=project:${graphProject}`;
 function enable(allowed=true){
- server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.create"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner role required"}]}})));
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.create"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner role required"},{name:"tasks.story_points",version:"1",enabled:true}]}})));
  server.use(http.get(`/api/human/projects/${graphProject}/tasks`,()=>HttpResponse.json(graphEnvelope({items:[],next_cursor:null},"9007199254740993"))));
 }
 function forBytes(bytes:string,state:TaskOperation["state"]="confirmed"){
@@ -34,19 +34,20 @@ async function fill(modal:HTMLElement,title="Create the recovery boundary"){
 }
 test("project scope and explicit Owner capability are required before any creation",async()=>{
  enable(false);let writes=0;server.use(http.post("/api/human/projects/:project/tasks",()=>{writes++;return HttpResponse.json({});}));
- renderApp(`/work${scope}`);expect(await screen.findByRole("button",{name:"Create task"})).toBeDisabled();expect(screen.getByText("Owner role required")).toBeInTheDocument();expect(writes).toBe(0);
+ renderApp(`/work${scope}`);const create=await screen.findByRole("button",{name:"Create task"});expect(create).toHaveAttribute("aria-disabled","true");expect(create).toHaveAccessibleDescription("Owner role required");expect(writes).toBe(0);
 });
 test("all-project scope disables creation instead of guessing a project",async()=>{
- enable();renderApp("/work");expect(await screen.findByRole("button",{name:"Create task"})).toBeDisabled();expect(screen.getByText("Choose a project first")).toBeInTheDocument();
+ enable();renderApp("/work");const create=await screen.findByRole("button",{name:"Create task"});expect(create).toHaveAttribute("aria-disabled","true");expect(create).toHaveAccessibleDescription("Choose a project first");
 });
 test("submits once with exact project revision and verifies receipt plus actual task read",async()=>{
  enable();const sent:string[]=[];let id="";
  server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const bytes=await request.text();sent.push(bytes);const value=forBytes(bytes);id=value.task_id;return HttpResponse.json(value);}),http.get(`/api/human/projects/${graphProject}/tasks/:task`,({params})=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:String(params.task),title:"Created recovery task"}))));
  const {router}=renderApp(`/work${scope}`);const modal=await open();await fill(modal);
+ await userEvent.type(within(modal).getByRole("spinbutton",{name:"Story points"}),"8");
  await userEvent.dblClick(within(modal).getByRole("button",{name:"Create task"}));
  expect(await within(modal).findByText("Task created and its record verified.")).toBeInTheDocument();expect(sent).toHaveLength(1);
  expect(JSON.stringify(sessionStorage)).not.toContain("Create the recovery boundary");
- expect(JSON.parse(sent[0]!)).toMatchObject({operation_id:id,expected_project_revision:"9007199254740993",title:"Create the recovery boundary",body:"Keep the original request.",acceptance_criteria:"Lost responses must be recoverable.",labels:[],task_state:"draft"});
+ expect(JSON.parse(sent[0]!)).toMatchObject({operation_id:id,expected_project_revision:"9007199254740993",title:"Create the recovery boundary",body:"Keep the original request.",acceptance_criteria:"Lost responses must be recoverable.",labels:[],task_state:"draft",story_points:8});
  expect(new URLSearchParams(router.state.location.search).get("operation")).toBe(id);expect(router.state.location.search).not.toContain("recovery");
  expect(within(modal).getByRole("link",{name:"Open created task"})).toHaveAttribute("href",`/work/${id}?scope=project%3A${graphProject}`);
  await userEvent.click(within(modal).getByRole("button",{name:"Start another task"}));expect(within(modal).getByRole("textbox",{name:"Title"})).toHaveValue("");
@@ -156,7 +157,7 @@ test("a new unknown observation for the same operation clears its previously ver
 test("426 task creation keeps the stored draft and blocks further creation without hiding navigation",async()=>{
  enable();let writes=0;server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>{writes++;return new HttpResponse(null,{status:426});}));
  const app=renderApp(`/work${scope}`);const modal=await open();await fill(modal,"Upgrade-safe task draft");await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
- await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());expect(screen.getByRole("button",{name:"Create task"})).toBeDisabled();expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
+ await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());expect(screen.getByRole("button",{name:"Create task"})).toHaveAttribute("aria-disabled","true");expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
  expect(screen.getByRole("note",{name:"Dashboard version"})).toHaveTextContent("Install compatible versions, then reload.");expect(JSON.stringify(sessionStorage)).toContain("Upgrade-safe task draft");expect(writes).toBe(1);
  app.unmount();app.queryClient.clear();renderApp(`/work${scope}`);const restored=await open();expect(within(restored).getByRole("textbox",{name:"Title"})).toHaveValue("Upgrade-safe task draft");expect(writes).toBe(1);
 });
@@ -168,7 +169,7 @@ test.each([401])("direct task %i erases every composer draft even when bootstrap
 });
 test("task verification 426 disables the dependent creation workflow with upgrade guidance",async()=>{
  enable();server.use(http.get(`/api/human/operations/${taskOperationId}`,()=>HttpResponse.json(confirmedTaskOperation())),http.get(`/api/human/projects/${graphProject}/tasks/${taskOperationId}`,()=>new HttpResponse(null,{status:426})));
- renderApp(`/work${scope}&operation=${taskOperationId}`);expect(await screen.findByRole("note",{name:"Dashboard version"})).toHaveTextContent("Install compatible versions, then reload.");expect(screen.getByRole("button",{name:"Create task"})).toBeDisabled();expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
+ renderApp(`/work${scope}&operation=${taskOperationId}`);expect(await screen.findByRole("note",{name:"Dashboard version"})).toHaveTextContent("Install compatible versions, then reload.");expect(screen.getByRole("button",{name:"Create task"})).toHaveAttribute("aria-disabled","true");expect(screen.getByRole("navigation",{name:"Primary"})).toBeInTheDocument();
 });
 test("uncertain operation reload exposes recovered local fields without replaying or enabling submission",async()=>{
  enable();let writes=0;server.use(http.post(`/api/human/projects/${graphProject}/tasks`,()=>{writes++;return HttpResponse.error();}),http.get("/api/human/operations/:operation",()=>HttpResponse.json({error:"not_found"},{status:404})));
