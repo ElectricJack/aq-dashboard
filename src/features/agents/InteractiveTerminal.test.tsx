@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import type { TerminalState } from '../../api/interactiveTerminalClient';
 import { InteractiveTerminal } from './InteractiveTerminal';
 
 const mocks = vi.hoisted(() => ({
   lines: [] as string[],
   onData: undefined as ((value: string) => void) | undefined,
-  state: undefined as ((value: { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean }) => void) | undefined,
-  close: vi.fn(), sendInput: vi.fn(), dispose: vi.fn(),
+  state: undefined as ((value: TerminalState) => void) | undefined,
+  close: vi.fn(), sendInput: vi.fn(), sendEscape: vi.fn(), repaint: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
 }));
 vi.mock('../../app/session', () => ({ useSession: () => ({
   bootstrap: { capability: () => ({ enabled: true }), principal: { displayName: 'Owner' } },
@@ -18,13 +19,14 @@ vi.mock('@xterm/xterm', () => ({ Terminal: class {
   buffer = { active: { get baseY() { return 0; }, get length() { return mocks.lines.length; }, getLine: (i: number) => ({ translateToString: () => mocks.lines[i] ?? '' }) } };
   parser = { registerOscHandler: () => ({ dispose() {} }), registerCsiHandler: () => ({ dispose() {} }) };
   loadAddon() {} open() {} attachCustomKeyEventHandler() {} onData(fn: (value: string) => void) { mocks.onData = fn; return { dispose() {} }; }
+  resize(cols: number, rows: number) { this.cols = cols; this.rows = rows; mocks.resize(cols, rows); }
   onBinary() { return { dispose() {} }; } onResize() { return { dispose() {} }; }
   dispose() { mocks.dispose(); } scrollLines() {} focus() {}
 } }));
 // A running native terminal is opened through the native chooser (finite relay or live attempt stream).
 vi.mock('../../api/nativeTerminalClient', () => ({ connectNativeTerminal: (options: { state: typeof mocks.state }) => {
   mocks.state = options.state;
-  return { close: mocks.close, sendInput: mocks.sendInput, resize: vi.fn(), release: vi.fn() };
+  return { close: mocks.close, sendInput: mocks.sendInput, sendEscape: mocks.sendEscape, repaint: mocks.repaint, release: vi.fn() };
 } }));
 
 test('ending a live terminal preserves its latest visible screen and fences input', () => {
@@ -47,4 +49,24 @@ test('ending a live terminal preserves its latest visible screen and fences inpu
   act(() => mocks.onData?.('x'));
   expect(mocks.sendInput).not.toHaveBeenCalled();
   unmount(); client.clear();
+});
+
+test('task terminal renders the pane grid and keeps mouse and repaint out of keyboard input', () => {
+  mocks.resize.mockClear(); mocks.sendInput.mockClear(); mocks.repaint.mockClear();
+  const client = new QueryClient();
+  const { container, unmount } = render(<QueryClientProvider client={client}><InteractiveTerminal terminalId="task-term" name="Agent" /></QueryClientProvider>);
+  try {
+    act(() => mocks.state?.({ message: 'Connected', connected: true, controlling: true, canControl: true, paused: false, canRepaint: true, grid: { columns: 120, rows: 40 } }));
+    expect(mocks.resize).toHaveBeenCalledExactlyOnceWith(120, 40);
+    const captured = container.querySelector('[data-fixed]')!;
+    const wheel = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 30 });
+    fireEvent(captured, wheel);
+    expect(wheel.defaultPrevented).toBe(true);
+    act(() => mocks.onData?.('\x1b[<43;37;5M'));
+    fireEvent.click(screen.getByRole('button', { name: 'Repaint' }));
+    expect(mocks.repaint).toHaveBeenCalledOnce();
+    expect(mocks.sendInput).not.toHaveBeenCalled();
+    act(() => mocks.onData?.('\x1b[D'));
+    expect(mocks.sendInput).toHaveBeenCalledExactlyOnceWith(new TextEncoder().encode('\x1b[D'));
+  } finally { unmount(); client.clear(); }
 });

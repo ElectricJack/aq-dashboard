@@ -1,6 +1,6 @@
 import { Terminal } from '@xterm/xterm';
 import { expect, it } from 'vitest';
-import { clampTerminalFontSize, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier } from './terminalSetup';
+import { clampTerminalFontSize, guardObservedMouse, guardObservedTerminalQueries, isObservedFocusReport, isObservedMouseReport, withControlModifier } from './terminalSetup';
 it('renders watched bytes without duplicating upstream DA/DSR replies and preserves user input', async () => {
   const term = new Terminal({ cols: 80, rows: 24 });
   const data: string[] = []; const input = term.onData(value => { if (!isObservedFocusReport(value)) data.push(value); });
@@ -30,4 +30,18 @@ it('bounds the text size between the readable minimum and 20px', () => {
   expect(clampTerminalFontSize(10)).toBe(14);
   expect(clampTerminalFontSize(16)).toBe(16);
   expect(clampTerminalFontSize(26)).toBe(20);
+});
+
+it('ignores task mouse modes and preserves other terminal modes and keyboard sequences', async () => {
+  const term = new Terminal();
+  const mouse = guardObservedMouse(term);
+  try {
+    await new Promise<void>(resolve => term.write('\x1b[?1003;1006h\x1b[?1049h', resolve));
+    expect(term.modes.mouseTrackingMode).toBe('none');
+    expect(term.buffer.active.type).toBe('alternate');
+    expect(isObservedMouseReport('\x1b[<43;37;5M')).toBe(true);
+    expect(isObservedMouseReport('\x1b[<0;20;4m')).toBe(true);
+    expect(isObservedMouseReport('\x1b[MABC')).toBe(true);
+    expect(isObservedMouseReport('\x1b[1;5D')).toBe(false);
+  } finally { mouse.dispose(); term.dispose(); }
 });

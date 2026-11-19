@@ -83,6 +83,19 @@ export function guardObservedTerminalQueries(terminal: Terminal): IDisposable[] 
   ];
 }
 
+const MOUSE_MODES = new Set([9, 1000, 1002, 1003, 1005, 1006, 1015, 1016]);
+
+export function guardObservedMouse(terminal: Terminal): IDisposable {
+  // Mixed DECSET packets still reach xterm so their other modes take effect.
+  // The input filter also covers reports if one of those packets enables mouse.
+  return terminal.parser.registerCsiHandler({ prefix: '?', final: 'h' },
+    params => params.every(mode => typeof mode === 'number' && MOUSE_MODES.has(mode)));
+}
+
+export function isObservedMouseReport(data: string): boolean {
+  return /\x1b\[(?:<\d+;\d+;\d+[Mm]|M[\s\S]{3}|\d+;\d+;\d+M)/.test(data);
+}
+
 /** Focus notifications describe the local viewer, not operator keystrokes.
  * Upstream tmux already owns application focus. Ordinary Escape is untouched. */
 export function isObservedFocusReport(data: string): boolean {

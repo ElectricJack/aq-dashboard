@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { adaptInteractiveInfo, adaptInputReceipt } from './adapters/terminalControl';
 import { connectInteractiveTerminal, MAX_AUTOMATIC_RECONNECTS, TAKEOVER_NOTICE_LOST, TAKEOVER_NOTICE_TOOK, TERMINAL_CADENCE } from './interactiveTerminalClient';
 import { ApiError } from './client';
+import { terminalInputChunks } from './terminalInput';
 vi.mock('./terminalClient', () => ({ terminalJson: vi.fn() }));
 const terminal: TerminalIdentity = { terminal_id: '10000000-0000-4000-8000-000000000001', epoch: 1, session: { kind: 'central', authority_id: '10000000-0000-4000-8000-000000000002', session_id: '10000000-0000-4000-8000-000000000003', generation: 1 } };
-const info = { terminal, session_revision: 2, input_mode: 'finite_v1', terminal_policy: { input_enabled: true }, disconnected: false, control: { terminal, session_revision: 2, generation: 0, lease: null, fence_acknowledged: false, input_paused: false } };
+const info = { terminal, session_revision: 2, input_mode: 'finite_v1', terminal_policy: { input_enabled: true, max_input_bytes: 4096, max_pending_input_bytes: 32768 }, disconnected: false, control: { terminal, session_revision: 2, generation: 0, lease: null, fence_acknowledged: false, input_paused: false } };
 describe('v1 terminal renderer v2 transport boundary', () => {
   it('retains the complete identity and refuses foreign control or unsupported input mode', () => {
     expect(adaptInteractiveInfo(info, terminal.terminal_id).control.lease).toBeNull();
@@ -22,7 +23,7 @@ describe('v1 terminal renderer v2 transport boundary', () => {
     const read = vi.fn(async (_part: string, _fetcher: unknown) => ({ body: info, serverTime: 1000 }));
     const state = vi.fn();
     const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read, write: async () => {}, reset: vi.fn(), state });
-    c.sendInput(new Uint8Array([13])); c.resize(80, 24);
+    c.sendInput(new Uint8Array([13])); c.sendEscape();
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(read.mock.calls.some(call => String(call[0]).startsWith('input'))).toBe(false);
     expect(read.mock.calls.some(call => String(call[0]) === 'resize')).toBe(false);
@@ -33,6 +34,7 @@ describe('v1 terminal renderer v2 transport boundary', () => {
 it('allows a fresh user operation after a definitive rejection without replaying queued bytes', async () => {
   let lease: null | Record<string, unknown> = null, generation = 0, expiry = 14000;
   const sent: number[][] = []; const states: string[] = [];
+  const uncertainty: boolean[] = [];
   const control = () => ({ ...info.control, generation, lease, fence_acknowledged: lease !== null });
   vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
     const doc = body as { kind: string; body: Record<string, unknown> } | undefined;
@@ -40,12 +42,12 @@ it('allows a fresh user operation after a definitive rejection without replaying
     if (doc?.kind === 'watch') { expiry = doc.body.expires_at_ms as number; value = { kind: 'watch', body: { terminal, operation_id: doc.body.operation_id, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry } }; }
     else if (doc?.kind === 'control') { generation++; lease = { terminal, principal_id: 'fixture', lease_id: '10000000-0000-4000-8000-000000000005', generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
     else if (doc?.kind === 'input') { sent.push(doc.body.bytes as number[]); value = { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: sent.length === 1 ? 'rejected' : 'applied', input_paused: false, observed_at_ms: 1000 } }; }
-    else if (path.includes('/tail?')) value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, frames: [], gaps: [], next_sequence: 0, more: false };
+    else if (path.includes('/tail?')) value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
     else value = { ...info, disconnected: lease === null, control: control() };
     return { body: value, serverTime: 1000 };
   });
   let controlling = false, canControl = false;
-  const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { states.push(s.message); controlling = s.controlling; canControl = s.canControl; } });
+  const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { states.push(s.message); controlling = s.controlling; canControl = s.canControl; uncertainty.push(!!s.inputDeliveryUncertain); } });
   try {
     await vi.waitFor(() => expect(canControl).toBe(true));
     expect(controlling).toBe(true); // Acknowledged automatic control permits intent, never stdin.
@@ -55,6 +57,11 @@ it('allows a fresh user operation after a definitive rejection without replaying
     expect(controlling).toBe(true);
     c.sendInput(new Uint8Array([13]));
     await vi.waitFor(() => expect(sent).toEqual([[65], [13]]));
+    c.sendInput(Uint8Array.of(27, 91));
+    c.sendInput(Uint8Array.of(65));
+    expect(states.at(-1)).toBe('Incomplete terminal input — reconnect to type');
+    expect(uncertainty.at(-1)).toBe(false);
+    expect(sent).toEqual([[65], [13]]);
   } finally { c.close(); }
 });
 
@@ -90,7 +97,7 @@ describe('watch resilience and cadence (QA N-01, N-02)', () => {
     });
     return { read: ((_part: string, fetcher: () => ReturnType<typeof terminalJson>) => fetcher()) as never, counts: () => ({ tails, watches, infos }) };
   }
-  const retained = (n: number, extra: Record<string, unknown> = {}) => ({ terminal, subscription_id: subscription, session_revision: 2, expires_at_ms: 14000, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, frames: [], gaps: [], next_sequence: n, more: false, ...extra });
+  const retained = (n: number, extra: Record<string, unknown> = {}) => ({ terminal, subscription_id: subscription, session_revision: 2, expires_at_ms: 14000, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: n, more: false, ...extra });
   const unavailable = () => new ApiError('http', 'AQ responded 503', { status: 503, envelope: { request_id: 'r', code: 'unavailable', message: 'temporarily unavailable', retryable: true } });
 
   it('reconnects automatically after a retryable 503 tail instead of stopping', async () => {
@@ -165,7 +172,7 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
       else if (doc?.kind === 'control') { controls.push(doc); generation++; lease = { terminal, principal_id: 'fixture', lease_id: ME, generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
       else if (path.includes('/tail?')) {
         if (opts.failFirstTail && tails++ === 0) throw new ApiError('http', 'AQ responded 503', { status: 503, envelope: { request_id: 'r', code: 'unavailable', message: 'temporarily unavailable', retryable: true } });
-        value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, frames: [], gaps: [], next_sequence: 0, more: false };
+        value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
       } else value = { ...info, disconnected: lease === null, control: control() };
       return { body: value, serverTime: 1000 };
     });
@@ -226,5 +233,24 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
       await c.release();
       expect(states.at(-1)?.notice).toBeNull();
     } finally { c.close(); }
+  });
+});
+
+describe('terminal input packet boundaries', () => {
+  const encode = (text: string) => new TextEncoder().encode(text);
+
+  it('moves a complete escape sequence to the next packet when it crosses the byte cap', () => {
+    for (const sequence of ['\x1b[<43;37;5M', '\x1b[1;5D', '\x1bOA', '\x1b[M !!', '\x1b(0']) {
+      for (let prefix = 1; prefix < sequence.length; prefix++) {
+        const text = 'a'.repeat(4096 - prefix);
+        const chunks = terminalInputChunks(encode(text + sequence), 4096);
+        expect(chunks?.map(bytes => new TextDecoder().decode(bytes))).toEqual([text, sequence]);
+        expect(terminalInputChunks(encode(text + sequence.slice(0, prefix)), 4096)).toBeUndefined();
+      }
+    }
+  });
+
+  it('keeps multibyte paste characters together', () => {
+    expect(terminalInputChunks(encode('aa雪🙂'), 5)?.map(bytes => new TextDecoder().decode(bytes))).toEqual(['aa雪', '🙂']);
   });
 });

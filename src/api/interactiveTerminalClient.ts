@@ -4,14 +4,25 @@
 import { adaptControl, adaptInputReceipt, adaptInteractiveInfo, type TerminalInfo } from './adapters/terminalControl';
 import { adaptTerminalTail, adaptWatch, sameTerminal } from './adapters/terminalTail';
 import { isRecord, ContractError } from './adapters/contract';
+import { terminalInputChunks } from './terminalInput';
 import { terminalJson } from './terminalClient';
 import { isRetryableError, retryDelayMs } from './retry';
+export interface TerminalGrid { columns: number; rows: number }
+export interface TerminalConnection {
+  takeControl(): Promise<void>;
+  release(): Promise<void>;
+  sendInput(bytes: Uint8Array): void;
+  sendEscape(): void;
+  resize?(columns: number, rows: number): void;
+  repaint?(): void;
+  close(): void;
+}
 export interface TerminalLease { mine: boolean; expiresAtMs: number }
 /** `clock` maps the last server time header onto `performance.now()` so a view can count down server-time facts. */
 export interface TerminalState { message: string; connected: boolean; controlling: boolean; canControl: boolean; paused: boolean;
   lease?: TerminalLease | null; clock?: { serverMs: number; at: number }; outputObservedAtMs?: number | null;
   /** The identity and epoch this connection observed; a reconnect passes it back as `expect`. */
-  binding?: TerminalBinding;
+  binding?: TerminalBinding; grid?: TerminalGrid; canRepaint?: boolean; inputDeliveryUncertain?: boolean;
   /** Identifies a controller change between connections. */
   notice?: string | null }
 export const TAKEOVER_NOTICE_LOST = 'Another connection is using this terminal. Reconnect to interact.';
@@ -19,6 +30,7 @@ export const TAKEOVER_NOTICE_TOOK = 'You took control from another viewer.';
 export interface TerminalBinding { terminal: TerminalInfo['terminal']; session_revision: number }
 class EpochChanged extends Error {}
 class NotDelivered extends Error {}
+type InputPacket = { bytes: Uint8Array; escapeKey?: true };
 type Read = (part: string, fetcher: () => ReturnType<typeof terminalJson>) => ReturnType<typeof terminalJson>;
 /** Consecutive retryable failures before the watch stops and waits for an explicit Reconnect. */
 export const MAX_AUTOMATIC_RECONNECTS = 6;
@@ -29,24 +41,25 @@ export const MAX_AUTOMATIC_RECONNECTS = 6;
  */
 export const TERMINAL_CADENCE = { more: 50, output: 200, idleMax: 2000, inspectWatching: 3000, inspectControlling: 750, dormantMin: 5000, dormantMax: 30000 } as const;
 /** `expect` pins a reconnect to the identity and epoch seen before: a changed binding is reported, never watched. */
-export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void; state: (state: TerminalState) => void;
+export function connectInteractiveTerminal(options: { terminalId: string; allowControl: boolean; initiallyPaused?: boolean; expect?: TerminalBinding | null; read: Read; write: (bytes: Uint8Array) => Promise<void>; reset: () => void | Promise<void>; state: (state: TerminalState) => void;
   /** Wait before automatic reconnect `attempt` (0-based); tests shorten it. */
-  reconnectDelay?: (attempt: number, error: unknown) => number }) {
+  reconnectDelay?: (attempt: number, error: unknown) => number }): TerminalConnection {
   const abort = new AbortController(), { signal } = abort;
   const path = `/api/v1/terminals/${encodeURIComponent(options.terminalId)}`;
   let info: TerminalInfo | undefined, clock = 0, clockAt = 0, owned: string | null = null;
-  let paused = options.initiallyPaused ?? false, connected = false, busy = false, queue: Uint8Array[] = [], queued = 0, resizeSequence = 0, renewing = false;
+  let paused = options.initiallyPaused ?? false, connected = false, busy = false, queue: InputPacket[] = [], queued = 0, renewing = false;
+  let inputDeliveryUncertain = paused;
   let outputObservedAtMs: number | null = null;
   let notice: string | null = null;
   const acquired = new Set<string>();
   let inputBatchTimer: ReturnType<typeof setTimeout> | undefined;
-  let pendingResize: { columns: number; rows: number } | null = null;
+  let grid: TerminalGrid | undefined;
   const now = () => clock + performance.now() - clockAt;
   const active = () => !!(connected && !paused && info?.input_enabled && !info.disconnected && info.control.fence_acknowledged && !info.control.input_paused && info.control.lease?.lease_id === owned && info.control.lease.expires_at_ms > now());
   const emit = (message = active() ? 'You have control' : paused ? 'Input delivery uncertain — typing paused' : connected ? 'Waiting for interactive connection' : 'Connecting…') => {
     if (signal.aborted) return;
     const lease = connected && info?.control.lease ? { mine: acquired.has(info.control.lease.lease_id), expiresAtMs: info.control.lease.expires_at_ms } : null;
-    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs, notice, binding: info ? { terminal: info.terminal, session_revision: info.session_revision } : undefined });
+    options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs, grid, inputDeliveryUncertain, notice, binding: info ? { terminal: info.terminal, session_revision: info.session_revision } : undefined });
   };
   const request: Read = async (part, fetcher) => {
     const value = await options.read(part, fetcher);
@@ -68,7 +81,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     if (pinned && (!sameTerminal(next.terminal, pinned.terminal) || next.session_revision !== pinned.session_revision)) throw new EpochChanged();
     if (info && (!sameTerminal(next.terminal, info.terminal) || next.session_revision !== info.session_revision)) throw new ContractError('Terminal binding changed');
     info = next;
-    if (info.control.input_paused) { paused = true; queue = []; queued = 0; pendingResize = null; }
+    if (info.control.input_paused) { paused = true; inputDeliveryUncertain = true; queue = []; queued = 0; }
     if (owned && info.control.lease?.lease_id !== owned) {
       const other = !!info.control.lease && !acquired.has(info.control.lease.lease_id);
       owned = null; queue = []; queued = 0;
@@ -80,7 +93,9 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     if (!info || !owned || !active()) throw new Error('Control unavailable');
     return { terminal: info.terminal, lease_id: owned, expected_controller_generation: info.control.generation, expected_session_revision: info.session_revision };
   }
-  function pause() { paused = true; queue = []; queued = 0; pendingResize = null; emit(); }
+  function pause(message?: string, deliveryUncertain = false) {
+    paused = true; inputDeliveryUncertain ||= deliveryUncertain; queue = []; queued = 0; emit(message);
+  }
   async function receipt(operation: string, initial?: unknown) {
     if (!info) throw new Error('No binding');
     let body = initial;
@@ -100,32 +115,29 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     try {
       while (queue.length && active()) {
         // Preserve byte order while amortizing one durable receipt across a burst.
-        const chunks: Uint8Array[] = []; let length = 0;
-        while (queue.length && length + queue[0]!.length <= 4096) { const next = queue.shift()!; chunks.push(next); length += next.length; }
+        const first = queue.shift()!;
+        const chunks = [first.bytes]; let length = first.bytes.length;
+        while (!first.escapeKey && queue.length && !queue[0]!.escapeKey && length + queue[0]!.bytes.length <= info!.maxInputBytes) {
+          const next = queue.shift()!.bytes; chunks.push(next); length += next.length;
+        }
         const bytes = new Uint8Array(length); let offset = 0;
         for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
         queued -= bytes.length;
         const operation = crypto.randomUUID(); const binding = fields(); inputInFlight = true;
         let body: unknown;
         try {
-          const raw = await json(`input-${operation}`, '/mutations', { kind: 'input', body: { ...binding, operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), bytes: [...bytes] } });
+          const raw = await json(`input-${operation}`, '/mutations', { kind: 'input', body: { ...binding, operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), bytes: [...bytes], ...(first.escapeKey ? { escape_key: true } : {}) } });
           if (!isRecord(raw.body) || raw.body.kind !== 'input') throw new ContractError('Input reply');
           body = raw.body.body;
         } catch { /* The operation may already exist: never replay its bytes. */ }
         await receipt(operation, body); inputInFlight = false;
       }
-      if (pendingResize && active()) {
-        const size = pendingResize; pendingResize = null;
-        const operation = crypto.randomUUID(), sequence = ++resizeSequence;
-        const raw = await json('resize', '/mutations', { kind: 'resize', body: { ...fields(), operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), sequence, ...size } });
-        if (!isRecord(raw.body) || raw.body.kind !== 'resize' || !isRecord(raw.body.body) || raw.body.body.operation_id !== operation || raw.body.body.sequence !== sequence || !sameTerminal(raw.body.body.terminal as TerminalInfo['terminal'], info!.terminal)) throw new ContractError('Resize reply');
-      }
     } catch (error) { if (!signal.aborted) {
       if (error instanceof NotDelivered) { queue = []; queued = 0; emit(error.message); }
-      else if (inputInFlight) pause();
-      else emit('Resize unavailable — keyboard control retained');
+      else if (inputInFlight) pause(undefined, true);
+      else emit('Terminal input unavailable');
     } }
-    finally { busy = false; if ((queue.length || pendingResize) && active()) void flush(); }
+    finally { busy = false; if (queue.length && active()) void flush(); }
   }
   async function control(kind: 'control' | 'renew') {
     if (renewing || !info || (kind === 'renew' && !connected) || paused || !options.allowControl || !info.input_enabled) return;
@@ -138,7 +150,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       const status = adaptControl(raw.body.body.status, info.terminal, info.session_revision);
       if (!status.lease || status.lease.expires_at_ms <= now()) throw new ContractError('Control expiry');
       owned = status.lease.lease_id; acquired.add(owned); info.control = status;
-      if (kind === 'control') { resizeSequence = 0; notice = heldByOther ? TAKEOVER_NOTICE_TOOK : null; }
+      if (kind === 'control') { notice = heldByOther ? TAKEOVER_NOTICE_TOOK : null; }
       emit('Waiting for worker control acknowledgement…'); wake();
     } catch { owned = null; queue = []; queued = 0; emit('Interactive connection unavailable — reconnect to try again'); }
     finally { renewing = false; }
@@ -167,6 +179,10 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
         const tail = await adaptTerminalTail(rawTail.body, info!.terminal, subscription.subscription_id, after);
         if (tail.server_time_ms !== rawTail.serverTime || tail.session_revision !== info!.session_revision || tail.expires_at_ms !== subscription.expires_at_ms) throw new ContractError('Tail binding');
         failures = 0;
+        if (tail.grid && (tail.grid[0] !== grid?.columns || tail.grid[1] !== grid.rows)) {
+          grid = { columns: tail.grid[0], rows: tail.grid[1] };
+          emit();
+        }
         // Tail retention describes output coverage, not the controller peer.
         // TerminalInfo is the authority for live input connectivity.
         let discontinuity = tail.gaps.length > 0;
@@ -174,7 +190,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
         for (const frame of tail.frames) { if (frame.sequence !== previous + 1) discontinuity = true; previous = frame.sequence; }
         const retained = tail.availability !== 'not_retained';
         // Restart the screen when coverage breaks, not on every tail that still has nothing retained.
-        if (discontinuity || (!retained && availability !== 'not_retained')) options.reset();
+        if (discontinuity || (!retained && availability !== 'not_retained')) await options.reset();
         availability = tail.availability;
         for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
         after = tail.next_sequence;
@@ -204,32 +220,37 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
           emit(`Reconnecting… (attempt ${failures} of ${MAX_AUTOMATIC_RECONNECTS}); control released`);
           await delay(wait); continue;
         }
-        options.reset(); emit('Disconnected — reconnect to watch; control released'); return;
+        await options.reset(); emit('Disconnected — reconnect to watch; control released'); return;
       }
     }
+  }
+  function enqueue(packets: InputPacket[], length: number) {
+    queue.push(...packets); queued += length;
+    if (inputBatchTimer === undefined) inputBatchTimer = setTimeout(() => { inputBatchTimer = undefined; void flush(); }, 20);
   }
   void run();
   return {
     takeControl: () => { notice = null; return control('control'); },
     async release() {
-      const lease = owned; owned = null; queue = []; queued = 0; pendingResize = null; notice = null;
+      const lease = owned; owned = null; queue = []; queued = 0; notice = null;
       // The release reply ends this lease; stop showing its countdown now, not at the next inspect.
       if (lease && info?.control.lease?.lease_id === lease) info.control = { ...info.control, lease: null };
       emit();
       if (!lease || !info) return;
       try { await json('release', '/mutations', { kind: 'release', body: { terminal: info.terminal, operation_id: crypto.randomUUID(), expected_session_revision: info.session_revision, expected_controller_generation: info.control.generation, lease_id: lease } }); } catch { emit('Control released locally; server lease will expire'); }
     },
-    sendInput(bytes: Uint8Array) {
+    sendInput(bytes) {
       if (!active() || !bytes.length) return;
-      if (queued + bytes.length > 16384) { pause(); return; }
-      for (let i = 0; i < bytes.length; i += 4096) queue.push(bytes.slice(i, i + 4096));
-      queued += bytes.length;
-      if (inputBatchTimer === undefined) inputBatchTimer = setTimeout(() => { inputBatchTimer = undefined; void flush(); }, 20);
+      if (queued + bytes.length > info!.maxPendingInputBytes) { pause(); return; }
+      const chunks = terminalInputChunks(bytes, info!.maxInputBytes);
+      if (!chunks) { pause('Incomplete terminal input — reconnect to type'); return; }
+      enqueue(chunks.map(bytes => ({ bytes })), bytes.length);
     },
-    resize(columns: number, rows: number) {
+    sendEscape() {
       if (!active()) return;
-      pendingResize = { columns: Math.max(2, Math.min(500, columns)), rows: Math.max(1, Math.min(300, rows)) }; void flush();
+      if (queued >= info!.maxPendingInputBytes) { pause(); return; }
+      enqueue([{ bytes: Uint8Array.of(0x1b), escapeKey: true }], 1);
     },
-    close() { if (inputBatchTimer !== undefined) clearTimeout(inputBatchTimer); if (busy) pause(); abort.abort(); owned = null; queue = []; queued = 0; },
+    close() { if (inputBatchTimer !== undefined) clearTimeout(inputBatchTimer); if (busy) pause(undefined, true); abort.abort(); owned = null; queue = []; queued = 0; },
   };
 }

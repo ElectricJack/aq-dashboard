@@ -34,6 +34,7 @@ export async function adaptTerminalTail(v: unknown, terminal: TerminalIdentity, 
   check(isRecord(v) && sameTerminal(terminalIdentity(v.terminal), terminal) && v.subscription_id === subscription && integer(v.session_revision, 1) && integer(v.expires_at_ms, 1) && integer(v.server_time_ms, 1) && v.server_time_ms < v.expires_at_ms);
   check(v.last_observed_at_ms === null || integer(v.last_observed_at_ms, 1));
   check((v.availability === "resident_tail" || v.availability === "not_retained") && typeof v.disconnected === "boolean" && v.initial_incomplete === true && typeof v.more === "boolean");
+  check(v.grid === null || (Array.isArray(v.grid) && v.grid.length === 2 && v.grid.every(n => integer(n, 1) && n <= 1000)));
   check(integer(v.next_sequence) && v.next_sequence >= after && Array.isArray(v.frames) && v.frames.length <= 64 && Array.isArray(v.gaps) && v.gaps.length <= 128);
   let sequence = after, bytes = 0;
   for (const f of v.frames) {
