@@ -14,6 +14,7 @@ import { sessionConversation, type ConversationSource } from '../../../api/sessi
 import { Conversation } from './Conversation';
 import { AgentsTabs } from '../AgentsTabs';
 import { observedEnded, observedRunning } from '../labels';
+import { ObservationLabel, ObservationTimes } from '../ObservationState';
 import styles from './History.module.css';
 
 function refusedRead(error:unknown) { return (error instanceof ApiError && [404,410].includes(error.status ?? 0)) || isProtectedReadFailure(error); }
@@ -26,6 +27,7 @@ export function History() {
  const listing = useInfiniteQuery({queryKey:['history',queryContext.principalId,queryContext.authorizationRevision,filters],initialPageParam:undefined as string|undefined,enabled:!internal,queryFn:({pageParam,signal})=>history({...filters,cursor:pageParam},signal),getNextPageParam:p=>p.next_cursor ?? undefined,retry:false,meta:PANEL_READ});
  const runs = useInfiniteQuery({queryKey:['internal-runs',queryContext.principalId,queryContext.authorizationRevision],initialPageParam:undefined as string|undefined,enabled:internal,queryFn:({pageParam,signal})=>listInternalRuns({limit:50,cursor:pageParam},signal),getNextPageParam:p=>p.next_cursor ?? undefined,retry:false,meta:PANEL_READ});
  const native = usePagedRead<SessionSummary,SessionView>({resource:'history-native',path:'/api/v1/sessions',scope,params:{limit:25},adapt:adaptSession,stable:true});
+ const nativeServerTime = native.data?.pages.at(-1)?.serverTime ?? new Date().toISOString();
  const selected = params.get('session'); const choose=(value:string)=>setParams(p=>{const n=new URLSearchParams(p); n.set('session',value);return n;});
  const internalRows = internal ? runs.data?.pages.flatMap(p=>p.runs) ?? [] : [];
  const manual = internal ? [] : listing.isError && isProtectedReadFailure(listing.error) ? [] : listing.data?.pages.flatMap(p=>p.sessions) ?? [];
@@ -40,7 +42,7 @@ export function History() {
  {!internal && listing.isError && <p role="alert">{listing.error instanceof ApiError && listing.error.status===404 ? 'History is not supported by this server.' : 'Could not load retained history.'} <button onClick={()=>void listing.refetch()}>Retry</button></p>}
  {!internal && listing.isPending && <p>Loading history…</p>}
  <ul className={styles.rows} aria-label={internal?"Internal work":"Session history"}>{internalRows.map(r=><InternalRow key={r.id} run={r} />)}{manual.map(s=><li key={`manual:${s.id}`}><button className={styles.row} data-selected={selected===`manual:${s.id}`} onClick={()=>choose(`manual:${s.id}`)}><strong>{s.spec.project_name || `Session ${s.id.slice(0,8)}`}</strong><span>{s.spec.provider} · {s.spec.model} · {s.status}</span><span>{new Date(s.created_at_ms).toLocaleString()} · {s.conversation_available ? 'Saved conversation' : 'No saved conversation'}</span></button></li>)}
- {nativeRows.map(s=><li key={`native:${s.id}`}><button className={styles.row} data-selected={selected===`native:${s.id}`} onClick={()=>choose(`native:${s.id}`)}><strong>{s.label}</strong><span>{s.project.label} · {s.profile.provider ?? 'Provider unknown'} · {s.observation.state.replaceAll('_',' ')}</span><span>Native session</span></button></li>)}</ul>
+ {nativeRows.map(s=><li key={`native:${s.id}`} data-session-id={s.id}><button className={styles.row} data-selected={selected===`native:${s.id}`} onClick={()=>choose(`native:${s.id}`)}><strong>{s.label}</strong><span>{s.project.label} · {s.profile.provider ?? 'Provider unknown'} · <ObservationLabel session={s} /></span><ObservationTimes session={s} serverTime={nativeServerTime} /><span>Native session</span></button></li>)}</ul>
  {internal && runs.hasNextPage && <button onClick={()=>void runs.fetchNextPage()} disabled={runs.isFetchingNextPage}>Load more internal work</button>}{!internal && listing.hasNextPage && <button onClick={()=>void listing.fetchNextPage()} disabled={listing.isFetchingNextPage}>Load more history</button>}{!internal && native.hasNextPage && <button onClick={()=>void native.fetchNextPage()} disabled={native.isFetchingNextPage}>Load more native sessions</button>}{!internal && native.isError && <p role="alert">Native sessions could not be loaded.</p>}{!internal && (from || until) && <p>Dates apply to retained manual sessions; native session dates are unavailable in this list.</p>}</aside>
  <main className={styles.workspace}>{selected && <button className={styles.back} onClick={()=>setParams(p=>{const n=new URLSearchParams(p);n.delete("session");return n;})}>← Sessions</button>}{manualId ? <SessionHistory source="manual" key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${project ?? "all"}:${manualId}`} id={manualId} project={project}/> : nativeId ? <Native key={nativeId} id={nativeId} session={activeNative} project={project} /> : <p className={styles.empty}>Select a session to view its conversation.</p>}</main></div></>;
 }

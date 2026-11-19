@@ -143,8 +143,9 @@ test("Message is offered when the server advertises session messages and sends a
 
 
 test("the session list and inspector label each observation state with a reason and relative times", async () => {
-  renderApp("/agents");
-  const list = await screen.findByRole("list", { name: "Sessions" });
+  // The session list is the history page; /agents is the terminal workspace.
+  renderApp("/agents/history");
+  const list = await screen.findByRole("list", { name: "Session history" });
   const row = (id: string) => list.querySelector<HTMLElement>(`li[data-session-id="${id}"]`)!;
   await waitFor(() => expect(row(SESSIONS[0]!.id)).not.toBeNull());
   expect(within(row(SESSIONS[0]!.id)).getByText("Working")).toBeInTheDocument();
