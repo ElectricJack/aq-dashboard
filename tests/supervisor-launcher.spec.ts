@@ -91,7 +91,8 @@ test.describe("desktop-1440 overview", () => {
 
   test("All sessions and the capacity link are not occluded", async ({ page }) => {
     await ready(page, "/overview");
-    for (const name of [/^All sessions/, /^Inspect (eligibility|configuration)/]) {
+    // The capacity panel links to Swarm (it was "Inspect eligibility" before the capacity view).
+    for (const name of [/^All sessions/, /^Open Swarm/]) {
       const link = page.locator("main").getByRole("link", { name }).first();
       await link.scrollIntoViewIfNeeded();
       expect(await link.evaluate((el) => {
