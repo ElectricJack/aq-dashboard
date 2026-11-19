@@ -60,32 +60,37 @@ test.describe("phone-390", () => {
     await expect(bar.getByRole("button", { name: "Enter" })).toBeInViewport();
   });
 
-  test("text size A−/A+ changes xterm fontSize, refits and sends a resize", async ({ page }) => {
+  // A task pane keeps the pane's launch grid (fixture tail: 120x40); the browser never resizes it.
+  // Manual sessions still resize on refit (tests/workspace/agents-workspace.spec.ts).
+  test("text size A−/A+ changes xterm fontSize and refits without resizing the task pane", async ({ page }) => {
     const pane = await takeControl(page);
+    const resizes: Request[] = [];
+    page.on("request", (request) => { if (mutation("resize")(request)) resizes.push(request); });
     const rows = pane.locator(".xterm-rows");
     const size = () => rows.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(await size()).toBe(14);
     const smaller = pane.getByRole("button", { name: "A− Decrease text size" }), larger = pane.getByRole("button", { name: "A+ Increase text size" });
     await expect(smaller).toBeDisabled();
-    const resize = page.waitForRequest(mutation("resize"));
     await larger.click();
     await expect.poll(size).toBe(16);
-    expect((await resize).postDataJSON().body).toMatchObject({ columns: 80 });
+    await expect(pane).toHaveAttribute("data-cols", "120");
     await expect(pane.getByRole("group", { name: "Text size" })).toContainText("16px");
     await larger.click(); await larger.click();
     await expect.poll(size).toBe(20);
     await expect(larger).toBeDisabled();
     await smaller.click();
     await expect.poll(size).toBe(18);
+    await expect(pane).toHaveAttribute("data-cols", "120");
+    expect(resizes).toEqual([]);
   });
 
-  test("pan hint shows while the 80-column grid is wider than its container", async ({ page }) => {
+  test("pan hint shows while the task pane's launch grid is wider than its container", async ({ page }) => {
     await page.goto("/agents/sess-07");
     const pane = page.getByRole("region", { name: "Interactive agent terminal" });
     await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
     const wider = () => pane.locator(".xterm-screen").evaluate((el) => el.scrollWidth > el.closest("[class*=host]")!.clientWidth);
     await expect.poll(wider).toBe(true);
-    await expect(pane.getByText("80 columns · pan to view")).toBeVisible();
+    await expect(pane.getByText("120 columns · pan to view")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-key-bar-watch-phone-390.png` });
     await axe(page);
