@@ -25,7 +25,7 @@ test("tree and board share the worker inspector and preserve drafts across tabs"
   await expect(capacity).toContainText("3 of 3 slots busy");
   await expect(pane).toContainText("Heartbeat");
   await expect(pane.getByRole("button", { name: "Open terminal" })).toBeEnabled();
-  await expect(pane.getByRole("button", { name: "Push logins" })).toBeHidden();
+  await expect(pane.getByRole("button", { name: "Push Claude token" })).toBeHidden();
 
   const overview = pane.getByRole("tab", { name: "Overview" });
   await overview.focus();
@@ -41,7 +41,7 @@ test("tree and board share the worker inspector and preserve drafts across tabs"
   await expect(name).toHaveValue("Draft label");
   await expect(pane.getByRole("button", { name: "Remove worker node" })).toBeVisible();
   await pane.getByRole("tab", { name: "Logins" }).click();
-  await expect(pane.getByRole("button", { name: "Push logins" })).toBeEnabled();
+  await expect(pane.getByRole("button", { name: "Push Claude token" })).toBeEnabled();
   await pane.getByRole("tab", { name: "Diagnostics" }).click();
   await expect(pane.getByText("docker-local", { exact: true })).toBeVisible();
   await expect(pane.getByRole("button", { name: "Run checks" })).toBeEnabled();
