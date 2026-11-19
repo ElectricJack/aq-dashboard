@@ -3,7 +3,8 @@ import { apiGet, apiSend } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 import { queryKey } from "./queryKeys";
 import { useSession } from "../app/session";
-export type Provider = { id: string; name: string; accounts: string[]; credential_status: "present" | "missing" | "disabled" | "not_configured" };
+/** `attention`: what the owner must do before this provider's agents can start again (a saved Codex login past the age limit); AQ routes around the provider meanwhile. */
+export type Provider = { id: string; name: string; accounts: string[]; credential_status: "present" | "missing" | "disabled" | "not_configured"; attention?: string };
 /** `codex_login_max_age_days`: the owner's limit on how long ago a saved Codex login may have been refreshed when AQ leases it to an agent; null is no limit. A server that predates the setting omits it. */
 export type ProviderSettings = { revision: string; available_revision: string; providers: string[]; available: Provider[]; codex_login_max_age_days?: number | null };
 /** `codex_login_max_age_days` is sent only when it changes: absent keeps the stored limit, null removes it. */
@@ -19,7 +20,7 @@ export function adaptProviderSettings(raw: unknown): ProviderSettings {
   ensure(raw.codex_login_max_age_days === undefined || validLoginAge(raw.codex_login_max_age_days));
   const ids: string[] = [];
   for (const row of raw.available) {
-    ensure(isRecord(row) && label(row.id) && label(row.name) && ["present", "missing", "disabled", "not_configured"].includes(String(row.credential_status)) && Array.isArray(row.accounts) && row.accounts.length <= 32 && row.accounts.every(label) && unique(row.accounts));
+    ensure(isRecord(row) && label(row.id) && label(row.name) && ["present", "missing", "disabled", "not_configured"].includes(String(row.credential_status)) && Array.isArray(row.accounts) && row.accounts.length <= 32 && row.accounts.every(label) && unique(row.accounts) && (row.attention === undefined || label(row.attention)));
     ids.push(row.id);
   }
   ensure(unique(ids)); return raw as ProviderSettings;

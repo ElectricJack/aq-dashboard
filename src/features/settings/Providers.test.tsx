@@ -131,3 +131,10 @@ test("a server without the Codex login age setting shows no field for it", async
   fixture(); await open();
   expect(screen.queryByRole("spinbutton", { name: "Codex login age limit (days)" })).toBeNull();
 });
+test("a provider whose saved login needs the owner says so in its row", async () => {
+  const data = initial(); data.providers = ["anthropic", "openai"];
+  data.available[1] = { ...data.available[1]!, attention: "stored Codex login is 10 days old (limit 7): import your current login" };
+  server.use(http.get("/api/settings/providers", () => HttpResponse.json(data)));
+  const list = await open();
+  expect(within(list).getByText("Not used for new agents: stored Codex login is 10 days old (limit 7): import your current login")).toBeVisible();
+});

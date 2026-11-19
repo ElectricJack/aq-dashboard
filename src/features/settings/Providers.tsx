@@ -78,6 +78,7 @@ export function Providers() {
             <div><strong>{name}</strong>{!!provider?.accounts.length && <details className={styles.details}><summary>Account details</summary><p className={styles.meta}>Account references: {provider.accounts.join(", ")}</p></details>}</div>
             <div className={styles.state}>{removed ? "Removal pending" : !baseline?.providers.includes(id) ? "Addition pending" : "Added"}
               {!removed && <p className={styles.meta}>{!provider || provider.credential_status === "not_configured" ? "Setup required" : provider.credential_status === "present" ? "Server credentials present" : provider?.credential_status === "disabled" ? "Disabled on server" : "Server credentials unavailable"}</p>}
+              {!removed && provider?.attention && <p className={styles.error}>Not used for new agents: {provider.attention}</p>}
             </div>
             <ActionButton disabled={locked} aria-label={`${removed ? "Undo removal of" : "Remove"} ${name}`} onClick={() => edit(removed ? [...providers, id] : providers.filter(p => p !== id))}>{removed ? "Undo removal" : "Remove"}</ActionButton>
           </li>;
