@@ -100,3 +100,41 @@ test("account references appear only in account details, beneath consistent prov
   const account = within(list).getByText("Account references: Team"); expect(account).not.toBeVisible();
   await userEvent.click(within(list).getByText("Account details")); expect(account).toBeVisible();
 });
+test("the Codex login age limit is saved only when it changes, and cleared with an empty field", async () => {
+  let data: ProviderSettings = { ...initial(), codex_login_max_age_days: 7 }; const posts: SaveProviders[] = [];
+  server.use(http.get("/api/settings/providers", () => HttpResponse.json(data)), http.post("/api/settings/providers", async ({ request }) => {
+    const body = await request.json() as SaveProviders; posts.push(body);
+    data = { ...data, revision: String(Number(data.revision) + 1), providers: body.providers, ...(body.codex_login_max_age_days !== undefined ? { codex_login_max_age_days: body.codex_login_max_age_days } : {}) };
+    return HttpResponse.json({ ...data, operation_id: body.operation_id });
+  }));
+  await open();
+  const field = screen.getByRole("spinbutton", { name: "Codex login age limit (days)" });
+  expect(field).toHaveValue(7); expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  await userEvent.clear(field); await userEvent.type(field, "0");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("from 1 to 3650"); expect(posts).toHaveLength(0);
+  await userEvent.clear(field); await userEvent.type(field, "14");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(posts).toHaveLength(1));
+  expect(posts[0]).toMatchObject({ providers: ["anthropic"], codex_login_max_age_days: 14 });
+  await waitFor(() => expect(field).toHaveValue(14));
+  await userEvent.click(screen.getByRole("button", { name: "Add provider" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(posts).toHaveLength(2));
+  expect(posts[1]).not.toHaveProperty("codex_login_max_age_days");
+  await userEvent.clear(field);
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(posts).toHaveLength(3));
+  expect(posts[2]!.codex_login_max_age_days).toBeNull();
+});
+test("a server without the Codex login age setting shows no field for it", async () => {
+  fixture(); await open();
+  expect(screen.queryByRole("spinbutton", { name: "Codex login age limit (days)" })).toBeNull();
+});
+test("a provider whose saved login needs the owner says so in its row", async () => {
+  const data = initial(); data.providers = ["anthropic", "openai"];
+  data.available[1] = { ...data.available[1]!, attention: "stored Codex login is 10 days old (limit 7): import your current login" };
+  server.use(http.get("/api/settings/providers", () => HttpResponse.json(data)));
+  const list = await open();
+  expect(within(list).getByText("Not used for new agents: stored Codex login is 10 days old (limit 7): import your current login")).toBeVisible();
+});

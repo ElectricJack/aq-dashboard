@@ -16,18 +16,18 @@ async function openLogins() {
  renderApp(`/agents?select=node:${node}`);
  fireEvent.click(await screen.findByRole('tab',{name:'Logins'}));
 }
-test('selects providers and queues logins without exposing material',async()=>{
+test('queues the Claude token only, without exposing material',async()=>{
  const seen:Record<string,unknown>[]=[];
  server.use(http.post(`/api/worker-logins/${node}`,async({request})=>{const req=await request.json() as Record<string,unknown>;seen.push(req);return HttpResponse.json({generation:req.operation_id});}));
  await openLogins();
- const push=await screen.findByRole('button',{name:'Push logins'});
- fireEvent.click(screen.getByRole('checkbox',{name:'Codex'}));fireEvent.click(push);
+ const push=await screen.findByRole('button',{name:'Push Claude token'});
+ expect(screen.queryByRole('checkbox',{name:'Codex'})).toBeNull();expect(screen.getByText(/Each Codex agent borrows AQ’s saved Codex login/)).toBeInTheDocument();fireEvent.click(push);
  await waitFor(()=>expect(seen).toHaveLength(1));expect(seen[0]!.providers).toEqual(['anthropic']);expect(seen[0]).not.toHaveProperty('material');
 });
 test('uncertain push retries same operation and provider choice',async()=>{
  const seen:Record<string,unknown>[]=[];
  server.use(http.post(`/api/worker-logins/${node}`,async({request})=>{const req=await request.json() as Record<string,unknown>;seen.push(req);return seen.length===1?HttpResponse.error():HttpResponse.json({generation:req.operation_id});}));
- await openLogins();fireEvent.click(await screen.findByRole('button',{name:'Push logins'}));
+ await openLogins();fireEvent.click(await screen.findByRole('button',{name:'Push Claude token'}));
  await screen.findByRole('button',{name:'Retry push'});
  fireEvent.click(screen.getByRole('tab',{name:'Overview'}));
  fireEvent.click(screen.getByRole('tab',{name:'Logins'}));
@@ -36,6 +36,6 @@ test('uncertain push retries same operation and provider choice',async()=>{
 });
 test('old worker shows update command while pending, new receiver confirms installed',async()=>{
  vi.stubEnv('VITE_AQ_WORKER_INSTALL_URL','https://worker.example');vi.stubEnv('VITE_AQ_WORKER_INSTALL_SHA256','a'.repeat(64));
- server.use(http.get('/api/worker-logins',()=>HttpResponse.json({deliveries:[{node_id:node,generation:'test',providers:['anthropic','openai'],status:'pending',receiver_seen_at_ms:null}],server_time_ms:Date.now()})));
- await openLogins();expect(await screen.findByText('Logins queued. Waiting for the worker’s login receiver.')).toBeInTheDocument();fireEvent.click(screen.getByText('Update this worker'));expect(screen.getByRole('button',{name:'Copy install command'})).toBeInTheDocument();
+ server.use(http.get('/api/worker-logins',()=>HttpResponse.json({deliveries:[{node_id:node,generation:'test',providers:['anthropic'],status:'pending',receiver_seen_at_ms:null}],server_time_ms:Date.now()})));
+ await openLogins();expect(await screen.findByText('Claude token queued. Waiting for the worker’s login receiver.')).toBeInTheDocument();fireEvent.click(screen.getByText('Update this worker'));expect(screen.getByRole('button',{name:'Copy install command'})).toBeInTheDocument();
 });

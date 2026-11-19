@@ -204,16 +204,9 @@
 .runtime dt { margin-block-start: 0; }
 .runtime code { font-size: inherit; }
 
-.checkbox, .more > summary {
+.more > summary {
   min-block-size: var(--control-height);
   cursor: pointer;
-}
-
-.checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding-inline-end: var(--space-2);
 }
 
 .more > summary { align-content: center; }
