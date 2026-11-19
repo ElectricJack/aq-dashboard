@@ -32,7 +32,9 @@ test.describe("phone 390x844", () => {
   test("A legacy Graph link opens a full-viewport view with Back to list; a node tap keeps view=graph and opens the sheet", async ({ page }) => {
     await page.goto(`${LIST}&view=graph`);
     const region = page.getByRole("region", { name: "Dependency graph" });
-    await expect(region).toBeVisible();
+    // Wait for the loaded neighborhood before measuring the dialog, since the placeholder also renders a region.
+    const firstNode = region.getByRole("region", { name: "Scrollable task graph" }).getByRole("link").first();
+    await expect(firstNode).toBeVisible();
     const box = (await region.boundingBox())!;
     expect(box.width * box.height).toBeGreaterThanOrEqual(0.9 * 390 * 844);
     const back = page.getByRole("link", { name: "Back to list" });
@@ -42,12 +44,10 @@ test.describe("phone 390x844", () => {
     expect(backBox.y).toBeLessThan(80);
     // The bottom nav is covered by the full-viewport view: the bottom of the screen hits the dialog, not the shell nav.
     expect(await page.evaluate(() => !!document.elementFromPoint(195, 820)?.closest("dialog[open]"))).toBe(true);
-    // No selection yet: the view opens on the first loaded task's neighborhood instead of a dead end.
-    await expect(region.getByRole("region", { name: "Scrollable task graph" }).getByRole("link").first()).toBeVisible();
     await evidence(page, "work-graph-phone");
     await expectAxeClean(page, "dialog");
 
-    await region.getByRole("region", { name: "Scrollable task graph" }).getByRole("link").first().click();
+    await firstNode.click();
     await expect(page).toHaveURL(/view=graph/);
     const sheet = region.getByRole("region", { name: /./ }).filter({ has: page.getByRole("link", { name: "Open task" }) });
     await expect(sheet).toBeVisible();
