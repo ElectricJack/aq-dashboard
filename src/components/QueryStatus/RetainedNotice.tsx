@@ -26,10 +26,10 @@ function useAge(updatedAt: number, shown: boolean): string {
  * offline (queries pause rather than fail, so nothing else would say so).
  * Renders nothing when the read is current or there is no retained data.
  */
-export function RetainedNotice({ query, className }: { query: RetainedRead; className?: string }) {
+export function RetainedNotice({ query, className, showOffline = true }: { query: RetainedRead; className?: string; showOffline?: boolean }) {
   const online = useOnline();
   const retained = query.data !== undefined && query.dataUpdatedAt > 0;
-  const shown = retained && (query.isError || !online);
+  const shown = retained && (online ? query.isError : showOffline);
   const age = useAge(query.dataUpdatedAt, shown);
   if (!shown) return null;
   const read = `Showing data read ${age}`;

@@ -23,7 +23,9 @@ async function occludedControls(page: Page) {
     return [...document.querySelectorAll<HTMLElement>(
       "main a[href], main button, main input, main textarea, main select, main summary, main [tabindex]:not([tabindex='-1'])",
     )].filter((el) => {
-      const r = el.getBoundingClientRect();
+      // A Gantt link spans the plot for positioning. Its pinned label is the clickable control.
+      const hitArea = el.querySelector("[data-gantt-label]") ?? el;
+      const r = hitArea.getBoundingClientRect();
       let y0 = Math.max(r.top, top), y1 = Math.min(r.bottom, bottom), x0 = Math.max(r.left, 0), x1 = Math.min(r.right, innerWidth);
       // A scroller clips its content: a control scrolled out of one (a key in the phone key bar) is not covered by anything.
       for (let p = el.parentElement; p; p = p.parentElement) {

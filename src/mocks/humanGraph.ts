@@ -15,15 +15,15 @@ export const FIXTURE_IDS=ID;
 
 /** Ten tasks covering draft, active, completed and canceled states. Index 0/1 stay the original pinned pair. */
 export const fixtureTasks:GraphNode[]=[
-  base,
-  {...base,id:id(4),title:"Fixture: verify recovery",body:"Deterministic fixture for dependency navigation.",kind:"task"} as GraphNode,
+  {...base, story_points: 3},
+  {...base,story_points:8,id:id(4),title:"Fixture: verify recovery",body:"Deterministic fixture for dependency navigation.",kind:"task"} as GraphNode,
   task(0x101,"Fixture: Worker recovery","active",{body:"Parent fixture task grouping the recovery work."}),
   task(0x102,"Fixture: Define lease contract","completed",{acceptance_criteria:"Lease fields and expiry rules are written down."}),
   task(0x103,"Fixture: Recovery test fixtures","completed",{acceptance_criteria:"Crash and replay fixtures exist."}),
-  task(0x104,"Fixture: Approve recovery plan","active",{acceptance_criteria:"An operator approves the recovery plan."}),
-  task(0x105,"Fixture: Replay reconciliation","active",{acceptance_criteria:"Replayed events reconcile with recorded state."}),
-  task(0x106,"Fixture: Implement safe recovery","draft",{acceptance_criteria:"Recovery never runs two current executions."}),
-  task(0x107,"Fixture: Validate crash recovery","draft",{acceptance_criteria:"Crash tests pass against the approved plan."}),
+  task(0x104,"Fixture: Approve recovery plan","active",{story_points:3,acceptance_criteria:"An operator approves the recovery plan."}),
+  task(0x105,"Fixture: Replay reconciliation","active",{story_points:5,acceptance_criteria:"Replayed events reconcile with recorded state."}),
+  task(0x106,"Fixture: Implement safe recovery","draft",{story_points:8,acceptance_criteria:"Recovery never runs two current executions."}),
+  task(0x107,"Fixture: Validate crash recovery","draft",{story_points:2,acceptance_criteria:"Crash tests pass against the approved plan."}),
   task(0x108,"Fixture: Retire legacy lease path","canceled",{body:"Canceled: superseded by the safe recovery implementation."}),
 ];
 const edge=(n:number,source:string,target:string,edge_type:string,description:string|null):GraphEdge=>({id:id(0x200+n),source,target,edge_type,description,version:"1",source_revision:"1",target_revision:"1"});

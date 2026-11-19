@@ -3,12 +3,12 @@
   "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
   "path": "protocol/human-graph/v1",
   "files": {
-    "README.md": "faf8083e2ce69bb97f0023a1fa8b9957bd2e39885b6893d650f5c64078bcdf78",
+    "README.md": "bea2786530343c1cbcbcc38aff7a4e45264a83a98b4928922a886ae1fbfe6e3e",
     "examples/comments.json": "b334a762abcacb991c96d163f5c0abbccb4924be61443f8480c725d062ebafc7",
     "examples/history.json": "5be1cd297388cf647438df0e1205eb34238dcfc0ba73042f6495147e43255d7d",
     "examples/task.json": "4586a0bf70a025f3b7dd3ee5506fff8175e055bc56fa00065a84e67a81baca43",
     "examples/work.json": "0a073ae9c9027896fd3bb75b18f75c91b9f1f081fb11224bdc481dfe35808026",
-    "schema.json": "02c212b748f12e2a5bfdfb9407b1287e9c5cc6d52404d24de6569896c12a6054"
+    "schema.json": "8c4705b4a2c339d4d7f5dbac76baacf132e38ef6f4db4ae2633f1ef69422bda9"
   },
-  "note": "Copied from aq-server branch feat/role-catalog at 09ee5e98 (spec 0014: task role, offer refusal reasons, ran_with with a nullable snapshot_digest on executions and history attempts). Re-pin when that branch merges to main."
+  "note": "Copied from aq-server branch feat/role-catalog at 09ee5e98 (spec 0014: task role, offer refusal reasons, ran_with with a nullable snapshot_digest on executions and history attempts). Re-pin when that branch merges to main. The story points field follows aq-server f0c2ae9971df21c44cdf859a8e6fdabc2812ca8e."
 }

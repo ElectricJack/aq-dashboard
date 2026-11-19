@@ -18,7 +18,7 @@ beforeEach(()=>vi.stubGlobal("crypto",webcrypto));
 afterEach(()=>{server.resetHandlers();vi.unstubAllGlobals();vi.restoreAllMocks();});afterAll(()=>server.close());
 const scope=`?scope=project:${graphProject}`;
 function enable(allowed=true){
- server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.create"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner role required"}]}})));
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.create"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner role required"},{name:"tasks.story_points",version:"1",enabled:true}]}})));
  server.use(http.get(`/api/human/projects/${graphProject}/tasks`,()=>HttpResponse.json(graphEnvelope({items:[],next_cursor:null},"9007199254740993"))));
 }
 function forBytes(bytes:string,state:TaskOperation["state"]="confirmed"){
@@ -43,10 +43,11 @@ test("submits once with exact project revision and verifies receipt plus actual 
  enable();const sent:string[]=[];let id="";
  server.use(http.post(`/api/human/projects/${graphProject}/tasks`,async({request})=>{const bytes=await request.text();sent.push(bytes);const value=forBytes(bytes);id=value.task_id;return HttpResponse.json(value);}),http.get(`/api/human/projects/${graphProject}/tasks/:task`,({params})=>HttpResponse.json(graphEnvelope({...graphNode("task"),id:String(params.task),title:"Created recovery task"}))));
  const {router}=renderApp(`/work${scope}`);const modal=await open();await fill(modal);
+ await userEvent.type(within(modal).getByRole("spinbutton",{name:"Story points"}),"8");
  await userEvent.dblClick(within(modal).getByRole("button",{name:"Create task"}));
  expect(await within(modal).findByText("Task created and its record verified.")).toBeInTheDocument();expect(sent).toHaveLength(1);
  expect(JSON.stringify(sessionStorage)).not.toContain("Create the recovery boundary");
- expect(JSON.parse(sent[0]!)).toMatchObject({operation_id:id,expected_project_revision:"9007199254740993",title:"Create the recovery boundary",body:"Keep the original request.",acceptance_criteria:"Lost responses must be recoverable.",labels:[],task_state:"draft"});
+ expect(JSON.parse(sent[0]!)).toMatchObject({operation_id:id,expected_project_revision:"9007199254740993",title:"Create the recovery boundary",body:"Keep the original request.",acceptance_criteria:"Lost responses must be recoverable.",labels:[],task_state:"draft",story_points:8});
  expect(new URLSearchParams(router.state.location.search).get("operation")).toBe(id);expect(router.state.location.search).not.toContain("recovery");
  expect(within(modal).getByRole("link",{name:"Open created task"})).toHaveAttribute("href",`/work/${id}?scope=project%3A${graphProject}`);
  await userEvent.click(within(modal).getByRole("button",{name:"Start another task"}));expect(within(modal).getByRole("textbox",{name:"Title"})).toHaveValue("");

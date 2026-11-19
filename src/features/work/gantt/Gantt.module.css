@@ -1,0 +1,192 @@
+.chart {
+  --gantt-axis-width: clamp(150px, 22vw, 250px);
+  --gantt-guide: color-mix(in srgb, var(--color-border) 52%, transparent);
+  min-inline-size: 0;
+}
+.chart[data-compact] { --gantt-axis-width: clamp(150px, 19vw, 224px); }
+.toolbar, .controls, .legend { display: flex; align-items: center; }
+.toolbar { margin-block-end: var(--space-2); justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+.controls { gap: 3px; }
+.controls button { min-inline-size: var(--control-height); padding-inline: var(--space-2); }
+.legend { gap: var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.legend svg { color: var(--color-accent); }
+.viewport {
+  min-block-size: 192px;
+  max-block-size: clamp(310px, calc(100dvh - 335px), 740px);
+  overflow: auto;
+  overflow-anchor: none;
+  overscroll-behavior-inline: contain;
+  isolation: isolate;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  cursor: grab;
+}
+.viewport[data-dragging] { cursor: grabbing; user-select: none; }
+.chart[data-compact] .viewport { min-block-size: 162px; max-block-size: 302px; }
+.viewport:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.ruler, .plot { inline-size: calc(var(--gantt-axis-width) + var(--plot-width)); min-inline-size: 100%; }
+.ruler {
+  position: sticky;
+  z-index: 4;
+  inset-block-start: 0;
+  display: flex;
+  block-size: var(--ruler-height);
+  border-block-end: 1px solid var(--color-border);
+  background: var(--color-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+.axisHeading { display: flex; align-items: center; flex: none; padding-inline: var(--space-3); }
+.axisHeading {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  inline-size: var(--gantt-axis-width);
+  border-inline-end: 1px solid var(--color-border);
+  background: var(--color-raised);
+  color: var(--color-text);
+}
+.plotRuler { position: relative; flex: 1; min-inline-size: 0; }
+.tick {
+  position: absolute;
+  inset-block-end: 0;
+  padding-inline-start: var(--space-1);
+  padding-block-end: 4px;
+  border-inline-start: 1px solid var(--gantt-guide);
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.plot {
+  position: relative;
+  background-image: repeating-linear-gradient(to right, var(--gantt-guide) 0 1px, transparent 1px var(--step-width));
+  background-repeat: no-repeat;
+  background-size: calc(var(--plot-width) - var(--plot-inset)) 100%;
+  background-position: calc(var(--gantt-axis-width) + var(--plot-inset)) 0;
+}
+.group {
+  block-size: var(--row-height);
+  background: color-mix(in srgb, var(--color-raised) 48%, var(--color-canvas));
+  border-block-end: 1px solid var(--gantt-guide);
+}
+.group > span {
+  display: block;
+  align-content: center;
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 3;
+  block-size: 100%;
+  inline-size: var(--gantt-axis-width);
+  padding-inline: var(--space-3);
+  border-inline-end: 1px solid var(--color-border);
+  background: var(--color-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edges {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: var(--gantt-axis-width);
+  z-index: 1;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--color-text-secondary) 75%, var(--color-canvas));
+}
+.edges > path { fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; transition: d 180ms ease-out; }
+.edges marker path { fill: currentColor; }
+.edges > path[data-highlight], .edges marker .activeArrow { color: var(--color-accent); }
+.edges > path[data-highlight] { stroke-width: 1.9; }
+.task {
+  display: block;
+  position: relative;
+  block-size: var(--row-height);
+  color: var(--color-text);
+  text-decoration: none;
+  pointer-events: none;
+  scroll-margin-block-start: var(--ruler-height);
+}
+.task + .task[data-root]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  border-block-start: 1px solid var(--gantt-guide);
+  z-index: 1;
+}
+.taskLabel {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: var(--gantt-axis-width);
+  block-size: 100%;
+  padding-inline: var(--space-3);
+  border-inline-end: 1px solid var(--color-border);
+  background: var(--color-panel);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.task:not([data-root]) .taskLabel { padding-inline-start: var(--space-5); }
+.taskTitle {
+  min-inline-size: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-meta);
+}
+.task[data-root] .taskTitle { font-weight: 650; }
+.taskStatus { color: var(--color-status-running); font-size: var(--font-size-xs); }
+.barHitArea {
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-start: var(--gantt-axis-width);
+  display: grid;
+  align-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: margin-inline-start 180ms ease-out;
+}
+.bar {
+  block-size: 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 75%, var(--color-panel));
+}
+.task[data-root] .bar { block-size: 14px; }
+.task[data-status=running] .bar { background: var(--color-status-running); }
+.task[data-status=waiting] .bar { background: var(--color-status-waiting); }
+.task[data-status=held] .bar { background: var(--color-attention); }
+.task[data-status=canceled] .bar { background: var(--color-status-canceled); }
+.task[data-status=draft] .bar { background: color-mix(in srgb, var(--color-status-draft) 63%, var(--color-panel)); }
+.task[data-unestimated] .bar { border: 1px dashed var(--color-text-secondary); background: transparent; }
+.task:hover .taskLabel, .task[data-connected] .taskLabel, .task[aria-current] .taskLabel { background: var(--color-raised); }
+.task:hover .bar, .task[aria-current] .bar { box-shadow: 0 0 0 2px var(--color-canvas), 0 0 0 3px var(--color-accent); }
+.task:focus-visible { outline: none; }
+.task:focus-visible .taskLabel, .task:focus-visible .bar { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.chartHint { margin-block: var(--space-2) 0; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.message {
+  margin-block-start: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+.openGantt { font-size: var(--font-size-meta); }
+@media (max-width: 600px) {
+  .chart, .chart[data-compact] { --gantt-axis-width: clamp(116px, 36vw, 168px); }
+  .taskLabel { gap: var(--space-1); padding-inline: var(--space-2); }
+  .task:not([data-root]) .taskLabel { padding-inline-start: var(--space-4); }
+  .taskStatus { display: block; position: absolute; top: calc(50% + 5px); inset-inline-start: 26px; font-size: var(--font-size-xs); }
+  .task[data-status=running] .taskTitle { translate: 0 -6px; }
+}
+@media (pointer: coarse) {
+  .controls button { min-block-size: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .barHitArea, .edges > path { transition: none; }
+}

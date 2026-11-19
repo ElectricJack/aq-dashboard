@@ -75,8 +75,8 @@ test("project scope narrows attention to that project", async () => {
 
 test("shows work in motion and recent outcomes", async () => {
   renderApp("/overview");
-  const motion = await screen.findByRole("table", { name: "Work in motion" });
-  expect(within(motion).getAllByRole("row").length).toBeGreaterThan(1);
+  const motion = await screen.findByRole("region", { name: "Scrollable dependency tracks" });
+  expect(within(motion).getAllByRole("link").length).toBeGreaterThan(1);
   const outcomes = screen.getByRole("region", { name: "Recent outcomes" });
   expect(within(outcomes).getByText("Renderer fix")).toBeInTheDocument();
   expect(within(outcomes).getByText(/merged/i)).toBeInTheDocument();
@@ -209,11 +209,11 @@ test('SO-11: an unknown project scope says the project is unavailable, with a wa
  expect(screen.getByRole('link',{name:/Show all projects/})).toHaveAttribute('href','/overview');
 },20_000);
 
-test('SO-16: Work in motion project rows open that project in Work',async()=>{
- renderApp('/overview');
- const motion=await screen.findByRole('table',{name:'Work in motion'});
- const link=await within(motion).findByRole('link',{name:'agent-queue'});
- expect(link).toHaveAttribute('href','/work?scope=project%3Aagent-queue');
+test('SO-16: a Work in motion task opens its inspector in Work Gantt', async () => {
+  renderApp('/overview');
+  const motion = await screen.findByRole('region', { name: 'Scrollable dependency tracks' });
+  const link = await within(motion).findByRole('link', { name: /Replay reconciliation/ });
+  expect(link).toHaveAttribute('href', '/work/00000000-0000-0000-0000-000000000105?scope=project%3A00000000-0000-0000-0000-000000000001&view=gantt');
 });
 
 test('SO-17: worker heartbeats read as ages, not raw timestamps',async()=>{

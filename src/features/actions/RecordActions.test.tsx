@@ -64,6 +64,34 @@ async function open(kind:string,label:string,labels?:string[]){
  return {node,dialog,...state};
 }
 
+test.each([["8", 8], ["", null]] as const)("Edit task submits story points as %s", async (value, expected) => {
+  const { node } = setup("task.edit");
+  let payload: Record<string, unknown> | undefined;
+  server.use(
+    http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, capabilities: [
+      ...bootstrap.data.capabilities.filter(c => !["human.graph.read", "tasks.read", "dashboard.actions", "tasks.edit", "tasks.story_points"].includes(c.name)),
+      ...["human.graph.read", "tasks.read", "dashboard.actions", "tasks.edit", "tasks.story_points"].map(name => ({ name, version: "1", enabled: true })),
+    ] } })),
+    http.get(`/api/human/projects/${graphProject}/tasks/${node.id}`, () => HttpResponse.json(graphEnvelope({ ...node, story_points: 3 }))),
+    http.post("/api/v1/actions", async ({ request }) => {
+      const body = await request.json() as { operation_id: string; payload: Record<string, unknown> };
+      payload = body.payload;
+      return HttpResponse.json(operation(body.operation_id));
+    }),
+  );
+  renderApp(`/work/${node.id}?scope=project:${graphProject}`);
+  await screen.findByText("3 story points");
+  await launch("Edit task", true);
+  const dialog = screen.getByRole("dialog", { name: "Edit task" });
+  const input = within(dialog).getByRole("spinbutton", { name: "Story points" });
+  expect(input).toHaveValue(3);
+  await userEvent.clear(input);
+  if (value) await userEvent.type(input, value);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  await within(dialog).findByText("Action confirmed");
+  expect(payload).toMatchObject({ story_points: expected, expected_version: node.version });
+});
+
 test.each(actions)("%s submits a version-bound typed action and refreshes confirmed effects", async(kind,label)=>{
  const requests:Record<string,unknown>[]=[];
  server.use(http.post("/api/v1/actions",async({request})=>{

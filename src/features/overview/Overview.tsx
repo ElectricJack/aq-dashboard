@@ -20,6 +20,8 @@ import { Infrastructure } from "./Infrastructure";
 import { useSession } from "../../app/session";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { CreateTaskAction } from "../work/CreateTask";
+import { DependencyGantt } from "../work/gantt/DependencyGantt";
+import { validGraphId } from "../../api/adapters/humanGraph";
 
 /** Initial foreground budget from docs/plans/0001 §2. */
 const OVERVIEW_POLL_MS = 10_000;
@@ -278,11 +280,49 @@ function ProjectUnavailable() {
   );
 }
 
+function ProjectActivitySummary({ rows, serverTime, complete, canOpenWork }: {
+  rows: OverviewView["inMotion"]; serverTime: string; complete: boolean; canOpenWork: boolean;
+}) {
+  return <>
+    <div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
+      <table aria-label="Work in motion" className={`${styles.table} ${styles.motionTable}`}>
+        <thead>
+          <tr>
+            <th scope="col">Project</th>
+            <th scope="col">Now</th>
+            <th scope="col">Next constraint</th>
+            <th scope="col">Last progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((m) => (
+            <tr key={m.project.id} className={styles.motionRow}>
+              <th scope="row" className={styles.motionProject}>
+                {canOpenWork ? (
+                  <Link to={{ pathname: "/work", search: scopeSearch({ kind: "project", project_id: m.project.id }) }}>{m.project.label}</Link>
+                ) : m.project.label}
+              </th>
+              <td className={styles.motionNow}>
+                <CountLabel total={m.running} /> running
+              </td>
+              <td className={styles.motionConstraint}><ConstraintStatus constraint={m.nextConstraint} /></td>
+              <td className={styles.motionProgress}>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {rows.length === 0 && <p className={styles.meta}>{complete ? "No work in motion" : "Project movement not reported"}</p>}
+  </>;
+}
+
 export function Overview() {
   const [scope] = useScope();
   const { bootstrap } = useSession();
   const taskContributions = bootstrap.capability("human.overview.tasks.read").enabled;
   const search = scopeSearch(scope);
+  const canShowGantt = bootstrap.capability("human.graph.read").enabled && bootstrap.capability("tasks.read").enabled
+    && (scope.kind !== "project" || validGraphId(scope.project_id));
   const query = useRead<OverviewWire, OverviewView>({
     resource: "overview",
     path: "/api/v1/overview",
@@ -290,6 +330,10 @@ export function Overview() {
     adapt: adaptOverview,
     pollMs: OVERVIEW_POLL_MS,
   });
+
+  const runningProjects = query.data?.view.inMotion.filter(item => (item.running.value ?? 0) > 0).map(item => item.project.id);
+  const gantt = canShowGantt && <DependencyGantt compact project={scope.kind === "project" ? scope.project_id : undefined}
+    runningProjects={runningProjects} showOffline={!query.data} />;
 
   if (!query.data && unavailableProject(scope.kind, query.error)) return <ProjectUnavailable />;
   if (!query.data && !query.isError) return (
@@ -310,7 +354,7 @@ export function Overview() {
           </section>
           <section className={styles.panel} aria-labelledby="motion-heading">
           <h2 id="motion-heading">Work in motion</h2>
-          <p className={styles.meta}>{query.isError ? "Project movement unavailable" : "Loading project movement…"}</p>
+          {gantt || <p className={styles.meta}>Project movement unavailable</p>}
           {query.isError && <RecordedTasks />}
           <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p><Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link></section>
           </section>
@@ -359,35 +403,7 @@ export function Overview() {
       <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
       <section className={styles.panel} aria-labelledby="motion-heading">
         <h2 id="motion-heading">Work in motion</h2>
-        {<div className={styles.tableWrap} role="region" aria-label="Work in motion, scrollable" tabIndex={0}>
-          <table aria-labelledby="motion-heading" className={`${styles.table} ${styles.motionTable}`}>
-            <thead>
-              <tr>
-                <th scope="col">Project</th>
-                <th scope="col">Now</th>
-                <th scope="col">Next constraint</th>
-                <th scope="col">Last progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.inMotion.map((m) => (
-                <tr key={m.project.id} className={styles.motionRow}>
-                  <th scope="row" className={styles.motionProject}>
-                    {canOpenWork ? (
-                      <Link to={{ pathname: "/work", search: scopeSearch({ kind: "project", project_id: m.project.id }) }}>{m.project.label}</Link>
-                    ) : m.project.label}
-                  </th>
-                  <td className={styles.motionNow}>
-                    <CountLabel total={m.running} /> running
-                  </td>
-                  <td className={styles.motionConstraint}><ConstraintStatus constraint={m.nextConstraint} /></td>
-                  <td className={styles.motionProgress}>{m.lastProgressAt ? formatAge(serverTime, m.lastProgressAt) : "Unknown"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
-        {view.inMotion.length === 0 && <p className={styles.meta}>{complete ? "No work in motion" : "Project movement not reported"}</p>}
+        {gantt || <ProjectActivitySummary rows={view.inMotion} serverTime={serverTime} complete={complete} canOpenWork={canOpenWork} />}
         {taskContributions && <details className={styles.observationDetails}><summary>Recorded task details</summary><RecordedTasks embedded serverTime={serverTime} /></details>}
       <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
         <h2 id="outcomes-heading">Recent outcomes</h2>

@@ -1,11 +1,12 @@
 import { ContractError, isRecord } from "./contract";
+import { validStoryPoints } from "./storyPoints";
 
 export const HUMAN_GRAPH_CONTRACT = "human-graph-1";
 export const GRAPH_PAGE_SIZE = 25;
 export const GRAPH_MAX_PAGES = 4;
 export type GraphNode = {
   id: string; kind: "task" | "knowledge"; title: string; body: string; acceptance_criteria: string;
-  labels: string[]; task_state: string | null; verification: string | null; content_type: string | null;
+  labels: string[]; story_points?: number | null; task_state: string | null; verification: string | null; content_type: string | null;
   retired: boolean; deleted: boolean; created_at: string; updated_at: string; version: string; content_revision: string;
   created_by: string; provenance: unknown[]; last_verified_by: string | null; last_verified_at: string | null;
   retirement_reason: string | null; valid_from: string | null; valid_until: string | null; review_at: string | null;
@@ -76,6 +77,7 @@ export function adaptGraphNode(value: unknown, kind: GraphNode["kind"]): GraphNo
   check(isRecord(value));
   check(validGraphId(value.id) && value.kind === kind && title(value.title));
   check(text(value.body, 262144) && text(value.acceptance_criteria, 16384));
+  check(value.story_points === undefined || (kind === "task" && (value.story_points === null || validStoryPoints(value.story_points))));
   check(Array.isArray(value.labels) && value.labels.length <= 64 && value.labels.every(v => text(v,128)));
   check(optional(value.task_state, v => text(v,64)) && optional(value.verification,v => text(v,64)) && optional(value.content_type,v => text(v,128)));
   check(typeof value.retired === "boolean" && typeof value.deleted === "boolean" && time(value.created_at) && time(value.updated_at));

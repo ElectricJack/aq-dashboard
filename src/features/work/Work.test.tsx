@@ -107,7 +107,7 @@ test("list rows keep a short marker for retired and deleted records",async()=>{
  server.use(http.get(`/api/human/projects/${task.project.id}/tasks`,()=>HttpResponse.json({...task,data:{items:[{...task.data,retired:true}],next_cursor:null}})));
  renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByText("Retired")).toBeVisible();
 });
-test("graph root resets when returning to List and follows the selection into Graph (WD-01)",async()=>{
+test("legacy graph root clears on List and the selection carries into Gantt",async()=>{
  const tasks=`/work/00000000-0000-0000-0000-000000000104${scope}&view=graph&root=00000000-0000-0000-0000-000000000104`;
  const {router}=renderApp(tasks);const params=()=>new URLSearchParams(router.state.location.search);
  await userEvent.click(await screen.findByRole("button",{name:"List"}));
@@ -115,8 +115,10 @@ test("graph root resets when returning to List and follows the selection into Gr
  const list=await screen.findByRole("list",{name:"Tasks"});const row=within(list).getByRole("link",{name:/Fixture: Replay reconciliation/});
  expect(new URL(row.getAttribute("href")!,"http://x").searchParams.get("root")).toBeNull();await userEvent.click(row);
  await screen.findByRole("region",{name:"Fixture: Replay reconciliation"});
- await userEvent.click(screen.getByRole("button",{name:"Graph"}));
- await waitFor(()=>expect(params().get("root")).toBe("00000000-0000-0000-0000-000000000105"));expect(params().get("view")).toBe("graph");
+ await userEvent.click(screen.getByRole("button",{name:"Gantt"}));
+ const tracks=await screen.findByRole("region",{name:"Scrollable dependency tracks"});
+ expect(within(tracks).getByRole("link",{name:/Replay reconciliation/})).toHaveAttribute("aria-current","page");
+ expect(params().get("view")).toBe("gantt");expect(params().get("root")).toBeNull();
 });
 test("the inspector is the single task view: full copyable task ID, no Open full task link (WD-02, WD-09)",async()=>{
  renderApp(`/work/00000000-0000-0000-0000-000000000105${scope}`);const detail=await screen.findByRole("region",{name:"Fixture: Replay reconciliation"});
