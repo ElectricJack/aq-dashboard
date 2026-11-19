@@ -47,3 +47,14 @@ test('ending a live terminal preserves its latest visible screen and fences inpu
   expect(mocks.sendInput).not.toHaveBeenCalled();
   unmount(); client.clear();
 });
+
+test('input-capable sessions forward typed bytes without the view-only refusal', () => {
+  mocks.sendInput.mockReset();
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const { unmount } = render(<QueryClientProvider client={client}><InteractiveTerminal terminalId="term-2" name="Agent" compact inputEnabled /></QueryClientProvider>);
+  act(() => mocks.state?.({ message: 'Connected', connected: true, controlling: true, canControl: true, paused: false }));
+  act(() => mocks.onData?.('owner message\r'));
+  expect(mocks.sendInput).toHaveBeenCalledWith(new TextEncoder().encode('owner message\r'));
+  expect(screen.queryByText(/This terminal is view-only/)).not.toBeInTheDocument();
+  unmount(); client.clear();
+});

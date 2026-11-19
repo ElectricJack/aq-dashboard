@@ -13,6 +13,7 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   if (scenario === "swarm-two-providers") catalog.push({ provider: "fixture-provider-two", intelligence_class: "fixture-standard-two", display_name: "Fixture second standard" });
   const storageKey = `aq-mock-swarm-settings:${scenario ?? "default"}`;
   const operations = new Map<string, { request: string; response: SwarmSettings }>();
+  let terminalInputEnabled = true;
   let revision = 1;
   let activeMode: SwarmMode = "normal";
   let normal: SwarmCellLimit[] = catalog.map((c, i) => ({ provider: c.provider, intelligence_class: c.intelligence_class, limit: i ? 2 : 4 }));
@@ -22,11 +23,11 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   try {
     const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null") as SwarmSettings | null;
     if (saved) {
-      revision = Number(saved.revision); activeMode = saved.active_mode; normal = saved.normal ?? normal; reduced = saved.reduced;
+      terminalInputEnabled = saved.terminal_input_enabled ?? true; revision = Number(saved.revision); activeMode = saved.active_mode; normal = saved.normal ?? normal; reduced = saved.reduced;
       providerLimits.push(...(saved.provider_limits ?? [])); cellLimits.push(...(saved.cell_limits ?? []));
     }
   } catch { /* Fresh labelled fixture state. */ }
-  const result = (): SwarmSettings => ({ revision: String(revision), active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
+  const result = (): SwarmSettings => ({ terminal_input_enabled: terminalInputEnabled, revision: String(revision), active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
     cells: catalog.map(c => {
       const find = (list: SwarmCellLimit[] | null) => list?.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class)?.limit ?? null;
       const override = cellLimits.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class);
@@ -64,11 +65,12 @@ export function swarmSettingsHandlers(scenario?: string | null) {
       const previous = operations.get(body.operation_id), serialized = JSON.stringify(["limits", body]);
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
       if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
-      if (!body.provider && !body.cell) return fail(400, "Choose a limit.");
+      if (!body.provider && !body.cell && typeof body.terminal_input_enabled !== "boolean") return fail(400, "Choose a limit.");
       for (const item of [body.provider, body.cell].filter(Boolean)) {
         if (item!.limit !== null && (!Number.isInteger(item!.limit) || item!.limit! < 0 || item!.limit! > 4294967295)) return fail(400, "Invalid limit.");
         if (!catalog.some(c => c.provider === item!.provider)) return fail(400, "Unknown provider.");
       }
+      if (typeof body.terminal_input_enabled === "boolean") terminalInputEnabled = body.terminal_input_enabled;
       if (body.provider) {
         const index = providerLimits.findIndex(x => x.provider === body.provider!.provider);
         if (index >= 0) providerLimits[index] = body.provider; else providerLimits.push(body.provider);

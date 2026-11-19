@@ -12,7 +12,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900, phone: false }, {
       await page.getByRole("list", { name: "Session history" }).getByRole("button").last().click();
       await page.getByRole("link", { name: "Open session inspection" }).click();
       const pane = page.getByRole("region", { name: "Interactive agent terminal" });
-      await expect(pane.getByText("This terminal is view-only: this agent's harness runs one prompt and exits, so it takes no typed input.", {exact:true})).toBeVisible();
+      await expect(pane.getByText("This terminal is view-only. Input is disabled for this session; check Settings → Execution for new sessions.", {exact:true})).toBeVisible();
       await expect(pane).not.toHaveAttribute("data-controlling");
       // Control now connects automatically when allowed; a read-only terminal
       // exposes its policy reason and never offers an input/control action.

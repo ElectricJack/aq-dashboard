@@ -15,7 +15,7 @@ let sent: Sent[] = [];
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 beforeEach(() => {
   sent = [];
-  server.use(...roleSettingsHandlers(), ...routingDocumentHandlers(), ...internalWorkHandlers());
+  server.use(...roleSettingsHandlers(), ...routingDocumentHandlers(), ...internalWorkHandlers(), ...swarmSettingsHandlers());
   server.events.on("request:start", async ({ request }) => {
     const url = new URL(request.url);
     if (request.method !== "GET" && url.pathname.startsWith("/api/settings/")) sent.push({ method: request.method, path: url.pathname, search: url.search, body: await request.clone().json().catch(() => null) as Sent["body"] });
@@ -328,7 +328,7 @@ describe("Intelligence levels", () => {
       await userEvent.click(within(editor).getByRole("button", { name: "Save level" }));
       expect(await within(editor).findByText("Saved.")).toBeVisible();
       unmount(); sessionStorage.clear(); sent = [];
-      server.resetHandlers(); server.use(...roleSettingsHandlers(), ...routingDocumentHandlers(), ...internalWorkHandlers());
+      server.resetHandlers(); server.use(...roleSettingsHandlers(), ...routingDocumentHandlers(), ...internalWorkHandlers(), ...swarmSettingsHandlers());
     }
   });
 

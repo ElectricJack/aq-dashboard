@@ -67,3 +67,15 @@ test("sparse class updates leave other limits intact and can be retried exactly"
   expect(provider.provider_limits).toEqual([{ provider: initial.cells[0]!.provider, limit: 2 }]);
   expect(provider.cells[0]!.effective_limit).toBe(0);
 });
+
+test("terminal policy updates preserve limits, replay exactly, and validate booleans", async () => {
+  expect(() => adaptSwarmSettings({ ...wire, terminal_input_enabled: "true" })).toThrow(ContractError);
+  expect(adaptSwarmSettings({ ...wire, terminal_input_enabled: false }).terminal_input_enabled).toBe(false);
+  const initial = await readSwarmSettings();
+  const request = { operation_id: "00000000-0000-4000-8000-000000000091", expected_revision: initial.revision, terminal_input_enabled: false };
+  const saved = await updateSwarmLimits(request);
+  expect(saved.terminal_input_enabled).toBe(false);
+  expect(saved.provider_limits).toEqual(initial.provider_limits);
+  expect(saved.cell_limits).toEqual(initial.cell_limits);
+  expect(await updateSwarmLimits(request)).toEqual(saved);
+});

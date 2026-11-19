@@ -9,6 +9,7 @@ import { DisplayPreferences } from "./DisplayPreferences";
 import { Providers } from "./Providers";
 import { Roles } from "./Roles";
 import { IntelligenceLevels } from "./IntelligenceLevels";
+import { TerminalInputSettings } from "./TerminalInputSettings";
 import { ExecutionProfiles } from "./ExecutionProfiles";
 import { SelectionDefaults } from "./SelectionDefaults";
 import { InternalWorkSettings } from "./InternalWorkSettings";
@@ -60,7 +61,7 @@ function SettingsContent() {
         {tab.id === "intelligence" && <><h2 className={styles.sectionTitle}>Intelligence</h2>
           <IntelligenceLevels /><SelectionDefaults /><ProfileSnapshotNote scope="intelligence" />
           <div className={styles.sections}><InternalWorkSettings /><RoutingDocumentDraftProvider><RoutingPolicyEditor /></RoutingDocumentDraftProvider></div></>}
-        {tab.id === "execution" && <><ExecutionProfiles /><ProfileSnapshotNote scope="execution" /></>}
+        {tab.id === "execution" && <><TerminalInputSettings /><ExecutionProfiles /><ProfileSnapshotNote scope="execution" /></>}
       </> : selected === tab.id && <>
         {tab.id === "identity" && <Panel title="Identity" description="The account this dashboard is signed in with.">
           <DetailList><dt>Signed in as</dt><dd>{bootstrap.principal.displayName}</dd></DetailList>
