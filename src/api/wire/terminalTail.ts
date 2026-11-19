@@ -17,6 +17,7 @@ export type TerminalTail = {
   availability: "resident_tail" | "not_retained";
   disconnected: boolean;
   initial_incomplete: true;
+  grid: [columns: number, rows: number] | null;
   frames: TailFrame[];
   gaps: TailGap[];
   next_sequence: number;

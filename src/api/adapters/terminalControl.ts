@@ -3,7 +3,7 @@ import { adaptTerminalInfo, sameTerminal, terminalIdentity } from './terminalTai
 import type { TerminalIdentity } from '../wire/terminalTail';
 export interface Lease { lease_id: string; generation: number; expires_at_ms: number }
 export interface Control { generation: number; lease: Lease | null; fence_acknowledged: boolean; input_paused: boolean }
-export interface TerminalInfo { terminal: TerminalIdentity; session_revision: number; input_enabled: boolean; disconnected: boolean; control: Control }
+export interface TerminalInfo { terminal: TerminalIdentity; session_revision: number; input_enabled: boolean; maxInputBytes: number; maxPendingInputBytes: number; disconnected: boolean; control: Control }
 function check(v: unknown): asserts v { if (!v) throw new ContractError('Invalid terminal control'); }
 function integer(v: unknown, min = 0): v is number { return Number.isSafeInteger(v) && (v as number) >= min; }
 export function adaptControl(v: unknown, terminal: TerminalIdentity, revision: number): Control {
@@ -19,7 +19,9 @@ export function adaptControl(v: unknown, terminal: TerminalIdentity, revision: n
 export function adaptInteractiveInfo(v: unknown, id: string): TerminalInfo {
   const base = adaptTerminalInfo(v, id);
   check(isRecord(v) && v.input_mode === 'finite_v1' && isRecord(v.terminal_policy) && typeof v.terminal_policy.input_enabled === 'boolean' && typeof v.disconnected === 'boolean');
-  return { ...base, input_enabled: v.terminal_policy.input_enabled, disconnected: v.disconnected, control: adaptControl(v.control, base.terminal, base.session_revision) };
+  const { input_enabled, max_input_bytes, max_pending_input_bytes } = v.terminal_policy;
+  check(integer(max_input_bytes, 1) && max_input_bytes <= 4096 && integer(max_pending_input_bytes, max_input_bytes) && max_pending_input_bytes <= 32768);
+  return { ...base, input_enabled, maxInputBytes: max_input_bytes, maxPendingInputBytes: max_pending_input_bytes, disconnected: v.disconnected, control: adaptControl(v.control, base.terminal, base.session_revision) };
 }
 export function adaptInputReceipt(v: unknown, terminal: TerminalIdentity, operation: string) {
   check(isRecord(v) && sameTerminal(terminalIdentity(v.terminal), terminal) && v.operation_id === operation && typeof v.input_paused === 'boolean' && integer(v.observed_at_ms));

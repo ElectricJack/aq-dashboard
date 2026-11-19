@@ -62,7 +62,7 @@ export function terminalHandlers(terminals: ReadonlyMap<string, string>) {
     http.get("/api/v1/terminals/:id", ({ params }) => {
       const id = String(params.id);
       if (!known(id)) return missing();
-      return json({ terminal: identity(id), session_revision: SESSION_REVISION, input_mode: "finite_v1", terminal_policy: { input_enabled: !readOnly.has(id) }, disconnected: false, control: control(id) });
+      return json({ terminal: identity(id), session_revision: SESSION_REVISION, input_mode: "finite_v1", terminal_policy: { input_enabled: !readOnly.has(id), max_input_bytes: 4096, max_pending_input_bytes: 32768 }, disconnected: false, control: control(id) });
     }),
     http.get("/api/v1/terminals/:id/receipts/:operation", ({ params }) =>
       known(String(params.id)) ? json(receipt(String(params.id), String(params.operation))) : missing(),
@@ -116,7 +116,7 @@ export function terminalHandlers(terminals: ReadonlyMap<string, string>) {
       const at = Math.min(Date.now(), expires - 1);
       return json({
         terminal, subscription_id: subscription, session_revision: SESSION_REVISION, expires_at_ms: expires, server_time_ms: at,
-        last_observed_at_ms: null, availability: "resident_tail", disconnected: false, initial_incomplete: true, more: false,
+        last_observed_at_ms: null, availability: "resident_tail", disconnected: false, initial_incomplete: true, grid: [120, 40], more: false,
         next_sequence: frames.length ? after + 1 : after, frames, gaps: [],
       }, at);
     }),

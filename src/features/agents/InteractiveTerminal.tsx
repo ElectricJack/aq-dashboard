@@ -7,9 +7,9 @@ import '@xterm/xterm/css/xterm.css';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { queryKey } from '../../api/queryKeys';
-import { connectInteractiveTerminal, type TerminalBinding, type TerminalState } from '../../api/interactiveTerminalClient';
+import { connectInteractiveTerminal, type TerminalBinding, type TerminalConnection, type TerminalGrid, type TerminalState } from '../../api/interactiveTerminalClient';
 import { readPreferences } from '../../app/preferences';
-import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, isObservedFocusReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_FAMILY, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
+import { terminalOptions, guardUntrustedOutput, guardObservedTerminalQueries, guardObservedMouse, isObservedFocusReport, isObservedMouseReport, withControlModifier, clampTerminalFontSize, TERMINAL_FONT_FAMILY, TERMINAL_FONT_SIZE, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, TERMINAL_FONT_SIZE_STEP, TERMINAL_LINE_HEIGHT } from './terminal/terminalSetup';
 import { canFocusTerminal } from './terminal/terminalFocus';
 import { attachTouchScroll } from './terminal/terminalTouchScroll';
 import { snapshotLines } from './terminal/terminalSnapshot';
@@ -81,6 +81,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const { bootstrap, queryContext } = useSession();
   const queryClient = useQueryClient();
   const controlCapability = bootstrap.capability('terminal.control'), allowControl = manual || hostShell || controlCapability.enabled;
+  const fixed = !manual && !hostShell;
   const phone = useMediaQuery('(max-width: 767px)');
   const ids = useId(), helpId = `${ids}-help`, menuId = `${ids}-more`, messageNoteId = `${ids}-message-note`;
   const actions = useRef<HTMLDivElement>(null);
@@ -89,7 +90,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const terminal = useRef<Terminal | null>(null);
   const inputAllowed = useRef(inputEnabled); inputAllowed.current = inputEnabled;
   const uncertain = useRef(false);
-  const connection = useRef<ReturnType<typeof connectInteractiveTerminal> | null>(null);
+  const connection = useRef<TerminalConnection | null>(null);
   const [state, setState] = useState<TerminalState>({ message: 'Connecting…', connected: false, controlling: false, canControl: false, paused: false });
   const [attempt, setAttempt] = useState(0), [watching, setWatching] = useState(true);
   // U11: the screen at the moment observation stopped, and the identity/epoch a reconnect must match.
@@ -99,46 +100,71 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const [ctrl, setCtrlState] = useState(false), ctrlArmed = useRef(false);
   const setCtrl = useCallback((on: boolean) => { ctrlArmed.current = on; setCtrlState(on); }, []);
   const [fontSize, setFontSize] = useState(() => clampTerminalFontSize(readPreferences().terminalFontSize)), fontSizeRef = useRef(fontSize);
-  const relayout = useRef<(forceResize?: boolean) => void>(() => {});
+  const relayout = useRef<() => void>(() => {});
+  const grid = useRef<TerminalGrid | undefined>(undefined);
   const [panColumns, setPanColumns] = useState<number | null>(null);
   const keys = useRef<HTMLDivElement>(null);
   const [keyFade, setKeyFade] = useState({ start: false, end: false });
   useEffect(() => {
     if (!host.current || !watching) return;
-    const term = new Terminal({ ...terminalOptions(fontSizeRef.current), cols: 80, rows: 24 }); terminal.current = term;
+    const term = new Terminal({ ...terminalOptions(fontSizeRef.current), cols: 80, rows: 24, altClickMovesCursor: !fixed });
+    terminal.current = term; grid.current = undefined;
     const fit = new FitAddon(); term.loadAddon(fit); term.open(host.current);
     // Below 80 columns the frame scrolls instead of the font shrinking; size the floor in terminal cells, not page `ch`.
     if (term.element) term.element.style.minInlineSize = `${Math.ceil(MIN_PANE_COLUMNS * terminalCellWidth(fontSizeRef.current)) + SCROLLBAR_PX}px`;
-    const guarded = [...guardUntrustedOutput(term), ...((manual||hostShell)?[]:guardObservedTerminalQueries(term))];
+    const guarded = [...guardUntrustedOutput(term), ...(fixed ? [...guardObservedTerminalQueries(term), guardObservedMouse(term)] : [])];
     term.textarea?.setAttribute('aria-label', `${name} terminal input`);
     term.textarea?.setAttribute('aria-describedby', helpId);
     term.attachCustomKeyEventHandler(event => {
+      if (fixed && event.key === 'Escape' && !event.isComposing && inputAllowed.current && !term.options.disableStdin) {
+        if (event.type === 'keydown' && !event.repeat) connection.current?.sendEscape();
+        return false;
+      }
       if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'm') { (typeButton.current??pane.current)?.focus(); return false; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && term.hasSelection()) return false;
       return true;
     });
     const job = crypto.randomUUID();
     const freeze = () => { const lines = snapshotLines(term.buffer.active, term.rows); if (lines.length) setSnapshot(lines); };
-    const transport = (hostShell ? (options: Parameters<typeof connectManualTerminal>[0]) => connectManualTerminal(options, `/api/worker-terminals/shells/${terminalId}/terminal`) : manual ? connectManualTerminal : inputEnabled ? connectNativeTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
+    const transport: TerminalConnection = (hostShell ? (options: Parameters<typeof connectManualTerminal>[0]) => connectManualTerminal(options, `/api/worker-terminals/shells/${terminalId}/terminal`) : manual ? connectManualTerminal : inputEnabled ? connectNativeTerminal : connectInteractiveTerminal)({ terminalId, allowControl, initiallyPaused: uncertain.current, expect: binding.current,
       read: (part, fetcher) => queryClient.fetchQuery({ queryKey: queryKey(queryContext, 'terminal-tail', { terminalId, part, watchJob: job }), queryFn: fetcher, retry: false, staleTime: 0, gcTime: 0 }),
       write: bytes => new Promise<void>(resolve => { feed?.append(bytes); term.write(bytes, resolve); }),
       reset: () => { freeze(); feed?.restart(); term.reset(); },
-      state: next => { uncertain.current ||= next.paused; if (next.binding) binding.current = next.binding; if (!next.connected) freeze(); term.options.disableStdin = !next.controlling; feed?.status(next.message, next.connected); setState(next); },
+      state: next => {
+        uncertain.current ||= next.inputDeliveryUncertain === true;
+        if (next.binding) binding.current = next.binding;
+        if (fixed && next.grid && (next.grid.columns !== grid.current?.columns || next.grid.rows !== grid.current.rows)) {
+          grid.current = next.grid;
+          term.resize(next.grid.columns, next.grid.rows);
+          updateWidth();
+          relayout.current();
+        }
+        if (!next.connected) freeze();
+        term.options.disableStdin = !next.controlling;
+        feed?.status(next.message, next.connected); setState(next);
+      },
     }); connection.current = transport;
+    function updateWidth() {
+      if (!term.element) return;
+      const columns = fixed ? term.cols : MIN_PANE_COLUMNS;
+      term.element.style.minInlineSize = `${Math.ceil(columns * terminalCellWidth(fontSizeRef.current)) + SCROLLBAR_PX}px`;
+    }
     const data = term.onData(value => {
-      if (isObservedFocusReport(value)) return;
-      if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
-      if (inputAllowed.current) transport.sendInput(new TextEncoder().encode(value));
+      if (isObservedFocusReport(value) || (fixed && isObservedMouseReport(value))) return;
+      const modified = ctrlArmed.current && value !== '\x1b';
+      if (modified) { value = withControlModifier(value); setCtrl(false); }
+      if (!inputAllowed.current) return;
+      if (modified && value === '\x1b' && fixed) transport.sendEscape();
+      else transport.sendInput(new TextEncoder().encode(value));
     });
-    const binary = term.onBinary(value => inputAllowed.current && transport.sendInput(Uint8Array.from(value, c => c.charCodeAt(0) & 255)));
-    const resize = term.onResize(size => transport.resize(size.cols, size.rows));
-    let animation = 0, force = false;
+    const binary = fixed ? null : term.onBinary(value => inputAllowed.current && transport.sendInput(Uint8Array.from(value, c => c.charCodeAt(0) & 255)));
+    const resize = fixed ? null : term.onResize(size => transport.resize?.(size.cols, size.rows));
+    let animation = 0;
     const measurePan = () => {
       const screen = host.current?.querySelector<HTMLElement>('.xterm-screen');
       setPanColumns(screen && host.current && screen.scrollWidth > host.current.clientWidth ? term.cols : null);
     };
-    const layout = (forceResize = false) => {
-      force ||= forceResize;
+    const layout = () => {
       cancelAnimationFrame(animation); animation = requestAnimationFrame(() => {
         if (!host.current || !frame.current || host.current.getBoundingClientRect().width === 0 || host.current.getBoundingClientRect().height === 0) return;
         const viewport = window.visualViewport;
@@ -151,10 +177,8 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         frame.current.style.maxHeight = viewport && viewport.width < 768 ? `${Math.max(180, viewport.height + viewport.offsetTop - box.top - below)}px` : '';
         const dimensions = fit.proposeDimensions();
         // A hidden host (frozen last observation) proposes NaN; keep the current size.
-        if (dimensions && Number.isFinite(dimensions.cols) && Number.isFinite(dimensions.rows)) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
+        if (!fixed && dimensions && Number.isFinite(dimensions.cols) && Number.isFinite(dimensions.rows)) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
         if (pane.current) { pane.current.dataset.cols = String(term.cols); pane.current.dataset.fitCols = dimensions ? String(dimensions.cols) : ''; }
-        // A text-size change re-sends the controller's size even when the grid is unchanged.
-        if (force) { force = false; transport.resize(term.cols, term.rows); }
         measurePan();
       });
     };
@@ -163,16 +187,36 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     const observer = new ResizeObserver(() => layout()); observer.observe(host.current); if (pane.current) observer.observe(pane.current); layout();
     const screen = host.current.querySelector('.xterm-screen'); if (screen) observer.observe(screen);
     void document.fonts?.ready.then(() => layout());
-    const touch = attachTouchScroll(host.current, { lineHeight: () => fontSizeRef.current * TERMINAL_LINE_HEIGHT, scroll: lines => term.scrollLines(lines), onTap: () => { if (canFocusTerminal()) term.focus(); } });
+    const wheelTarget = host.current;
+    const wheel = (event: WheelEvent) => {
+      // xterm emits cursor-key input for wheel movement in alternate screens.
+      // Capture the gesture before xterm and keep it in the viewer.
+      event.stopImmediatePropagation();
+      if (event.deltaY === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.ctrlKey) return;
+      event.preventDefault();
+      const viewport = frame.current;
+      if (!viewport) return;
+      const rowHeight = fontSizeRef.current * TERMINAL_LINE_HEIGHT;
+      const distance = event.deltaY * (event.deltaMode === 1 ? rowHeight : event.deltaMode === 2 ? viewport.clientHeight : 1);
+      if (viewport.scrollHeight > viewport.clientHeight) viewport.scrollTop += distance;
+      else term.scrollLines(Math.sign(distance) * Math.ceil(Math.abs(distance) / rowHeight));
+    };
+    if (fixed) wheelTarget.addEventListener('wheel', wheel, { capture: true, passive: false });
+    const touch = attachTouchScroll(host.current, { lineHeight: () => fontSizeRef.current * TERMINAL_LINE_HEIGHT, scroll: lines => {
+      const viewport = frame.current;
+      if (fixed && viewport && viewport.scrollHeight > viewport.clientHeight) viewport.scrollTop += lines * fontSizeRef.current * TERMINAL_LINE_HEIGHT;
+      else term.scrollLines(lines);
+    }, onTap: () => { if (canFocusTerminal()) term.focus(); } });
     const viewportLayout = () => layout();
     window.visualViewport?.addEventListener('resize', viewportLayout); window.visualViewport?.addEventListener('scroll', viewportLayout);
     return () => {
       relayout.current = () => {}; setPanColumns(null);
       freeze(); transport.close(); connection.current = null; feed?.end(); cancelAnimationFrame(animation); observer.disconnect(); touch();
       window.visualViewport?.removeEventListener('resize', viewportLayout); window.visualViewport?.removeEventListener('scroll', viewportLayout);
-      data.dispose(); binary.dispose(); resize.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
+      if (fixed) wheelTarget.removeEventListener('wheel', wheel, true);
+      data.dispose(); binary?.dispose(); resize?.dispose(); guarded.forEach(g => g.dispose()); term.dispose(); terminal.current = null;
     };
-  }, [terminalId, name, manual, hostShell, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
+  }, [terminalId, name, manual, hostShell, fixed, allowControl, queryClient, queryContext.principalId, queryContext.authorizationRevision, queryContext.contractVersion, attempt, watching, feed, setCtrl, helpId]);
   // Ending a process fences input and stops reconnect/lease work without disposing its screen.
   useEffect(() => {
     if (inputEnabled) return;
@@ -183,18 +227,18 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     setState({ message: 'Ended', connected: false, controlling: false, canControl: false, paused: false });
   }, [inputEnabled]);
   useEffect(() => {
-    if (state.controlling && terminal.current) connection.current?.resize(terminal.current.cols, terminal.current.rows);
+    if (!fixed && state.controlling && terminal.current) connection.current?.resize?.(terminal.current.cols, terminal.current.rows);
     if (!state.controlling) setCtrl(false);
-  }, [state.controlling, setCtrl]);
+  }, [fixed, state.controlling, setCtrl]);
   useEffect(() => {
     if (fontSizeRef.current === fontSize) return;
     fontSizeRef.current = fontSize;
     if (terminal.current) {
       terminal.current.options.fontSize = fontSize;
-      if (terminal.current.element) terminal.current.element.style.minInlineSize = `${Math.ceil(MIN_PANE_COLUMNS * terminalCellWidth(fontSize)) + SCROLLBAR_PX}px`;
-      relayout.current(true);
+      if (terminal.current.element) terminal.current.element.style.minInlineSize = `${Math.ceil((fixed ? terminal.current.cols : MIN_PANE_COLUMNS) * terminalCellWidth(fontSize)) + SCROLLBAR_PX}px`;
+      relayout.current();
     }
-  }, [fontSize]);
+  }, [fixed, fontSize]);
   // Keys become active after the interactive connection is acknowledged.
   const keyBar = phone && state.controlling;
   const updateKeyFade = useCallback(() => {
@@ -216,7 +260,11 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   function focusTerminal() { if (canFocusTerminal()) terminal.current?.focus(); }
   function send(value: string) {
     if (ctrlArmed.current) { value = withControlModifier(value); setCtrl(false); }
-    if (inputAllowed.current) connection.current?.sendInput(new TextEncoder().encode(value)); focusTerminal();
+    if (inputAllowed.current) {
+      if (fixed && value === '\x1b') connection.current?.sendEscape();
+      else connection.current?.sendInput(new TextEncoder().encode(value));
+    }
+    focusTerminal();
   }
   const controlBlocked = !state.controlling && (!state.canControl || state.paused);
   // Why typing is temporarily unavailable (N-07), from what this pane knows: capability, delivery pause, connection, policy.
@@ -260,7 +308,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     </div>}
     <>
       <div className={styles.frame} ref={frame}>
-        <div className={styles.host} ref={host} hidden={frozen} />
+        <div className={styles.host} ref={host} data-fixed={fixed || undefined} hidden={frozen} />
         {/* Input is frozen while disconnected: the last observation is text, never a live terminal. */}
         {frozen && <figure className={styles.observation} aria-label="Last observation">
           <pre tabIndex={0}>{snapshot.join('\n')}</pre>
@@ -270,6 +318,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
       {!compact && !phone && panHint && <div className={styles.view}>{panHint}</div>}
       <footer className={styles.footer}>
         {/* Reference 08 order: Output · Progress · ● Connected. */}
+        {state.canRepaint && <ActionButton onClick={() => connection.current?.repaint?.()}>Repaint</ActionButton>}
         {!compact && <span>{state.outputObservedAtMs && now !== null ? `Output ${formatAge(new Date(now).toISOString(), new Date(state.outputObservedAtMs).toISOString())}` : 'Output unavailable'}</span>}
         {!compact && !manual&&!hostShell&&<span>Progress unavailable</span>}
         <span className={styles.connection} data-phase={phase}><span className={styles.dot} aria-hidden="true" />{!inputEnabled ? 'Ended' : phase === 'connected' ? 'Connected' : phase === 'connecting' ? 'Connecting' : 'Disconnected'}</span>

@@ -8,7 +8,7 @@ export async function frame(sequence = 1, text = "hello") {
   const hash = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   return { terminal, sequence, byte_length: bytes.length, bytes, digest: Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("") };
 }
-export function tail() { return { terminal, subscription_id: subscription, session_revision: 1, expires_at_ms: 20000, server_time_ms: 10000, last_observed_at_ms: 9999, availability: "resident_tail", disconnected: false, initial_incomplete: true, frames: [], gaps: [], next_sequence: 0, more: false }; }
+export function tail() { return { terminal, subscription_id: subscription, session_revision: 1, expires_at_ms: 20000, server_time_ms: 10000, last_observed_at_ms: 9999, availability: "resident_tail", disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false }; }
 
 test("accepts exact identities and refuses unknown/nil/unsafe epochs", () => {
   expect(terminalIdentity(terminal)).toEqual(terminal);

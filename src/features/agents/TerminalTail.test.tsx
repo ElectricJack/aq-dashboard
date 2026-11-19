@@ -44,7 +44,7 @@ function setup(options: (n: number) => PageOptions | Promise<PageOptions> = () =
       if (o.status) return HttpResponse.json({ error: "refused" }, { status: o.status });
       const after = Number(url.searchParams.get("after_sequence"));
       return HttpResponse.json({ terminal, subscription_id: subscription, session_revision: 1, expires_at_ms: expires, server_time_ms: 10000, last_observed_at_ms: 9999,
-        availability: o.notRetained ? "not_retained" : "resident_tail", initial_incomplete: true, disconnected: o.disconnected ?? false,
+        availability: o.notRetained ? "not_retained" : "resident_tail", initial_incomplete: true, grid: null, disconnected: o.disconnected ?? false,
         frames: o.notRetained || (reads > 1 && !o.gap) ? [] : [await frame(o.gap ? after + 2 : 1, o.text ?? "hello <img src=x>\x1b[2J")],
         gaps: o.gap ? [{ terminal, first_missing: after + 1, last_missing: after + 1 }] : [], next_sequence: o.notRetained ? after : o.gap ? after + 2 : Math.max(1, after), more: true,
       }, { headers });

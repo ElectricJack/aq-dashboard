@@ -13,7 +13,7 @@ class Socket {
  frame(data:unknown){this.onmessage?.({data});}
 }
 afterEach(()=>{vi.unstubAllGlobals();Socket.instances=[];});
-async function setup(ready=true){vi.mocked(apiSend).mockClear();vi.stubGlobal('WebSocket',Socket);vi.mocked(apiSend).mockResolvedValue({generation:7});const states:TerminalState[]=[],write=vi.fn(async(_bytes:Uint8Array)=>{}),reset=vi.fn();const c=connectManualTerminal({terminalId:'10000000-0000-4000-8000-000000000001',allowControl:true,read:vi.fn(),write,reset,state:s=>states.push(s)});await vi.waitFor(()=>expect(Socket.instances).toHaveLength(1));const socket=Socket.instances[0]!;if(ready)socket.frame(JSON.stringify({kind:'ready',server_time_ms:Date.now()}));return{c,socket,states,write,reset};}
+async function setup(ready=true, fixed=false){vi.mocked(apiSend).mockClear();vi.stubGlobal('WebSocket',Socket);vi.mocked(apiSend).mockResolvedValue({generation:7});const states:TerminalState[]=[],write=vi.fn(async(_bytes:Uint8Array)=>{}),reset=vi.fn();const c=connectManualTerminal({terminalId:'10000000-0000-4000-8000-000000000001',allowControl:true,read:vi.fn(),write,reset,state:s=>states.push(s)}, fixed ? '/api/attempt-terminals/attempt/terminal' : undefined, fixed ? 'attempt' : 'manual');await vi.waitFor(()=>expect(Socket.instances).toHaveLength(1));const socket=Socket.instances[0]!;if(ready){socket.frame(JSON.stringify({kind:'ready',server_time_ms:Date.now(),columns:120,rows:40}));await vi.waitFor(()=>expect(states.at(-1)?.connected).toBe(true));}return{c,socket,states,write,reset};}
 describe('raw manual terminal stream',()=>{
  it('waits for a newly starting worker relay without retaking control or buffering keys',async()=>{const m=await setup(false);try{m.c.sendInput(new Uint8Array([65]));m.socket.close();await vi.waitFor(()=>expect(Socket.instances).toHaveLength(2));const retry=Socket.instances[1]!;expect(new URL(retry.url).searchParams.get('generation')).toBe('7');expect(vi.mocked(apiSend)).toHaveBeenCalledTimes(1);retry.frame(JSON.stringify({kind:'ready',server_time_ms:Date.now()}));expect(m.states.at(-1)?.controlling).toBe(true);expect(retry.sent.filter(v=>v instanceof Uint8Array)).toHaveLength(0);}finally{m.c.close();}});
 
@@ -23,4 +23,35 @@ describe('raw manual terminal stream',()=>{
  it('pauses on connection loss and never replays buffered keyboard input',async()=>{const m=await setup();try{m.c.sendInput(new Uint8Array([65]));m.socket.close();m.c.sendInput(new Uint8Array([66]));expect(m.states.at(-1)?.paused).toBe(true);expect(m.states.at(-1)?.controlling).toBe(false);expect(Socket.instances).toHaveLength(1);expect(m.socket.sent.filter(v=>v instanceof Uint8Array)).toHaveLength(1);}finally{m.c.close();}});
  it('bounds a burst of output before the renderer can consume it',async()=>{const m=await setup();try{for(let n=0;n<65;n++)m.socket.frame(new Uint8Array(16384).buffer);expect(m.states.at(-1)?.paused).toBe(true);expect(m.socket.readyState).toBe(3);}finally{m.c.close();}});
  it('bounds input backlog and stops typing when the connection falls behind',async()=>{const m=await setup();try{m.socket.bufferedAmount=65536;m.c.sendInput(new Uint8Array([65]));expect(m.socket.readyState).toBe(3);expect(m.states.at(-1)?.paused).toBe(true);expect(m.socket.sent.filter(v=>v instanceof Uint8Array)).toHaveLength(0);}finally{m.c.close();}});
+});
+
+describe('queued attempt stream', () => {
+  it('uses only the pane size and orders repaint after already received bytes', async () => {
+    const m = await setup(true, true);
+    try {
+      expect(new URL(m.socket.url).searchParams.has('columns')).toBe(false);
+      expect(m.states.at(-1)?.grid).toEqual({ columns: 120, rows: 40 });
+      m.c.resize(80, 8);
+      expect(m.socket.sent).toEqual([]);
+      m.socket.frame(Uint8Array.of(65).buffer);
+      m.c.repaint(); m.c.repaint(); m.c.sendInput(Uint8Array.of(90));
+      expect(m.socket.sent).toEqual([JSON.stringify({ kind: 'repaint' })]);
+      m.socket.frame(JSON.stringify({ kind: 'ready', server_time_ms: Date.now(), columns: 120, rows: 40 }));
+      m.socket.frame(Uint8Array.of(66).buffer);
+      await vi.waitFor(() => expect(m.write).toHaveBeenCalledTimes(2));
+      expect(m.write.mock.invocationCallOrder[0]!).toBeLessThan(m.reset.mock.invocationCallOrder[1]!);
+      expect(m.reset.mock.invocationCallOrder[1]!).toBeLessThan(m.write.mock.invocationCallOrder[1]!);
+    } finally { m.c.close(); }
+  });
+
+  it('uses a distinct Escape command and stops on a split sequence', async () => {
+    const m = await setup(true, true);
+    try {
+      m.c.sendEscape();
+      m.c.sendInput(Uint8Array.of(27, 91, 60, 52, 51));
+      m.c.sendInput(Uint8Array.of(59, 51, 55, 77));
+      expect(m.socket.sent).toEqual([JSON.stringify({ kind: 'escape' })]);
+      expect(m.states.at(-1)?.paused).toBe(true);
+    } finally { m.c.close(); }
+  });
 });
