@@ -34,6 +34,17 @@ beforeEach(() => {
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: (v: string) => { writes.push(v); return Promise.resolve(); } } });
 });
 
+test("Status shows the recorded requester and AQ email when task detail supplies them", async () => {
+  const { region } = await open(FIXTURE_IDS.approve);
+  const requester = within(section(region, "Status")).getByText(/^Requested by/);
+  expect(requester).toHaveTextContent("Requested by fixture.requester · fixture.requester@engineering-operations.example.test");
+});
+
+test("an older task detail omits the requester line even when it has a Graph creator", async () => {
+  const { region } = await open(FIXTURE_IDS.implement);
+  expect(within(section(region, "Status")).queryByText(/^Requested by/)).not.toBeInTheDocument();
+});
+
 test("item 1: the full task ID shows in a chip and copies with one click; every ID uses the same copy control", async () => {
   const { region } = await open(FIXTURE_IDS.replay);
   expect(within(region).getByText(FIXTURE_IDS.replay, { selector: "code" })).toBeVisible();

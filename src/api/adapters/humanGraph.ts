@@ -9,6 +9,7 @@ export type GraphNode = {
   labels: string[]; story_points?: number | null; task_state: string | null; verification: string | null; content_type: string | null;
   retired: boolean; deleted: boolean; created_at: string; updated_at: string; version: string; content_revision: string;
   created_by: string; provenance: unknown[]; last_verified_by: string | null; last_verified_at: string | null;
+  requested_by?: { name: string; email: string };
   retirement_reason: string | null; valid_from: string | null; valid_until: string | null; review_at: string | null;
   successor_id: string | null; summary: string | null; summary_of_revision: string | null;
 };
@@ -109,7 +110,13 @@ export function adaptGraphPage(raw: unknown, project: string, kind: GraphNode["k
 }
 export function adaptGraphDetail(raw: unknown, project: string, kind: GraphNode["kind"], id: string, pinned?: string) {
   return adaptGraphEnvelope(raw,project,value => {
-    const node=adaptGraphNode(value,kind);check(node.id === id && (!pinned || node.content_revision === pinned));return node;
+    const node = adaptGraphNode(value, kind);
+    check(node.id === id && (!pinned || node.content_revision === pinned));
+    const requester = node.requested_by;
+    check(requester === undefined || (kind === "task" && isRecord(requester)
+      && text(requester.name, 512) && requester.name.trim()
+      && text(requester.email, 512) && requester.email.trim()));
+    return node;
   });
 }
 export function adaptGraphNeighborhood(raw: unknown, project: string, root: string) {

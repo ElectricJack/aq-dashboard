@@ -153,7 +153,10 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
         </div>
       </div>
       {notice}
-      <Section id="status" title="Status"><TaskStatusSection query={work} taskId={n.id} search={search} linkSearch={linkSearch} ended={ended} /></Section>
+      <Section id="status" title="Status">
+        <TaskStatusSection query={work} taskId={n.id} search={search} linkSearch={linkSearch} ended={ended} />
+        {n.requested_by && <p className={parts.meta} data-task-requester="">Requested by <strong>{n.requested_by.name}</strong> · {n.requested_by.email}</p>}
+      </Section>
       {/* Comments come straight after Status: the part the owner reads most stays on the first screen (spec 0004 §3, P1-03). */}
       <Section id="comments" title="Comments" summary={commentCount}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
       <Section id="description" title="Description"><Description body={n.body} /></Section>

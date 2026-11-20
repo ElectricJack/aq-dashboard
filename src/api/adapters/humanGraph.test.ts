@@ -10,6 +10,19 @@ test("refuses foreign project, different record identity and wrong pinned revisi
  expect(()=>adaptGraphDetail(graphEnvelope(n),graphProject,"knowledge",graphId(20))).toThrow();
  expect(()=>adaptGraphDetail(graphEnvelope(n),graphProject,"knowledge",n.id,"3")).toThrow();
 });
+test("task detail preserves the recorded requester and accepts older detail without it", () => {
+ const node = graphNode("task");
+ const requested_by = { name: "maria.garcia", email: "maria.garcia@example.test" };
+ expect(adaptGraphDetail(graphEnvelope(node), graphProject, "task", node.id).data).not.toHaveProperty("requested_by");
+ const detail = adaptGraphDetail(graphEnvelope({ ...node, requested_by }), graphProject, "task", node.id).data;
+ expect(detail.requested_by).toEqual(requested_by);
+ expect(detail.created_by).toBe(node.created_by);
+});
+test.each([null, "requester@example.test", { name: "Requester" }, { name: " ", email: "requester@example.test" }])(
+ "rejects malformed task requester %j", requested_by => {
+  const node = graphNode("task");
+  expect(() => adaptGraphDetail(graphEnvelope({ ...node, requested_by }), graphProject, "task", node.id)).toThrow();
+ });
 test("bounds record body and page size, rejects duplicate nodes",()=>{
  const n=graphNode();for(const items of [[n,n],Array.from({length:26},(_,i)=>graphNode("knowledge",i+10))])expect(()=>adaptGraphPage(graphEnvelope({items,next_cursor:null}),graphProject,"knowledge")).toThrow();
  expect(()=>adaptGraphDetail(graphEnvelope({...n,body:"x".repeat(262145)}),graphProject,"knowledge",n.id)).toThrow();
