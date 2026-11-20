@@ -41,6 +41,8 @@
 .runGlyph[data-state="waiting"],.chip[data-state="waiting"] { color:var(--color-attention); }
 .runGlyph[data-state="blocked"],.runGlyph[data-state="failed"],.chip[data-state="blocked"],.chip[data-state="failed"] { color:var(--color-error); }
 .runLink:focus-visible { outline:3px solid var(--color-focus);outline-offset:2px; }
+.versions > summary { cursor:pointer; padding:var(--space-2) var(--space-4); color:var(--color-text-secondary); }
+.versions > div { margin-inline-start:var(--space-3); }
 .definitionLink { display:grid;grid-template-columns:minmax(0,1fr) 12px;gap:var(--space-2);inline-size:100%;min-inline-size:0;padding:var(--space-4);text-align:start;font:inherit;color:var(--color-text);background:transparent;border:1px solid transparent;border-block-end-color:var(--color-border);border-radius:var(--radius-control);cursor:pointer; }
 .definitionLink > strong,.definitionLink > span { grid-column:1; }
 .definitionLink::after { content:"";grid-column:2;grid-row:1 / span 2;place-self:center;inline-size:6px;block-size:6px;border-block-start:1px solid var(--color-text-secondary);border-inline-end:1px solid var(--color-text-secondary);rotate:45deg; }
