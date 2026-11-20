@@ -5,7 +5,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
 import { useGraphDetail, useGraphList } from "../../api/humanGraphReads";
-import { GRAPH_MAX_PAGES, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
+import { GRAPH_MAX_PAGES, GRAPH_PAGE_SIZE, mergeGraphPages, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
 import { ProjectChoice, pathFor, withoutRevision } from "../knowledge/HumanNodeWorkspace";
@@ -91,16 +91,17 @@ function TaskWorkspace({ project, detailProject = project, id, action }: { proje
   const state = workStateFilter(params.get("state"));
   const graph = params.get("view") === "graph";
   const gantt = params.get("view") === "gantt";
-  const query = useGraphList(gantt ? "" : project ?? "", "task", q);
+  const openOnly = state === "open" && !graph && !gantt;
+  const query = useGraphList(gantt ? "" : project ?? "", "task", q, openOnly);
   let rows: GraphNode[] = [], mergeError: unknown;
-  try { rows = mergeGraphPages(query.data?.pages ?? []); } catch (e) { mergeError = e; }
+  try { rows = mergeGraphPages(query.data?.pages ?? [], openOnly); } catch (e) { mergeError = e; }
   // The attempt status per held task: an ended attempt that still holds the task reads as held, not running (P1-01).
   const held = new Map((query.data?.pages ?? []).flatMap(page => page.data.executions.map(e => [e.task_id, e.status] as const)));
   // The inspected task's work read (shared with the inspector, no extra request): its row follows AQ's `held`.
   const selectedWork = useTaskWork(detailProject ?? "", id ?? "", gantt ? GANTT_POLL_MS : undefined).data?.data;
   // Expand (spec 0004 §3): the inspector takes the full width; `?focus=1` keeps it linkable across reloads.
   const focused = !!id && params.get("focus") === "1";
-  const filtered = rows.filter(n => !state || n.task_state === state);
+  const filtered = openOnly ? rows.slice(0, GRAPH_MAX_PAGES * GRAPH_PAGE_SIZE) : state === "all" || state === "open" ? rows : rows.filter(n => n.task_state === state);
   const search = params.toString() ? `?${params}` : "";
   const root = params.get("root");
   // With no selection the graph roots on the first loaded task, never a "pick one first" placeholder.
@@ -173,7 +174,7 @@ function TaskWorkspace({ project, detailProject = project, id, action }: { proje
           <DependencyGantt project={project} selected={id} search={search} focused={focused}/>
         </Panel> : graph ? graphPanel : <Panel title={listTitle} actions={<ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh list</ActionButton>}>
           {unavailable || !query.data ? <QueryStatus status={unavailable ? "error" : "pending"} error={mergeError ?? query.error} label="tasks" onRetry={() => void query.refetch()}/> : <>
-            {!filtered.length && <p>{rows.length ? "No loaded tasks match this state." : "No records returned for this search."}</p>}
+            {!filtered.length && <p>{openOnly && query.hasNextPage ? "No open tasks on these pages. Load more to continue." : rows.length ? "No loaded tasks match this state." : "No records returned for this search."}</p>}
             {/* One line per task (spec 0004 item 16): the bullet carries the status, the title truncates and shows in full on hover. */}
             <ul className={styles.rows} aria-label="Tasks">{filtered.map(n => { const marker = recordMarker(n); return <li key={n.id} data-selected={id === n.id}>
               <Link className={styles.row} aria-current={id === n.id ? "page" : undefined} title={n.title} to={{ pathname: pathFor("task", n.id), search: withoutRoot(withoutRevision(search)) }}>
@@ -181,7 +182,7 @@ function TaskWorkspace({ project, detailProject = project, id, action }: { proje
               </Link>
             </li>; })}</ul>
             {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more tasks</ActionButton>}
-            {query.data.pages.length === GRAPH_MAX_PAGES && query.data.pages.at(-1)?.data.next_cursor && <p className={styles.meta}>Showing at most 100 records. Refine your search for more.</p>}
+            {(rows.length > filtered.length && openOnly || !query.hasNextPage && query.data.pages.at(-1)?.data.next_cursor) && <p className={styles.meta}>Showing at most 100 records. Refine your search for more.</p>}
             <p className={styles.meta}>Loaded records only; this is not a project total.</p>
           </>}
         </Panel>}

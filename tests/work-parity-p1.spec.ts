@@ -242,7 +242,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
     });
 
     test("task list: one line per task, status icon coloured and shaped, announced, denser", async ({ page }) => {
-      await page.goto(`/work?${scope}`);
+      await page.goto(`/work?${scope}&state=all`);
       const rows = page.getByRole("list", { name: "Tasks" }).getByRole("link");
       await expect(rows).toHaveCount(10);
       for (const text of await rows.allTextContents()) expect(text).not.toMatch(/Active|Completed|Draft|Canceled| · r\d/);

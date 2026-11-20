@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import { PANEL_READ, useSession } from "../../app/session";
-import { scopeSearch } from "../../app/scope";
 import { adaptWorkTaskList, WORK_PAGE_SIZE, type WorkProject, type WorkTask } from "../../api/adapters/workTaskList";
 import { apiGet } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
@@ -13,6 +12,8 @@ import { StatusIcon } from "./StatusIcon";
 import { WorkFilters } from "./WorkFilters";
 import styles from "./WorkWorkspace.module.css";
 
+type Stream = { state?: string; cursor?: string };
+
 export function AllProjectWorkList({ views }: { views?: ReactNode }) {
   const [params, setParams] = useSearchParams();
   const q = (params.get("q") ?? "").slice(0, 256).trim();
@@ -22,16 +23,21 @@ export function AllProjectWorkList({ views }: { views?: ReactNode }) {
   const key = queryKey(queryContext, "all-project-work", { q, state });
   const query = useInfiniteQuery({
     queryKey: key,
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam, signal }) => {
+    initialPageParam: (state === "open" ? [{ state: "active" }, { state: "draft" }] : [{ state: state === "all" ? undefined : state }]) as Stream[],
+    queryFn: ({ pageParam, signal }) => Promise.all(pageParam.map(async stream => {
       const search = new URLSearchParams({ limit: String(WORK_PAGE_SIZE) });
       if (q) search.set("q", q);
-      if (state) search.set("state", state);
-      if (pageParam) search.set("cursor", pageParam);
-      return adaptWorkTaskList(await apiGet<unknown>(`/api/human/work/tasks?${search}`, signal), state);
+      if (stream.state) search.set("state", stream.state);
+      if (stream.cursor) search.set("cursor", stream.cursor);
+      const page = adaptWorkTaskList(await apiGet<unknown>(`/api/human/work/tasks?${search}`, signal), stream.state);
+      return { ...page, state: stream.state };
+    })),
+    getNextPageParam: (last, _pages, _param, previous) => {
+      const next = last.flatMap(page => page.next_cursor && !previous.some(streams =>
+        streams.some(s => s.state === page.state && s.cursor === page.next_cursor))
+        ? [{ state: page.state, cursor: page.next_cursor }] : []);
+      return next.length ? next : undefined;
     },
-    getNextPageParam: (last, _pages, _lastParam, previous) =>
-      last.next_cursor && !previous.includes(last.next_cursor) ? last.next_cursor : undefined,
     meta: PANEL_READ,
     refetchOnWindowFocus: false,
     refetchOnMount: query => query.state.isInvalidated,
@@ -44,7 +50,7 @@ export function AllProjectWorkList({ views }: { views?: ReactNode }) {
     return next;
   });
   const rows = new Map<string, { task: WorkTask; projects: WorkProject[] }>();
-  for (const page of query.data?.pages ?? []) {
+  for (const page of query.data?.pages.flat() ?? []) {
     const projects = new Map<string, typeof page.projects>();
     for (const project of page.projects) {
       const group = projects.get(project.workspace_id) ?? [];
@@ -56,7 +62,10 @@ export function AllProjectWorkList({ views }: { views?: ReactNode }) {
       if (group && !rows.has(task.id)) rows.set(task.id, { task, projects: group });
     }
   }
-  const unavailable = query.data?.pages[0]?.unavailable_projects ?? 0;
+  const unavailable = Math.max(0, ...(query.data?.pages[0] ?? []).map(p => p.unavailable_projects));
+  const visible = [...rows.values()];
+  if (state === "open") visible.sort((a, b) =>
+    Date.parse(b.task.updated_at) - Date.parse(a.task.updated_at) || b.task.id.localeCompare(a.task.id));
   const title = query.isError || !query.data ? "Tasks" : `${rows.size} ${rows.size === 1 ? "task" : "tasks"} loaded`;
 
   return <>
@@ -73,11 +82,11 @@ export function AllProjectWorkList({ views }: { views?: ReactNode }) {
           </p>}
           {rows.size === 0 ? <p>{unavailable ? "No matching tasks in available projects." : "No matching tasks across projects."}</p> :
             <ul className={styles.rows} aria-label="Tasks">
-              {[...rows.values()].flatMap(({ task, projects }) => {
+              {visible.flatMap(({ task, projects }) => {
                 const status = listStatus(task, undefined);
                 return projects.map(project => <li key={`${task.id}:${project.id}`}>
                   <Link className={styles.row} aria-label={`${task.title}, ${project.name}, ${TASK_STATUS_LABEL[status]}`}
-                    to={{ pathname: `/work/${task.id}`, search: scopeSearch({ kind: "project", project_id: project.id }) }}>
+                    to={{ pathname: `/work/${task.id}`, search: new URLSearchParams({ ...Object.fromEntries(params), scope: `project:${project.id}` }).toString() }}>
                     <StatusIcon status={status}/>
                     <span className={styles.rowTitle} title={task.title}>{task.title}</span>
                     <span className={styles.rowProject} title={project.name}>{project.name}</span>

@@ -5,7 +5,7 @@ import styles from "./WorkWorkspace.module.css";
 
 export function WorkFilters({ q, state, allProjects, gantt, onChange }: {
   q: string;
-  state?: WorkStateFilter;
+  state: WorkStateFilter;
   allProjects?: boolean;
   gantt?: boolean;
   onChange(key: "q" | "state", value: string): void;
@@ -30,7 +30,7 @@ export function WorkFilters({ q, state, allProjects, gantt, onChange }: {
     {!gantt && <div role="group" aria-label="Task state" className={styles.chips}>
       {WORK_STATE_FILTERS.map(option => <button key={option} type="button" className={styles.chip}
         data-state={option} aria-pressed={state === option}
-        onClick={() => onChange("state", state === option ? "" : option)}>{WORK_STATE_LABEL[option]}</button>)}
+        onClick={() => onChange("state", option === "open" ? "" : option)}>{WORK_STATE_LABEL[option]}</button>)}
     </div>}
   </>;
 }

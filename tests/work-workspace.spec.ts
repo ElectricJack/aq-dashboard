@@ -35,7 +35,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
     test("rows never repeat a word or show knowledge verification", async ({ page }) => {
       await page.goto(`/work?${scope}`);
       const rows = page.getByRole("list", { name: "Tasks" }).getByRole("listitem");
-      await expect(rows).toHaveCount(10);
+      await expect(rows).toHaveCount(7);
       for (const text of await rows.allTextContents()) {
         expect(text).not.toMatch(/(\w+) · \1/);
         expect(text).not.toMatch(/verified|disputed/i);
