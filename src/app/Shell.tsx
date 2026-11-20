@@ -15,7 +15,8 @@ import { ScopePicker } from "../components/ScopePicker";
 import { TitleFocusContext } from "./DestinationPage";
 import { DocumentTitleProvider } from "./documentTitle";
 import { useBackFocusRestore } from "./focusReturn";
-import { NAV_DESTINATIONS, PHONE_PRIMARY, destination, type Destination } from "./destinations";
+import { PHONE_PRIMARY, destination, navigationDestinations, type Destination } from "./destinations";
+import { HOST_DECISIONS } from "../api/adapters/hostDecisions";
 import { scopeSearch, useScope } from "./scope";
 import { isFocusedSessionPath } from "./focusedSession";
 import { useSession } from "./session";
@@ -92,7 +93,7 @@ function DestinationLink({ dest, search, badge }: { dest: Destination; search: s
   );
 }
 
-function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
+function PhoneNav({ search, badge, destinations }: { search: string; badge: Badge | null; destinations: readonly Destination[] }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
   const moreButton = useRef<HTMLButtonElement>(null);
@@ -106,7 +107,7 @@ function PhoneNav({ search, badge }: { search: string; badge: Badge | null }) {
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
-  const more = NAV_DESTINATIONS.filter((d) => d.phone === "more");
+  const more = destinations.filter((d) => d.phone === "more");
   // SO-21: More carries the active cue while one of its destinations is open.
   const inMore = more.some((d) => location.pathname === `/${d.id}` || location.pathname.startsWith(`/${d.id}/`));
 
@@ -177,6 +178,8 @@ function ConnectionStatus({ state, className }: { state: ConnectionState; classN
 
 export function Shell() {
   const { bootstrap, connection } = useSession();
+  const hostDecisions = bootstrap.capability(HOST_DECISIONS).enabled;
+  const destinations = navigationDestinations(hostDecisions);
   const location = useLocation();
   const focusedSession = isFocusedSessionPath(location.pathname) || (location.pathname === "/agents/swarm" && new URLSearchParams(location.search).get("focus") === "terminal" && new URLSearchParams(location.search).get("select")?.startsWith("agent:"));
   const [scope, setScope] = useScope();
@@ -222,7 +225,7 @@ export function Shell() {
   const reachable = connection === "connected" && !usage.unreachable;
   const status: ConnectionState = connection === "signed_out" ? "signed_out" : !online ? "offline" : reachable ? "connected" : "reconnecting";
   const phone = useMediaQuery(PHONE_QUERY);
-  const badge = usePendingBadge(scope, bootstrap.capability("dashboard.overview").enabled);
+  const badge = usePendingBadge(scope, bootstrap.capability("dashboard.overview").enabled && !hostDecisions);
   const name = bootstrap.principal.displayName;
   const search = scopeSearch(scope);
   const scopePicker = <ScopePicker className={styles.scope} scope={scope} onChange={setScope} projects={projects.data?.view ?? []} projectsLoaded={!!projects.data} />;
@@ -249,7 +252,7 @@ export function Shell() {
             </div>
           )}
           <ul>
-            {NAV_DESTINATIONS.filter((d) => d.id !== "settings").map((d) => (
+            {destinations.filter((d) => d.id !== "settings").map((d) => (
               <li key={d.id}>
                 <DestinationLink dest={d} search={search} badge={d.id === "decisions" ? badge : null} />
               </li>
@@ -323,7 +326,7 @@ export function Shell() {
           </DocumentTitleProvider>
         </TitleFocusContext>
       </main>
-      <PhoneNav search={search} badge={badge} />
+      <PhoneNav search={search} badge={badge} destinations={destinations} />
       {searchOpen && canSearch && <SearchDialog onClose={closeSearch} />}
     </div>
   );

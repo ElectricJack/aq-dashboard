@@ -23,3 +23,11 @@ successfully empty. Canonical acceptance was read-only and submitted no answer.
 The populated approve/reject/uncertain-retry proofs above remain separately labelled
 disposable owner/action qualification. No review or downstream completion is invented
 to fill the UI; full document/media/discussion design and pipeline automation remain open.
+
+## Playbook decisions
+
+An optional `playbooks.decisions` v1 capability enables the Decisions link and Open inbox entries from `/api/playbooks/decisions`. The selected entry displays its question, namespace, subject revision and expiry. Listed responders can approve or request changes. Requesting changes requires a note. AQ returns the retained choice for the same handle, so an unknown response can be checked by resending the same answer.
+
+For task subjects, the detail uses the current knowledge revision and reads the preceding revision when the comparison is opened. A graph read supplies the draft children, and each child's graph supplies its blockers. The points total covers the rows shown. The dashboard shows labels as text chips.
+
+The increment follows [Decision workspace](../design/03-decision-workspace-v3.png) with inbox, evidence and context panels on desktop and a list-to-detail flow on phones. The answer controls follow the evidence in the middle panel. The [browser fixture](../../tests/host-decisions.spec.ts) covers this layout on desktop and phone, checks reflow at 320 pixels and can save captures via `HOST_DECISION_EVIDENCE`. Fixture acceptance does not certify the live installation.

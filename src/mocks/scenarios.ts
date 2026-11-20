@@ -60,6 +60,7 @@ export const ACTION_CAPABILITIES = [
   "tasks.create",
   "dashboard.actions",
   "tasks.edit",
+  "tasks.activate.subtree",
   "tasks.reprioritize",
   "tasks.route",
   "tasks.comments.write",

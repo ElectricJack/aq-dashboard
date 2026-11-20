@@ -22,6 +22,7 @@ export function capabilitiesForResource(resource: string): string[] {
   if (resource.startsWith("supervisor-")) return ["supervisor.history.read"];
   if (resource.startsWith("notification-")) return ["notifications.read"];
   if (resource.startsWith("decision-")) return ["decisions.read"];
+  if (resource.startsWith("host-decision-")) return ["playbooks.decisions"];
   if (resource.startsWith("result-media-upload")) return ["results.media.upload"];
   if (resource.startsWith("result-media-")) return ["results.media.read"];
   if (resource.startsWith("result-")) return ["results.read"];

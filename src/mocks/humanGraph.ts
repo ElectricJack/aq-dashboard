@@ -137,7 +137,19 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  /** What a fixture attempt ran with (spec 0014 §7.1); the values name the labelled role and level fixtures. */
  const RAN_WITH=FIXTURE_RAN_WITH;
  const FIXTURE_ROLES=["developer","reviewer"],NOT_GRANTED=["offered","preparing","declined","never_granted"];
- const tasks=graph==="large"?largeTasks:fixtureTasks,edges=graph==="large"?largeEdges:fixtureEdges;
+ const tasks=(graph==="large"?largeTasks:fixtureTasks).map(task=>({...task})),edges=graph==="large"?largeEdges:fixtureEdges;
+ const descendants = (root: string) => {
+   const seen = new Set([root]), pending = [root];
+   while (pending.length) {
+     const parent = pending.pop();
+     for (const edge of edges) {
+       if (edge.edge_type !== "parent-child" || edge.source !== parent || seen.has(edge.target)) continue;
+       seen.add(edge.target);
+       pending.push(edge.target);
+     }
+   }
+   return tasks.filter(task => task.id !== root && seen.has(task.id));
+ };
  const path="/api/human/projects/:project";
  return [http.get(`${path}/:collection`,({params,request})=>{
    if(!["tasks","knowledge"].includes(String(params.collection)))return missing();
@@ -188,6 +200,23 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
      return HttpResponse.json({...operationFixture,scope:{kind:"project",project_id:body.payload.project_id},data:{...operationFixture.data,operation_id:body.operation_id,disposition:"confirmed",scope:{kind:"project",project_id:body.payload.project_id},
        subject_refs:[body.subject],created_at:stamp,updated_at:stamp,receipt_refs:[{type:"graph_change_set",id:id(0x3ff)}],affected_entities:[{type:"task",id:body.subject.id}],recovery:"none"}});
    }
+   if (body?.kind === "task.activate.subtree") {
+     const root = tasks.find(t => t.id === body.subject.id);
+     if (!root || body.payload.project_id !== fixture.project.id) return missing();
+     const kids = descendants(root.id), activated = kids.filter(task => task.task_state === "draft");
+     for (const task of activated) {
+       task.task_state = "active";
+       task.version = String(Number(task.version) + 1);
+     }
+     const now = new Date().toISOString();
+     return HttpResponse.json({...operationFixture, data: {...operationFixture.data,
+       operation_id: body.operation_id, disposition: "confirmed", scope: {kind: "project", project_id: fixture.project.id},
+       subject_refs: [body.subject], created_at: now, updated_at: now, recovery: "none",
+       receipt_refs: [{type: "graph_change_set", id: body.operation_id}],
+       affected_entities: activated.map(task => ({type: "task", id: task.id, revision: task.version})),
+       activation: {activated: activated.length, skipped: kids.length - activated.length},
+     }});
+   }
    if(body?.kind==="task.role.set"){
      // As AQ: the role must exist (422 `unknown_role`), and it is fixed once an attempt of the task was granted (rejected).
      const role=(body.payload as {role?:string|null}).role??null,stamp=new Date().toISOString();
@@ -218,9 +247,8 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    if(body.kind==="task.comment.edit"){target.body=body.payload.body!;target.edited_at=now;}else{target.body=null;target.deleted_at=now;target.can_edit=false;}
    return answer("confirmed",target);
  }),http.get("/api/tasks/:id/routes",({params})=>HttpResponse.json({items:routeLog.get(String(params.id))??[]})),http.get(`${path}/tasks/:id/summary`,({params})=>{
-   // Descendant counts (X11): the fixture tree is one level deep.
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
-   const kids=edges.filter(e=>e.edge_type==="parent-child"&&e.source===node.id).map(e=>tasks.find(t=>t.id===e.target)!).filter(Boolean);
+   const kids=descendants(node.id);
    return HttpResponse.json(wrap({task_id:node.id,scope:"descendants",implementation:{total:String(kids.length),by_state:countStates(kids),complete:true},delivery:{state:"unavailable",owner:"D1"}}));
  }),http.get(`${path}/:collection/:id`,({params,request})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id)return missing();
