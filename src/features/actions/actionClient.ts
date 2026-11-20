@@ -4,15 +4,16 @@ import { validGraphId, type GraphEnvelope, type GraphNode } from "../../api/adap
 
 export const actionLabels = {
   "task.edit": "Edit task", "task.reprioritize": "Reprioritize", "task.role.set": "Change role", "task.cancel": "Cancel task", "task.delete": "Delete task", "task.retry": "Retry attempt",
-  "task.activate.subtree": "Activate subtree",
+  "task.activate": "Activate task", "task.activate.subtree": "Activate subtree",
   "task.dependency.add": "Add dependency", "task.dependency.remove": "Remove dependency",
   "task.route.set": "Set route", "task.route.clear": "Clear route",
   "knowledge.author": "Add record", "knowledge.correct": "Correct record",
   "knowledge.verify": "Verify record", "knowledge.retire": "Retire record",
   "knowledge.restore": "Restore record",
 } as const;
-export const actionCapability = (kind: ActionKind): string => ({"task.activate.subtree":"tasks.activate.subtree","task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.role.set":"tasks.edit","task.cancel":"tasks.cancel","task.delete":"tasks.delete","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove","task.route.set":"tasks.route","task.route.clear":"tasks.route"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
+export const actionCapability = (kind: ActionKind): string => ({"task.activate":"tasks.activate","task.activate.subtree":"tasks.activate.subtree","task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.role.set":"tasks.edit","task.cancel":"tasks.cancel","task.delete":"tasks.delete","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove","task.route.set":"tasks.route","task.route.clear":"tasks.route"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
 export type ActionKind = keyof typeof actionLabels;
+/* `task.activate` follows the typed task kinds' bootstrap naming (`tasks.cancel`, `tasks.retry`, `tasks.delete`): `tasks.activate@1`. */
 /* `task.role.set` has no capability of its own: AQ admits it under the same task-edit grant as `task.edit`, so it follows `tasks.edit`. */
 /** Document actions for a knowledge record's lifecycle: a retired (or deleted) record is only restored, never edited or retired again. */
 export const knowledgeActionKinds = (node: Pick<GraphNode, "retired" | "deleted"> | undefined): ActionKind[] =>
