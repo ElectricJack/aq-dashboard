@@ -8,7 +8,7 @@ import { formatAge } from "../../components/time/relative";
 import { DocumentBody } from "../knowledge/DocumentBody";
 import { RecordFacts } from "../knowledge/KnowledgeDocument";
 import { CopyValue } from "../decisions/DecisionContext";
-import { useTaskComments, useTaskHistory, useTaskWork } from "./taskWork";
+import { useTaskComments, useTaskHistory, useTaskSummary, useTaskWork } from "./taskWork";
 import { useSession } from "../../app/session";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { TaskComments } from "./inspector/TaskComments";
@@ -105,6 +105,8 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
   const work = useTaskWork(project, n.id);
   const [attemptsOpen] = useSectionOpen("attempts"), [historyOpen] = useSectionOpen("history"), [commentsOpen] = useSectionOpen("comments");
   const { bootstrap } = useSession();
+  const summary = useTaskSummary(project, n.id, bootstrap.capability("tasks.activate.subtree").enabled && bootstrap.capability("dashboard.actions").enabled);
+  const hasDraftDescendants = (summary.data?.data.by_state.draft ?? "0") !== "0";
   const comments = useTaskComments(project, n.id, commentsOpen && bootstrap.capability("tasks.comments.read").enabled);
   const commentCount = comments.data ? `${comments.data.pages.reduce((total, p) => total + p.data.items.length, 0)}${comments.hasNextPage ? "+" : ""}` : undefined;
   // One history read serves Attempts, History and Retry attempt's precondition (WD-11).
@@ -136,7 +138,7 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
         <header className={styles.bar} data-inspector-bar="">
           <div className={styles.titleRow}>
             <h2 id={titleId} data-inspector-title="" title={n.title}>{n.title}</h2>
-            <div className={styles.actions}><RecordActions record={record} variant={compact ? "menu" : "compact"} execution={facts} /></div>
+            <div className={styles.actions}><RecordActions record={record} variant={compact ? "menu" : "compact"} execution={facts} hasDraftDescendants={hasDraftDescendants} /></div>
           </div>
           <div className={styles.statusLine}>
             <StatusBadge work={w} lifecycle={n.task_state} ended={ended} />

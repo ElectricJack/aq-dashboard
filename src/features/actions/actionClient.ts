@@ -4,13 +4,14 @@ import { validGraphId, type GraphEnvelope, type GraphNode } from "../../api/adap
 
 export const actionLabels = {
   "task.edit": "Edit task", "task.reprioritize": "Reprioritize", "task.role.set": "Change role", "task.cancel": "Cancel task", "task.delete": "Delete task", "task.retry": "Retry attempt",
+  "task.activate.subtree": "Activate subtree",
   "task.dependency.add": "Add dependency", "task.dependency.remove": "Remove dependency",
   "task.route.set": "Set route", "task.route.clear": "Clear route",
   "knowledge.author": "Add record", "knowledge.correct": "Correct record",
   "knowledge.verify": "Verify record", "knowledge.retire": "Retire record",
   "knowledge.restore": "Restore record",
 } as const;
-export const actionCapability = (kind: ActionKind): string => ({"task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.role.set":"tasks.edit","task.cancel":"tasks.cancel","task.delete":"tasks.delete","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove","task.route.set":"tasks.route","task.route.clear":"tasks.route"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
+export const actionCapability = (kind: ActionKind): string => ({"task.activate.subtree":"tasks.activate.subtree","task.edit":"tasks.edit","task.reprioritize":"tasks.reprioritize","task.role.set":"tasks.edit","task.cancel":"tasks.cancel","task.delete":"tasks.delete","task.retry":"tasks.retry","task.dependency.add":"tasks.dependencies.add","task.dependency.remove":"tasks.dependencies.remove","task.route.set":"tasks.route","task.route.clear":"tasks.route"} as Partial<Record<ActionKind,string>>)[kind] ?? kind;
 export type ActionKind = keyof typeof actionLabels;
 /* `task.role.set` has no capability of its own: AQ admits it under the same task-edit grant as `task.edit`, so it follows `tasks.edit`. */
 /** Document actions for a knowledge record's lifecycle: a retired (or deleted) record is only restored, never edited or retired again. */
@@ -29,6 +30,7 @@ export type ActionOperation = {
   current_versions?:Record<string,string>; recovery:string;
   /** A `rejected` operation's reason code, when its domain owner names one (`busy`: nothing changed, a new submission may succeed). */
   reason?:string;
+  activation?: { activated: number; skipped: number };
 };
 export function freezeAction(kind:ActionKind, context:ActionContext, fields:Record<string,unknown>, reason?:string):FrozenAction {
   const id=crypto.randomUUID(), author=kind==="knowledge.author";
@@ -54,6 +56,11 @@ export function adaptActionOperation(raw:unknown, frozen:FrozenAction):ActionOpe
     (n.current_versions!==undefined&&(!isRecord(n.current_versions)||Object.keys(n.current_versions).length>32||!Object.values(n.current_versions).every(revision)))||
     (n.reason!==undefined&&n.reason!==null&&(n.disposition!=="rejected"||typeof n.reason!=="string"||!/^[a-z][a-z0-9_]{0,63}$/.test(n.reason))))throw new ContractError("Invalid action operation");
   if(n.subject_refs.some(s=>s.type!==frozen.subject.type||s.id!==frozen.subject.id))throw new ContractError("Action subject changed");
+  if (n.activation !== undefined && (frozen.kind !== "task.activate.subtree" || n.disposition !== "confirmed" ||
+    !isRecord(n.activation) || n.activation.activated !== n.affected_entities.length ||
+    typeof n.activation.skipped !== "number" || !Number.isSafeInteger(n.activation.skipped) || n.activation.skipped < 0)) {
+    throw new ContractError("Invalid activation counts");
+  }
   if(n.disposition==="confirmed"&&!n.receipt_refs.length)throw new ContractError("Confirmation has no receipt");
   return n as unknown as ActionOperation;
 }

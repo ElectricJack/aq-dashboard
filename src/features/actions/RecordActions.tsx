@@ -77,15 +77,14 @@ function executionReason(k:ActionKind,state:string|null|undefined,execution?:Tas
   return undefined;
 }
 /** `kinds` narrows the offered actions (for example to those a compact header can show); it never adds kinds. */
-export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
+export function RecordActions(props:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts;hasDraftDescendants?:boolean}) {
   const {queryContext}=useSession();
   return <Actions key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${props.record.project.id}:${props.author?"author":props.record.data?.id}`} {...props}/>;
 }
-function Actions({record,author=false,pinned,kinds:only,variant="default",execution}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts}) {
+function Actions({record,author=false,pinned,kinds:only,variant="default",execution,hasDraftDescendants}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts;hasDraftDescendants?:boolean}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient(), navigate=useNavigate();
   const canSetStoryPoints=bootstrap.capability("tasks.story_points").enabled;
   const routeKinds:ActionKind[]=!execution?.routing?[]:execution.routing.state==="routed"?["task.route.set","task.route.clear"]:["task.route.set"];
-  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize",...(execution?.role?["task.role.set"]:[]),"task.cancel","task.delete","task.retry","task.dependency.add","task.dependency.remove",...routeKinds] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
@@ -103,6 +102,8 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const restoreTarget=useGraphDetail(kind==="knowledge.restore"&&open&&restoreValid?record.project.id:"","knowledge",record.data?.id??"",restoreValid?restoreRevision:undefined);
   const unsettled=!!intent&&(retired||unknown||operation?.disposition==="pending"||operation?.disposition==="unknown"||!operation);
   const capability=(k:ActionKind)=>{const union=bootstrap.capability("dashboard.actions");return union.enabled?bootstrap.capability(actionCapability(k)):union;};
+  const subtree = (hasDraftDescendants && capability("task.activate.subtree").enabled) || (unsettled && kind === "task.activate.subtree");
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize",...(execution?.role?["task.role.set"]:[]),"task.cancel","task.delete","task.retry",...(subtree?["task.activate.subtree"]:[]),"task.dependency.add","task.dependency.remove",...routeKinds] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   useEffect(()=>{current.current=true;return()=>{current.current=false;controller.current?.abort();};},[]);
   // Closing returns focus to the control that opened the dialog, or to the action menu when that control is gone (P1-11).
   useEffect(()=>{
@@ -159,7 +160,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     }
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
-    if(["task.retry","task.cancel","task.delete","task.route.clear"].includes(k))return {payload:{}};
+    if(["task.retry","task.cancel","task.delete","task.route.clear","task.activate.subtree"].includes(k))return {payload:{}};
     // No role clears the one the task names, so the project's default applies.
     if(k==="task.role.set")return {payload:role?{role}:{}};
     if(k==="task.route.set"){if(!route.class)throw new Error("Choose a level.");return {payload:{class:route.class,...(route.harnesses.length?{harnesses:route.harnesses}:{}),...(route.providers.length?{providers:route.providers}:{})}};}
@@ -233,9 +234,10 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
           <p className={styles.meta}>The role can be changed until one of the task's attempts has started.</p></>}
         {kind==="task.route.set"&&<RouteFields value={route} onChange={setRoute}/>}
         {kind==="task.route.clear"&&<p>Remove this task's route. Under an automatic router the task then waits for routing until it is routed again.</p>}
+        {kind==="task.activate.subtree"&&<p>Make every draft descendant of this task eligible for scheduling.</p>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
-      </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":"Submit"}</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.role.set"&&intent?roleConfirmed(JSON.parse(intent.bytes).payload.role,roles.name):kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?operation?.reason?`Rejected — AQ refused this action: ${refusalReason(operation.reason)}.`:`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!refusal?.reasoned&&!(kind==="task.dependency.add"&&refusal?.status===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":kind==="task.activate.subtree"?"Activate subtree":"Submit"}</ActionButton>}</form>}
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.activate.subtree"&&operation?.activation?`${operation.activation.activated} activated, ${operation.activation.skipped} skipped`:kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.role.set"&&intent?roleConfirmed(JSON.parse(intent.bytes).payload.role,roles.name):kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?operation?.reason?`Rejected — AQ refused this action: ${refusalReason(operation.reason)}.`:`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!refusal?.reasoned&&!(kind==="task.dependency.add"&&refusal?.status===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -253,6 +255,8 @@ const roleConfirmed=(role:unknown,name:(id:string)=>string)=>typeof role==="stri
 const GENERIC_REFUSALS=["invalid_request","not_found","request_too_large"];
 /** A receipt's reason code (aq-server assessment codes, R1-M5) as words; an unknown code reads as itself. */
 const REASONS:Record<string,string>={
+  subtree_too_large:"its subtree exceeds Graph’s atomic activation limit",
+  invalid_subtree:"its task hierarchy could not be validated",
   replacement_prior_execution_uncertain:"its last attempt may still be running",replacement_predecessor_not_failed:"its last attempt has not failed",
   replacement_effects_unreconciled:"its last attempt's effects are not reconciled",replacement_source_retention_unknown:"its last attempt's input is not known to be retained",
   replacement_lineage_history_unknown:"its attempt history cannot be read",task_already_settled_accepted:"its result is already accepted",

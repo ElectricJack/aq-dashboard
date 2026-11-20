@@ -259,7 +259,7 @@ export function adaptTaskSummary(raw: unknown, project: string, id: string) {
     return { total: i.total, by_state: adaptStateCounts(i.by_state), complete: i.complete };
   });
 }
-/** Read only for a task the neighborhood shows to have children. */
+/** Read when an inspector action or the hierarchy section needs descendant counts. */
 export function useTaskSummary(project: string, id: string, enabled: boolean) {
   const { queryContext } = useSession();
   return useQuery({
