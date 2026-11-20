@@ -138,6 +138,7 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  const RAN_WITH=FIXTURE_RAN_WITH;
  const FIXTURE_ROLES=["developer","reviewer"],NOT_GRANTED=["offered","preparing","declined","never_granted"];
  const tasks=(graph==="large"?largeTasks:fixtureTasks).map(task=>({...task})),edges=graph==="large"?largeEdges:fixtureEdges;
+ const activationOperations = new Map<string, {requestBytes: string; response: Response}>();
  const descendants = (root: string) => {
    const seen = new Set([root]), pending = [root];
    while (pending.length) {
@@ -189,8 +190,13 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    const all=reads==="empty"?[]:comments.get(String(params.id))??[],next=offset+limit;
    return HttpResponse.json(wrap({task_id:params.id,items:all.slice(offset,next),next_cursor:next<all.length?btoa(`comments:${next}`):null}));
  }),http.post("/api/v1/actions",async({request})=>{
-   // task.comment.add|edit|delete; other kinds fall through to their own fixtures.
-   const body=(await request.clone().json().catch(()=>null)) as {operation_id:string;kind:string;subject:{type:string;id:string;revision?:string};payload:{project_id:string;body?:string;expected_revision?:string}}|null;
+   const body = await request.clone().json().catch(() => null) as {
+     operation_id: string;
+     kind: string;
+     subject: {type: string; id: string; revision?: string};
+     expected_versions?: {task?: string};
+     payload: {project_id: string; body?: string; expected_revision?: string; expected_version?: string};
+   } | null;
    if(body?.kind==="task.route.set"||body?.kind==="task.route.clear"){
      // Owner route actions (spec 0011 §8): the route log is what GET /api/tasks/{id}/routes and the work read serve.
      const log=routeLog.get(body.subject.id)??[],set=body.kind==="task.route.set",limits=body.payload as {class?:string;harnesses?:string[];providers?:string[]};
@@ -199,6 +205,38 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
      const stamp=new Date().toISOString();
      return HttpResponse.json({...operationFixture,scope:{kind:"project",project_id:body.payload.project_id},data:{...operationFixture.data,operation_id:body.operation_id,disposition:"confirmed",scope:{kind:"project",project_id:body.payload.project_id},
        subject_refs:[body.subject],created_at:stamp,updated_at:stamp,receipt_refs:[{type:"graph_change_set",id:id(0x3ff)}],affected_entities:[{type:"task",id:body.subject.id}],recovery:"none"}});
+   }
+   if (body?.kind === "task.activate") {
+     const task = tasks.find(task => task.id === body.subject.id);
+     if (!task || body.subject.type !== "task" || body.payload.project_id !== fixture.project.id) return missing();
+     const requestBytes = await request.text();
+     const earlier = activationOperations.get(body.operation_id);
+     if (earlier) {
+       if (earlier.requestBytes === requestBytes) return earlier.response.clone();
+       return HttpResponse.json({
+         request_id: "fixture", code: "operation_conflict", message: "Operation ID already used for another request", retryable: false,
+       }, {status: 409});
+     }
+     const scope = {kind: "project", project_id: fixture.project.id};
+     const now = new Date().toISOString();
+     const current = task.version;
+     const stale = [body.subject.revision, body.expected_versions?.task, body.payload.expected_version]
+       .some(version => version !== current);
+     const disposition = stale ? "conflict" : task.task_state === "draft" ? "confirmed" : "rejected";
+     const confirmed = disposition === "confirmed";
+     if (confirmed) {
+       task.task_state = "active";
+       task.version = String(BigInt(current) + 1n);
+     }
+     const response = HttpResponse.json({...operationFixture, scope, data: {...operationFixture.data,
+       operation_id: body.operation_id, disposition, scope, subject_refs: [body.subject],
+       created_at: now, updated_at: now, recovery: confirmed ? "none" : "refresh_and_review",
+       receipt_refs: confirmed ? [{type: "graph_change_set", id: body.operation_id}] : [],
+       affected_entities: confirmed ? [{type: "task", id: task.id, revision: task.version}] : [],
+       ...(stale ? {current_versions: {task: current}} : {}),
+     }});
+     activationOperations.set(body.operation_id, {requestBytes, response: response.clone()});
+     return response;
    }
    if (body?.kind === "task.activate.subtree") {
      const root = tasks.find(t => t.id === body.subject.id);
@@ -246,7 +284,8 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    target.revision=String(Number(target.revision)+1);
    if(body.kind==="task.comment.edit"){target.body=body.payload.body!;target.edited_at=now;}else{target.body=null;target.deleted_at=now;target.can_edit=false;}
    return answer("confirmed",target);
- }),http.get("/api/tasks/:id/routes",({params})=>HttpResponse.json({items:routeLog.get(String(params.id))??[]})),http.get(`${path}/tasks/:id/summary`,({params})=>{
+ }),http.get("/api/v1/operations/:id",({params})=>activationOperations.get(String(params.id))?.response.clone()),
+ http.get("/api/tasks/:id/routes",({params})=>HttpResponse.json({items:routeLog.get(String(params.id))??[]})),http.get(`${path}/tasks/:id/summary`,({params})=>{
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
    const kids=descendants(node.id);
    return HttpResponse.json(wrap({task_id:node.id,scope:"descendants",implementation:{total:String(kids.length),by_state:countStates(kids),complete:true},delivery:{state:"unavailable",owner:"D1"}}));
