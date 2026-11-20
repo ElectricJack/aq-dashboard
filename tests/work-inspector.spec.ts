@@ -47,6 +47,28 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       await expect(panel.getByRole("button", { name: actions })).toBeFocused();
     });
 
+    test("the recorded requester fits in Status and older tasks omit it", async ({ page }) => {
+      await page.goto(`/work/${approve}?${scope}`);
+      const panel = inspector(page);
+      const requester = panel.locator("[data-task-requester]");
+      await expect(requester).toHaveText("Requested by fixture.requester · fixture.requester@engineering-operations.example.test");
+      await expect(requester).toBeInViewport({ ratio: 1 });
+      expect(await requester.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (evidence) await page.screenshot({ path: `${evidence}/requester-${vp.name}.png` });
+      await axe(page);
+
+      if (vp.name === "phone") {
+        const allTasks = panel.getByRole("link", { name: "All tasks" });
+        await expect(allTasks).toBeInViewport({ ratio: 1 });
+        await allTasks.click();
+      }
+      await page.getByRole("list", { name: "Tasks" }).getByRole("link", { name: /Implement safe recovery/ }).click();
+      await expect(panel.getByRole("heading", { name: "Fixture: Implement safe recovery" })).toBeVisible();
+      await expect(requester).toHaveCount(0);
+      if (evidence) await page.screenshot({ path: `${evidence}/legacy-${vp.name}.png` });
+    });
+
     test("the owner sets a route on a task that waits for routing, then clears it", async ({ page }) => {
       await page.goto(`/work/${approve}?${scope}`);
       const panel = inspector(page);

@@ -292,6 +292,11 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  }),http.get(`${path}/:collection/:id`,({params,request})=>{
    if(reads==="failed")return unavailable();if(params.project!==fixture.project.id)return missing();
    const node=(params.collection==="tasks"?tasks:params.collection==="knowledge"?[knowledge]:[]).find(n=>n.id===params.id);
-   const revision=new URL(request.url).searchParams.get("revision");return node&&(!revision||revision===node.content_revision)?HttpResponse.json(wrap(withRole(node))):missing();
+   const revision=new URL(request.url).searchParams.get("revision");
+   if (!node || (revision && revision !== node.content_revision)) return missing();
+   const detail = withRole(node);
+   return HttpResponse.json(wrap(node.kind === "task" && node.id === ID.approve ? {
+     ...detail, requested_by: { name: "fixture.requester", email: "fixture.requester@engineering-operations.example.test" },
+   } : detail));
  })];
 }
