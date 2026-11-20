@@ -43,16 +43,18 @@ export const ATTEMPT_LABEL: Record<TaskDetailView["attempts"][number]["outcome"]
 };
 
 /** Lifecycle chips on the Work toolbar, in workflow order. Selection lives in `?state=`. */
-export const WORK_STATE_FILTERS = ["draft", "active", "completed", "canceled"] as const;
+export const WORK_STATE_FILTERS = ["open", "draft", "active", "completed", "canceled", "all"] as const;
 export type WorkStateFilter = (typeof WORK_STATE_FILTERS)[number];
 export const WORK_STATE_LABEL: Record<WorkStateFilter, string> = {
+  open: "Open",
+  all: "All history",
   draft: "Draft",
   active: "Active",
   completed: "Completed",
   canceled: "Canceled",
 };
-export const workStateFilter = (value: string | null): WorkStateFilter | undefined =>
-  (WORK_STATE_FILTERS as readonly string[]).includes(value ?? "") ? (value as WorkStateFilter) : undefined;
+export const workStateFilter = (value: string | null): WorkStateFilter =>
+  (WORK_STATE_FILTERS as readonly string[]).includes(value ?? "") ? (value as WorkStateFilter) : "open";
 
 /**
  * One task status for the list bullet and the inspector badge (spec 0004 items 2, 16). The list knows only the

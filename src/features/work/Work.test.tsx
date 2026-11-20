@@ -21,6 +21,20 @@ test("task selection preserves scope and opens requirements and acceptance",asyn
 test("task state chips filter loaded tasks and live in the URL",async()=>{
  const {router}=renderApp(`/work${scope}`);await screen.findByRole("list",{name:"Tasks"});const chip=within(screen.getByRole("group",{name:"Task state"})).getByRole("button",{name:"Canceled"});await userEvent.click(chip);expect(new URLSearchParams(router.state.location.search).get("state")).toBe("canceled");expect(chip).toHaveAttribute("aria-pressed","true");const list=screen.getByRole("list",{name:"Tasks"});await waitFor(()=>expect(within(list).getAllByRole("listitem")).toHaveLength(1));expect(list).toHaveTextContent("Fixture: Retire legacy lease path");expect(screen.getByRole("heading",{name:"1 task loaded"})).toBeVisible();
 });
+test("project Open follows a history-only page to find later open tasks", async () => {
+  const cursors: (string | null)[] = [];
+  server.use(http.get(`/api/human/projects/${task.project.id}/tasks`, ({request}) => {
+    const cursor = new URL(request.url).searchParams.get("cursor");
+    cursors.push(cursor);
+    return HttpResponse.json({...task,data:{items:[{...task.data, task_state:cursor ? "draft" : "completed",
+      title:cursor ? "Visible later draft" : "Historical task"}], next_cursor:cursor ? null : "next"}});
+  }));
+  renderApp(`/work${scope}`);
+  const list = await screen.findByRole("list",{name:"Tasks"});
+  expect(within(list).getByText("Visible later draft")).toBeVisible();
+  expect(within(list).queryByText("Historical task")).toBeNull();
+  expect(cursors).toEqual([null,"next"]);
+});
 test("task search uses the project read and retains its URL",async()=>{
  const {router}=renderApp(`/work${scope}`);await screen.findByRole("list",{name:"Tasks"});await userEvent.type(screen.getByRole("searchbox",{name:"Search tasks"}),"No matching title{Enter}");await waitFor(()=>expect(router.state.location.search).toContain("q=No+matching+title"));expect(await screen.findByText("No records returned for this search.")).toBeVisible();
 });
@@ -52,7 +66,7 @@ test("All projects fetches a bounded page, loads more and uses the row's project
       items: cursor ? [{ ...task.data, workspace_id: task.project.workspace_id }] : items,
       projects: cursor ? [task.project] : [otherProject], next_cursor: cursor ? null : "next-page" });
   }));
-  const { router } = renderApp("/work");
+  const { router } = renderApp("/work?state=all");
   const list = await screen.findByRole("list", { name: "Tasks" });
   expect(within(list).getAllByRole("listitem")).toHaveLength(50);
   expect(cursors).toEqual([null]);
@@ -68,6 +82,32 @@ test("All projects fetches a bounded page, loads more and uses the row's project
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Scope" }), "all");
   expect(await screen.findByRole("heading", { name: "51 tasks loaded" })).toBeVisible();
   expect(router.state.location.pathname).toBe("/work");
+});
+
+test("Open combines independently paginated active and draft reads; All history is unfiltered", async () => {
+  enableAllProjects();
+  const seen: string[] = [];
+  server.use(http.get("/api/human/work/tasks", ({request}) => {
+    const params = new URL(request.url).searchParams, state = params.get("state") ?? "all";
+    const more = params.has("cursor");
+    seen.push(`${state}/${more}`);
+    const size = state === "active" && !more ? 50 : 1;
+    const items = Array.from({length:size}, (_, i) => ({...task.data,
+      id: `00000000-0000-4000-8000-${String((state === "draft" ? 200 : more ? 100 : 1) + i).padStart(12,"0")}`,
+      workspace_id:task.project.workspace_id, task_state:state === "all" ? "canceled" : state,
+      title:`${state} task ${i}`, updated_at:"2026-11-01T12:00:00Z"}));
+    return HttpResponse.json({contract:"human-work-task-list-1", items, projects:[task.project],
+      unavailable_projects:0, next_cursor:size === 50 ? "active-next" : null});
+  }));
+  const {router} = renderApp("/work");
+  expect(await screen.findByRole("heading",{name:"51 tasks loaded"})).toBeVisible();
+  expect(screen.getByRole("button",{name:"Open"})).toHaveAttribute("aria-pressed","true");
+  await userEvent.click(screen.getByRole("button",{name:"Load more tasks"}));
+  expect(await screen.findByRole("heading",{name:"52 tasks loaded"})).toBeVisible();
+  expect(seen).toEqual(["active/false","draft/false","active/true"]);
+  await userEvent.click(screen.getByRole("button",{name:"All history"}));
+  expect(await screen.findByText("all task 0")).toBeVisible();
+  expect(router.state.location.search).toContain("state=all");
 });
 
 test("All projects forwards search and status together and starts a new cursor chain", async () => {
@@ -93,7 +133,7 @@ test("literal task titles stay text on the served route",async()=>{
  renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});expect(within(list).getByText('<img src=x onerror="alert(1)">')).toBeVisible();expect(list.querySelector("img")).toBeNull();
 });
 test("task rows are one line: a status icon with an accessible name, no status label or revision (item 16)",async()=>{
- renderApp(`/work${scope}`);const list=await screen.findByRole("list",{name:"Tasks"});
+ renderApp(`/work${scope}&state=all`);const list=await screen.findByRole("list",{name:"Tasks"});
  for(const item of within(list).getAllByRole("listitem")){expect(item.textContent).not.toMatch(/ · r\d|Unverified|Verified|Disputed/);const icon=within(item).getByRole("img");expect(icon).toHaveAttribute("title",icon.getAttribute("aria-label"));}
  // The list page's executions mark the replay task running; others show their lifecycle.
  const replay=within(list).getByRole("link",{name:/Fixture: Replay reconciliation/});expect(within(replay).getByRole("img",{name:"Running"})).toBeVisible();expect(replay).toHaveAttribute("title","Fixture: Replay reconciliation");

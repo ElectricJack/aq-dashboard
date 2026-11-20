@@ -138,8 +138,8 @@ export function adaptGraphNeighborhood(raw: unknown, project: string, root: stri
 export function heldTasks(pages: GraphEnvelope<GraphPage>[]): Set<string> {
   return new Set(pages.flatMap(page => page.data.executions.map(e => e.task_id)));
 }
-export function mergeGraphPages(pages: GraphEnvelope<GraphPage>[]) {
-  check(pages.length<=GRAPH_MAX_PAGES);
+export function mergeGraphPages(pages: GraphEnvelope<GraphPage>[], openOnly = false) {
+  if (!openOnly) check(pages.length<=GRAPH_MAX_PAGES);
   const binding=pages[0]?.project, ids=new Set<string>();
   return pages.flatMap(page=>{
     check(page.project.id===binding?.id && page.project.revision===binding.revision && page.project.workspace_id===binding.workspace_id);

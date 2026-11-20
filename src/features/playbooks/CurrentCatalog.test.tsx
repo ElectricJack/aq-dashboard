@@ -140,3 +140,33 @@ test("capability loss and gain cannot repaint the old incarnation while its new 
   expect(within(detail).getByText("4")).toBeInTheDocument(); expect(within(detail).queryByText("3")).toBeNull(); expect(exactIncarnations.at(-1)).toBe("3");
   expect(within(detail).getByRole("region", { name: "Stored controls" })).toHaveTextContent("New callsDisabled"); expect(within(detail).getByRole("region", { name: "Stored controls" })).toHaveTextContent("Event startsEnabled");
 });
+
+test("one playbook groups retained digests under the version chosen by its binding", async () => {
+  capability();
+  const old = catalogDefinition(), current = catalogDefinition(`sha256:${"b".repeat(64)}`);
+  old.record.metadata.purpose = "Previous policy";
+  current.record.metadata.purpose = "Currently bound policy";
+  const binding = catalogActivation();
+  binding.record.metadata.artifact = current.key;
+  const snapshot = definitionCatalog([old, current]);
+  server.use(
+    http.get("/api/playbooks/inspection/catalog/definitions", ({request}) => {
+      const key = new URL(request.url).searchParams.get("exact");
+      return HttpResponse.json(key ? definitionCatalog(snapshot.items.filter(item => item.key === key)) : snapshot);
+    }),
+    http.get("/api/playbooks/inspection/catalog/activations", ({request}) => {
+      expect(new URL(request.url).searchParams.get("metadata_revision")).toBe(snapshot.metadata_revision);
+      return HttpResponse.json({...activationCatalog([binding]), metadata_revision:snapshot.metadata_revision, incarnation:snapshot.incarnation});
+    }),
+  );
+  const {router} = renderApp("/playbooks?view=library");
+  const roster = await screen.findByRole("list",{name:"Current playbook definitions"});
+  expect(within(roster).getAllByRole("listitem")).toHaveLength(1);
+  const active = await within(roster).findByRole("button",{name:/Currently bound/});
+  await userEvent.click(active);
+  expect(router.state.location.search).toContain(encodeURIComponent(current.key));
+  await userEvent.click(within(roster).getByText("Other versions (1)"));
+  await userEvent.click(within(roster).getByRole("button",{name:/Retained version/}));
+  expect(router.state.location.search).toContain(encodeURIComponent(old.key));
+  expect(await screen.findByText("Previous policy")).toBeVisible();
+});

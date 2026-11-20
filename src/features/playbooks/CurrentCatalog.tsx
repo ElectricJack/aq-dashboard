@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { playbookCatalogJson } from "../../api/playbookCatalogClient";
 import { artifactDigest } from "../../api/adapters/loadedDefinitions";
-import { adaptCatalog, CATALOG_CAPABILITY, mergeCatalogPages, sameCatalog, type CatalogActivation, type CatalogKind, type CatalogStamp, type CatalogRequest } from "../../api/adapters/playbookCatalog";
+import { adaptCatalog, CATALOG_CAPABILITY, mergeCatalogPages, sameCatalog, type CatalogItem, type CatalogActivation, type CatalogKind, type CatalogStamp, type CatalogRequest } from "../../api/adapters/playbookCatalog";
 import { scopedKey } from "../../api/queryKeys";
 import { useScope } from "../../app/scope";
 import { useSession } from "../../app/session";
@@ -13,6 +13,7 @@ import { ActionButton, DetailList, Panel } from "../../components/layout/Workspa
 import { Digest, TechnicalIdentity, shortDigest } from "./identity";
 import { Age, useObservedNow } from "./Age";
 import { ActivationActions } from "./ActivationActions";
+import { boundArtifacts } from "./definitionVersions";
 import { DefinitionWorkspace } from "./DefinitionWorkspace";
 import { PlaybookScopeUnavailable, playbookScopeUnavailable } from "./PlaybookScope";
 import { humanize } from "./RunTimeline";
@@ -60,7 +61,32 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
   const listSearch = (() => { const next = new URLSearchParams(params); next.delete(parameter); return next.toString(); })();
   const back = (onClick?: () => void) => <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listSearch }} onClick={onClick}>{kind === "definitions" ? "All playbooks" : "All deployments"}</Link>;
   const title = kind === "definitions" ? "Playbook library" : "Deployments", singular = kind === "definitions" ? "definition" : "activation";
-  const first = !compact && !selected && rows[0]?.kind === "definition" ? rows[0] : null;
+  const groups = new Map<string, CatalogItem[]>();
+  for (const item of rows) {
+    const key = item.kind === "definition" ? JSON.stringify([item.scope, item.name]) : item.key;
+    const group = groups.get(key);
+    if (group) group.push(item); else groups.set(key, [item]);
+  }
+  const versions = useQuery({
+    queryKey: scopedKey(queryContext, scope, "playbook-current-catalog", { bindingsForVersions: true, epoch,
+      namespace: stamp?.namespace.id, generation: stamp?.namespace.generation, incarnation: stamp?.incarnation, metadataRevision: stamp?.metadataRevision }),
+    enabled: capability.enabled && !pages.isError && !invalid && !!stamp && [...groups.values()].some(group => group.length > 1),
+    queryFn: ({signal}) => boundArtifacts(project, stamp!, signal), retry: false, gcTime: 0,
+  });
+  function primary(group: CatalogItem[]) {
+    if (group.length === 1) return group[0];
+    const bound = group.filter(item => !versions.isError && versions.data?.has(item.artifact));
+    return bound.length === 1 ? bound[0] : undefined;
+  }
+  const initial = primary(groups.values().next().value ?? []);
+  const first = !compact && !selected && initial?.kind === "definition" ? initial : null;
+  function versionButton(item: CatalogItem, label?: string) {
+    return <button ref={element => { if (element) buttons.current.set(item.key, element); else buttons.current.delete(item.key); }} className={styles.definitionLink}
+      data-selected={item.key === (selected ?? first?.key)} aria-pressed={item.key === (selected ?? first?.key)} onClick={() => select(item.key)}>
+      <strong>{item.kind === "definition" ? humanize(item.name) : item.binding}</strong>
+      <span>{label ?? (item.kind === "definition" ? `${item.entries.length} ${item.entries.length === 1 ? "entry point" : "entry points"}` : `Binding revision ${item.revision}`)} · <small className={styles.pin} title={item.artifact}>{shortDigest(item.artifact)}</small></span>
+    </button>;
+  }
   if (!capability.enabled) return <Panel title={title}>{selected && back()}<p role="status">{capability.reason}</p></Panel>;
   if (playbookScopeUnavailable(project, pages.error)) return <PlaybookScopeUnavailable title={title} />;
   if (!pages.data || pages.isError || invalid || knownConflict) return <Panel title={title}>
@@ -71,12 +97,21 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
     {selected && back()}
     <Panel title={title} description={kind === "definitions" ? stamp?.namespace.name : "See which versions are used for new runs and manage version changes."} className={styles.roster}>
       {rows.length === 0 && <p>{kind === "definitions" ? "No playbooks are installed here." : "No deployments are configured here."}</p>}
-      <ul className={styles.runs} aria-label={`Current playbook ${kind}`}>{rows.map(item => <li key={item.key}>
-        <button ref={element => { if (element) buttons.current.set(item.key, element); else buttons.current.delete(item.key); }} className={styles.definitionLink}
-          data-selected={item.key === (selected ?? first?.key)} aria-pressed={item.key === (selected ?? first?.key)} onClick={() => select(item.key)}>
-          <strong>{item.kind === "definition" ? humanize(item.name) : item.binding}</strong>
-          <span>{item.kind === "definition" ? `${item.entries.length} ${item.entries.length === 1 ? "entry point" : "entry points"}` : `Binding revision ${item.revision}`} · <small className={styles.pin} title={item.artifact}>{shortDigest(item.artifact)}</small></span>
-        </button></li>)}</ul>
+      <ul className={styles.runs} aria-label={`Current playbook ${kind}`}>{[...groups].map(([key, group]) => {
+        if (group.length === 1) return <li key={key}>{versionButton(group[0]!)}</li>;
+        const current = primary(group);
+        const others = group.filter(item => item !== current);
+        const definition = group[0]!;
+        const name = definition.kind === "definition" ? humanize(definition.name) : definition.binding;
+        return <li key={key}>
+          {current && versionButton(current, "Currently bound")}
+          <details className={styles.versions} open={others.some(item => selected === item.key) || undefined}>
+            <summary aria-label={current ? `Other versions of ${name} (${others.length})` : undefined}>{current ? `Other versions (${others.length})` : `${name} · ${group.length} versions`}</summary>
+            {others.map(item => <div key={item.key}>{versionButton(item, !versions.isError && versions.data?.has(item.artifact) ? "Currently bound" : versions.data && !versions.isError ? "Retained version" : "Version")}</div>)}
+          </details>
+        </li>;
+      })}</ul>
+      {versions.isError && <p role="status">Current bindings could not be verified. Refresh to check again.</p>}
       {pages.hasNextPage && <ActionButton disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>Load more {kind === "definitions" ? "playbooks" : "deployments"}</ActionButton>}
       {pages.data.pages.length === 4 && pages.data.pages.at(-1)!.next && <p className={styles.meta}>Showing {rows.length} of the available items.</p>}
       <div className={styles.catalogFooter}>

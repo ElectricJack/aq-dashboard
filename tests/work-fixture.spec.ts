@@ -17,7 +17,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
 
     test("fixture project lists the reference tasks with Create task enabled", async ({ page }) => {
       await page.goto(`/work?${scope}`);
-      await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(10);
+      await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(7);
       await expect(page.getByRole("button", { name: "Create task" })).toBeEnabled();
       if (evidence) await page.screenshot({ path: `${evidence}/work-list-${vp.name}.png`, fullPage: true });
       await axe(page);
@@ -37,13 +37,13 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
 
 test("actions-unavailable scenario disables Create task", async ({ page }) => {
   await page.goto(`/work?${scope}&scenario=actions-unavailable`);
-  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(10);
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(7);
   await expect(page.getByRole("button", { name: "Create task" })).toBeDisabled();
 });
 
 test("large scenario caps the list at 100 loaded tasks and marks the omission", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/work?${scope}&scenario=large`);
+  await page.goto(`/work?${scope}&state=all&scenario=large`);
   const list = page.getByRole("list", { name: "Tasks" });
   for (let n = 25; n < 100; n += 25) {
     await expect(list.getByRole("listitem")).toHaveCount(n);
