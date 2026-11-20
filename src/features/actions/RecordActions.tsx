@@ -68,6 +68,8 @@ export type TaskExecutionFacts={holding:boolean;blockers:number;complete:boolean
  * holding the task, retry needs an active task. They are stated, never guessed beyond what the reads show. */
 function executionReason(k:ActionKind,state:string|null|undefined,execution?:TaskExecutionFacts):string|undefined{
   if(k==="task.cancel"&&state==="canceled")return "Task is already canceled";
+  // AQ activates only a draft (dashboard-actions `task.activate`); reopening a completed or canceled task is not activation.
+  if(k==="task.activate"&&state!=="draft")return "Only a draft task can be activated";
   if(k==="task.retry"&&state&&state!=="active")return "AQ retries attempts of active tasks only";
   // Retry replaces the task's last attempt (B4); with none recorded AQ always refuses it (WD-11).
   if(k==="task.retry"&&execution?.attempts===0)return "This task has never had an agent attempt to retry";
@@ -101,9 +103,11 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const restoreRevision=draft.restoreRevision.trim(),restoreValid=RESTORE_REVISION.test(restoreRevision)&&Number.isSafeInteger(Number(restoreRevision));
   const restoreTarget=useGraphDetail(kind==="knowledge.restore"&&open&&restoreValid?record.project.id:"","knowledge",record.data?.id??"",restoreValid?restoreRevision:undefined);
   const unsettled=!!intent&&(retired||unknown||operation?.disposition==="pending"||operation?.disposition==="unknown"||!operation);
+  // Activate is offered for a draft only; it stays while its own operation is unsettled so the dialog can be reopened.
+  const activate:ActionKind[]=record.data?.task_state==="draft"||(unsettled&&kind==="task.activate")?["task.activate"]:[];
   const capability=(k:ActionKind)=>{const union=bootstrap.capability("dashboard.actions");return union.enabled?bootstrap.capability(actionCapability(k)):union;};
   const subtree = (hasDraftDescendants && capability("task.activate.subtree").enabled) || (unsettled && kind === "task.activate.subtree");
-  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?["task.edit","task.reprioritize",...(execution?.role?["task.role.set"]:[]),"task.cancel","task.delete","task.retry",...(subtree?["task.activate.subtree"]:[]),"task.dependency.add","task.dependency.remove",...routeKinds] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
+  const kinds:ActionKind[]=(author?["knowledge.author"] as ActionKind[]:record.data?.kind==="task"?[...activate,"task.edit","task.reprioritize",...(execution?.role?["task.role.set"]:[]),"task.cancel","task.delete","task.retry",...(subtree?["task.activate.subtree"]:[]),"task.dependency.add","task.dependency.remove",...routeKinds] as ActionKind[]:knowledgeActionKinds(record.data)).filter(k=>!only||only.includes(k));
   useEffect(()=>{current.current=true;return()=>{current.current=false;controller.current?.abort();};},[]);
   // Closing returns focus to the control that opened the dialog, or to the action menu when that control is gone (P1-11).
   useEffect(()=>{
@@ -160,6 +164,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     }
     if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
     if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
+    if(k==="task.activate"){const state=baseline.data?.task_state;if(state!=="draft")throw new Error(`This task is ${state?stateName(state):"no longer a draft"} now; AQ activates only a draft task. Nothing was submitted.`);return {payload:{}};}
     if(["task.retry","task.cancel","task.delete","task.route.clear","task.activate.subtree"].includes(k))return {payload:{}};
     // No role clears the one the task names, so the project's default applies.
     if(k==="task.role.set")return {payload:role?{role}:{}};
@@ -202,7 +207,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     ...(name==="blockerQuery"?{blocker:validGraphId(String(value).trim())?String(value).trim():""}:{})}));
   const editing=kind==="task.edit"||kind==="knowledge.author"||kind==="knowledge.correct";
   const status=retired?"retired":unknown?"unknown":operation?.disposition;
-  const reasonFor=(k:ActionKind)=>{const cap=capability(k);return pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:record.data?.kind==="task"?executionReason(k,record.data.task_state,execution):undefined;};
+  const reasonFor=(k:ActionKind)=>{const cap=capability(k);return pinned?"Open the current revision to act":accessLost?"Access changed. Reload access":!cap.enabled?cap.reason:record.data?.kind==="task"&&!(k==="task.activate"&&unsettled&&kind===k)?executionReason(k,record.data.task_state,execution):undefined;};
   // A confirmed author operation creates the record under the operation ID; link straight to it.
   const created=kind==="knowledge.author"&&status==="confirmed"&&intent?operation?.affected_entities.find(r=>r.type==="knowledge"&&validGraphId(r.id))?.id??(validGraphId(intent.id)?intent.id:undefined):undefined;
   const target=restoreTarget.data?.data;
@@ -235,9 +240,11 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
         {kind==="task.route.set"&&<RouteFields value={route} onChange={setRoute}/>}
         {kind==="task.route.clear"&&<p>Remove this task's route. Under an automatic router the task then waits for routing until it is routed again.</p>}
         {kind==="task.activate.subtree"&&<p>Make every draft descendant of this task eligible for scheduling.</p>}
+        {kind==="task.activate"&&<><p>Change this task from Draft to Active.</p>
+          <p className={styles.meta}>AQ can schedule this task once its dependencies are complete and capacity is available. Configured human review gates still apply.</p></>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
-      </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":kind==="task.activate.subtree"?"Activate subtree":"Submit"}</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.activate.subtree"&&operation?.activation?`${operation.activation.activated} activated, ${operation.activation.skipped} skipped`:kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.role.set"&&intent?roleConfirmed(JSON.parse(intent.bytes).payload.role,roles.name):kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?"Conflict — your draft is preserved.":status==="rejected"?operation?.reason?`Rejected — AQ refused this action: ${refusalReason(operation.reason)}.`:`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!refusal?.reasoned&&!(kind==="task.dependency.add"&&refusal?.status===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":kind==="task.activate"?"Activate":kind==="task.activate.subtree"?"Activate subtree":"Submit"}</ActionButton>}</form>}
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.activate.subtree"&&operation?.activation?`${operation.activation.activated} activated, ${operation.activation.skipped} skipped`:kind==="task.activate"?"Task activated.":kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.role.set"&&intent?roleConfirmed(JSON.parse(intent.bytes).payload.role,roles.name):kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?kind==="task.activate"?"Conflict — the task changed since you opened it. Nothing was activated. Reload current versions, then review it.":"Conflict — your draft is preserved.":status==="rejected"?operation?.reason?`Rejected — AQ refused this action: ${refusalReason(operation.reason)}.`:`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!refusal?.reasoned&&!(kind==="task.dependency.add"&&refusal?.status===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -249,6 +256,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
 }
 
 const NOT_OFFERED="Not offered by this AQ server";
+const stateName=(state:string)=>state.replace(/_/g," ");
 const roleConfirmed=(role:unknown,name:(id:string)=>string)=>typeof role==="string"?`Role set to ${name(role)}`:"Role cleared; the project's default role applies";
 /** A receipt carries no rejection reason (WD-08), so the dialog restates the server's preconditions, unless AQ refused
  * with its own reason code (for example a retry the retry budget holds, M2): then its message is the reason. */
@@ -263,7 +271,7 @@ const REASONS:Record<string,string>={
   task_terminally_disposed:"an owner terminally disposed of it",task_has_no_attempt:"it has never had an agent attempt",busy:"AQ was busy; nothing changed, try again"};
 const refusalReason=(code:string)=>REASONS[code]??code.replace(/_/g," ");
 const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
-
+  "task.activate":"It activates only a draft task. Reload current versions to see the task's state.",
   "task.retry":"It retries only an active task whose last attempt can be replaced.",
   "task.route.set":"It sets only a level that is saved in Settings; check the level and its limits.",
   "task.role.set":"AQ changes a task's role only until one of its attempts has been granted.",
@@ -304,7 +312,8 @@ function BlockerPicker({query,blocker,self,existing,search,candidates,onQuery,on
 // The single most relevant action for a task's recorded state; cancellation is never promoted.
 function preferredFor(kinds:ActionKind[],taskState:string|null|undefined):ActionKind[] {
   if(taskState===undefined)return kinds;
-  return taskState==="canceled"||taskState==="completed"?[]:["task.edit"];
+  // A draft's next step is activation (it is offered only for drafts), else editing.
+  return taskState==="canceled"||taskState==="completed"?[]:taskState==="draft"?["task.activate","task.edit"]:["task.edit"];
 }
 /** One primary action plus a "More actions" menu (or, `menuOnly`, every action in a "Task actions" menu); one shared reason when nothing is offered. */
 function CompactActions({kinds,reasonFor,taskState,pending,launch,menuOnly=false}:{kinds:ActionKind[];reasonFor:(k:ActionKind)=>string|undefined;taskState:string|null|undefined;pending:ActionKind|null;launch:(k:ActionKind)=>void;menuOnly?:boolean}) {
