@@ -1,0 +1,116 @@
+.evidence {
+  padding-block-start: var(--space-3);
+  margin-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.evidence > h3, .document h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-h3);
+}
+
+.evidence p, .meta {
+  margin-block: var(--space-2);
+}
+
+.meta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+
+.document {
+  margin-block: var(--space-3);
+}
+
+.document + .document {
+  border-block-start: 1px solid var(--color-border);
+  padding-block-start: var(--space-3);
+}
+
+.labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labels li {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.diffDisclosure summary {
+  padding-block: var(--space-2);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.diff {
+  max-block-size: 24rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  list-style: none;
+}
+
+.diff li {
+  display: grid;
+  grid-template-columns: 4ch minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border-inline-start: 3px solid var(--color-success);
+}
+
+.diff .removed { border-inline-start-color: var(--color-error); }
+.diff code { white-space: pre-wrap; }
+
+.tableRegion {
+  overflow: auto;
+  min-inline-size: 0;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  font-size: var(--font-size-meta);
+}
+
+.table th, .table td {
+  padding: var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table thead, .table tfoot {
+  background: var(--color-raised);
+}
+
+.table thead th { white-space: nowrap; }
+.table a { color: var(--color-accent); }
+.blockers { list-style: none; padding: 0; margin: 0; }
+
+.noteLabel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.note {
+  inline-size: 100%;
+  min-block-size: calc(var(--control-height) * 2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: var(--color-canvas);
+  font: inherit;
+  resize: vertical;
+}

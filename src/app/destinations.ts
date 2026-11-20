@@ -37,6 +37,10 @@ export const NAV_HIDDEN: ReadonlySet<DestinationId> = new Set<DestinationId>(["r
 
 export const NAV_DESTINATIONS: readonly Destination[] = DESTINATIONS.filter((d) => !NAV_HIDDEN.has(d.id));
 
+export function navigationDestinations(hostDecisions: boolean): readonly Destination[] {
+  return hostDecisions ? DESTINATIONS.filter(d => d.id === "decisions" || !NAV_HIDDEN.has(d.id)) : NAV_DESTINATIONS;
+}
+
 /** Phone bottom bar order: Overview, Results, Supervisor, Agents, then More. */
 export const PHONE_PRIMARY: readonly DestinationId[] = (["overview", "results", "supervisor", "agents"] as const).filter((id) => !NAV_HIDDEN.has(id));
 
