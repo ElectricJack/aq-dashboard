@@ -175,6 +175,7 @@ test("requesting changes requires a note and a lost response can recover the sam
   expect(bodies).toEqual([body, body]);
   await expect(page.getByRole("list", { name: "Playbook decisions" })).toHaveCount(0);
   await page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { name: "Decisions", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Choose a review", exact: true })).toBeVisible();
   await page.goBack();
   await expect(page.getByText("This item does not exist or is not available to you.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
