@@ -13,7 +13,7 @@
 .actions { display:flex; flex-wrap:wrap; gap:var(--space-3); margin-block-start:var(--space-3); }
 .error { color:var(--color-error); }
 @media(max-width:1199px) { .layout { grid-template-columns:minmax(200px,.8fr) minmax(0,2fr); } .context { grid-column:2; } }
-@media(max-width:767px) { .layout { display:block; } .layout>section { margin-block:var(--space-3); min-block-size:0; }
+@media(max-width:767px) { .layout { display:block; min-inline-size:0; } .layout>section { margin-block:var(--space-3); min-block-size:0; }
   /* Phone list-then-detail: a selected review replaces the inbox, with a way back at the top. */
   .selected>.inboxPane, .placeholder { display:none; } .selected>.back { display:inline-flex; } }
 

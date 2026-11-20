@@ -153,7 +153,7 @@ test("phone host-only inbox shows the empty document state and draft dependencie
   await page.getByRole("list", { name: "Playbook decisions" }).getByRole("link").click();
   await page.setViewportSize({ width: 320, height: 844 });
   await expect(table).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
 
 test("requesting changes requires a note and a lost response can recover the same answer", async ({ page }) => {

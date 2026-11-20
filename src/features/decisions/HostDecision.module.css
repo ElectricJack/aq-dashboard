@@ -1,4 +1,5 @@
 .evidence {
+  min-inline-size: 0;
   padding-block-start: var(--space-3);
   margin-block-start: var(--space-3);
   border-block-start: 1px solid var(--color-border);
@@ -74,6 +75,7 @@
 .tableRegion {
   overflow: auto;
   min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .table {
@@ -95,6 +97,9 @@
 }
 
 .table thead th { white-space: nowrap; }
+.table thead th:nth-child(-n+2) { min-inline-size: 5.5rem; }
+.table thead th:nth-child(2), .table tbody td:nth-child(2) { padding-inline: var(--space-1); }
+.table .labels li { padding-inline: var(--space-1); }
 .table a { color: var(--color-accent); }
 .blockers { list-style: none; padding: 0; margin: 0; }
 
