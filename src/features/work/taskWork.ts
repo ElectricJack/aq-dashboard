@@ -67,7 +67,7 @@ export type StartupOverLimit = { bytes: number; limit: number; execution_profile
  * level hold (`level_missing`) the `level`; those have no attempt. Nor has a refused offer: `startup_over_limit` carries
  * its two numbers (`startup`), `platform_text_missing` the `environment`.
  */
-export type HoldReason = { code: string; message: string; attempt_id?: string; status?: string; hold_reason?: string; role?: string; level?: string; startup?: StartupOverLimit; environment?: string };
+export type HoldReason = { code: string; message: string; attempt_id?: string; status?: string; result_id?: string; hold_reason?: string; role?: string; level?: string; startup?: StartupOverLimit; environment?: string };
 const bytes = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
 /** The numbers of a `startup_over_limit` reason; a reason without them all still shows its message. */
 function startupOverLimit(r: Record<string, unknown>): StartupOverLimit | undefined {
@@ -128,12 +128,17 @@ export function adaptTaskWork(raw: unknown, project: string, id: string) {
     check(Array.isArray(rawReasons) && rawReasons.length <= 4);
     const reasons = rawReasons.map((r): HoldReason => {
       check(isRecord(r) && openEnumValue(r.code) && text(r.message, 512));
-      // A reason either names the attempt that holds the task, or (role and level holds) has no attempt at all.
-      check(r.attempt_id === undefined ? r.status === undefined : validGraphId(r.attempt_id) && text(r.status, 64));
+      const resultWait = r.code === "result_ready" || r.code === "result_ready_no_delivery_policy";
+      if (resultWait) {
+        check(validGraphId(r.attempt_id) && validGraphId(r.result_id) && r.status === undefined);
+      } else {
+        check(r.attempt_id === undefined ? r.status === undefined : validGraphId(r.attempt_id) && text(r.status, 64));
+      }
       check(r.hold_reason === undefined || (typeof r.hold_reason === "string" && r.hold_reason.length >= 1 && r.hold_reason.length <= 96));
       check((r.role === undefined || text(r.role, 128)) && (r.level === undefined || text(r.level, 128)));
       const startup = startupOverLimit(r);
-      return { code: r.code as string, message: r.message as string, ...(r.attempt_id === undefined ? {} : { attempt_id: r.attempt_id as string, status: r.status as string }),
+      return { code: r.code as string, message: r.message as string, ...(r.attempt_id === undefined ? {} : { attempt_id: r.attempt_id as string }),
+        ...(r.status === undefined ? {} : { status: r.status as string }), ...(resultWait ? { result_id: r.result_id as string } : {}),
         ...(r.hold_reason === undefined ? {} : { hold_reason: r.hold_reason as string }), ...(r.role === undefined ? {} : { role: r.role as string }), ...(r.level === undefined ? {} : { level: r.level as string }),
         ...(startup ? { startup } : {}), ...(r.code === "platform_text_missing" && text(r.environment, 512) ? { environment: r.environment } : {}) };
     });
