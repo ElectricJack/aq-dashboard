@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, type JsonBodyType } from "msw";
 import fixture from "../../contracts/live/human-graph/examples/task.json";
 import operationFixture from "../../contracts/live/dashboard-actions/fixtures/operation-confirmed.json";
 import { GRAPH_PAGE_SIZE, type GraphEdge, type GraphNode } from "../api/adapters/humanGraph";
@@ -138,7 +138,26 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
  const RAN_WITH=FIXTURE_RAN_WITH;
  const FIXTURE_ROLES=["developer","reviewer"],NOT_GRANTED=["offered","preparing","declined","never_granted"];
  const tasks=(graph==="large"?largeTasks:fixtureTasks).map(task=>({...task})),edges=graph==="large"?largeEdges:fixtureEdges;
- const activationOperations = new Map<string, {requestBytes: string; response: Response}>();
+ // Labelled fixture activations survive a reload in the same browser tab, as an AQ write would: the activated tasks'
+ // state/version and each operation's exact request bytes and receipt (so a replay or lookup after reload returns the original).
+ type KeptActivation = {tasks: Record<string, {task_state: string; version: string}>; operations: [string, {requestBytes: string; body: JsonBodyType}][]};
+ const activationKey = `aq-mock-task-activation:${graph}`;
+ const keptActivation = ((): KeptActivation => {
+   try {
+     const kept = JSON.parse(globalThis.sessionStorage?.getItem(activationKey) || "null") as KeptActivation | null;
+     return kept && typeof kept.tasks === "object" && Array.isArray(kept.operations) ? kept : {tasks: {}, operations: []};
+   } catch { return {tasks: {}, operations: []}; }
+ })();
+ for (const task of tasks) {
+   const kept = keptActivation.tasks[task.id];
+   if (kept) { task.task_state = kept.task_state; task.version = kept.version; }
+ }
+ const activationOperations = new Map<string, {requestBytes: string; body: JsonBodyType}>(keptActivation.operations);
+ const keepActivation = (changed: GraphNode[]) => {
+   for (const task of changed) keptActivation.tasks[task.id] = {task_state: String(task.task_state), version: task.version};
+   keptActivation.operations = [...activationOperations];
+   try { globalThis.sessionStorage?.setItem(activationKey, JSON.stringify(keptActivation)); } catch { /* fixture state stays in memory */ }
+ };
  const descendants = (root: string) => {
    const seen = new Set([root]), pending = [root];
    while (pending.length) {
@@ -212,7 +231,7 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
      const requestBytes = await request.text();
      const earlier = activationOperations.get(body.operation_id);
      if (earlier) {
-       if (earlier.requestBytes === requestBytes) return earlier.response.clone();
+       if (earlier.requestBytes === requestBytes) return HttpResponse.json(earlier.body);
        return HttpResponse.json({
          request_id: "fixture", code: "operation_conflict", message: "Operation ID already used for another request", retryable: false,
        }, {status: 409});
@@ -228,15 +247,16 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
        task.task_state = "active";
        task.version = String(BigInt(current) + 1n);
      }
-     const response = HttpResponse.json({...operationFixture, scope, data: {...operationFixture.data,
+     const receipt = {...operationFixture, scope, data: {...operationFixture.data,
        operation_id: body.operation_id, disposition, scope, subject_refs: [body.subject],
        created_at: now, updated_at: now, recovery: confirmed ? "none" : "refresh_and_review",
        receipt_refs: confirmed ? [{type: "graph_change_set", id: body.operation_id}] : [],
        affected_entities: confirmed ? [{type: "task", id: task.id, revision: task.version}] : [],
        ...(stale ? {current_versions: {task: current}} : {}),
-     }});
-     activationOperations.set(body.operation_id, {requestBytes, response: response.clone()});
-     return response;
+     }};
+     activationOperations.set(body.operation_id, {requestBytes, body: receipt});
+     keepActivation(confirmed ? [task] : []);
+     return HttpResponse.json(receipt);
    }
    if (body?.kind === "task.activate.subtree") {
      const root = tasks.find(t => t.id === body.subject.id);
@@ -246,6 +266,7 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
        task.task_state = "active";
        task.version = String(Number(task.version) + 1);
      }
+     keepActivation(activated);
      const now = new Date().toISOString();
      return HttpResponse.json({...operationFixture, data: {...operationFixture.data,
        operation_id: body.operation_id, disposition: "confirmed", scope: {kind: "project", project_id: fixture.project.id},
@@ -284,7 +305,7 @@ export function humanGraphHandlers(reads:"ok"|"partial"|"empty"|"failed",graph:"
    target.revision=String(Number(target.revision)+1);
    if(body.kind==="task.comment.edit"){target.body=body.payload.body!;target.edited_at=now;}else{target.body=null;target.deleted_at=now;target.can_edit=false;}
    return answer("confirmed",target);
- }),http.get("/api/v1/operations/:id",({params})=>activationOperations.get(String(params.id))?.response.clone()),
+ }),http.get("/api/v1/operations/:id",({params})=>{const kept=activationOperations.get(String(params.id));return kept?HttpResponse.json(kept.body):undefined;}),
  http.get("/api/tasks/:id/routes",({params})=>HttpResponse.json({items:routeLog.get(String(params.id))??[]})),http.get(`${path}/tasks/:id/summary`,({params})=>{
    if(reads==="failed")return unavailable();const node=tasks.find(n=>n.id===params.id);if(params.project!==fixture.project.id||!node)return missing();
    const kids=descendants(node.id);
