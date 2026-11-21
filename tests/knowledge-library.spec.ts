@@ -88,3 +88,20 @@ for (const vp of VIEWPORTS) {
     });
   });
 }
+
+test("immediate search keeps the pending lifecycle reset", async ({ page }) => {
+  await openLibrary(page);
+  const lifecycle = page.getByRole("combobox", { name: /lifecycle/i });
+  const search = page.getByRole("searchbox", { name: "Search knowledge" });
+  await lifecycle.selectOption("retired");
+  await expect(page.getByText("0 of 1 loaded records")).toBeVisible();
+  await search.fill("ownership");
+  await lifecycle.evaluate((select: HTMLSelectElement) => {
+    select.value = "active";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector<HTMLInputElement>('input[type="search"]')!.form!.requestSubmit();
+  });
+  await expect(page).toHaveURL(/[?&]q=ownership/);
+  await expect(lifecycle).toHaveValue("active");
+  await expect(page.getByText("1 record loaded")).toBeVisible();
+});
