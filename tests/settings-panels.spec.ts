@@ -7,7 +7,7 @@ for (const width of [1440, 390, 320]) {
     test("sections are tabs, show one section at a time, and preserve keyboard navigation", async ({ page }) => {
       await page.goto("/settings");
       const tabs = page.getByRole("tablist", { name: "Settings sections" });
-      await expect(tabs).toBeVisible(); await expect(tabs.getByRole("tab")).toHaveCount(9);
+      await expect(tabs).toBeVisible(); await expect(tabs.getByRole("tab")).toHaveCount(10);
       await expect(page.getByRole("tabpanel", { name: "Identity" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Framework connection" })).toHaveCount(0);
       await page.getByRole("tab", { name: "Display", exact: true }).click();
@@ -19,6 +19,8 @@ for (const width of [1440, 390, 320]) {
       await expect(page.getByRole("tab", { name: "Roles", selected: true })).toBeFocused();
       await page.getByRole("tab", { name: "Roles", exact: true }).press("ArrowRight");
       await expect(page.getByRole("tab", { name: "Intelligence", selected: true })).toBeFocused();
+      await tabs.getByRole("tab", { name: "Delivery", exact: true }).click();
+      await expect(page.getByRole("tabpanel", { name: "Delivery", exact: true })).toBeVisible();
       await page.getByRole("tab", { name: "Connection", exact: true }).click();
       await expect(page.getByRole("region", { name: "Framework connection" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
