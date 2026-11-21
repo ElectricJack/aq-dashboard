@@ -53,6 +53,24 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
+    test("the badge explains a recorded result awaiting delivery", async ({ page }) => {
+      const held = structuredClone(workExample);
+      const stopped = held.data.readiness.reasons[0];
+      stopped.code = "attempt_stopped_not_released";
+      stopped.message = "The stopped attempt holds this task until its result is settled.";
+      held.data.readiness.reasons.push({
+        code: "result_ready", attempt_id: stopped.attempt_id, result_id: id(98),
+        message: "AQ is waiting for required checks on PR #102.",
+      });
+      await rewrite(page, [{ path: `/tasks/${base}/work`, fn: `return ${JSON.stringify(held)};` }]);
+      await page.goto(`/work/${base}?${scope}`);
+      const badge = inspector(page).locator("[data-task-status]");
+      await expect(badge).toHaveText("Status: Held · awaiting delivery");
+      await expect(section(page, "Status").getByText("AQ is waiting for required checks on PR #102.")).toBeVisible();
+      await noHorizontalScroll(page);
+      if (evidence) await page.screenshot({ path: `${evidence}/delivery-badge-${vp.name}.png` });
+    });
+
     test("the server's held example reads Held with AQ's reason, never Running", async ({ page }) => {
       await rewrite(page, SERVER_EXAMPLES);
       await page.goto(`/work/${base}?${scope}`);

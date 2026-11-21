@@ -9,6 +9,7 @@ import { adaptGraphNeighborhood, adaptGraphPage } from "../../api/adapters/human
 import { adaptTaskComments, adaptTaskHistory, adaptTaskSummary, adaptTaskWork, commentProblem } from "./taskWork";
 import { freezeComment } from "./inspector/commentActions";
 import { listStatus } from "./labels";
+import { statusReason } from "./inspector/TaskStatus";
 
 const project = task.project.id, id = task.data.id;
 const env = (data: unknown) => ({ ...task, data });
@@ -72,7 +73,12 @@ test("work read: the server's held example (aq-server #99) keeps the state and A
   const withReasons = (reasons: unknown) => ({ ...workExample, data: { ...workExample.data, readiness: { ...readiness, reasons } } });
   for (const code of ["result_ready", "result_ready_no_delivery_policy"]) {
     const delivery = { code, attempt_id: reason.attempt_id, result_id: uuid(98), message: "The recorded result is waiting for delivery." };
-    expect(adaptTaskWork(withReasons([reason, delivery]), project, id).data.reasons).toEqual([reason, delivery]);
+    const recorded = adaptTaskWork(withReasons([reason, delivery]), project, id).data;
+    expect(recorded.reasons).toEqual([reason, delivery]);
+    expect(statusReason(recorded.state, recorded)).toBe(code === "result_ready" ? "awaiting delivery" : "no active delivery policy");
+    const budget = { ...reason, code: "task_held", hold_reason: "task_sandbox_minutes_budget_exhausted" };
+    const held = adaptTaskWork(withReasons([reason, delivery, budget]), project, id).data;
+    expect(statusReason(held.state, held)).toBe("task sandbox minutes budget exhausted");
     expect(() => adaptTaskWork(withReasons([{ ...delivery, result_id: "invalid" }]), project, id)).toThrow();
   }
   // A hold code this bundle doesn't know still shows AQ's message.
