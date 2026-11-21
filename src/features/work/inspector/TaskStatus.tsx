@@ -126,7 +126,8 @@ function HoldReasons({ reasons, held, holder }: { reasons: HoldReason[]; held: b
     <ul aria-label="Why the task is held" className={styles.holdReasons}>{reasons.map(r => <li key={`${r.code}:${r.attempt_id ?? r.role ?? r.level ?? ""}`} data-hold-reason={r.code}>
       <p>{r.message}</p>
       {r.startup && <p className={styles.meta} data-startup-over-limit=""><span>Startup text <strong>{startupNumbers(r.startup)}</strong> · the limit is {startupLimit(r.startup)}</span></p>}
-      {r.attempt_id && r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> <span className={styles.attemptStatus}>{humanize(r.status ?? "unknown")}</span></p>}
+      {r.result_id && <p className={styles.meta}>Result <IdValue id={r.result_id} label="result ID" /></p>}
+      {r.attempt_id && r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> {r.status && <span className={styles.attemptStatus}>{humanize(r.status)}</span>}</p>}
     </li>)}</ul>
   </div>;
 }

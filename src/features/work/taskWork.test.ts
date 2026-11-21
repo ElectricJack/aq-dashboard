@@ -70,6 +70,11 @@ test("work read: the server's held example (aq-server #99) keeps the state and A
   expect(w.execution?.status).toBe("finished");
   const readiness = workExample.data.readiness, reason = readiness.reasons[0]!;
   const withReasons = (reasons: unknown) => ({ ...workExample, data: { ...workExample.data, readiness: { ...readiness, reasons } } });
+  for (const code of ["result_ready", "result_ready_no_delivery_policy"]) {
+    const delivery = { code, attempt_id: reason.attempt_id, result_id: uuid(98), message: "The recorded result is waiting for delivery." };
+    expect(adaptTaskWork(withReasons([reason, delivery]), project, id).data.reasons).toEqual([reason, delivery]);
+    expect(() => adaptTaskWork(withReasons([{ ...delivery, result_id: "invalid" }]), project, id)).toThrow();
+  }
   // A hold code this bundle doesn't know still shows AQ's message.
   expect(adaptTaskWork(withReasons([{ ...reason, code: "attempt_parked" }]), project, id).data.reasons[0]!.code).toBe("attempt_parked");
   for (const bad of [null, [{ ...reason, message: "" }], [{ ...reason, message: "m".repeat(513) }], [{ ...reason, attempt_id: "x" }], [{ ...reason, code: 3 }], Array(5).fill(reason)])
