@@ -15,6 +15,7 @@ import { ActionButton } from "../../components/layout/Workspace";
 import { ArrowDown, History, Info, LoaderCircle, MessagesSquare, SendHorizontal } from "lucide-react";
 import { Icon } from "../../components/icons";
 import {SupervisorHistoryReceipt} from "./SupervisorWorkCards";
+import { SupervisorMarkdown } from "./SupervisorMarkdown";
 import styles from "./SupervisorConversation.module.css";
 
 const MAX_LOADED = 64;
@@ -223,7 +224,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
           : <span className={styles.delivery} tabIndex={0}>Queued<span className={styles.deliveryDetail}><span className={styles.separator}> · </span>{deliveryText[message.host_delivery]}</span></span>}</p>;
         return <li key={message.message_id} data-message-id={message.message_id} tabIndex={-1} className={styles.message} data-author={message.author.kind} data-own={message.author.kind === "human" && message.author.user_id === queryContext.principalId}>
           {/* Supervisor replies carry the shared avatar mark and lead with who spoke, as in the reference. */}
-          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<p className={styles.body}>{message.body}</p>{message.author.kind==="supervisor"&&message.attachments?.filter((a):a is ActionReceiptAttachment=>"type" in a&&a.type==="action_receipt").map(a=><SupervisorHistoryReceipt key={a.operation_id} receipt={a}/>)}</div></> : <><p className={styles.body}>{message.body}</p>{metadata}</>}
+          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<SupervisorMarkdown source={message.body} />{message.author.kind==="supervisor"&&message.attachments?.filter((a):a is ActionReceiptAttachment=>"type" in a&&a.type==="action_receipt").map(a=><SupervisorHistoryReceipt key={a.operation_id} receipt={a}/>)}</div></> : <><p className={styles.body}>{message.body}</p>{metadata}</>}
         </li>; })}</ol>
       {frozen && !messages.some(item => item.message_id === frozen.message) && <div className={styles.pending} data-message-id={frozen.message} tabIndex={-1}><p className={styles.body}>{JSON.parse(frozen.bytes).body}</p><p role="status">{sending ? "Sending · awaiting admission" : receipt?.disposition === "confirmed" ? "Queued · awaiting history" : receipt?.disposition === "pending" ? "Admission pending" : settled ? "Not queued" : "Admission unknown"}</p></div>}
       {/* The marker stays in the reading flow, pinned to the history's bottom edge (§5). */}

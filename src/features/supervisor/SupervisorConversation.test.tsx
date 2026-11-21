@@ -235,6 +235,13 @@ test("supervisor_dock_send_shows_pending_then_reply", async () => {
 });
 
 
+test("supervisor replies in history render as Markdown while human messages stay literal text", async () => {
+  setup({ history: [supervisorMessage(1), supervisorMessage(2, "**not bold**"), supervisorReply(2, 1, "## Status\n\n- item one\n\n| A | B |\n| - | - |\n| 1 | 2 |")] }); await ready();
+  expect(await screen.findByRole("heading", { name: "Status" })).toBeInTheDocument();
+  expect(screen.getByRole("table")).toBeInTheDocument(); expect(screen.getByText("item one")).toBeInTheDocument();
+  expect(screen.getByText("**not bold**")).toBeInTheDocument();
+});
+
 test("unavailable supervisor preserves the draft and refuses action sends", async () => {
   const app = setup(); await ready(); await userEvent.type(await composer(), "Keep while disconnected");
   server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({ ...bootstrap, data: { ...bootstrap.data, principal: { ...bootstrap.data.principal, id: supervisorActor }, global_supervisor: { status: "unavailable", conversation_id: discovery.conversation.id }, capabilities: [ { name: "supervisor.history.read", version: "1", enabled: true }, { name: "supervisor.conversation", version: "1", enabled: false } ] } })));
