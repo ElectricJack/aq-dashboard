@@ -39,7 +39,7 @@ function stubObservers() {
 }
 const resizeContainer = () => act(() => { mocks.observers.forEach(callback => callback()); });
 
-describe('manual terminal fits its pane', () => {
+describe.each([['manual', { manual: true }], ['host-shell', { hostShell: true }]] as const)('%s terminal fits its pane', (_kind, props) => {
   let rectSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     mocks.proposed = undefined; mocks.reset = 0; mocks.observers = []; mocks.onResize = undefined;
@@ -51,7 +51,7 @@ describe('manual terminal fits its pane', () => {
 
   const mount = () => {
     const client = new QueryClient();
-    const view = render(<QueryClientProvider client={client}><InteractiveTerminal terminalId="shell-1" name="Shell" manual /></QueryClientProvider>);
+    const view = render(<QueryClientProvider client={client}><InteractiveTerminal terminalId="shell-1" name="Shell" {...props} /></QueryClientProvider>);
     return { ...view, done: () => { view.unmount(); client.clear(); } };
   };
 
