@@ -6,7 +6,11 @@ import rawHistory from "../../../contracts/live/supervisor-conversation/history.
 import rawAttachmentHistory from "../../../contracts/live/supervisor-conversation/history-attachments.example.json";
 import rawMixed from "../../../contracts/live/supervisor-conversation/mixed-history.fixture.json";
 import rawReceipt from "../../../contracts/live/supervisor-conversation/receipt.example.json";
-import { adaptSupervisorDiscovery, adaptSupervisorHistory, adaptSupervisorReceipt, canonicalSupervisorJson, supervisorDigest, type Conversation, type FrozenSupervisorMessage, type ProposedTaskDraft, type SupervisorAttachment } from "./supervisor";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import rawUpload from "../../../contracts/live/supervisor-conversation/attachment-upload.example.json";
+import rawAttachmentError from "../../../contracts/live/supervisor-conversation/attachment-error.example.json";
+import { adaptSupervisorAttachmentError, adaptSupervisorAttachmentUpload, adaptSupervisorDiscovery, adaptSupervisorHistory, adaptSupervisorReceipt, canonicalSupervisorJson, supervisorDigest, type Conversation, type FrozenSupervisorMessage, type ProposedTaskDraft, type SupervisorAttachment } from "./supervisor";
 
 test("consumes the frozen API07 public examples including independent canonical request/body digests", async () => {
   vi.stubGlobal("crypto", webcrypto);
@@ -61,4 +65,29 @@ test("consumes the published attachment history: A.R reply with proposed draft a
     foreign.items[1]!.attachments![1]!.message_id = rawAttachmentHistory.items[0]!.message_id;
     await expect(adaptSupervisorHistory(foreign, conversation)).rejects.toThrow();
   } finally { vi.unstubAllGlobals(); }
+});
+
+test("the pinned schema.json matches the digest recorded in source.json", () => {
+  const dir = "contracts/live/supervisor-conversation/";
+  const source = JSON.parse(readFileSync(`${dir}source.json`, "utf8")) as { commit: string; sha256: string };
+  expect(source.commit).toBe("7206f5a1f1f2527f1a3afef476259cf621760a8c");
+  expect(createHash("sha256").update(readFileSync(`${dir}schema.json`)).digest("hex")).toBe(source.sha256);
+  expect(source.sha256).toBe("eda588e205779a11b74a319628f603a55e311358b3de345200d87fe6031f3ed3");
+});
+
+test("consumes the published attachment discovery capability, upload receipt and structured refusal", () => {
+  const discovery = adaptSupervisorDiscovery(rawDiscovery);
+  expect(discovery.attachments).toMatchObject({ max_file_bytes: 1048576, max_files_per_message: 4, max_name_bytes: 255 });
+  expect(discovery.attachments!.media_types).toContain("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  const upload = adaptSupervisorAttachmentUpload(rawUpload, { conversation: rawUpload.conversation_id, attachment: rawUpload.id });
+  expect(upload).toMatchObject({ state: "staged", message_id: null, media_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  expect(() => adaptSupervisorAttachmentUpload(rawUpload, { conversation: rawUpload.conversation_id, attachment: "00000000-0000-0000-0000-000000000009" })).toThrow();
+  expect(() => adaptSupervisorAttachmentUpload({ ...rawUpload, media_type: "application/zip" }, { conversation: rawUpload.conversation_id, attachment: rawUpload.id })).toThrow();
+  expect(() => adaptSupervisorAttachmentUpload({ ...rawUpload, state: "attached" }, { conversation: rawUpload.conversation_id, attachment: rawUpload.id })).toThrow();
+  expect(adaptSupervisorAttachmentError(rawAttachmentError)).toEqual(rawAttachmentError);
+  expect(adaptSupervisorAttachmentError({ error: "forbidden", message: "x" })).toBeNull();
+  expect(adaptSupervisorAttachmentError({ error: "attachment_too_large", message: "x", extra: 1 })).toBeNull();
+  // Closed capability: an unknown media type or an over-ceiling limit is a contract failure, not a silently larger limit.
+  for (const bad of [{ media_types: ["application/zip"] }, { max_file_bytes: 1048577 }, { max_files_per_message: 5 }, { media_types: [] }])
+    expect(() => adaptSupervisorDiscovery({ ...rawDiscovery, attachments: { ...rawDiscovery.attachments, ...bad } })).toThrow();
 });

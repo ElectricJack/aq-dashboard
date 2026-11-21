@@ -184,3 +184,22 @@
 
 .launcher { display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2); }
 @media(max-width:767px) { .launcherText { display:none; } .launcher { inline-size:var(--touch-target); padding-inline:0; } }
+
+/* Owner attachments: picker beside the composer hint, pending files above the actions, retained files under a message. */
+.attachControl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.composerActions .attachButton { display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: var(--control-height); padding: var(--space-1) var(--space-3); background: transparent; color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; cursor: pointer; }
+.composerActions .attachButton:disabled { cursor: default; color: var(--color-text-secondary); }
+.attachButton:focus-visible, .pendingFiles button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.pendingFiles { display: grid; gap: var(--space-1); min-inline-size: 0; }
+.pendingFiles ul, .messageFiles { display: grid; gap: var(--space-1); list-style: none; margin: 0; padding: 0; min-inline-size: 0; }
+.pendingFiles li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); font-size: var(--font-size-meta); min-inline-size: 0; }
+.fileName { min-inline-size: 0; max-inline-size: 36ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.fileMeta, .fileStatus { color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.fileStatus { display: inline-flex; align-items: center; gap: var(--space-1); }
+.fileError { color: var(--color-attention); font-size: var(--font-size-xs); flex-basis: 100%; overflow-wrap: anywhere; }
+.fileActions { display: inline-flex; gap: var(--space-1); margin-inline-start: auto; }
+.pendingFiles .fileActions button { display: inline-flex; align-items: center; justify-content: center; min-block-size: 32px; min-inline-size: 32px; padding-inline: var(--space-2); background: transparent; color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; cursor: pointer; }
+.pendingFiles .fileActions button:disabled { cursor: default; color: var(--color-text-secondary); }
+.messageFiles { margin-block-start: var(--space-2); }
+.messageFiles li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-panel); font-size: var(--font-size-xs); min-inline-size: 0; }
+.message[data-own=true] .messageFiles { justify-items: end; }

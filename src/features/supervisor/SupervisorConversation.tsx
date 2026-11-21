@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Form
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useLocation } from "react-router";
 import { adaptSupervisorDiscovery, adaptSupervisorHistory, freezeSupervisorMessage, mergeSupervisorMessages, supervisorId, validateSupervisorText,
-  type FrozenSupervisorMessage, type SupervisorMessage, type ActionReceiptAttachment } from "../../api/adapters/supervisor";
+  type FrozenSupervisorMessage, type SupervisorMessage, type ActionReceiptAttachment, type AttachmentDescriptor } from "../../api/adapters/supervisor";
 import { supervisorRequest } from "../../api/supervisorClient";
 import { queryKey } from "../../api/queryKeys";
 import { supervisorAction, supervisorActionError } from "./supervisorAction";
@@ -16,6 +16,8 @@ import { ArrowDown, History, Info, LoaderCircle, MessagesSquare, SendHorizontal 
 import { Icon } from "../../components/icons";
 import {SupervisorHistoryReceipt} from "./SupervisorWorkCards";
 import { SupervisorMarkdown } from "./SupervisorMarkdown";
+import { AttachmentPicker, MessageAttachments, PendingAttachments } from "./SupervisorAttachments";
+import { useSupervisorAttachments } from "./useSupervisorAttachments";
 import styles from "./SupervisorConversation.module.css";
 
 const MAX_LOADED = 64;
@@ -59,6 +61,11 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   const conversation = discovery.data?.conversation;
   const canSend = available && historyAllowed && bootstrap.capability("dashboard.actions").enabled && bootstrap.capability("supervisor.message.enqueue").enabled && !discovery.isError;
   const operation = frozen?.operation ?? (full ? operationParam : retained?.operation);
+  // Owner uploads need the server's capability and a nonzero per-message limit (older servers advertise 0 and omit the capability).
+  const capability = discovery.data?.attachments, attachLimit = capability ? Math.min(capability.max_files_per_message, discovery.data?.limits.attachments ?? 0) : 0;
+  const attachments = useSupervisorAttachments(conversation?.id, attachLimit > 0 ? capability : undefined, attachLimit);
+  const [sentFiles, setSentFiles] = useState<AttachmentDescriptor[]>([]);
+  const attachmentsLocked = !!operation && receipt?.disposition !== "confirmed" || sending;
   const settled = receipt !== null && ["confirmed", "conflict", "rejected"].includes(receipt.disposition);
   useEffect(() => { active.current = true; return () => { active.current = false; ticket.current++; for (const job of jobs.current) job.abort(); pending.current = null; }; }, []);
   useLayoutEffect(() => {
@@ -152,7 +159,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
         queryFn: ({ signal }) => supervisorAction(kind, conversation.id, op, message, AbortSignal.any([signal, owner.signal]), intent) });
       if (!active.current || current !== ticket.current) return;
       setReceipt(value);
-      if (value.disposition === "confirmed") { setDraft(""); void load("new"); }
+      if (value.disposition === "confirmed") { setDraft(""); attachments.clear(); void load("new"); }
     } catch (error) {
       if (!active.current || current !== ticket.current) return;
       setReceipt(null);
@@ -174,11 +181,13 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   async function send(event?: FormEvent) {
     event?.preventDefault(); if (!conversation || !canSend || busy.current || operation) return;
     const limits = discovery.data?.limits; const invalid = validateSupervisorText(draft, limits?.body_bytes); if (invalid) { setSendError(invalid); return; }
+    if (attachments.blocked) { setSendError(attachments.blocked); return; }
     busy.current = true; setSending(true); const preparation = ticket.current;
     try {
-      const intent = await freezeSupervisorMessage(conversation, queryContext.principalId, draft, limits && { limits });
+      const files = attachments.items.flatMap(item => item.status === "staged" && item.upload ? [{ id: item.id, name: item.upload.name, media_type: item.upload.media_type, size_bytes: item.upload.size_bytes, digest: item.upload.digest }] : []);
+      const intent = await freezeSupervisorMessage(conversation, queryContext.principalId, draft, limits && { limits, attachments: attachments.refs });
       if (!active.current || preparation !== ticket.current) return;
-      pending.current = intent; ownReference.current = `${intent.operation}:${intent.message}`; setFrozen(intent); operationUrl(intent.operation, intent.message);
+      setSentFiles(files); pending.current = intent; ownReference.current = `${intent.operation}:${intent.message}`; setFrozen(intent); operationUrl(intent.operation, intent.message);
       await execute("post", intent.operation, intent.message, intent);
     } catch { if (active.current && preparation === ticket.current) { busy.current = false; setSending(false); setSendError("Could not prepare the message. Your draft is preserved."); } }
   }
@@ -194,7 +203,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   });
   function another() {
     if (!settled || busy.current) return;
-    pending.current = null; setRetained(null); ownReference.current = ":"; setFrozen(null); setReceipt(null); setSendError(null); operationUrl(); void discovery.refetch();
+    pending.current = null; setSentFiles([]); setRetained(null); ownReference.current = ":"; setFrozen(null); setReceipt(null); setSendError(null); operationUrl(); void discovery.refetch();
   }
   return <section ref={workspace} className={styles.workspace} data-presentation={presentation} data-viewport-fit={full || undefined} aria-label={projectId?"Project supervisor conversation":"Global supervisor conversation"}>
     <header className={styles.header}><div className={styles.titleBlock}><Icon icon={MessagesSquare} size={28} className={styles.titleIcon} /><div>{full ? <PageTitle>{title}</PageTitle> : <h2>{title}</h2>}<p><span className={styles.fullControl}>{projectId?"Project conversation":"Global conversation · All projects"}</span><span className={styles.compactControl}>{projectId?"Project":"Global · All projects"}</span></p></div></div>
@@ -224,9 +233,9 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
           : <span className={styles.delivery} tabIndex={0}>Queued<span className={styles.deliveryDetail}><span className={styles.separator}> · </span>{deliveryText[message.host_delivery]}</span></span>}</p>;
         return <li key={message.message_id} data-message-id={message.message_id} tabIndex={-1} className={styles.message} data-author={message.author.kind} data-own={message.author.kind === "human" && message.author.user_id === queryContext.principalId}>
           {/* Supervisor replies carry the shared avatar mark and lead with who spoke, as in the reference. */}
-          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<SupervisorMarkdown source={message.body} />{message.author.kind==="supervisor"&&message.attachments?.filter((a):a is ActionReceiptAttachment=>"type" in a&&a.type==="action_receipt").map(a=><SupervisorHistoryReceipt key={a.operation_id} receipt={a}/>)}</div></> : <><p className={styles.body}>{message.body}</p>{metadata}</>}
+          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<SupervisorMarkdown source={message.body} />{message.author.kind==="supervisor"&&message.attachments?.filter((a):a is ActionReceiptAttachment=>"type" in a&&a.type==="action_receipt").map(a=><SupervisorHistoryReceipt key={a.operation_id} receipt={a}/>)}</div></> : <><p className={styles.body}>{message.body}</p>{message.author.kind==="human"&&message.attachments&&<MessageAttachments attachments={message.attachments as AttachmentDescriptor[]}/>}{metadata}</>}
         </li>; })}</ol>
-      {frozen && !messages.some(item => item.message_id === frozen.message) && <div className={styles.pending} data-message-id={frozen.message} tabIndex={-1}><p className={styles.body}>{JSON.parse(frozen.bytes).body}</p><p role="status">{sending ? "Sending · awaiting admission" : receipt?.disposition === "confirmed" ? "Queued · awaiting history" : receipt?.disposition === "pending" ? "Admission pending" : settled ? "Not queued" : "Admission unknown"}</p></div>}
+      {frozen && !messages.some(item => item.message_id === frozen.message) && <div className={styles.pending} data-message-id={frozen.message} tabIndex={-1}><p className={styles.body}>{JSON.parse(frozen.bytes).body}</p><MessageAttachments attachments={sentFiles}/><p role="status">{sending ? "Sending · awaiting admission" : receipt?.disposition === "confirmed" ? "Queued · awaiting history" : receipt?.disposition === "pending" ? "Admission pending" : settled ? "Not queued" : "Admission unknown"}</p></div>}
       {/* The marker stays in the reading flow, pinned to the history's bottom edge (§5). */}
       {newAvailable && <ActionButton className={styles.newMarker} onClick={showLatest}>New messages<Icon icon={ArrowDown} size={16} /></ActionButton>}
     </div>
@@ -235,10 +244,12 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
       <textarea id="global-supervisor-message" value={draft} readOnly={!!operation && receipt?.disposition !== "confirmed" || sending} rows={3} placeholder={projectId?"Message the project supervisor…":"Message the global supervisor…"} onChange={event => { if(operation && receipt?.disposition === "confirmed") another(); setDraft(event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229 && !event.repeat && window.matchMedia?.("(pointer: fine)")?.matches) { event.preventDefault(); void send(); }
       }} />
-      <div className={styles.composerActions}><span><span className={styles.fullControl}>Text only · no attachments or context</span><span className={styles.compactControl}>Text only</span></span><ActionButton className={styles.send} aria-label={sending ? "Sending…" : "Send"} type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim()}><Icon icon={sending ? LoaderCircle : SendHorizontal} size={20} /><span className={styles.compactControl}>{sending ? "Sending…" : "Send"}</span></ActionButton></div>
+      <div className={styles.composerActions}>{capability && attachLimit > 0 ? <AttachmentPicker capability={capability} maxFiles={attachLimit} disabled={!canSend || attachmentsLocked} onFiles={attachments.add} /> : <span><span className={styles.fullControl}>Text only · no attachments or context</span><span className={styles.compactControl}>Text only</span></span>}<ActionButton className={styles.send} aria-label={sending ? "Sending…" : "Send"} type="submit" disabled={!conversation || !canSend || !!operation || sending || !draft.trim() || !!attachments.blocked}><Icon icon={sending ? LoaderCircle : SendHorizontal} size={20} /><span className={styles.compactControl}>{sending ? "Sending…" : "Send"}</span></ActionButton></div>
+      <PendingAttachments items={attachments.items} notice={attachments.notice} locked={attachmentsLocked} onRetry={attachments.retry} onRemove={id => void attachments.remove(id)} />
+      {attachments.blocked && <p role="status">{attachments.blocked}</p>}
       {!canSend && <p role="status">Sending is unavailable. Your draft is preserved.</p>}
       {sendError && <p role="status">{sendError}</p>}
-      {receipt && <p role="status">{receipt.disposition === "confirmed" ? <>Message queued. <button type="button" className={styles.confirmedReset} aria-label="Compose another message" disabled={sending} onClick={another}>New message</button></> : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : "Not queued: the request was rejected."}</p>}
+      {receipt && <p role="status">{receipt.disposition === "confirmed" ? <>Message queued. <button type="button" className={styles.confirmedReset} aria-label="Compose another message" disabled={sending} onClick={another}>New message</button></> : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : `Not queued: the request was rejected.${frozen && JSON.parse(frozen.bytes).attachments.length ? " If a file expired or was removed, remove it and attach it again." : ""}`}</p>}
       {operation && receipt?.disposition !== "confirmed" && <div className={styles.recovery}>
         <small>Operation {operation}</small>
         <ActionButton disabled={sending} onClick={() => retry("lookup")}>Check message status</ActionButton>

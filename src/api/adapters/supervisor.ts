@@ -1,5 +1,5 @@
 import { ContractError, isRecord } from "./contract";
-/** human-supervisor-conversation-1, pinned to aq-server schema digest sha256:0ad1658448757bdbca81ee6edb87de9a0269e38d256883a8c1b2033ae97ea9b9. */
+/** human-supervisor-conversation-1, pinned to aq-server schema digest sha256:eda588e205779a11b74a319628f603a55e311358b3de345200d87fe6031f3ed3 (commit 7206f5a1). */
 export const SUPERVISOR_CONTRACT = "human-supervisor-conversation-1";
 export type Conversation = { id: string; revision: string; label: string };
 type UnavailableRuntime = { state: "unavailable"; binding: null; reason: "central_runtime_not_connected" };
@@ -7,11 +7,13 @@ type UnavailableRuntime = { state: "unavailable"; binding: null; reason: "centra
 export type Runtime = UnavailableRuntime | {state:"idle";binding:null;reason:"central_service_ready"} | { state: "available"; binding: { actor_id: string; generation: number; session_id: string }; reason: "central_session_active" };
 /** Server-advertised bounds; each is at most the published schema value (a server may disable context refs or attachments with 0). */
 export type SupervisorLimits = { body_bytes: number; context_refs: number; attachments: number; history_page: number };
-export type Discovery = { contract: typeof SUPERVISOR_CONTRACT; conversation: Conversation; runtime: Runtime; limits: SupervisorLimits };
+/** Discovery.attachments: owner upload support and the effective limits this server enforces. Absent on servers without owner attachments. */
+export type AttachmentCapability = { media_types: AttachmentMediaType[]; max_file_bytes: number; max_files_per_message: number; max_staged_files: number; max_staged_bytes: number; staged_ttl_ms: number; max_name_bytes: number };
+export type Discovery = { contract: typeof SUPERVISOR_CONTRACT; conversation: Conversation; runtime: Runtime; limits: SupervisorLimits; attachments?: AttachmentCapability };
 export const CONTEXT_REF_TYPES = ["project", "task", "result", "review", "knowledge", "session", "playbook_run"] as const;
 export type ContextRef = { type: typeof CONTEXT_REF_TYPES[number]; id: string; revision: string | null };
 export type AttachmentRef = { id: string; digest: string };
-export const ATTACHMENT_MEDIA_TYPES = ["text/plain", "text/markdown", "text/csv", "application/json", "application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"] as const;
+export const ATTACHMENT_MEDIA_TYPES = ["text/plain", "text/markdown", "text/csv", "application/json", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 export type AttachmentMediaType = typeof ATTACHMENT_MEDIA_TYPES[number];
 export type AttachmentDescriptor = { id: string; name: string; media_type: AttachmentMediaType; size_bytes: number; digest: string };
 export type AttachmentUpload = AttachmentDescriptor & { conversation_id: string; created_at_ms: number } & ({ state: "staged"; message_id: null; expires_at_ms: number } | { state: "attached"; message_id: string; expires_at_ms: null });
@@ -84,10 +86,15 @@ function common(v: Record<string, unknown>, expected?: Conversation | string, li
   check(validRuntime(v.runtime, liveRuntime));
 }
 export function adaptSupervisorDiscovery(v: unknown): Discovery {
-  shape(v, "contract conversation runtime limits"); common(v);
+  shape(v, "contract conversation runtime limits", "attachments"); common(v);
   shape(v.limits, "body_bytes context_refs attachments history_page");
   const limits = v.limits;
   check((Object.keys(SCHEMA_LIMITS) as (keyof SupervisorLimits)[]).every(key => integer(limits[key], LIMIT_FLOORS[key], SCHEMA_LIMITS[key])));
+  if (v.attachments !== undefined) {
+    const a = v.attachments; shape(a, "media_types max_file_bytes max_files_per_message max_staged_files max_staged_bytes staged_ttl_ms max_name_bytes");
+    check(list(a.media_types, 1, ATTACHMENT_MEDIA_TYPES.length) && unique(a.media_types) && a.media_types.every(t => (ATTACHMENT_MEDIA_TYPES as readonly unknown[]).includes(t)) &&
+      integer(a.max_file_bytes, 1, 1048576) && integer(a.max_files_per_message, 1, 4) && integer(a.max_staged_files, 1) && integer(a.max_staged_bytes, 1) && integer(a.staged_ttl_ms, 1) && integer(a.max_name_bytes, 1, 255));
+  }
   return v as unknown as Discovery;
 }
 /** Cursors stay unchanged on the wire; comparison only follows the published N / A.R ordering. */
@@ -100,7 +107,7 @@ function validContextRef(v: unknown): v is ContextRef {
   shape(v, "type id revision");
   return (CONTEXT_REF_TYPES as readonly unknown[]).includes(v.type) && supervisorId(v.id) && nullable(v.revision, decimal);
 }
-function validAttachmentName(v: unknown): v is string {
+export function validAttachmentName(v: unknown): v is string {
   return typeof v === "string" && v.length > 0 && utf8Bytes(v) <= 255 && v !== "." && v !== ".." && v === v.trim() && !/[\p{Cc}/\\]/u.test(v) && !/\p{Cs}/u.test(v);
 }
 function validDescriptor(v: Record<string, unknown>): boolean {
@@ -202,6 +209,14 @@ export function adaptSupervisorAttachmentUpload(v: unknown, expected: { conversa
   if (v.state === "staged") check(v.message_id === null && integer(v.expires_at_ms, 1));
   else check(v.state === "attached" && supervisorId(v.message_id) && v.expires_at_ms === null);
   return v as unknown as AttachmentUpload;
+}
+export const ATTACHMENT_ERRORS = ["attachment_media_type_unsupported", "attachment_too_large", "attachment_name_invalid", "attachment_unreadable", "attachment_id_conflict", "attachment_capacity_exhausted", "attachment_not_found", "attachment_bound"] as const;
+export type AttachmentErrorCode = typeof ATTACHMENT_ERRORS[number];
+export type AttachmentError = { error: AttachmentErrorCode; message: string };
+/** Structured refusal of an owner attachment route; null when the body is not one (generic AQ errors keep their own handling). */
+export function adaptSupervisorAttachmentError(v: unknown): AttachmentError | null {
+  if (!isRecord(v) || Object.keys(v).length !== 2 || typeof v.message !== "string" || v.message.length === 0 || !(ATTACHMENT_ERRORS as readonly unknown[]).includes(v.error)) return null;
+  return { error: v.error as AttachmentErrorCode, message: v.message };
 }
 /** Duplicate identities or cursors must never replace already inspected history. */
 export function mergeSupervisorMessages(current: SupervisorMessage[], incoming: SupervisorMessage[]): SupervisorMessage[] {
