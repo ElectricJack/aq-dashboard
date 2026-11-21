@@ -254,3 +254,73 @@ describe('terminal input packet boundaries', () => {
     expect(terminalInputChunks(encode('aa雪🙂'), 5)?.map(bytes => new TextDecoder().decode(bytes))).toEqual(['aa雪', '🙂']);
   });
 });
+
+describe('controller-scoped resize', () => {
+  const subscription = '10000000-0000-4000-8000-000000000004', leaseId = '10000000-0000-4000-8000-000000000005';
+  type Doc = { kind: string; body: Record<string, unknown> };
+  function fake() {
+    let lease: null | Record<string, unknown> = null, generation = 0, expiry = 14000;
+    const resizes: Doc[] = [], inputs: Doc[] = [];
+    const control = () => ({ ...info.control, generation, lease, fence_acknowledged: lease !== null });
+    vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
+      const doc = body as Doc | undefined;
+      let value: unknown;
+      if (doc?.kind === 'watch') { expiry = doc.body.expires_at_ms as number; value = { kind: 'watch', body: { terminal, operation_id: doc.body.operation_id, subscription_id: subscription, session_revision: 2, expires_at_ms: expiry } }; }
+      else if (doc?.kind === 'control') { generation++; lease = { terminal, principal_id: 'fixture', lease_id: leaseId, generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
+      else if (doc?.kind === 'resize') { resizes.push(doc); value = { kind: 'resize', body: { terminal, operation_id: doc.body.operation_id, sequence: doc.body.sequence } }; }
+      else if (doc?.kind === 'input') { inputs.push(doc); value = { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: 'applied', input_paused: false, observed_at_ms: 1000 } }; }
+      else if (path.includes('/tail?')) value = { terminal, subscription_id: subscription, session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
+      else value = { ...info, disconnected: lease === null, control: control() };
+      return { body: value, serverTime: 1000 };
+    });
+    return { resizes, inputs, steal: () => { lease = { ...lease, lease_id: '10000000-0000-4000-8000-000000000006' }; generation++; } };
+  }
+  const open = (allowControl: boolean) => {
+    let controlling = false; const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { controlling = s.controlling; } });
+    return { c, controlling: () => controlling };
+  };
+  it('sends the lease-bound resize only from the acknowledged controller, with a rising sequence and no input', async () => {
+    const f = fake(); const m = open(true);
+    try {
+      m.c.resize?.(100, 30); expect(f.resizes).toEqual([]);
+      await vi.waitFor(() => expect(m.controlling()).toBe(true));
+      m.c.resize?.(100, 30);
+      await vi.waitFor(() => expect(f.resizes).toHaveLength(1));
+      m.c.resize?.(90, 24);
+      await vi.waitFor(() => expect(f.resizes).toHaveLength(2));
+      const [first, second] = f.resizes.map(r => r.body);
+      expect(first).toMatchObject({ terminal, lease_id: leaseId, expected_controller_generation: 1, expected_session_revision: 2, columns: 100, rows: 30 });
+      expect(second).toMatchObject({ columns: 90, rows: 24 });
+      expect(Number(second!.sequence)).toBeGreaterThan(Number(first!.sequence));
+      expect(first!.operation_id).not.toBe(second!.operation_id);
+      expect(Number(first!.expires_at_ms) - 1000).toBeLessThanOrEqual(2000);
+      expect(f.inputs).toEqual([]);
+    } finally { m.c.close(); }
+  });
+  it('keeps only the latest size while one is in flight and clamps to the server bounds', async () => {
+    const f = fake(); const m = open(true);
+    try {
+      await vi.waitFor(() => expect(m.controlling()).toBe(true));
+      m.c.resize?.(100, 30); m.c.resize?.(101, 31); m.c.resize?.(5000, 0);
+      await vi.waitFor(() => expect(f.resizes.length).toBeGreaterThanOrEqual(2));
+      expect(f.resizes.at(-1)!.body).toMatchObject({ columns: 1000, rows: 1 });
+      expect(f.resizes.some(r => r.body.columns === 101)).toBe(false);
+    } finally { m.c.close(); }
+  });
+  it('never resizes from a watcher without control, or after the lease is replaced', async () => {
+    const f = fake(); const watcher = open(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      watcher.c.resize?.(100, 30); await new Promise(resolve => setTimeout(resolve, 20));
+      expect(f.resizes).toEqual([]);
+    } finally { watcher.c.close(); }
+    const g = fake(); const m = open(true);
+    try {
+      await vi.waitFor(() => expect(m.controlling()).toBe(true));
+      g.steal();
+      await vi.waitFor(() => expect(m.controlling()).toBe(false), { timeout: 4000 });
+      m.c.resize?.(100, 30); await new Promise(resolve => setTimeout(resolve, 20));
+      expect(g.resizes).toEqual([]);
+    } finally { m.c.close(); }
+  });
+});

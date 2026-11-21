@@ -60,31 +60,36 @@ test.describe("phone-390", () => {
     await expect(bar.getByRole("button", { name: "Enter" })).toBeInViewport();
   });
 
-  // A task pane keeps the pane's launch grid (fixture tail: 120x40); the browser never resizes it.
-  // Manual sessions still resize on refit (tests/workspace/agents-workspace.spec.ts).
-  test("text size A−/A+ changes xterm fontSize and refits without resizing the task pane", async ({ page }) => {
+  // The controller of a task pane fits it to the browser pane and asks the session to follow (docs/operations/terminal-resize.md).
+  test("text size A−/A+ changes xterm fontSize and refits the controlled task pane", async ({ page }) => {
+    const resizes: { columns: number; rows: number }[] = [];
+    page.on("request", (request) => { if (mutation("resize")(request)) resizes.push(request.postDataJSON().body); });
     const pane = await takeControl(page);
-    const resizes: Request[] = [];
-    page.on("request", (request) => { if (mutation("resize")(request)) resizes.push(request); });
     const rows = pane.locator(".xterm-rows");
     const size = () => rows.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(await size()).toBe(14);
     const smaller = pane.getByRole("button", { name: "A− Decrease text size" }), larger = pane.getByRole("button", { name: "A+ Increase text size" });
     await expect(smaller).toBeDisabled();
+    const synced = async () => { const cols = await pane.getAttribute("data-cols"); return resizes.length > 0 && String(resizes.at(-1)!.columns) === cols; };
+    await expect.poll(synced).toBe(true);
     await larger.click();
     await expect.poll(size).toBe(16);
-    await expect(pane).toHaveAttribute("data-cols", "120");
+    await expect.poll(synced).toBe(true);
     await expect(pane.getByRole("group", { name: "Text size" })).toContainText("16px");
     await larger.click(); await larger.click();
     await expect.poll(size).toBe(20);
     await expect(larger).toBeDisabled();
     await smaller.click();
     await expect.poll(size).toBe(18);
-    await expect(pane).toHaveAttribute("data-cols", "120");
-    expect(resizes).toEqual([]);
+    await expect.poll(synced).toBe(true);
   });
 
-  test("pan hint shows while the task pane's launch grid is wider than its container", async ({ page }) => {
+  test("pan hint shows while a watching task pane's launch grid is wider than its container", async ({ page }) => {
+    // A viewer without control keeps the session's grid and pans; only the controller resizes it.
+    await page.route("**/api/v1/terminals/*/mutations", (route) => {
+      const kind = (route.request().postDataJSON() as { kind?: string } | null)?.kind;
+      return kind === "control" || kind === "renew" ? route.fulfill({ status: 403, json: { code: "forbidden", message: "No control" } }) : route.fallback();
+    });
     await page.goto("/agents/sess-07");
     const pane = page.getByRole("region", { name: "Interactive agent terminal" });
     await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
@@ -112,5 +117,28 @@ test.describe("desktop-1440", () => {
     expect((await sent).postDataJSON().body.bytes).toEqual([27]);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-key-bar-desktop-1440.png` });
     await axe(page);
+  });
+
+  test("the controller's pane follows the browser size without reconnecting or console errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+    page.on("pageerror", (error) => errors.push(error.message));
+    const resizes: { columns: number; rows: number }[] = [], watches: Request[] = [];
+    page.on("request", (request) => { if (mutation("resize")(request)) resizes.push(request.postDataJSON().body); if (mutation("watch")(request)) watches.push(request); });
+    const pane = await takeControl(page);
+    const synced = async () => resizes.length > 0 && String(resizes.at(-1)!.columns) === (await pane.getAttribute("data-cols"));
+    await expect.poll(synced).toBe(true);
+    const wide = resizes.at(-1)!;
+    expect(wide.columns).toBeGreaterThan(120);
+    const watched = watches.length;
+    await page.setViewportSize({ width: 1000, height: 700 });
+    await expect.poll(async () => resizes.at(-1)!.columns).toBeLessThan(wide.columns);
+    await expect.poll(synced).toBe(true);
+    const count = resizes.length;
+    await page.waitForTimeout(500);
+    expect(resizes.length).toBe(count);
+    await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
+    expect(watches.length).toBe(watched);
+    expect(errors).toEqual([]);
   });
 });

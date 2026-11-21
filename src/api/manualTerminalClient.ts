@@ -69,7 +69,8 @@ export function connectManualTerminal(options:Options,basePath=`/api/manual-agen
    }else for(let n=0;n<bytes.length;n+=4096)socket.send(bytes.slice(n,n+4096));
   },
   sendEscape(){if(!readOnly&&connected&&!paused&&!repainting&&!closed&&socket?.readyState===WebSocket.OPEN)socket.send(fixed?JSON.stringify({kind:'escape'}):Uint8Array.of(0x1b));},
-  resize(c:number,r:number){if(fixed)return;columns=Math.max(2,Math.min(500,c));rows=Math.max(1,Math.min(300,r));if(connected&&!paused&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({kind:'resize',columns,rows}));},
+  // Only the current, non-read-only controller may resize. A watcher (read_only) never reaches the worker.
+  resize(c:number,r:number){if(readOnly||!Number.isFinite(c)||!Number.isFinite(r))return;columns=Math.max(2,Math.min(500,Math.round(c)));rows=Math.max(1,Math.min(300,Math.round(r)));if(connected&&!paused&&!repainting&&!closed&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({kind:'resize',columns,rows}));},
   repaint(){
    if(!fixed||!connected||paused||repainting||closed||socket?.readyState!==WebSocket.OPEN)return;
    repainting=true;emit('Repainting terminal…');socket.send(JSON.stringify({kind:'repaint'}));

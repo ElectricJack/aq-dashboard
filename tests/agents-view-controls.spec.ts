@@ -27,14 +27,15 @@ async function withinViewport(page: Page, el: Locator) {
   expect(box.x + box.width).toBeLessThanOrEqual(vp.width + 0.5);
   expect(box.y + box.height).toBeLessThanOrEqual(vp.height + 0.5);
 }
-/** A pane fits >= 80 columns of its width. A task pane renders its launch grid (fixture tail: 120
- * columns) instead of refitting, so its frame pans sideways exactly when that grid is wider than the fit. */
+/** A pane fits >= 80 columns of its width. The controller of a task pane resizes the session to the fitted
+ * grid (docs/operations/terminal-resize.md), so the pane renders that grid and its frame pans sideways only
+ * when the width fits fewer than the 80-column floor. */
 async function fitsEighty(pane: Locator) {
   await expect.poll(async () => Number(await pane.getAttribute("data-fit-cols"))).toBeGreaterThanOrEqual(80);
-  await expect(pane).toHaveAttribute("data-cols", "120");
   const fit = Number(await pane.getAttribute("data-fit-cols"));
+  await expect.poll(async () => Number(await pane.getAttribute("data-cols"))).toBe(Math.max(80, Math.min(500, fit)));
   const frame = pane.locator(".xterm").locator("xpath=../..");
-  expect(await frame.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(fit < 120);
+  expect(await frame.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(false);
 }
 
 for (const vp of VIEWPORTS) {

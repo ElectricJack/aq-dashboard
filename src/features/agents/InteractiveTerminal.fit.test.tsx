@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   proposed: undefined as { cols: number; rows: number } | undefined,
   reset: 0, resizeSent: vi.fn(), terminalResize: vi.fn(), observers: [] as Array<() => void>,
   onResize: undefined as ((size: { cols: number; rows: number }) => void) | undefined,
+  managed: undefined as undefined | { emit: (state: Record<string, unknown>) => void },
+  managedResize: vi.fn(),
 }));
 vi.mock('../../app/session', () => ({ useSession: () => ({
   bootstrap: { capability: () => ({ enabled: true }), principal: { displayName: 'Owner' } },
@@ -30,6 +32,12 @@ vi.mock('@xterm/xterm', () => ({ Terminal: class {
 vi.mock('../../api/manualTerminalClient', () => ({ connectManualTerminal: () => ({
   close: vi.fn(), sendInput: vi.fn(), sendEscape: vi.fn(), repaint: vi.fn(), release: vi.fn(), resize: mocks.resizeSent,
 }) }));
+
+// A managed task/attempt terminal: the test drives the connection's state (controller or watcher, session grid).
+vi.mock('../../api/nativeTerminalClient', () => ({ connectNativeTerminal: (options: { state: (state: Record<string, unknown>) => void }) => {
+  mocks.managed = { emit: state => options.state({ message: 'x', connected: true, controlling: false, canControl: true, paused: false, ...state }) };
+  return { close: vi.fn(), sendInput: vi.fn(), sendEscape: vi.fn(), repaint: vi.fn(), release: vi.fn(), takeControl: vi.fn(), resize: mocks.managedResize };
+} }));
 
 const rect = (width: number, height: number) => ({ x: 0, y: 0, left: 0, top: 0, right: width, bottom: height, width, height, toJSON() {} }) as DOMRect;
 
@@ -91,6 +99,72 @@ describe.each([['manual', { manual: true }], ['host-shell', { hostShell: true }]
       resizeContainer();
       expect(mocks.terminalResize).toHaveBeenLastCalledWith(110, 32);
       expect(mocks.resizeSent).toHaveBeenLastCalledWith(110, 32);
+    } finally { done(); }
+  });
+});
+
+describe('managed task terminal', () => {
+  let rectSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    mocks.proposed = { cols: 132, rows: 41 }; mocks.observers = []; mocks.onResize = undefined; mocks.managed = undefined;
+    mocks.managedResize.mockClear(); mocks.terminalResize.mockClear(); mocks.resizeSent.mockClear();
+    stubObservers();
+    rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect(900, 500));
+  });
+  afterEach(() => { rectSpy.mockRestore(); vi.unstubAllGlobals(); });
+  const mount = () => {
+    const client = new QueryClient();
+    const view = render(<QueryClientProvider client={client}><InteractiveTerminal terminalId="task-1" name="Worker" /></QueryClientProvider>);
+    return { ...view, done: () => { view.unmount(); client.clear(); } };
+  };
+  const pane = (container: HTMLElement) => container.querySelector<HTMLElement>('[data-cols]')!;
+
+  test('the controller fits the pane and asks the session to follow each distinct size', () => {
+    const { container, done } = mount();
+    try {
+      act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: false }));
+      // A watcher keeps the session's grid and never resizes it.
+      expect(mocks.managedResize).not.toHaveBeenCalled();
+      expect(pane(container).dataset.cols).toBe('120');
+      act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: true }));
+      expect(mocks.managedResize).toHaveBeenLastCalledWith(132, 41);
+      expect(pane(container).dataset.cols).toBe('132');
+      mocks.proposed = { cols: 100, rows: 30 };
+      resizeContainer();
+      expect(mocks.managedResize).toHaveBeenLastCalledWith(100, 30);
+      expect(pane(container).dataset.cols).toBe('100');
+      const sent = mocks.managedResize.mock.calls.length;
+      for (let n = 0; n < 5; n += 1) resizeContainer();
+      act(() => mocks.managed!.emit({ grid: { columns: 100, rows: 30 }, controlling: true }));
+      expect(mocks.managedResize).toHaveBeenCalledTimes(sent);
+      expect(mocks.resizeSent).not.toHaveBeenCalled();
+    } finally { done(); }
+  });
+
+  test('a session already at the pane size is not resized, and a watcher keeps its grid when the pane changes', () => {
+    mocks.proposed = { cols: 120, rows: 40 };
+    const { container, done } = mount();
+    try {
+      act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: true }));
+      expect(mocks.managedResize).not.toHaveBeenCalled();
+      act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: false }));
+      mocks.proposed = { cols: 90, rows: 20 };
+      resizeContainer();
+      expect(mocks.managedResize).not.toHaveBeenCalled();
+      expect(pane(container).dataset.cols).toBe('120');
+    } finally { done(); }
+  });
+
+  test('a hidden pane is fitted and resized once it is shown', () => {
+    mocks.proposed = { cols: NaN, rows: NaN };
+    rectSpy.mockReturnValue(rect(0, 0));
+    const { done } = mount();
+    try {
+      act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: true }));
+      expect(mocks.managedResize).not.toHaveBeenCalled();
+      rectSpy.mockReturnValue(rect(900, 500)); mocks.proposed = { cols: 110, rows: 32 };
+      resizeContainer();
+      expect(mocks.managedResize).toHaveBeenLastCalledWith(110, 32);
     } finally { done(); }
   });
 });
