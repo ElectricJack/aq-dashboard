@@ -89,8 +89,9 @@ test("send binds the staged uploads as ordered id/digest refs, then history show
   await userEvent.click(screen.getByRole("button", { name: "Send" }));
   await screen.findByText(/^Message queued\./);
   const payload = JSON.parse(app.posts[0]!).payload as { attachments: { id: string; digest: string }[] };
-  expect(payload.attachments.map(ref => ref.id)).toEqual(app.puts.map(put => put.id));
-  expect(payload.attachments.map(ref => ref.digest)).toEqual(app.puts.map(put => app.staged.get(put.id)!.upload.digest));
+  const selected = ["spec.md", "notes.txt"].map(name => app.puts.find(put => put.name === name)!);
+  expect(payload.attachments.map(ref => ref.id)).toEqual(selected.map(put => put.id));
+  expect(payload.attachments.map(ref => ref.digest)).toEqual(selected.map(put => app.staged.get(put.id)!.upload.digest));
   const messages = await screen.findByRole("list", { name: "Supervisor messages" });
   const row = (await within(messages).findByText("Review the attached spec")).closest("li")!;
   expect(within(row).getByRole("list", { name: "Message attachments" })).toHaveTextContent("spec.md");
@@ -108,9 +109,9 @@ test("a pending file can be removed before sending: the staged upload is deleted
   await waitFor(() => expect(within(list()).getAllByText("Ready to send")).toHaveLength(2));
   await userEvent.click(screen.getByRole("button", { name: "Remove draft.txt" }));
   await waitFor(() => expect(within(list()).queryByText("draft.txt")).toBeNull());
-  expect(app.deletes).toEqual([app.puts[1]!.id]);
+  expect(app.deletes).toEqual([app.puts.find(put => put.name === "draft.txt")!.id]);
   await userEvent.type(await composer(), "Only the spec"); await userEvent.click(screen.getByRole("button", { name: "Send" })); await screen.findByText(/^Message queued\./);
-  expect(JSON.parse(app.posts[0]!).payload.attachments.map((ref: { id: string }) => ref.id)).toEqual([app.puts[0]!.id]);
+  expect(JSON.parse(app.posts[0]!).payload.attachments.map((ref: { id: string }) => ref.id)).toEqual([app.puts.find(put => put.name === "spec.md")!.id]);
 });
 
 test("unsupported, empty, oversized and over-count files are named and never uploaded or silently dropped", async () => {
