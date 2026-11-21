@@ -85,18 +85,21 @@ test.describe("phone-390", () => {
   });
 
   test("pan hint shows while a watching task pane's launch grid is wider than its container", async ({ page }) => {
-    // A viewer without control keeps the session's grid and pans; only the controller resizes it.
-    await page.route("**/api/v1/terminals/*/mutations", (route) => {
-      const kind = (route.request().postDataJSON() as { kind?: string } | null)?.kind;
-      return kind === "control" || kind === "renew" ? route.fulfill({ status: 403, json: { code: "forbidden", message: "No control" } }) : route.fallback();
-    });
-    await page.goto("/agents/sess-07");
+    // sess-51 is the fixture whose terminal policy accepts no input, so it never grants control: it keeps the
+    // session's grid and pans, and only a controller resizes it.
+    const resizes: Request[] = [];
+    page.on("request", (request) => { if (mutation("resize")(request)) resizes.push(request); });
+    await page.goto("/agents/sess-51");
     const pane = page.getByRole("region", { name: "Interactive agent terminal" });
-    await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 07");
+    await expect(pane.locator(".xterm-rows")).toContainText("Fixture output for Worker 51");
+    await expect(pane.getByRole("status").filter({ hasText: "You have control" })).toHaveCount(0);
+    await expect(pane).not.toHaveAttribute("data-controlling", "true");
+    await expect(pane).toHaveAttribute("data-cols", "120");
     const wider = () => pane.locator(".xterm-screen").evaluate((el) => el.scrollWidth > el.closest("[class*=host]")!.clientWidth);
     await expect.poll(wider).toBe(true);
     await expect(pane.getByText("120 columns · pan to view")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    expect(resizes).toEqual([]);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/agents-key-bar-watch-phone-390.png` });
     await axe(page);
   });
