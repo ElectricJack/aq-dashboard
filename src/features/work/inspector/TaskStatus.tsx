@@ -42,6 +42,8 @@ const blockerName = (b: TaskBlocker) => b.title ?? `task ${b.id.slice(0, 8)}`;
 const HOLD_SHORT: Record<string, string> = {
   cancelled_attempt_holds_task: "cancelled attempt holds it",
   attempt_stopped_not_released: "stopped attempt not released",
+  result_ready: "awaiting delivery",
+  result_ready_no_delivery_policy: "no active delivery policy",
   attempt_finished_stop_unconfirmed: "stop not confirmed",
   role_disabled: "its role is disabled", role_missing: "its role does not exist", level_missing: "its level does not exist",
   startup_over_limit: "startup text over its limit", platform_text_missing: "no platform text for its environment",
@@ -60,7 +62,11 @@ export function statusReason(state: WorkReadiness | undefined, work: TaskWork | 
     return open.length === 1 ? `blocked by “${blockerName(open[0]!)}”` : open.length ? `blocked by ${open.length} tasks` : null;
   }
   if (state === "held") {
-    const first = work.reasons[0], short = HOLD_SHORT[first?.code ?? ""] ?? null;
+    const first = work.reasons.find(r => r.code === "task_held")
+      ?? work.reasons.find(r => r.result_id && r.attempt_id === work.execution?.attempt_id)
+      ?? work.reasons[0];
+    if (first?.hold_reason) return humanize(first.hold_reason).toLowerCase();
+    const short = HOLD_SHORT[first?.code ?? ""] ?? null;
     return short && first?.startup ? `${short} (${startupNumbers(first.startup)})` : short;
   }
   if (state === "unknown") return "relationships not fully read";
@@ -86,6 +92,11 @@ export function TaskStatusSection({ query, taskId, search, linkSearch, ended = n
   const work = query.data?.data;
   if (!work) return <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this task's readiness" subject="collection" retryLabel="task readiness" onRetry={() => void query.refetch()} />;
   const open = unsatisfied(work);
+  const holder = work.execution?.attempt_id;
+  const recorded = work.reasons.some(r => r.result_id && r.attempt_id === holder);
+  const reasons = recorded
+    ? work.reasons.filter(r => r.code !== "attempt_stopped_not_released" || r.attempt_id !== holder)
+    : work.reasons;
   return <>
     <RetainedNotice query={query} />
     {work.state === "waiting" && open.length > 0 && <div className={styles.reasons}>
@@ -102,8 +113,8 @@ export function TaskStatusSection({ query, taskId, search, linkSearch, ended = n
     {/* Role and route share a line; a task without a route to show has the role alone. */}
     {work.routing && work.routing.state !== "unrouted" ? <TaskRoute routing={work.routing} taskId={taskId} lead={work.role && <RoleLine role={work.role} />} /> : work.role && <RoleLine role={work.role} />}
     {/* A role or level hold says why in AQ's own words below; this sentence is for a claim an attempt still holds. */}
-    {work.state === "held" && (work.reasons.length === 0 || work.reasons.some(r => r.attempt_id)) && <p className={styles.reasons}>AQ isn't running this task: an attempt that has stopped or finished still holds it, so no new attempt starts until that claim is released.</p>}
-    {work.reasons.length > 0 && <HoldReasons reasons={work.reasons} held={work.state === "held"} holder={work.execution?.attempt_id} />}
+    {work.state === "held" && !recorded && (work.reasons.length === 0 || work.reasons.some(r => r.attempt_id)) && <p className={styles.reasons}>AQ isn't running this task: an attempt that has stopped or finished still holds it, so no new attempt starts until that claim is released.</p>}
+    {reasons.length > 0 && <HoldReasons reasons={reasons} held={work.state === "held"} holder={holder} />}
     {heldByFallback(work, ended) && <p className={styles.reasons} data-held-reason="">AQ reports this task as running because the attempt below still holds it, but that attempt is {humanize(ended!).toLowerCase()}, so no agent is working on the task now.</p>}
     <TaskAgent work={work} linkSearch={linkSearch} ended={ended} />
   </>;
@@ -126,7 +137,8 @@ function HoldReasons({ reasons, held, holder }: { reasons: HoldReason[]; held: b
     <ul aria-label="Why the task is held" className={styles.holdReasons}>{reasons.map(r => <li key={`${r.code}:${r.attempt_id ?? r.role ?? r.level ?? ""}`} data-hold-reason={r.code}>
       <p>{r.message}</p>
       {r.startup && <p className={styles.meta} data-startup-over-limit=""><span>Startup text <strong>{startupNumbers(r.startup)}</strong> · the limit is {startupLimit(r.startup)}</span></p>}
-      {r.attempt_id && r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> <span className={styles.attemptStatus}>{humanize(r.status ?? "unknown")}</span></p>}
+      {r.result_id && <p className={styles.meta}>Result <IdValue id={r.result_id} label="result ID" /></p>}
+      {r.attempt_id && r.attempt_id !== holder && <p className={styles.meta}><span>Attempt</span> <IdValue id={r.attempt_id} label="held attempt ID" /> {r.status && <span className={styles.attemptStatus}>{humanize(r.status)}</span>}</p>}
     </li>)}</ul>
   </div>;
 }
