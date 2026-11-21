@@ -35,6 +35,27 @@
 /* In-flow marker: sticks to the history scroller's bottom edge while the reader is above. */
 .history .newMarker { position: sticky; inset-block-end: var(--space-2); z-index: 1; display: flex; inline-size: fit-content; margin: var(--space-3) auto 0; border-radius: 999px; background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent); box-shadow: 0 4px 16px rgb(0 0 0 / .35); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); padding: var(--space-3) var(--space-4); margin: 0; line-height: 1.55; }
+/* Rendered Markdown: normal flow text; code and tables keep their whitespace and scroll inside the bubble. */
+.markdown { white-space: normal; min-inline-size: 0; }
+.markdown > :first-child { margin-block-start: 0; }
+.markdown > :last-child { margin-block-end: 0; }
+.markdown :is(p, ul, ol, blockquote, pre, hr, h3, h4, h5, h6) { margin-block: 0 var(--space-2); }
+.markdown :is(h3, h4, h5, h6) { margin-block-start: var(--space-3); line-height: 1.35; }
+.markdown :is(ul, ol) { padding-inline-start: var(--space-5, 1.5rem); }
+.markdown li > :is(ul, ol) { margin-block-end: 0; }
+.markdown li:has(> input[type=checkbox]) { list-style: none; }
+.markdown li > input[type=checkbox] { margin-inline: calc(-1 * var(--space-4, 1rem)) var(--space-2); }
+.markdown a { color: var(--color-accent); text-underline-offset: 2px; }
+.markdown a:focus-visible, .tableScroll:focus-visible, .markdown pre:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.markdown blockquote { margin-inline: 0; padding-inline-start: var(--space-3); border-inline-start: 3px solid var(--color-border); color: var(--color-text-secondary); }
+.markdown hr { border: 0; border-block-start: 1px solid var(--color-border); }
+.markdown code { font-family: var(--font-mono, ui-monospace, monospace); font-size: .92em; padding: 0 .3em; border-radius: 4px; background: rgb(127 127 127 / .18); overflow-wrap: anywhere; }
+.markdown pre { overflow-x: auto; white-space: pre; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: rgb(127 127 127 / .12); max-inline-size: 100%; }
+.markdown pre code { padding: 0; background: none; overflow-wrap: normal; }
+.tableScroll { overflow-x: auto; max-inline-size: 100%; margin-block: 0 var(--space-2); }
+.tableScroll table { border-collapse: collapse; font-size: .95em; }
+.tableScroll :is(th, td) { padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); text-align: start; vertical-align: top; overflow-wrap: normal; }
+.tableScroll th { background: rgb(127 127 127 / .12); }
 .message[data-own=true] .body { background: var(--color-accent); color: #111426; border-color: var(--color-accent); }
 .metadata { margin-block: var(--space-2) 0; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
 .message[data-own=true] .metadata { text-align: end; }
