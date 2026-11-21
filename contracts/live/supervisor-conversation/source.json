@@ -1,22 +1,26 @@
 {
   "repository": "aq-server",
-  "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
+  "commit": "7206f5a1f1f2527f1a3afef476259cf621760a8c",
   "path": "protocol/human-supervisor-conversation/v1/schema.json",
-  "sha256": "412069f36c814496fb7c1d336b6342c8773c4fd4da54a12908c2c8c6c8c927ae",
-  "note": "Global and project conversations share retained message/history contracts with immutable scoped identity and bounded labels. Live runtime can be idle between physical turns; admission receipts retain the unavailable snapshot.",
+  "sha256": "eda588e205779a11b74a319628f603a55e311358b3de345200d87fe6031f3ed3",
+  "note": "Global and project conversations share retained message/history contracts with immutable scoped identity and bounded labels. Live runtime can be idle between physical turns; admission receipts retain the unavailable snapshot. Owner attachments (aq-server PRs #226, #229, #230): Discovery.attachments advertises media types and effective limits; an owner PUTs raw typed bytes to /api/human/conversations/{id}/attachments/{attachment}?name=<encoded>, DELETEs a staged upload there, and binds ordered {id,digest} refs on Create.",
   "fixture_note": "mixed-history.fixture.json is a dashboard-authored, visibly labelled deterministic fixture derived from the pinned schema; it is not a live reply or an owner-supplied example.",
   "f2_fixture": {
     "repository": "aq-server",
     "commit": "09ee5e98e1c6ec20e80b039b8c480ea3bf8d6590",
     "path": "protocol/dashboard-actions/v1/fixtures/request-task-graph-create.json",
-    "sha256": "1a500b4b6dd36be565307e55e4ff59bd56c54801c806a51df99a9abe6020a32a"
+    "sha256": "1a500b4b6dd36be565307e55e4ff59bd56c54801c806a51df99a9abe6020a32a",
+    "note": "fixture pinned at the earlier commit; unchanged"
   },
-  "branch": "feat/role-catalog",
+  "branch": "main",
   "examples": [
+    "attachment-error.example.json",
+    "attachment-upload.example.json",
     "create.example.json",
     "discovery.example.json",
+    "history-attachments.example.json",
     "history.example.json",
-    "receipt.example.json",
-    "history-attachments.example.json"
-  ]
+    "receipt.example.json"
+  ],
+  "attachment_examples_note": "discovery.example.json, attachment-upload.example.json and attachment-error.example.json are the files at the pinned commit; schema.json digest was verified before vendoring. create.example.json, history.example.json, history-attachments.example.json and receipt.example.json were not re-vendored by this pin."
 }
