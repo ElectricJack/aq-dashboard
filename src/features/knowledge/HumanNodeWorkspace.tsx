@@ -128,7 +128,8 @@ function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind
   const narrowed=knowledge&&filtered.length!==rows.length;
   const listTitle=query.isError || mergeError ? `${kind==="task"?"Tasks":"Records"} unavailable` : !query.data ? (kind==="task"?"Tasks":"Records") : narrowed ? `${filtered.length} of ${rows.length} loaded ${rows.length===1?"record":"records"}` : `${filtered.length} ${noun} loaded`;
   const emptyText=rows.length?"No loaded records match these filters.":!knowledge?"No records returned for this search.":q?"No knowledge records match this search.":"No knowledge records in this project yet.";
-  const update=(key:string,value:string)=>setParams(p=>{const n=new URLSearchParams(p);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);return n;});
+  // Build on latestParams, not the router's functional update: that reads the last committed render and would drop a filter change still pending (e.g. lifecycle reset, then Enter in search).
+  const update=(key:string,value:string)=>{const n=new URLSearchParams(latestParams.current);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);latestParams.current=n;setParams(n);};
   return <div ref={workspace} className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
     {kind==="task" && <p className={styles.subtitle}>Inspect project tasks and their recorded dependencies.{projectName && <span> · {projectName}</span>}</p>}
     <Toolbar className={styles.filters}>
