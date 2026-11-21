@@ -94,6 +94,8 @@ export function connectNativeTerminal(options: Options): TerminalConnection {
     sendInput(bytes) { if (!showingViewer || viewerState?.canRepaint) input?.sendInput(bytes); },
     sendEscape() { if (!showingViewer || viewerState?.canRepaint) input?.sendEscape(); },
     repaint,
+    // The read-only repaint viewer keeps the geometry it attached with; only the current controller resizes.
+    resize(columns, rows) { if (!showingViewer) input?.resize?.(columns, rows); },
     close() { abort.abort(); viewer?.close(); input?.close(); },
   };
 }

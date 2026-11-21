@@ -102,6 +102,8 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
   const [fontSize, setFontSize] = useState(() => clampTerminalFontSize(readPreferences().terminalFontSize)), fontSizeRef = useRef(fontSize);
   const relayout = useRef<() => void>(() => {});
   const grid = useRef<TerminalGrid | undefined>(undefined);
+  // A managed terminal is fitted to its pane only while this viewer is its controller; `requested` is the last size the session was asked for or reported.
+  const controllingRef = useRef(false), requested = useRef<TerminalGrid | undefined>(undefined);
   const [panColumns, setPanColumns] = useState<number | null>(null);
   const keys = useRef<HTMLDivElement>(null);
   const [keyFade, setKeyFade] = useState({ start: false, end: false });
@@ -134,19 +136,21 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         uncertain.current ||= next.inputDeliveryUncertain === true;
         if (next.binding) binding.current = next.binding;
         if (fixed && next.grid && (next.grid.columns !== grid.current?.columns || next.grid.rows !== grid.current.rows)) {
-          grid.current = next.grid;
+          grid.current = next.grid; requested.current = next.grid;
           term.resize(next.grid.columns, next.grid.rows);
           updateWidth();
           relayout.current();
         }
         if (!next.connected) freeze();
+        controllingRef.current = next.controlling;
+        if (!next.controlling) requested.current = grid.current;
         term.options.disableStdin = !next.controlling;
         feed?.status(next.message, next.connected); setState(next);
       },
     }); connection.current = transport;
     function updateWidth() {
       if (!term.element) return;
-      const columns = fixed ? term.cols : MIN_PANE_COLUMNS;
+      const columns = fixed && !controllingRef.current ? term.cols : MIN_PANE_COLUMNS;
       term.element.style.minInlineSize = `${Math.ceil(columns * terminalCellWidth(fontSizeRef.current)) + SCROLLBAR_PX}px`;
     }
     const data = term.onData(value => {
@@ -177,7 +181,15 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
         frame.current.style.maxHeight = viewport && viewport.width < 768 ? `${Math.max(180, viewport.height + viewport.offsetTop - box.top - below)}px` : '';
         const dimensions = fit.proposeDimensions();
         // A hidden host (frozen last observation) proposes NaN; keep the current size.
-        if (!fixed && dimensions && Number.isFinite(dimensions.cols) && Number.isFinite(dimensions.rows)) term.resize(Math.max(80, Math.min(500, dimensions.cols)), Math.max(8, Math.min(300, dimensions.rows)));
+        if (dimensions && Number.isFinite(dimensions.cols) && Number.isFinite(dimensions.rows)) {
+          const cols = Math.max(MIN_PANE_COLUMNS, Math.min(500, dimensions.cols)), rows = Math.max(8, Math.min(300, dimensions.rows));
+          if (!fixed) term.resize(cols, rows);
+          else if (controllingRef.current && transport.resize) {
+            // The controller of a managed terminal sizes it to the pane; a watcher keeps the session's grid.
+            if (cols !== term.cols || rows !== term.rows) { term.resize(cols, rows); updateWidth(); }
+            if (cols !== requested.current?.columns || rows !== requested.current.rows) { requested.current = { columns: cols, rows }; transport.resize(cols, rows); }
+          }
+        }
         if (pane.current) { pane.current.dataset.cols = String(term.cols); pane.current.dataset.fitCols = dimensions ? String(dimensions.cols) : ''; }
         measurePan();
       });
@@ -227,7 +239,9 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     setState({ message: 'Ended', connected: false, controlling: false, canControl: false, paused: false });
   }, [inputEnabled]);
   useEffect(() => {
-    if (!fixed && state.controlling && terminal.current) connection.current?.resize?.(terminal.current.cols, terminal.current.rows);
+    if (state.controlling && terminal.current) {
+      if (fixed) relayout.current(); else connection.current?.resize?.(terminal.current.cols, terminal.current.rows);
+    }
     if (!state.controlling) setCtrl(false);
   }, [fixed, state.controlling, setCtrl]);
   useEffect(() => {
@@ -308,7 +322,7 @@ function TerminalPane({ terminalId, name, feed, transcriptOpen = false, onTransc
     </div>}
     <>
       <div className={styles.frame} ref={frame}>
-        <div className={styles.host} ref={host} data-fixed={fixed || undefined} hidden={frozen} />
+        <div className={styles.host} ref={host} data-fixed={fixed || undefined} data-fit={(fixed && state.controlling) || undefined} hidden={frozen} />
         {/* Input is frozen while disconnected: the last observation is text, never a live terminal. */}
         {frozen && <figure className={styles.observation} aria-label="Last observation">
           <pre tabIndex={0}>{snapshot.join('\n')}</pre>

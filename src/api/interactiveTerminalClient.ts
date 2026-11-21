@@ -93,6 +93,22 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     if (!info || !owned || !active()) throw new Error('Control unavailable');
     return { terminal: info.terminal, lease_id: owned, expected_controller_generation: info.control.generation, expected_session_revision: info.session_revision };
   }
+  // Resize is a controller action: it needs the same acknowledged lease as input, but never carries or implies input.
+  // `sequence` must exceed the terminal's last resize, so it is the server-clock millisecond, kept strictly increasing.
+  let resizeSequence = 0, resizing = false, resizePending: TerminalGrid | undefined;
+  async function flushResize() {
+    if (resizing) return;
+    resizing = true;
+    try {
+      while (resizePending && active()) {
+        const size = resizePending; resizePending = undefined;
+        const operation = crypto.randomUUID(); resizeSequence = Math.max(resizeSequence + 1, Math.floor(now()));
+        const raw = await json(`resize-${operation}`, '/mutations', { kind: 'resize', body: { ...fields(), operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), sequence: resizeSequence, columns: size.columns, rows: size.rows } });
+        if (!isRecord(raw.body) || raw.body.kind !== 'resize') throw new ContractError('Resize reply');
+      }
+    } catch { if (!signal.aborted) emit('Terminal resize not applied'); }
+    finally { resizing = false; if (resizePending && active() && !signal.aborted) void flushResize(); }
+  }
   function pause(message?: string, deliveryUncertain = false) {
     paused = true; inputDeliveryUncertain ||= deliveryUncertain; queue = []; queued = 0; emit(message);
   }
@@ -250,6 +266,12 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       if (!active()) return;
       if (queued >= info!.maxPendingInputBytes) { pause(); return; }
       enqueue([{ bytes: Uint8Array.of(0x1b), escapeKey: true }], 1);
+    },
+    resize(columns, rows) {
+      if (!active() || !Number.isFinite(columns) || !Number.isFinite(rows)) return;
+      // The latest size wins while one is in flight; each request still binds the lease and generation it was made under.
+      resizePending = { columns: Math.max(1, Math.min(1000, Math.round(columns))), rows: Math.max(1, Math.min(1000, Math.round(rows))) };
+      void flushResize();
     },
     close() { if (inputBatchTimer !== undefined) clearTimeout(inputBatchTimer); if (busy) pause(undefined, true); abort.abort(); owned = null; queue = []; queued = 0; },
   };

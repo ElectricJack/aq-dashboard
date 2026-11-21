@@ -31,8 +31,11 @@ describe('queued attempt stream', () => {
     try {
       expect(new URL(m.socket.url).searchParams.has('columns')).toBe(false);
       expect(m.states.at(-1)?.grid).toEqual({ columns: 120, rows: 40 });
+      // The current controller may resize the pane; bounds follow the server's (columns 2..500, rows 1..300).
       m.c.resize(80, 8);
-      expect(m.socket.sent).toEqual([]);
+      m.c.resize(9999, 0);
+      expect(m.socket.sent.map(v => JSON.parse(v as string))).toEqual([{ kind: 'resize', columns: 80, rows: 8 }, { kind: 'resize', columns: 500, rows: 1 }]);
+      m.socket.sent.length = 0;
       m.socket.frame(Uint8Array.of(65).buffer);
       m.c.repaint(); m.c.repaint(); m.c.sendInput(Uint8Array.of(90));
       expect(m.socket.sent).toEqual([JSON.stringify({ kind: 'repaint' })]);
@@ -52,6 +55,32 @@ describe('queued attempt stream', () => {
       m.c.sendInput(Uint8Array.of(59, 51, 55, 77));
       expect(m.socket.sent).toEqual([JSON.stringify({ kind: 'escape' })]);
       expect(m.states.at(-1)?.paused).toBe(true);
+    } finally { m.c.close(); }
+  });
+});
+
+describe('attempt resize authority', () => {
+  async function watcher() {
+    vi.mocked(apiSend).mockClear(); vi.stubGlobal('WebSocket', Socket); vi.mocked(apiSend).mockResolvedValue({ generation: 7 });
+    const states: TerminalState[] = [];
+    const c = connectManualTerminal({ terminalId: '10000000-0000-4000-8000-000000000001', allowControl: true, read: vi.fn(), write: vi.fn(async () => {}), reset: vi.fn(), state: s => states.push(s) }, '/api/attempt-terminals/attempt/terminal', 'attempt-watch');
+    await vi.waitFor(() => expect(Socket.instances).toHaveLength(1));
+    const socket = Socket.instances[0]!; socket.frame(JSON.stringify({ kind: 'ready', server_time_ms: Date.now(), columns: 120, rows: 40 }));
+    await vi.waitFor(() => expect(states.at(-1)?.connected).toBe(true));
+    return { c, socket };
+  }
+  it('never sends a resize from a read-only watcher, which also never types', async () => {
+    const m = await watcher();
+    try { m.c.resize(100, 30); m.c.sendInput(Uint8Array.of(65)); expect(m.socket.sent).toEqual([]); expect(new URL(m.socket.url).searchParams.get('read_only')).toBe('true'); } finally { m.c.close(); }
+  });
+  it('sends nothing before ready, while repainting, or after a disconnect', async () => {
+    const m = await setup(false, true);
+    try {
+      m.c.resize(100, 30); expect(m.socket.sent).toEqual([]);
+      m.socket.frame(JSON.stringify({ kind: 'ready', server_time_ms: Date.now(), columns: 120, rows: 40 }));
+      await vi.waitFor(() => expect(m.states.at(-1)?.connected).toBe(true));
+      m.c.repaint(); m.socket.sent.length = 0; m.c.resize(100, 30); expect(m.socket.sent).toEqual([]);
+      m.socket.close(); m.c.resize(90, 20); expect(m.socket.sent).toEqual([]);
     } finally { m.c.close(); }
   });
 });
