@@ -255,3 +255,47 @@ test("worker host shell has phone keys, detaches on leaving and ends independent
  await expect(page.getByRole('button',{name:'Open terminal',exact:true})).toBeVisible();
  expect(f.hostStops).toHaveLength(1);expect(f.stops).toEqual([]);
 });
+
+test("a manual terminal fits its pane on open and refits on resize without reconnecting", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", error => errors.push(error.message));
+  await page.setViewportSize({ width: 1700, height: 1000 });
+  const f = await fixture(page);
+  await page.goto("/agents");
+  await page.getByRole("complementary", { name: "Agent roster" }).getByRole("button", { name: "Add Fixture agent 1 to workspace" }).click();
+  const pane = page.getByRole("region", { name: "Fixture agent 1 terminal", exact: true });
+  await expect(pane.locator("[data-interactive-terminal][data-controlling]")).toHaveCount(1);
+  const grid = async () => {
+    const { cols, rows } = await pane.locator(".xterm").evaluate(el => ({ cols: Number((el.closest("[data-interactive-terminal]") as HTMLElement).dataset.cols), rows: el.querySelectorAll(".xterm-rows > div").length }));
+    const host = await pane.locator(".xterm").evaluate(el => { const p = el.parentElement!.getBoundingClientRect(), s = el.querySelector(".xterm-screen")!.getBoundingClientRect(); return { width: p.width, height: p.height, screenWidth: s.width, screenHeight: s.height }; });
+    return { cols, rows, ...host };
+  };
+  // Opening: the session grid is the fitted grid, not the 80x24 the terminal was created with.
+  await expect.poll(() => f.sizes.at(-1)?.[0] ?? 0).toBeGreaterThan(80);
+  const first = await grid();
+  expect(first.rows).toBeGreaterThan(24);
+  expect(f.sizes.at(-1)).toEqual([first.cols, first.rows]);
+  const fills = (g: Awaited<ReturnType<typeof grid>>) => {
+    // No clipping, and less than a cell (plus the scrollbar gutter) of unused space.
+    expect(g.screenWidth).toBeLessThanOrEqual(g.width);
+    expect(g.screenHeight).toBeLessThanOrEqual(g.height + 1);
+    expect(g.width - g.screenWidth).toBeLessThan(g.screenWidth / g.cols + 16);
+    expect(g.height - g.screenHeight).toBeLessThan(g.screenHeight / g.rows + 1);
+  };
+  fills(first);
+  const connects = [...f.connects];
+
+  await page.setViewportSize({ width: 1400, height: 700 });
+  await expect.poll(async () => (await grid()).cols).toBeLessThan(first.cols);
+  await expect.poll(async () => (await grid()).rows).toBeLessThan(first.rows);
+  await expect.poll(async () => { const g = await grid(); return JSON.stringify(f.sizes.at(-1)) === JSON.stringify([g.cols, g.rows]); }).toBe(true);
+  fills(await grid());
+  await page.setViewportSize({ width: 1700, height: 1000 });
+  await expect.poll(async () => (await grid()).cols).toBe(first.cols);
+  await expect.poll(async () => (await grid()).rows).toBe(first.rows);
+  expect([...f.connects]).toEqual(connects);
+  await expect(pane.locator(".xterm-rows")).toContainText("Fixture live terminal");
+  expect(f.sizes.length).toBeLessThan(10);
+  expect(errors).toEqual([]);
+});
