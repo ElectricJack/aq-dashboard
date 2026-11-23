@@ -23,20 +23,30 @@ function SessionBurn({ provider, proposedLimit, active }: Props) {
   return <WindowBurn key={`${account?.accountRef}:${window?.id}`} window={window} active={active} proposedLimit={proposedLimit} multiple={accounts.length > 1} />;
 }
 
-function WindowBurn({ window, active, proposedLimit, multiple }: { window?: QuotaWindowView; active: number | null; proposedLimit: number | null; multiple: boolean }) {
+function reliableWindow(window: QuotaWindowView | undefined): window is QuotaWindowView {
+  if (window?.state !== "known" || window.freshness !== "fresh") return false;
+  return window.quality === "reported" && window.coverage === "complete";
+}
+
+function useBurnSamples(window: QuotaWindowView | undefined, active: number | null) {
   const [samples, setSamples] = useState<BurnSample[]>([]);
-  const valid = window?.state === "known" && window.freshness === "fresh" && window.quality === "reported" && window.coverage === "complete";
+  const valid = reliableWindow(window);
   useEffect(() => {
-    if (!valid || !window || window.usedPercent === null) { setSamples([]); return; }
+    if (!valid || window.usedPercent === null) { setSamples([]); return; }
     const sample = { at: Date.parse(window.observedAt), used: window.usedPercent, reset: window.resetsAt, active };
     setSamples(previous => appendBurnSample(previous, sample));
   }, [valid, window?.observedAt, window?.usedPercent, window?.resetsAt, active]);
-  const estimate = valid ? estimateBurn(samples, proposedLimit) : null;
+  return samples;
+}
+
+function WindowBurn({ window, active, proposedLimit, multiple }: { window?: QuotaWindowView; active: number | null; proposedLimit: number | null; multiple: boolean }) {
+  const samples = useBurnSamples(window, active);
   if (multiple) return <span>Burn estimate unavailable across accounts</span>;
-  if (!valid) return <span>Burn estimate unavailable</span>;
+  if (!reliableWindow(window)) return <span>Burn estimate unavailable</span>;
+  const estimate = estimateBurn(samples, proposedLimit);
   if (!estimate) return <span title="Requires at least five minutes of fresh observations and a measured quota increase in this session.">Collecting usage history…</span>;
   return <span title={`Measured over ${Math.round(estimate.elapsedMinutes)} minutes. Account-wide activity includes other clients. At-cap estimates assume consumption scales linearly with agents; workload and model mix may change. ETA assumes the observed rate continues and ignores future resets.`}>
-    {window!.label}: ~{rate(estimate.pointsPerHour)} quota points/h
+    {window.label}: ~{rate(estimate.pointsPerHour)} quota points/h
     {estimate.hoursToLimit !== null && ` · ${estimate.hoursToLimit === 0 ? "limit reached" : `~${duration(estimate.hoursToLimit)} to limit at recent rate`}`}
     {estimate.projectedPointsPerHour !== null && ` · ~${rate(estimate.projectedPointsPerHour)} points/h at ${proposedLimit} active (estimate)`}
   </span>;
