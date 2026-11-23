@@ -1,5 +1,22 @@
 import type { Candidate, ModelSuggestion } from "../../api/roleSettings";
-import { HARNESS_PROVIDER, reasoningChoices, isToken } from "./profileMarkdown";
+export const HARNESSES = ["claude", "codex", "opencode", "gemini"] as const;
+/** The reasoning values each harness accepts; `default` is the harness's own setting. */
+export const HARNESS_REASONING: Record<string, readonly string[]> = {
+  claude: ["default", "off", "low", "medium", "high", "xhigh", "max"],
+  codex: ["default", "low", "medium", "high"],
+  opencode: ["default", "low", "medium", "high"],
+  gemini: ["default"],
+};
+/** The reasoning values every one of `harnesses` accepts. */
+export function reasoningChoices(harnesses: string[]): string[] {
+  const known = harnesses.filter(harness => HARNESS_REASONING[harness]);
+  if (!known.length) return ["default"];
+  return HARNESS_REASONING[known[0]!]!.filter(value => known.every(harness => HARNESS_REASONING[harness]!.includes(value)));
+}
+/** The provider a harness requires, when it requires one. */
+export const HARNESS_PROVIDER: Record<string, string> = { claude: "anthropic", codex: "openai" };
+/** A bare word of a list or a table cell. */
+export const isToken = (value: string) => /^[A-Za-z0-9._@/:+-]+$/.test(value);
 
 export function harnessPatch(row: Candidate, harness: string): Partial<Candidate> {
   const harnesses = harness.split(",").map(item => item.trim()).filter(Boolean);
