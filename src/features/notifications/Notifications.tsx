@@ -13,28 +13,42 @@ export function Notifications({ className }: { className?: string }) {
   const { queryContext } = useSession();
   return <Inbox key={`${queryContext.principalId}:${queryContext.authorizationRevision}:${queryContext.contractVersion}`} className={className} />;
 }
-function Inbox({ className }: { className?: string | undefined }) {
-  const { bootstrap, queryContext } = useSession();
-  const capability = bootstrap.capability("notifications.read");
-  const [selected, setSelected] = useState<string | null>(null);
+function useInboxFocus(selected: string | null) {
   const list = useRef<HTMLUListElement>(null);
   const lastSelected = useRef<string | null>(null);
   useEffect(() => {
     if (selected) { lastSelected.current = selected; return; }
     if (lastSelected.current) list.current?.querySelector<HTMLButtonElement>(`button[data-message-id="${CSS.escape(lastSelected.current)}"]`)?.focus();
   }, [selected]);
+  return list;
+}
+
+function useInboxMessages(enabled: boolean) {
+  const { queryContext } = useSession();
   const query = useInfiniteQuery({
-    queryKey: queryKey(queryContext, "notification-inbox", {}), enabled: capability.enabled,
+    queryKey: queryKey(queryContext, "notification-inbox", {}), enabled,
     initialPageParam: 0, queryFn: async ({ pageParam, signal }) => adaptNotificationPage(await apiGet<unknown>(`/api/notifications?after=${pageParam}&limit=${NOTIFICATION_PAGE_SIZE}`, signal), queryContext.principalId, pageParam),
     getNextPageParam: (last, pages) => pages.length < NOTIFICATION_MAX_PAGES ? last.next ?? undefined : undefined,
     retry: false, refetchOnWindowFocus: false,
   });
   let rows: NotificationItem[] = [], pageError: unknown;
   try { rows = mergeNotificationPages(query.data?.pages ?? []); } catch (e) { pageError = e; }
+  const pages = query.data?.pages;
+  const capped = pages?.length === NOTIFICATION_MAX_PAGES && pages.at(-1)?.next;
+  return { query, rows, pageError, capped };
+}
+
+function Inbox({ className }: { className?: string | undefined }) {
+  const { bootstrap } = useSession();
+  const capability = bootstrap.capability("notifications.read");
+  const [selected, setSelected] = useState<string | null>(null);
+  const list = useInboxFocus(selected);
+  const { query, rows, pageError, capped } = useInboxMessages(capability.enabled);
   const item = rows.find(row => row.message.id === selected);
+  const failure = query.isError || pageError;
   return <div className={`${styles.section} ${className ?? ""}`}><Panel title="Your notifications" description="Messages addressed to this account and their recorded delivery status."
     actions={capability.enabled && <ActionButton disabled={query.isFetching} onClick={() => { setSelected(null); void query.refetch(); }}>Refresh inbox</ActionButton>}>
-    {!capability.enabled ? <p>{capability.reason}</p> : query.isError || pageError || !query.data ? <QueryStatus status={query.isError || pageError ? "error" : "pending"} error={pageError ?? query.error} label="notifications" onRetry={() => void query.refetch()} /> : <>
+    {!capability.enabled ? <p>{capability.reason}</p> : failure || !query.data ? <QueryStatus status={failure ? "error" : "pending"} error={pageError ?? query.error} label="notifications" onRetry={() => void query.refetch()} /> : <>
       <p className={styles.meta}>Current account · oldest first</p>
       {rows.length === 0 ? <p>No notifications in this inbox.</p> : <div className={styles.panes} data-selected={!!item}>
         <div><ul ref={list} className={styles.messages} aria-label="Notification inbox">{rows.map(row => <li key={row.message.id}><button type="button" data-message-id={row.message.id} aria-pressed={selected === row.message.id} className={styles.message} onClick={() => setSelected(row.message.id)}>
@@ -43,7 +57,7 @@ function Inbox({ className }: { className?: string | undefined }) {
           <span className={styles.meta}>{row.routing === "routed" ? "External route configured" : "No external route"}</span>
         </button></li>)}</ul>
         {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more notifications</ActionButton>}
-        {query.data.pages.length === NOTIFICATION_MAX_PAGES && query.data.pages.at(-1)?.next && <p className={styles.meta}>Showing the first 64 notifications.</p>}
+        {capped && <p className={styles.meta}>Showing the first 64 notifications.</p>}
         </div>
         {item ? <NotificationDetail key={`${item.message.id}:${item.message.revision}`} item={item} onBack={() => setSelected(null)} /> : <section className={styles.empty}><h3>Delivery details</h3><p>Select a notification to inspect its recorded delivery.</p></section>}
       </div>}
