@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 // G9: each playbook control is enabled only by an advertised capability, otherwise disabled with its reason.
 const CONTROLS = [
@@ -6,6 +6,13 @@ const CONTROLS = [
   { label: "Cancel run", capability: "playbooks.runs.cancel" },
 ] as const;
 type Capability = { name: string; enabled: boolean; reason?: string };
+
+async function expectGatedAction(button: Locator, cap: Capability | undefined) {
+  if (cap?.enabled) return;
+  await expect(button).toBeDisabled();
+  // Missing capability kinds also explain why the action is unavailable.
+  await expect(button).toHaveAttribute("title", cap?.reason || /.+/);
+}
 
 test("playbook action controls follow advertised capabilities", async ({ page, request }, testInfo) => {
   const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
@@ -22,11 +29,7 @@ test("playbook action controls follow advertised capabilities", async ({ page, r
     const button = page.getByRole("button", { name: new RegExp(`^${control.label}`) }).first();
     await expect(button).toBeVisible();
     const cap = union?.enabled ? find(control.capability) : union;
-    if (!cap?.enabled) {
-      await expect(button).toBeDisabled();
-      // Absent kinds render the session's "not offered" reason; disabled ones carry the server's reason.
-      await expect(button).toHaveAttribute("title", cap?.reason ? cap.reason : /.+/);
-    }
+    await expectGatedAction(button,cap);
   }
   await page.screenshot({ path: testInfo.outputPath("playbook-actions-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });

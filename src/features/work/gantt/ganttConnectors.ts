@@ -11,6 +11,20 @@ export const barWidth = (task: PositionedTask, zoom: number) => task.span * POIN
 type Edge = GanttLayout["edges"][number];
 type Fork = { source: PositionedTask; edges: Edge[]; top: number; bottom: number };
 
+function addFork(byStart: Map<number, Map<string, Fork>>, edge: Edge) {
+  const { source, target } = edge;
+  let forks = byStart.get(target.start);
+  if (!forks) byStart.set(target.start, forks = new Map());
+  const fork = forks.get(source.key);
+  if (fork) {
+    fork.edges.push(edge);
+    fork.top = Math.min(fork.top, target.row);
+    fork.bottom = Math.max(fork.bottom, target.row);
+  } else {
+    forks.set(source.key, { source, edges: [edge], top: Math.min(source.row, target.row), bottom: Math.max(source.row, target.row) });
+  }
+}
+
 /** Branches leaving the same bar share a vertical trunk within each destination point's gap.
  * Sources with overlapping vertical spans use separate trunks, including when they share an endpoint. */
 export function dependencyPaths(edges: Edge[], rowHeight: number, zoom: number) {
@@ -28,16 +42,7 @@ export function dependencyPaths(edges: Edge[], rowHeight: number, zoom: number) 
       paths.set(edge.id, `M ${start} ${y(source)} H ${start + 9} V ${detour} H ${end - 5} V ${y(target)} H ${end}`);
       continue;
     }
-    let forks = byStart.get(target.start);
-    if (!forks) byStart.set(target.start, forks = new Map());
-    const fork = forks.get(source.key);
-    if (fork) {
-      fork.edges.push(edge);
-      fork.top = Math.min(fork.top, target.row);
-      fork.bottom = Math.max(fork.bottom, target.row);
-    } else {
-      forks.set(source.key, { source, edges: [edge], top: Math.min(source.row, target.row), bottom: Math.max(source.row, target.row) });
-    }
+    addFork(byStart, edge);
   }
 
   for (const forks of byStart.values()) {

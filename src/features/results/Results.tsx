@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type KeyboardEvent,type ReactNode} from "react
 import {useInfiniteQuery} from "@tanstack/react-query";
 import {Link,useParams,useSearchParams} from "react-router";
 import {apiGet,ApiError} from "../../api/client";
-import {viewScoped,adaptResultsFeed,adaptResultDetail,adaptResultComments,mediaBinding,validateResultPayload,type ResultDetail} from "../../api/adapters/resultsFeedback";
+import {viewScoped,adaptResultsFeed,adaptResultDetail,mediaBinding,type ResultDetail} from "../../api/adapters/resultsFeedback";
 import {ContractError} from "../../api/adapters/contract";
 import {scopedKey} from "../../api/queryKeys";
 import type {Scope} from "../../api/wire/proposed";
@@ -14,14 +14,13 @@ import {ScopePicker} from "../../components/ScopePicker";
 import {QueryStatus} from "../../components/QueryStatus/QueryStatus";
 import {ActionButton} from "../../components/layout/Workspace";
 import {Icon} from "../../components/icons";
-import {formatAge} from "../../components/time/relative";
 import {useServerNow} from "../../components/time/useServerNow";
-import {CircleAlert,CircleCheck,Clock,FileText,Image as ImageGlyph,MessageSquare,Paperclip,RefreshCw,SlidersHorizontal,Video} from "lucide-react";
-import {ResultMedia,ResultMediaWindow,resultMediaKey} from "./ResultMedia";
-import {ResultMediaUpload} from "./ResultMediaUpload";
+import {RefreshCw,SlidersHorizontal} from "lucide-react";
+import {ResultMediaWindow,resultMediaKey} from "./ResultMedia";
+import { ResultCard } from "./ResultCard";
 import {ResultDiscussion} from "./ResultDiscussion";
 import {FeedbackDraft} from "./FeedbackDraft";
-import {OperationStatus,useResultOperation} from "./useResultOperation";
+import { useComments } from "./useResultComments";
 import styles from "./Results.module.css";
 const ranges=[['any','Any time'],['24h','Last 24 hours'],['7d','Last 7 days'],['30d','Last 30 days'],['custom','Custom…']] as const;
 const rangeMs:Record<string,number>={"24h":864e5,"7d":7*864e5,"30d":30*864e5};
@@ -44,11 +43,6 @@ function feedFilters(params:URLSearchParams){
  return {mode,task,media,since,until,range};
 }
 const reading=new Map<string,number>();
-function useComments(detail?:ResultDetail){
- const {queryContext}=useSession();
- return useInfiniteQuery({queryKey:scopedKey(queryContext,detail?{kind:"project",project_id:detail.result.project_id}:{kind:"all_authorized"},"result-comments",{id:detail?.result.id,revision:detail?.revision.revision}),enabled:!!detail,initialPageParam:null as string|null,retry:false,refetchOnWindowFocus:false,refetchOnReconnect:false,refetchOnMount:false,
-  queryFn:async({pageParam,signal})=>{const p=new URLSearchParams({limit:"20"});if(pageParam)p.set("cursor",pageParam);const raw=await apiGet<unknown>(`/api/v1/results/${detail!.result.id}/revisions/${detail!.revision.revision}/comments?${p}`,signal);return viewScoped(()=>adaptResultComments(raw,detail!.result.project_id));},getNextPageParam:(last,pages)=>pages.length<4?last.next_cursor??undefined:undefined});
-}
 export function Results(){
  const [scope,setScope]=useScope(),[params,setParams]=useSearchParams(),{resultId,revision}=useParams(),{queryContext,bootstrap}=useSession(),projects=useProjects();
  const [checking,setChecking]=useState(false),check=useRef<()=>void>(()=>undefined);
@@ -125,49 +119,7 @@ function FeedToolbar({exact,scope,projects,checking,onScope,onCheck,onChange,...
 }
 const FEED_PANEL="results-feed-panel",tabId=(mode:string)=>`results-tab-${mode}`;
 function RetainedDraft({draft,onClose}:{draft:{detail:ResultDetail;comment?:string;open:boolean};onClose():void}){const comments=useComments(draft.detail);return <FeedbackDraft detail={draft.detail} comments={comments.data?.pages.flatMap(p=>p.items)??[]} initial={draft.comment} open={draft.open} onClose={onClose} onRefresh={async()=>{const next=await comments.refetch();if(next.error)throw next.error;return next.data?.pages.flatMap(p=>p.items)??[];}}/>;}
-function ResultCard({detail,selected,now,projectLabel,openComments}:{detail:ResultDetail;selected:boolean;now:string|null;projectLabel:string;openComments():void}){
- const {bootstrap}=useSession(),[scope]=useScope(),{resultId,revision}=useParams(),comments=useComments(detail),operation=useResultOperation(detail.result.project_id,"results.comment"),[following,setFollowing]=useState<boolean|null>(detail.result.directly_following??null);
- const [expanded,setExpanded]=useState(false),summaryId=`result-summary-${detail.result.id}`,long=detail.revision.summary.length>240||detail.revision.summary.split("\n").length>3;
- const [desired,setDesired]=useState(true),[intent,setIntent]=useState<boolean|null>(null);
- const date=new Date(detail.revision.submitted_at_ms),iso=date.toISOString(),absolute=date.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}),items=comments.data?.pages.flatMap(p=>p.items)??[],count=items.length,more=!!comments.data?.pages.at(-1)?.next_cursor;
- const required=detail.revision.capture_policy.requirements.filter(r=>r.required),evaluations=detail.assessment.evidence.requirements;
- const needed=required.reduce((sum,r)=>sum+r.count,0),attached=required.reduce((sum,r)=>sum+Math.min(r.count,evaluations.find(e=>e.requirement_id===r.id&&e.policy_revision===r.policy_revision)?.artifact_ids.length??0),0);
- const status=resultStatus(detail.assessment),kinds=detail.revision.capture_policy.requirements.map(r=>r.kind),prior=detail.revision.parent_results[0];
- const glyph=kinds.some(k=>/video|clip/i.test(k))?Video:kinds.some(k=>/image|png/i.test(k))?ImageGlyph:FileText;
- const project={kind:"project" as const,project_id:detail.result.project_id},taskShort=detail.result.task_id.slice(-8);
- useEffect(()=>{if(operation.status?.disposition==="confirmed"&&intent!==null)setFollowing(intent);},[operation.status,intent]);
- async function follow(){if(operation.id){if(operation.status?.disposition==="confirmed")operation.reset();else return;}const next=following===null?desired:!following;setIntent(next);const payload={operation_id:crypto.randomUUID(),expected_version:detail.result.version,following:next};validateResultPayload("Follow",payload);await operation.submit("PUT",`/api/v1/results/${detail.result.id}/follow`,payload);}
- const evidence=<p className={styles.evidence}><Icon icon={detail.assessment.evidence.satisfied?CircleCheck:Paperclip} size={18}/><span>{needed?`${attached} of ${needed} required captures attached`:"No required captures in this revision’s policy"} · {detail.assessment.evidence.satisfied?"Evidence requirements satisfied":"Evidence requirements incomplete"}</span></p>;
- return <article className={`${styles.card} ${selected?styles.selected:""}`} aria-label={`Result ${detail.result.id}`}>
-  <header className={styles.header}><span className={styles.mediaIcon}><Icon icon={glyph} size={20}/></span><div className={styles.heading}><h2 id={summaryId} className={styles.title} data-clamped={long&&!expanded||undefined}>{wrapPaths(detail.revision.summary)}</h2>
-   {long&&<button type="button" className={styles.summaryToggle} aria-expanded={expanded} aria-controls={summaryId} onClick={()=>setExpanded(v=>!v)}>{expanded?"Show less":"Show full summary"}</button>}
-   <p className={styles.meta}>{projectLabel} · Task {bootstrap.capability("tasks.read").enabled?<Link to={{pathname:`/work/${detail.result.task_id}`,search:scopeSearch(project)}}>{taskShort}</Link>:taskShort} · <span title={detail.result.id}>Result {detail.result.id.slice(-8)}</span> · <time dateTime={iso} title={absolute}>{now?formatAge(now,iso):absolute}</time></p></div>
-   <span className={`${styles.status} ${styles[status.tone]}`} data-result-status=""><Icon icon={status.icon} size={16}/>{status.label}</span></header>
-  <p className={styles.attempt}>Attempt {detail.revision.attempt_id.slice(-8)} · <span title={detail.revision.revision}>revision {detail.revision.revision.slice(0,7)}</span> · Source base {detail.revision.source.base.hex.slice(0,7)}</p>
-  {bootstrap.capability("results.media.read").enabled?<ResultMedia binding={mediaBinding(detail)} evidence={evidence}/>:<div className={styles.mediaRow}><div className={styles.mediaUnavailable}><p>Images unavailable: media not configured</p><p className={styles.meta}>{capReason(bootstrap.capability("results.media.read"))}</p></div>{evidence}</div>}
-  <details className={styles.context}><summary>Result context and evidence</summary>
-   <div className={styles.cardFacts}><span>{detail.assessment.artifacts.length} supplemental artifacts</span><span>{detail.revision.artifacts.length} submitted artifacts</span><Link to={{pathname:`/results/${detail.result.id}/revisions/${detail.revision.revision}`,search:scopeSearch(scope)}}>Exact revision</Link></div>
-   <dl className={styles.facts}><dt>Result</dt><dd>{detail.result.id}</dd><dt>Exact revision</dt><dd>{detail.revision.revision}</dd><dt>Attempt</dt><dd>{detail.revision.attempt_id}</dd><dt>Repository</dt><dd>{detail.revision.source.repository_id}</dd><dt>Source base</dt><dd>{detail.revision.source.base.hex}</dd></dl><p className={styles.meta}>Source base declared by the report. Evidence presence and acceptance are separate observations.</p>{required.map(r=><p key={r.id} className={styles.meta}>{r.scenario} · {r.environment} · {r.viewport.width_css} × {r.viewport.height_css} · {evaluations.find(e=>e.requirement_id===r.id)?.state??"Unknown"}</p>)}
-   {/* The server's own follow state when it reports one (RA-09); the explicit choice only when it doesn't. */}
-   {bootstrap.capability("results.comment").enabled&&<div className={styles.follow}>{following===null&&<label className={styles.meta}>Direct follow state unavailable <select aria-label="Set following" value={desired?"yes":"no"} onChange={e=>setDesired(e.target.value==="yes")}><option value="yes">Follow</option><option value="no">Unfollow</option></select></label>}<ActionButton disabled={operation.busy||!!operation.id&&operation.status?.disposition!=="confirmed"} aria-pressed={following===null?undefined:following} onClick={()=>void follow()}>{following===null?"Apply follow preference":following?"Unfollow":"Follow"}</ActionButton>{operation.status?.disposition==="confirmed"&&<span className={styles.meta}>Preference saved for this operation.</span>}<OperationStatus operation={operation}/></div>}
-  </details>{resultId&&revision&&<ResultMediaUpload binding={mediaBinding(detail)}/>}
-  <footer className={styles.cardActions}><ActionButton className={styles.comments} aria-pressed={selected} onClick={openComments}><Icon icon={MessageSquare} size={18}/>{comments.isPending?"Comments…":comments.isError?"Comments unavailable":`Comments ${count}${more?"+":""}`}</ActionButton>
-   {prior&&<Link className={styles.secondary} to={{pathname:`/results/${prior.result_id}/revisions/${prior.revision}`,search:scopeSearch(scope)}}>Compare {prior.revision.slice(0,7)}</Link>}
-   {/* No review or acceptance flow exists for results yet (RA-04), so no control pretends to open one. */}
-   <span className={styles.acceptance} title="Acceptance is recorded by AQ review. Results can't be reviewed or accepted from the dashboard yet.">Acceptance: <strong>{humanize(detail.assessment.acceptance)}</strong></span></footer>
- </article>;
-}
-/** Status comes only from the assessment: no acceptance owner means submitted, never invented approval. */
-function resultStatus(a:ResultDetail["assessment"]){
- if(a.acceptance==="accepted")return {label:"Accepted",tone:"success",icon:CircleCheck} as const;
- if(a.unresolved_review)return {label:"Needs review",tone:"attention",icon:CircleAlert} as const;
- if(a.acceptance==="unreviewed")return {label:"Submitted",tone:"neutral",icon:Clock} as const;
- return {label:humanize(a.acceptance),tone:"neutral",icon:Clock} as const;
-}
-/** Let file lists wrap after path separators instead of mid-word (RA-12). */
-function wrapPaths(text:string){const parts=text.split(/(?<=[/\\])/);return parts.length<2?text:parts.flatMap((part,i)=>i<parts.length-1?[part,<wbr key={i}/>]:[part]);}
 function resultProject(raw:unknown){const data=(raw as {data?:{result?:{project_id?:unknown}}})?.data;return data?.result?.project_id;}
-function humanize(value:string){const text=value.replace(/_/g," ");return text.charAt(0).toUpperCase()+text.slice(1);}
 function serverAnchor(raw:unknown){const time=(raw as {server_time?:unknown}).server_time;return typeof time==="string"?{serverTime:time,receivedAt:performance.now()}:undefined;}
 /** The side discussion pane exists only at desktop widths (see Results.module.css). */
 function panelVisible(){return typeof window.matchMedia==="function"&&window.matchMedia("(min-width: 1200px)").matches;}

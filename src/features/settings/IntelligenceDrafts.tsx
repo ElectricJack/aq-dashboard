@@ -4,6 +4,8 @@ import styles from "./Intelligence.module.css";
 import { useBlocker } from "react-router";
 import { ActionButton } from "../../components/layout/Workspace";
 
+import { useUnsavedWarning } from "./unsavedSettingsWarning";
+
 export type IntelligenceDraft = { id: string; label: string; dirty: boolean; locked: boolean; save(): Promise<boolean>; order?: number };
 type DraftContext = {
   register(id: string, read: () => IntelligenceDraft): () => void; notify(): void;
@@ -23,19 +25,8 @@ export function useIntelligenceDraft(entry: IntelligenceDraft) {
   useEffect(() => { context.notify(); }, [context.notify, entry.dirty, entry.locked]);
   return context;
 }
-export function IntelligenceDraftProvider({ children }: { children: ReactNode }) {
-  const entries = useRef(new Map<string, () => IntelligenceDraft>());
+function useDraftRevisions() {
   const revisions = useRef(new Map<string, Map<string, string>>());
-  const [version, setVersion] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const dismissMessage = useCallback(() => setMessage(null), []);
-  const notify = useCallback(() => setVersion(old => old + 1), []);
-  const register = useCallback((id: string, read: () => IntelligenceDraft) => {
-    entries.current.set(id, read); notify();
-    return () => { if (entries.current.get(id) === read) { entries.current.delete(id); notify(); } };
-  }, [notify]);
   const resolveRevision = useCallback((domain: string, revision: string) => {
     const changes = revisions.current.get(domain); let latest = revision; const seen = new Set<string>();
     while (changes?.has(latest) && !seen.has(latest)) { seen.add(latest); latest = changes.get(latest)!; }
@@ -47,6 +38,29 @@ export function IntelligenceDraftProvider({ children }: { children: ReactNode })
     let changes = revisions.current.get(domain); if (!changes) { changes = new Map(); revisions.current.set(domain, changes); }
     changes.set(from, to);
   }, []);
+  return { resolveRevision, confirmRevision, hasConfirmedChanges };
+}
+
+function draftFlags(entries: Map<string, () => IntelligenceDraft>) {
+  const values = [...entries.values()].map(read => read());
+  const dirty = values.some(entry => entry.dirty);
+  const locked = values.some(entry => entry.dirty && entry.locked);
+  return { dirty, locked };
+}
+
+export function IntelligenceDraftProvider({ children }: { children: ReactNode }) {
+  const entries = useRef(new Map<string, () => IntelligenceDraft>());
+  const [version, setVersion] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const dismissMessage = useCallback(() => setMessage(null), []);
+  const notify = useCallback(() => setVersion(old => old + 1), []);
+  const register = useCallback((id: string, read: () => IntelligenceDraft) => {
+    entries.current.set(id, read); notify();
+    return () => { if (entries.current.get(id) === read) { entries.current.delete(id); notify(); } };
+  }, [notify]);
+  const { resolveRevision, confirmRevision, hasConfirmedChanges } = useDraftRevisions();
   const saveAll = useCallback(async () => {
     if (savingRef.current) return false;
     savingRef.current = true; setSaving(true); setMessage(null);
@@ -63,9 +77,7 @@ export function IntelligenceDraftProvider({ children }: { children: ReactNode })
     } catch { setMessage("Saving stopped. Your remaining edits are preserved."); return false; }
     finally { savingRef.current = false; setSaving(false); }
   }, []);
-  const values = [...entries.current.values()].map(read => read());
-  const dirty = values.some(entry => entry.dirty);
-  const locked = values.some(entry => entry.dirty && entry.locked);
+  const { dirty, locked } = draftFlags(entries.current);
   const context = useMemo(() => ({ register, notify, saving, dirty, locked, message, saveAll, dismissMessage, resolveRevision, confirmRevision, hasConfirmedChanges }), [register, notify, saving, dirty, locked, message, saveAll, dismissMessage, resolveRevision, confirmRevision, hasConfirmedChanges, version]);
   return <Context.Provider value={context}>{children}<UnsavedSettingsWarning /></Context.Provider>;
 }
@@ -76,17 +88,7 @@ function UnsavedSettingsWarning() {
   const isSettings = (path: string) => path === "/settings" || path.startsWith("/settings/");
   const blocker = useBlocker(({ currentLocation, nextLocation }) => unsaved && isSettings(currentLocation.pathname) && !isSettings(nextLocation.pathname));
   const blocked = blocker.state === "blocked";
-  useEffect(() => {
-    if (!unsaved) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn);
-  }, [unsaved]);
-  useEffect(() => {
-    if (!blocked) return;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (dialog.current?.showModal) dialog.current.showModal(); else dialog.current?.setAttribute("open", "");
-    return () => { dialog.current?.close?.(); previous?.focus(); };
-  }, [blocked]);
+  useUnsavedWarning(unsaved, blocked, dialog);
   if (blocker.state !== "blocked") return null;
   return createPortal(<dialog ref={dialog} role="alertdialog" className={styles.unsavedDialog} aria-labelledby="unsaved-intelligence-title" onCancel={event => { event.preventDefault(); blocker.reset(); }}>
     <h3 id="unsaved-intelligence-title">Leave Settings with unsaved changes?</h3>

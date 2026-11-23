@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError } from "../../api/client";
 import { INTERNAL_WORK_PURPOSES, inspectInternalWorkSave, readInternalWorkSettings, saveInternalWorkSettings, type InternalWorkPurpose, type InternalWorkSettings as Settings, type SaveInternalWork } from "../../api/internalWork";
 import { queryKey } from "../../api/queryKeys";
 import { useDocuments } from "../../api/roleSettings";
@@ -24,6 +24,10 @@ function ProfileSelect({ id, label, value, onChange, profiles, first }: { id: st
       {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
     </select>
   </div>;
+}
+
+function rejectionNotice(failure: { status: number; serverMessage: string | undefined }) {
+  return failure.status === 409 ? "Settings changed elsewhere. Reload to continue." : failure.serverMessage ?? "The save was rejected.";
 }
 
 export function InternalWorkSettings() {
@@ -53,13 +57,13 @@ export function InternalWorkSettings() {
       setDraft(null); setUnconfirmed(null); setConflict(false); setRetrySame(false);
       setNotice(result.disposition === "unchanged" ? "No changes to save." : "Saved.");
     } catch (failure) {
-      const status = failure instanceof ApiError ? failure.status : undefined;
       if (inspect) {
-        setUnconfirmed(request); setRetrySame(status === 404);
-        setError(status === 404 ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. Your edits are preserved.");
-      } else if (status !== undefined && status >= 400 && status < 500) {
-        setUnconfirmed(null); setConflict(status === 409);
-        setError(status === 409 ? "Settings changed elsewhere. Reload to continue." : failure instanceof ApiError ? failure.serverMessage ?? "The save was rejected." : "The save was rejected.");
+        const missing = isHttpClientError(failure) && failure.status === 404;
+        setUnconfirmed(request); setRetrySame(missing);
+        setError(missing ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. Your edits are preserved.");
+      } else if (isHttpClientError(failure)) {
+        setUnconfirmed(null); setConflict(failure.status === 409);
+        setError(rejectionNotice(failure));
       } else {
         // The response was lost: the save may have committed. Ask the server by operation id.
         setUnconfirmed(request); setSaving(false); void run(request, true); return;

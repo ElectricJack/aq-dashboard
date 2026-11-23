@@ -1,3 +1,4 @@
+import { nextTab } from "../../components/nextTab";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 import { statusLabel, type Receipt, type Run } from "../../api/adapters/playbooks";
@@ -27,10 +28,11 @@ function pastStep(step: string, receipts: Receipt[]): TimelineStep {
   return { ...base, state: "recorded", status: humanize(outcome) };
 }
 
+const CURRENT_STATES = new Map<string, StepState>([
+  ["completed", "completed"], ["failed", "failed"], ["cancelled", "failed"], ["waiting", "waiting"], ["blocked", "waiting"],
+]);
 function currentStep(run: Run): TimelineStep {
-  const state: StepState = run.status === "completed" ? "completed"
-    : run.status === "failed" || run.status === "cancelled" ? "failed"
-    : run.status === "waiting" || run.status === "blocked" ? "waiting" : "active";
+  const state = CURRENT_STATES.get(run.status) ?? "active";
   return { step: run.step, label: humanize(run.step), state, status: statusLabel(run.status), current: true };
 }
 
@@ -40,13 +42,13 @@ function currentStep(run: Run): TimelineStep {
  * this read contract offers no definition step graph, so future steps are not invented.
  */
 export function timelineSteps(receipts: Receipt[], run: Run): TimelineStep[] {
-  const order: string[] = [], byStep = new Map<string, Receipt[]>();
+  const byStep = new Map<string, Receipt[]>();
   for (const r of receipts) {
     if (r.step === run.step) continue;
-    if (!byStep.has(r.step)) { byStep.set(r.step, []); order.push(r.step); }
+    if (!byStep.has(r.step)) byStep.set(r.step, []);
     byStep.get(r.step)!.push(r);
   }
-  return [...order.map(step => pastStep(step, byStep.get(step)!)), currentStep(run)];
+  return [...Array.from(byStep, ([step, rows]) => pastStep(step, rows)), currentStep(run)];
 }
 
 function NodeIcon({ state }: { state: StepState }) {
@@ -55,11 +57,16 @@ function NodeIcon({ state }: { state: StepState }) {
   </span>;
 }
 
+function connector(steps: TimelineStep[], i: number) {
+  const s = steps[i]!;
+  return i === 0 ? undefined : s.current ? "dashed" : steps[i - 1]!.state === "completed" && s.state === "completed" ? "done" : "solid";
+}
+
 export function RunTimeline({ receipts, run }: { receipts: Receipt[]; run: Run }) {
   const steps = timelineSteps(receipts, run);
   return <ol className={styles.steps} aria-label="Execution timeline" tabIndex={0}>
     {steps.map((s, i) => <li key={`${s.step}:${s.current}`} className={styles.step} data-state={s.state}
-      data-connector={i === 0 ? undefined : s.current ? "dashed" : steps[i - 1]!.state === "completed" && s.state === "completed" ? "done" : "solid"}
+      data-connector={connector(steps, i)}
       aria-current={s.current ? "step" : undefined}>
       <NodeIcon state={s.state} />
       <div className={styles.stepText}><strong>{s.label}</strong><span className={styles.stepStatus} data-state={s.state}>{s.status}</span></div>
@@ -69,6 +76,15 @@ export function RunTimeline({ receipts, run }: { receipts: Receipt[]; run: Run }
 
 function clockTime(ms: number) {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ms);
+}
+
+function EvidenceRow({ receipt: r }: { receipt: Receipt }) {
+  const iso = new Date(r.at).toISOString();
+  return <tr id={`receipt-${r.sequence}`}>
+          <td><time dateTime={iso} title={iso}>{clockTime(r.at)}</time></td>
+          <td>{humanize(r.kind)} · {humanize(r.step)}{r.outcome ? <span className={styles.meta}> · {r.outcome}</span> : null}</td>
+          <td><a href={`#receipt-${r.sequence}`}>Receipt {r.sequence}</a></td>
+        </tr>;
 }
 
 export function RecentEvidence({ receipts, next, paged, observedAt, receivedAt, onFirst, onNext }: {
@@ -81,11 +97,7 @@ export function RecentEvidence({ receipts, next, paged, observedAt, receivedAt, 
     {receipts.length === 0 ? <p>No transition receipts available in this page.</p> : <div className={styles.evidenceWrap}>
       <table className={styles.evidenceTable} aria-label="Recent evidence">
         <thead><tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Evidence</th></tr></thead>
-        <tbody>{receipts.map(r => { const iso = new Date(r.at).toISOString(); return <tr key={r.sequence} id={`receipt-${r.sequence}`}>
-          <td><time dateTime={iso} title={iso}>{clockTime(r.at)}</time></td>
-          <td>{humanize(r.kind)} · {humanize(r.step)}{r.outcome ? <span className={styles.meta}> · {r.outcome}</span> : null}</td>
-          <td><a href={`#receipt-${r.sequence}`}>Receipt {r.sequence}</a></td>
-        </tr>; })}</tbody>
+        <tbody>{receipts.map(r => <EvidenceRow key={r.sequence} receipt={r} />)}</tbody>
       </table>
     </div>}
     {(paged || next) && <Toolbar>{paged && <ActionButton onClick={onFirst}>First receipts</ActionButton>}{next && <ActionButton onClick={() => onNext(next)}>Next receipts</ActionButton>}</Toolbar>}
@@ -98,13 +110,13 @@ const TABS: { key: InspectorTab; label: string; disabled?: string }[] = [
   { key: "inputs", label: "Inputs & outputs", disabled: "Not offered by this read contract" }, { key: "definition", label: "Definition" },
 ];
 
+const ENABLED_TABS = TABS.filter(t => !t.disabled).map(t => t.key);
+
 /** Inspector sections as an ARIA tab set; disabled tabs stay visible with their reason in `title`. */
 export function InspectorTabs({ id, tab, setTab, children }: { id: string; tab: InspectorTab; setTab: (t: InspectorTab) => void; children: ReactNode }) {
   const list = useRef<HTMLDivElement>(null);
-  const enabled = TABS.filter(t => !t.disabled).map(t => t.key);
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const i = enabled.indexOf(tab), last = enabled.length - 1;
-    const next = e.key === "ArrowRight" ? enabled[i === last ? 0 : i + 1] : e.key === "ArrowLeft" ? enabled[i === 0 ? last : i - 1] : e.key === "Home" ? enabled[0] : e.key === "End" ? enabled[last] : undefined;
+    const next = nextTab(ENABLED_TABS, tab, e.key);
     if (!next) return;
     e.preventDefault(); setTab(next); list.current?.querySelector<HTMLElement>(`#${id}-tab-${next}`)?.focus();
   };

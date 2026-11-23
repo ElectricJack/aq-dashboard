@@ -46,17 +46,19 @@ export function TaskRoute({ routing, taskId, lead }: { routing: TaskRouting; tas
 }
 
 /** Each route the task has had with the reasons for it. Owner-only: when the read is refused (403) nothing shows. */
+function RouteEntry({ entry, now }: { entry: import("../taskWork").TaskRouteEntry; now: string | null }) {
+  const how = elapsed(now, entry.at_ms);
+  return <li>
+    <p><strong>{entry.route ? classLabel(entry.route.class) : "Route cleared"}</strong>{entry.route && <> · {entry.route.source === "owner" ? "owner" : "router"}</>}{how && <span className={styles.meta}> · {how} ago</span>}</p>
+    {entry.route && entry.route.reasons.length > 0 && <ul>{entry.route.reasons.map((reason, i) => <li key={i} data-route-reason={reason.code}>{reason.detail}</li>)}</ul>}
+  </li>;
+}
+
 function RouteHistory({ taskId }: { taskId: string }) {
   const [open, setOpen] = useState(false), now = useServerClock(), query = useTaskRoutes(taskId, open);
   if (query.error instanceof ApiError && query.error.status === 403) return null;
   return <details className={styles.routeHistory} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>Why this route</summary>
-    {open && (query.data ? <ol aria-label="Route history">{query.data.length === 0 ? <li>No route history recorded.</li> : query.data.map(entry => {
-      const how = elapsed(now, entry.at_ms);
-      return <li key={entry.sequence}>
-        <p><strong>{entry.route ? classLabel(entry.route.class) : "Route cleared"}</strong>{entry.route && <> · {entry.route.source === "owner" ? "owner" : "router"}</>}{how && <span className={styles.meta}> · {how} ago</span>}</p>
-        {entry.route && entry.route.reasons.length > 0 && <ul>{entry.route.reasons.map((reason, i) => <li key={i} data-route-reason={reason.code}>{reason.detail}</li>)}</ul>}
-      </li>;
-    })}</ol> : <p className={styles.meta} role={query.isError ? "alert" : "status"}>{query.isError ? "The route history could not be read." : "Reading the route history…"}</p>)}
+    {open && (query.data ? <ol aria-label="Route history">{query.data.length === 0 ? <li>No route history recorded.</li> : query.data.map(entry => <RouteEntry key={entry.sequence} entry={entry} now={now} />)}</ol> : <p className={styles.meta} role={query.isError ? "alert" : "status"}>{query.isError ? "The route history could not be read." : "Reading the route history…"}</p>)}
   </details>;
 }

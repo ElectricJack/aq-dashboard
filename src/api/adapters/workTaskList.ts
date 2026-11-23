@@ -11,28 +11,29 @@ function check(ok: unknown): asserts ok {
   if (!ok) throw new ContractError("Invalid all-project Work page");
 }
 
-export function adaptWorkTaskList(raw: unknown, state?: string): WorkPage {
-  check(isRecord(raw) && raw.contract === "human-work-task-list-1");
-  check(Array.isArray(raw.items) && raw.items.length <= WORK_PAGE_SIZE);
-  check(Array.isArray(raw.projects) && raw.projects.length <= 4096);
-  check(typeof raw.unavailable_projects === "number" && Number.isInteger(raw.unavailable_projects) &&
-    raw.unavailable_projects >= 0 && raw.unavailable_projects + raw.projects.length <= 4096);
-  check(raw.next_cursor === null || (typeof raw.next_cursor === "string" && /^[\w-]{1,4096}$/.test(raw.next_cursor) &&
-    raw.items.length === WORK_PAGE_SIZE));
+function validText(value: unknown, limit: number): value is string {
+  return typeof value === "string" && value.length <= limit && value.trim().length > 0;
+}
+
+function projectWorkspaces(rows: unknown[]): Set<string> {
   const projects = new Set<string>();
   const workspaces = new Set<string>();
-  for (const project of raw.projects) {
+  for (const project of rows) {
     check(isRecord(project) && validGraphId(project.id) && !projects.has(project.id) && validGraphId(project.workspace_id));
-    check(typeof project.name === "string" && project.name.trim().length > 0 && project.name.length <= 128);
+    check(validText(project.name, 128));
     projects.add(project.id);
     workspaces.add(project.workspace_id);
   }
+  return workspaces;
+}
+
+function validateTasks(rows: unknown[], workspaces: Set<string>, state?: string): void {
   const seen = new Set<string>();
   const usedWorkspaces = new Set<string>();
-  for (const task of raw.items) {
+  for (const task of rows) {
     check(isRecord(task) && validGraphId(task.id) && !seen.has(task.id));
     check(validGraphId(task.workspace_id) && workspaces.has(task.workspace_id));
-    check(typeof task.title === "string" && task.title.trim().length > 0 && task.title.length <= 512);
+    check(validText(task.title, 512));
     check(typeof task.task_state === "string" && ["draft", "active", "completed", "canceled"].includes(task.task_state));
     check(!state || task.task_state === state);
     check(typeof task.updated_at === "string" && Number.isFinite(Date.parse(task.updated_at)));
@@ -40,5 +41,20 @@ export function adaptWorkTaskList(raw: unknown, state?: string): WorkPage {
     usedWorkspaces.add(task.workspace_id);
   }
   check(usedWorkspaces.size === workspaces.size);
+}
+
+function validCursor(cursor: unknown, itemCount: number): cursor is string | null {
+  if (cursor === null) return true;
+  return typeof cursor === "string" && /^[\w-]{1,4096}$/.test(cursor) && itemCount === WORK_PAGE_SIZE;
+}
+
+export function adaptWorkTaskList(raw: unknown, state?: string): WorkPage {
+  check(isRecord(raw) && raw.contract === "human-work-task-list-1");
+  check(Array.isArray(raw.items) && raw.items.length <= WORK_PAGE_SIZE);
+  check(Array.isArray(raw.projects) && raw.projects.length <= 4096);
+  check(typeof raw.unavailable_projects === "number" && Number.isInteger(raw.unavailable_projects) &&
+    raw.unavailable_projects >= 0 && raw.unavailable_projects + raw.projects.length <= 4096);
+  check(validCursor(raw.next_cursor, raw.items.length));
+  validateTasks(raw.items, projectWorkspaces(raw.projects), state);
   return { items: raw.items, projects: raw.projects, unavailable_projects: raw.unavailable_projects, next_cursor: raw.next_cursor };
 }

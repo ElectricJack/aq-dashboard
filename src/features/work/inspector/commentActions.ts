@@ -27,6 +27,34 @@ export function freezeComment(write: CommentWrite): FrozenAction {
 
 export type CommentStatus = { state: "idle" } | { state: "busy" } | { state: "done" } | { state: "unknown" } | { state: "failed"; message: string; conflict?: boolean };
 
+const refusedMessage = "AQ refused this comment change.";
+
+function refusedRequest(error: unknown, lookup: boolean): error is ApiError {
+  if (!(error instanceof ApiError) || error.effectUnknown) return false;
+  if (lookup && error.status === 404) return false;
+  return !!error.status && error.status < 500;
+}
+
+function failedStatus(error: unknown, lookup: boolean): CommentStatus {
+  if (refusedRequest(error, lookup)) {
+    const reason = error.envelope?.message;
+    return { state: "failed", message: reason ? `${reason}.`.replace(/\.\.$/, ".") : refusedMessage, conflict: error.status === 409 };
+  }
+  if (error instanceof ContractError) {
+    return { state: "failed", message: "This dashboard can't read AQ's answer. Reload the thread to see whether the change was saved." };
+  }
+  return { state: "unknown" };
+}
+
+function operationStatus(operation: ActionOperation): CommentStatus {
+  switch (operation.disposition) {
+    case "confirmed": return { state: "done" };
+    case "conflict": return { state: "failed", message: "This comment changed since you read it. The thread was reloaded; check it and try again.", conflict: true };
+    case "rejected": return { state: "failed", message: refusedMessage };
+    default: return { state: "unknown" };
+  }
+}
+
 /** Runs one comment write to a settled outcome, reconciling an unknown one by operation lookup. */
 export function useCommentWrite(onConfirmed?: () => void) {
   const cache = useQueryClient(), { queryContext, reportAccessDenied } = useSession();
@@ -34,30 +62,41 @@ export function useCommentWrite(onConfirmed?: () => void) {
   const frozen = useRef<FrozenAction | null>(null), alive = useRef(true), lookups = useRef(0);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const refresh = () => cache.invalidateQueries({ predicate: q => q.queryKey[0] === "aq" && q.queryKey[1] === queryContext.principalId && q.queryKey[4] === "task-comments" });
-  async function run(lookup: boolean) {
-    const intent = frozen.current; if (!intent) return;
-    setStatus({ state: "busy" });
-    let next: ActionOperation;
-    try { next = await actionRequest(intent, lookup); }
-    catch (error) {
-      if (!alive.current) return;
-      if (error instanceof ApiError && !error.effectUnknown && error.status && error.status < 500 && !(lookup && error.status === 404)) {
-        if (error.status === 401 || error.status === 403) reportAccessDenied(error);
-        // AQ's message is specific here: comment_not_author, comment_deleted, body limits.
-        frozen.current = null;
-        setStatus({ state: "failed", message: error.envelope?.message ? `${error.envelope.message}.`.replace(/\.\.$/, ".") : "AQ refused this comment change.", conflict: error.status === 409 });
-        if (error.status === 409) void refresh();
-        return;
-      }
-      if (error instanceof ContractError) { frozen.current = null; setStatus({ state: "failed", message: "This dashboard can't read AQ's answer. Reload the thread to see whether the change was saved." }); return; }
-      setStatus({ state: "unknown" });
-      return;
-    }
+  async function settle(result: CommentStatus) {
     if (!alive.current) return;
-    if (next.disposition === "confirmed") { frozen.current = null; lookups.current = 0; setStatus({ state: "done" }); await refresh(); onConfirmed?.(); return; }
-    if (next.disposition === "conflict") { frozen.current = null; setStatus({ state: "failed", message: "This comment changed since you read it. The thread was reloaded; check it and try again.", conflict: true }); void refresh(); return; }
-    if (next.disposition === "rejected") { frozen.current = null; setStatus({ state: "failed", message: "AQ refused this comment change." }); return; }
-    setStatus({ state: "unknown" });
+    switch (result.state) {
+      case "done":
+        frozen.current = null;
+        lookups.current = 0;
+        setStatus(result);
+        await refresh();
+        onConfirmed?.();
+        return;
+      case "failed":
+        frozen.current = null;
+        setStatus(result);
+        if (result.conflict) void refresh();
+        return;
+      default:
+        setStatus(result);
+    }
+  }
+
+  async function run(lookup: boolean) {
+    const intent = frozen.current;
+    if (!intent) return;
+    setStatus({ state: "busy" });
+    let result: CommentStatus;
+    try {
+      result = operationStatus(await actionRequest(intent, lookup));
+    } catch (error) {
+      if (!alive.current) return;
+      result = failedStatus(error, lookup);
+      if (result.state === "failed" && error instanceof ApiError) {
+        if (error.status === 401 || error.status === 403) reportAccessDenied(error);
+      }
+    }
+    await settle(result);
   }
   // Pending or unknown: look the operation up a few times, then leave it to the person (Check again).
   useEffect(() => {

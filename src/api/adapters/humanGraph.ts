@@ -33,13 +33,10 @@ function check(value: unknown): asserts value { if (!value) throw new ContractEr
 function text(value: unknown, max: number): value is string { return typeof value === "string" && value.length <= max; }
 /** Graph titles are bounded by Unicode scalars, matching the Rust API. */
 function title(value: unknown): value is string {
-  if (typeof value !== "string" || value.length > 1024 || !value.trim()) return false;
-  let scalars = 0;
-  for (const character of value) {
-    const scalar = character.codePointAt(0)!;
-    if (scalar === 0 || (scalar >= 0xd800 && scalar <= 0xdfff) || ++scalars > 512) return false;
-  }
-  return true;
+  if (!text(value, 1024) || !value.trim()) return false;
+  // The Unicode regex matches isolated surrogates, including malformed UTF-16 input.
+  if (/[\u0000\uD800-\uDFFF]/u.test(value)) return false;
+  return [...value].length <= 512;
 }
 function revision(value: unknown): value is string { return typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value); }
 function time(value: unknown): value is string { return text(value, 40) && Number.isFinite(Date.parse(value)); }
@@ -53,24 +50,32 @@ export function adaptStateCounts(value: unknown): GraphStateCounts {
 }
 /** `parent` on graph and work data (X9). Absent (older server) and null both read as "no parent known". */
 export function adaptGraphParent(value: unknown): GraphParent | null {
-  if (value === undefined || value === null) return null;
+  if (value == null) return null;
   check(isRecord(value) && validGraphId(value.id) && validGraphId(value.edge_id));
-  check(value.kind === null || value.kind === "task" || value.kind === "knowledge");
-  check(value.title === null || (typeof value.title === "string" && value.title.length <= 1024));
-  check(value.task_state === null || TASK_STATES.includes(value.task_state as string));
+  check(optional(value.kind, kind => kind === "task" || kind === "knowledge"));
+  check(optional(value.title, title => text(title, 1024)));
+  check(optional(value.task_state, state => TASK_STATES.includes(state as string)));
   return { id: value.id, kind: value.kind as GraphParent["kind"], title: value.title as string | null, task_state: value.task_state as string | null, edge_id: value.edge_id };
 }
 export function adaptGraphExecution(value: unknown): GraphExecution {
-  check(isRecord(value) && validGraphId(value.task_id) && validGraphId(value.attempt_id) && validGraphId(value.session_id) && typeof value.status === "string" && value.status.length > 0 && value.status.length <= 64);
+  check(isRecord(value));
+  check(validGraphId(value.task_id));
+  check(validGraphId(value.attempt_id));
+  check(validGraphId(value.session_id));
+  check(typeof value.status === "string" && value.status.length > 0 && value.status.length <= 64);
   return { task_id: value.task_id, attempt_id: value.attempt_id, session_id: value.session_id, status: value.status };
 }
 function adaptOmitted(value: unknown): GraphOmitted | null {
   if (value === undefined) return null;
-  check(isRecord(value) && graphCount(value.tasks) && graphCount(value.other_nodes) && graphCount(value.edges) && typeof value.exact === "boolean");
+  check(isRecord(value));
+  check(graphCount(value.tasks));
+  check(graphCount(value.other_nodes));
+  check(graphCount(value.edges));
+  check(typeof value.exact === "boolean");
   return { tasks: value.tasks, tasks_by_state: adaptStateCounts(value.tasks_by_state), other_nodes: value.other_nodes, edges: value.edges, exact: value.exact };
 }
 function adaptExpansion(value: unknown): { limit: string } | null {
-  if (value === undefined || value === null) return null;
+  if (value == null) return null;
   check(isRecord(value) && typeof value.limit === "string" && /^[1-9][0-9]{0,18}$/.test(value.limit));
   return { limit: value.limit };
 }
@@ -80,8 +85,13 @@ export function adaptGraphNode(value: unknown, kind: GraphNode["kind"]): GraphNo
   check(text(value.body, 262144) && text(value.acceptance_criteria, 16384));
   check(value.story_points === undefined || (kind === "task" && (value.story_points === null || validStoryPoints(value.story_points))));
   check(Array.isArray(value.labels) && value.labels.length <= 64 && value.labels.every(v => text(v,128)));
-  check(optional(value.task_state, v => text(v,64)) && optional(value.verification,v => text(v,64)) && optional(value.content_type,v => text(v,128)));
-  check(typeof value.retired === "boolean" && typeof value.deleted === "boolean" && time(value.created_at) && time(value.updated_at));
+  check(optional(value.task_state, v => text(v,64)));
+  check(optional(value.verification,v => text(v,64)));
+  check(optional(value.content_type,v => text(v,128)));
+  check(typeof value.retired === "boolean");
+  check(typeof value.deleted === "boolean");
+  check(time(value.created_at));
+  check(time(value.updated_at));
   check(revision(value.version) && revision(value.content_revision));
   // Provenance descriptors remain literal data until a typed, safe source-link adapter exists.
   check(text(value.created_by,512) && Array.isArray(value.provenance) && value.provenance.length <= 64);
@@ -121,12 +131,25 @@ export function adaptGraphDetail(raw: unknown, project: string, kind: GraphNode[
 }
 export function adaptGraphNeighborhood(raw: unknown, project: string, root: string) {
   return adaptGraphEnvelope(raw,project,value => {
-    check(isRecord(value) && value.root_id === root && Array.isArray(value.nodes) && value.nodes.length <=64 && Array.isArray(value.edges) && value.edges.length <=256 && typeof value.truncated === "boolean");
+    check(isRecord(value));
+    check(value.root_id === root);
+    check(Array.isArray(value.nodes) && value.nodes.length <=64);
+    check(Array.isArray(value.edges) && value.edges.length <=256);
+    check(typeof value.truncated === "boolean");
     const nodes=value.nodes.map(v=>adaptGraphNode(v,"task")), ids=new Set(nodes.map(n=>n.id));
     check(ids.size===nodes.length && ids.has(root));
     const edges=value.edges.map(v=>{
-      check(isRecord(v) && validGraphId(v.id) && typeof v.source === "string" && ids.has(v.source) && typeof v.target === "string" && ids.has(v.target));
-      check(text(v.edge_type,128) && optional(v.description,v=>text(v,4096)) && revision(v.version) && optional(v.source_revision,revision) && optional(v.target_revision,revision));
+      check(isRecord(v));
+      check(validGraphId(v.id));
+      check(typeof v.source === "string");
+      check(ids.has(v.source));
+      check(typeof v.target === "string");
+      check(ids.has(v.target));
+      check(text(v.edge_type,128));
+      check(optional(v.description,v=>text(v,4096)));
+      check(revision(v.version));
+      check(optional(v.source_revision,revision));
+      check(optional(v.target_revision,revision));
       return v as unknown as GraphEdge;
     });
     check(new Set(edges.map(e=>e.id)).size===edges.length);

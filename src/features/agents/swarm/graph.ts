@@ -2,7 +2,7 @@ import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { agentClassLabel, type AgentView, type MachineView, type NodeView, type SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
-import { SLOT_LABEL, agentLines, agentState, busyOf, busyOnWorkers, heldCount, holdingNodes, levelKey, machineSlots, nodeBusy, nodeSlots, nodeStanding, overSlots, shownMachineState, slotCapacity, slotColumns, taskLabel, type Level } from "./slots";
+import { SLOT_LABEL, agentLines, agentState, busyOf, busyOnWorkers, heldCount, holdingNodes, levelKey, machineSlots, nodeBusy, nodeSlots, nodeStanding, overSlots, shownMachineState, slotCapacity, slotColumns, taskLabel, type Level, type NodeSlot } from "./slots";
 
 export type Selection =
   | { kind: "server" } | { kind: "machine"; machineId: string } | { kind: "node"; nodeId: string }
@@ -38,16 +38,18 @@ export const CARD_SIZE: Record<CardKind | "machineMeters", { width: number; heig
 export const SLOT_CELL = CARD_SIZE.agent;
 export const HELD_TEXT = "An attempt holds this slot and no agent is listed for it: the agent is starting, or it stopped and its result is being settled.";
 
+function nodeSelectionId(selection: Extract<Selection, { nodeId: string }>) {
+  if (selection.kind === "node") return `node:${selection.nodeId}`;
+  return `${selection.kind}:${selection.nodeId}:${selection.index}`;
+}
 export function selectionId(s: Selection): string {
   switch (s.kind) {
-    case "server": return "server";
+    case "server":
+    case "waiting": return s.kind;
     case "machine": return `machine:${s.machineId}`;
-    case "node": return `node:${s.nodeId}`;
     case "agent": return `agent:${s.sessionId}`;
-    case "free": return `free:${s.nodeId}:${s.index}`;
-    case "held": return `held:${s.nodeId}:${s.index}`;
-    case "waiting": return "waiting";
     case "waitingAgent": return `waiting-agent:${s.taskId}`;
+    default: return nodeSelectionId(s);
   }
 }
 
@@ -61,7 +63,7 @@ const CHAR_WIDTH = 6.8, LINE_HEIGHT = 16, PADDING = 14;
 const wrapped = (text: string, width: number) => text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil((line.length * CHAR_WIDTH) / (width - 22))), 0);
 function boxFor(card: Card): { width: number; height: number } {
   const size = card.kind === "machine" && card.meters ? CARD_SIZE.machineMeters : CARD_SIZE[card.kind];
-  if (card.kind === "agent" || card.kind === "free" || card.kind === "held" || card.kind === "waitingAgent") return size;
+  if (["agent", "free", "held", "waitingAgent"].includes(card.kind)) return size;
   const lines = (card.sub ? wrapped(card.sub, size.width) : 0) + (card.reason ? wrapped(card.reason, size.width) : 0);
   const height = PADDING + 17 + lines * LINE_HEIGHT + (card.meters ? card.meters.length * 14 + 6 : 0);
   return { width: size.width, height: Math.max(size.height, height) };
@@ -70,8 +72,8 @@ function node(card: Card): Node<SwarmCardData> {
   const ariaLabel = card.ariaLabel ?? `${card.label}${card.sub ? `, ${card.sub}` : ""}${card.reason ? `, ${card.reason.replace(/\n/g, ", ")}` : ""}`;
   return { id: selectionId(card.selection), type: "card", position: { x: 0, y: 0 }, ariaLabel, data: { ...card, tooltip: card.tooltip ?? null, ariaLabel, box: boxFor(card) } };
 }
-const base = (kind: CardKind, selection: Selection, label: string): Card => ({
-  kind, selection, label, sub: null, reason: null, state: null, machineKind: null, meters: null, stale: false, intelligenceClass: null, provider: null, agent: null, slot: null, over: false,
+const base = (selection: Selection, label: string): Card => ({
+  kind: selection.kind, selection, label, sub: null, reason: null, state: null, machineKind: null, meters: null, stale: false, intelligenceClass: null, provider: null, agent: null, slot: null, over: false,
 });
 
 const NO_CHILDREN = new Set<MachineView["state"]>(["offline", "stopped", "booting"]);
@@ -109,84 +111,107 @@ export function overText(m: MachineView, w: NodeView): string {
   return `more agents than slots: ${nodeBusy(m, w)} on ${slotCapacity(w)}`;
 }
 
+function manualTitle(agent: AgentView) {
+  if (!agent.manual) return;
+  const names: Partial<Record<typeof agent.manual.status, string>> = { running: "Ready", pending: "Pending", preparing: "Starting" };
+  const label = names[agent.manual.status] ?? agent.manual.status;
+  return `${label} · ${agent.project.label}`;
+}
+function cardLevel(agent: AgentView) {
+  return agent.routingProfile?.displayName ?? agent.manual?.spec.profile_name ?? agent.ranWith?.level
+    ?? (agent.routingProfile === undefined ? agent.intelligenceClass : null);
+}
 /** The facts on an agent card: title first, then role and level, then model and effort. */
 export function agentCard(a: AgentView): AgentCard {
   const phase = agentState(a), lines = agentLines(a);
-  const manual = a.manual && `${a.manual.status === "running" ? "Ready" : a.manual.status === "pending" ? "Pending" : a.manual.status === "preparing" ? "Starting" : a.manual.status} · ${a.project.label}`;
-  const level = a.routingProfile?.displayName ?? a.manual?.spec.profile_name ?? a.ranWith?.level ?? (a.routingProfile === undefined ? a.intelligenceClass : null);
+  const manual = manualTitle(a);
+  const level = cardLevel(a);
   return {
     title: manual || taskLabel(a), who: [a.ranWith?.role, level].filter(Boolean).join(" · ") || agentClassLabel(a), what: lines.what,
     phase, startedAt: a.startedAt, level: levelKey(a),
   };
 }
 
-export function buildSwarmGraph(view: SwarmView, opts: { host: string; ready: number | null; now: string; stale?: boolean }): { nodes: Node<SwarmCardData>[]; edges: Edge[] } {
-  const nodes: Node<SwarmCardData>[] = [];
-  const edges: Edge[] = [];
-  nodes.push(node({ ...base("server", { kind: "server" }, "AQ server"), sub: opts.host }));
-  const link = (source: string, target: string, extra: Partial<Edge> = {}) => edges.push({ id: `${source}->${target}`, source, target, ...extra });
-
-  for (const m of view.machines) {
-    const selection: Selection = { kind: "machine", machineId: m.id };
-    const id = selectionId(selection);
-    const agentCount = m.nodes.reduce((n, w) => n + w.agents.length + heldCount(w), 0);
-    const state = shownMachineState(m);
-    nodes.push(node({
-      ...base("machine", selection, m.label), sub: machineSub(m, opts.now),
-      reason: machineHold(m),
-      state, machineKind: m.kind,
-      meters: m.load !== null && m.state !== "offline" ? [{ label: "CPU", percent: m.load.cpuPercent }, { label: "RAM", percent: m.load.memoryPercent }] : null,
-      stale: m.load !== null && !m.load.fresh,
-    }));
-    const live = state === "online" || state === "holding";
-    link("server", id, {
-      ...(live && agentCount > 0 && !opts.stale ? { animated: true } : {}),
-      ...(m.state === "offline" || m.state === "stopped" || m.state === "booting" ? { style: { strokeDasharray: "5 4" } } : {}),
-    });
-    if (NO_CHILDREN.has(m.state)) continue;
-    for (const w of m.nodes) addWorker(m, w, id);
+type GraphOptions = { host: string; ready: number | null; now: string; stale?: boolean };
+type Graph = { nodes: Node<SwarmCardData>[]; edges: Edge[] };
+function link(graph: Graph, source: string, target: string, extra: Partial<Edge> = {}) {
+  graph.edges.push({ id: `${source}->${target}`, source, target, ...extra });
+}
+function agentCardState(agent: AgentView, phase: AgentCard["phase"]): MachineView["state"] | null {
+  if (!agent.manual) return phase === "starting" || phase === "finishing" ? "booting" : null;
+  if (agent.manual.status === "running") return "online";
+  return ["stopped", "failed"].includes(agent.manual.status) ? "stopped" : "booting";
+}
+function agentSlotCard(slot: Extract<NodeSlot, { kind: "agent" }>, place: string | null) {
+  const a = slot.agent, card = agentCard(a);
+  const beyond = slot.slot === null && card.phase !== "stopped";
+  const phase = card.phase === "running" ? null : SLOT_LABEL[card.phase];
+  return node({
+    ...base({ kind: "agent", sessionId: a.sessionId }, card.title),
+    agent: card, slot: slot.slot, over: beyond, intelligenceClass: a.intelligenceClass, provider: a.provider,
+    ariaLabel: [card.title, card.who, phase, card.what, beyond ? NO_SLOT : place].filter(Boolean).join(" "),
+    tooltip: [card.title, a.project.label, card.who, phase, card.what].filter(Boolean).join(" · "), state: agentCardState(a, card.phase),
+  });
+}
+function slotCard(slot: NodeSlot, worker: NodeView) {
+  const place = slot.slot === null ? null : `Slot ${slot.slot}`;
+  if (slot.kind === "agent") return agentSlotCard(slot, place);
+  const selection = { kind: slot.kind, nodeId: worker.id, index: slot.index };
+  if (slot.kind === "held") return node({
+    ...base(selection, "slot held"), slot: slot.slot, over: slot.slot === null, sub: "starting or settling", tooltip: HELD_TEXT,
+    ariaLabel: `${place ?? NO_SLOT} slot held starting or settling`,
+  });
+  const label = slot.standing ? STANDING_TEXT[slot.standing] : "free";
+  return node({ ...base(selection, label), slot: slot.slot, state: slot.standing ? STANDING_STATE[slot.standing] : null, ariaLabel: `${place} ${label}` });
+}
+function workerCard(machine: MachineView, worker: NodeView, opts: GraphOptions) {
+  const why = nodeStanding(machine, worker), over = overSlots(machine, worker);
+  const reason = [worker.holding[0] ? `holding: ${worker.holding[0].message}` : null, over > 0 ? overText(machine, worker) : null].filter(Boolean).join("\n");
+  return node({
+    ...base({ kind: "node", nodeId: worker.id }, worker.name), sub: nodeLine(machine, worker, opts.now),
+    reason: reason || null, over: over > 0, state: why.standing ? STANDING_STATE[why.standing] : null,
+  });
+}
+function addWorker(graph: Graph, machine: MachineView, worker: NodeView, opts: GraphOptions) {
+  const card = workerCard(machine, worker, opts);
+  graph.nodes.push(card);
+  link(graph, selectionId({ kind: "machine", machineId: machine.id }), card.id, { type: "bus" });
+  for (const slot of nodeSlots(machine, worker)) {
+    const child = slotCard(slot, worker);
+    graph.nodes.push(child);
+    link(graph, card.id, child.id);
   }
-
-  function addWorker(m: MachineView, w: NodeView, machineId: string) {
-    const selection: Selection = { kind: "node", nodeId: w.id };
-    const id = selectionId(selection);
-    const why = nodeStanding(m, w), over = overSlots(m, w);
-    // The node says what it is doing instead of taking work, or how many of its slots are busy; and when it holds more than it has.
-    const reason = [w.holding[0] ? `holding: ${w.holding[0].message}` : null, over > 0 ? overText(m, w) : null].filter(Boolean).join("\n");
-    nodes.push(node({ ...base("node", selection, w.name), sub: nodeLine(m, w, opts.now), reason: reason || null, over: over > 0, state: why.standing ? STANDING_STATE[why.standing] : null }));
-    link(machineId, id, { type: "bus" });
-    // One card per slot, in slot order: an agent, an attempt the read does not name, or a free slot. Then any row beyond the slots.
-    for (const c of nodeSlots(m, w)) {
-      const place = c.slot === null ? null : `Slot ${c.slot}`;
-      if (c.kind === "agent") {
-        const a = c.agent, s: Selection = { kind: "agent", sessionId: a.sessionId }, card = agentCard(a);
-        const beyond = c.slot === null && card.phase !== "stopped";
-        // The card is named by the words it draws: the task first, its slot last (the slot is drawn as the card's first line).
-        const phase = card.phase === "running" ? null : SLOT_LABEL[card.phase];
-        nodes.push(node({ ...base("agent", s, card.title), agent: card, slot: c.slot, over: beyond, intelligenceClass: a.intelligenceClass, provider: a.provider,
-          ariaLabel: [card.title, card.who, phase, card.what, beyond ? NO_SLOT : place].filter(Boolean).join(" "),
-          tooltip: [card.title, a.project.label, card.who, phase, card.what].filter(Boolean).join(" · "),
-          ...(card.phase === "starting" || card.phase === "finishing" ? { state: "booting" as const } : {}),
-          ...(a.manual ? { state: a.manual.status === "running" ? "online" as const : ["stopped", "failed"].includes(a.manual.status) ? "stopped" as const : "booting" as const } : {}) }));
-        link(id, selectionId(s));
-      } else if (c.kind === "held") {
-        // A slot an attempt holds with no agent listed is drawn as held, never left out and never free.
-        const s: Selection = { kind: "held", nodeId: w.id, index: c.index };
-        nodes.push(node({ ...base("held", s, "slot held"), slot: c.slot, over: c.slot === null, sub: "starting or settling", tooltip: HELD_TEXT,
-          ariaLabel: `${place ?? NO_SLOT} slot held starting or settling` }));
-        link(id, selectionId(s));
-      } else {
-        const s: Selection = { kind: "free", nodeId: w.id, index: c.index };
-        // A slot on a node that takes no work is not offered as free: it says what the node is doing instead.
-        const label = c.standing ? STANDING_TEXT[c.standing] : "free";
-        nodes.push(node({ ...base("free", s, label), slot: c.slot, state: c.standing ? STANDING_STATE[c.standing] : null, ariaLabel: `${place} ${label}` }));
-        link(id, selectionId(s));
-      }
-    }
+}
+function machineCard(machine: MachineView, opts: GraphOptions) {
+  const load = machine.load;
+  const meters = load !== null && machine.state !== "offline" ? [
+    { label: "CPU" as const, percent: load.cpuPercent }, { label: "RAM" as const, percent: load.memoryPercent },
+  ] : null;
+  return node({
+    ...base({ kind: "machine", machineId: machine.id }, machine.label), sub: machineSub(machine, opts.now), reason: machineHold(machine),
+    state: shownMachineState(machine), machineKind: machine.kind, meters, stale: load !== null && !load.fresh,
+  });
+}
+function machineEdge(machine: MachineView, opts: GraphOptions) {
+  const state = shownMachineState(machine);
+  const live = state === "online" || state === "holding";
+  const agentCount = machine.nodes.reduce((n, w) => n + w.agents.length + heldCount(w), 0);
+  return {
+    ...(live && agentCount > 0 && !opts.stale ? { animated: true } : {}),
+    ...(NO_CHILDREN.has(machine.state) ? { style: { strokeDasharray: "5 4" } } : {}),
+  };
+}
+export function buildSwarmGraph(view: SwarmView, opts: GraphOptions): Graph {
+  const root = node({ ...base({ kind: "server" }, "AQ server"), sub: opts.host });
+  const graph: Graph = { nodes: [root], edges: [] };
+  for (const machine of view.machines) {
+    const card = machineCard(machine, opts);
+    graph.nodes.push(card);
+    link(graph, root.id, card.id, machineEdge(machine, opts));
+    if (!NO_CHILDREN.has(machine.state)) for (const worker of machine.nodes) addWorker(graph, machine, worker, opts);
   }
-
-  // Work waiting for a slot is not drawn in the tree: the headline and the server pane report it.
-  return { nodes, edges };
+  // Waiting work is shown in the headline and server pane.
+  return graph;
 }
 
 /** Waiting agents grow downwards in two columns within a bounded footprint, rather than becoming dagre siblings. A node's slot cards take `slotColumns`. */
@@ -326,7 +351,7 @@ const NARROW = { width: 640, minZoom: 0.5 } as const;
 export const minFitZoom = (canvas: { width: number }) => (canvas.width < NARROW.width ? NARROW.minZoom : FIT.minZoom);
 /** The zoom at which a box of this size fills the canvas, margins kept. Not clamped. */
 export function fitZoom(bounds: { width: number; height: number }, canvas: { width: number; height: number }): number {
-  if (bounds.width <= 0 || bounds.height <= 0 || canvas.width <= 0 || canvas.height <= 0) return 1;
+  if ([bounds.width, bounds.height, canvas.width, canvas.height].some(value => value <= 0)) return 1;
   const room = 1 - 2 * FIT.padding;
   return Math.min(canvas.width * room / bounds.width, canvas.height * room / bounds.height);
 }

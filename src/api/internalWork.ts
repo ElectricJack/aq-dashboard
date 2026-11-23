@@ -1,5 +1,5 @@
 import { apiGet, apiSend } from "./client";
-import { ContractError, isRecord } from "./adapters/contract";
+import { boundedList, ContractError, isRecord, nullable, optional as optionalField } from "./adapters/contract";
 
 export const INTERNAL_WORK_PURPOSES = ["routing_classification", "playbook_compilation", "playbook_call", "decision_revision", "result_processing"] as const;
 export type InternalWorkPurpose = typeof INTERNAL_WORK_PURPOSES[number];
@@ -16,21 +16,27 @@ const profileId = (value: unknown): value is string => typeof value === "string"
 const purpose = (value: unknown): value is InternalWorkPurpose => INTERNAL_WORK_PURPOSES.includes(value as InternalWorkPurpose);
 function ensure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid internal work settings response"); }
 export function adaptInternalWork(value: unknown): InternalWorkSettings {
-  ensure(isRecord(value) && revision(value.revision));
-  ensure(value.default_profile_id === null || profileId(value.default_profile_id));
-  ensure(isRecord(value.overrides) && Array.isArray(value.purposes) && value.purposes.length <= INTERNAL_WORK_PURPOSES.length && value.purposes.every(purpose));
+  ensure(isRecord(value));
+  ensure(revision(value.revision));
+  ensure(nullable(value.default_profile_id, profileId));
+  ensure(isRecord(value.overrides));
+  ensure(boundedList(value.purposes, INTERNAL_WORK_PURPOSES.length, purpose));
   const overrides: Partial<Record<InternalWorkPurpose, string>> = {};
   for (const [key, id] of Object.entries(value.overrides)) { ensure(purpose(key) && profileId(id)); overrides[key] = id; }
   // `missing` came with levels as documents (aq-server spec 0014); a server without it reports none.
   ensure(value.missing === undefined || (Array.isArray(value.missing) && value.missing.length <= INTERNAL_WORK_PURPOSES.length + 1));
   const missing = (value.missing ?? []).map((item: unknown) => {
-    ensure(isRecord(item) && (item.purpose === null || purpose(item.purpose)) && profileId(item.profile_id));
+    ensure(isRecord(item));
+    ensure(nullable(item.purpose, purpose));
+    ensure(profileId(item.profile_id));
     return { purpose: item.purpose, profile_id: item.profile_id };
   });
-  return { revision: value.revision, default_profile_id: value.default_profile_id as string | null, overrides, purposes: value.purposes as InternalWorkPurpose[], missing };
+  return { revision: value.revision, default_profile_id: value.default_profile_id, overrides, purposes: value.purposes as InternalWorkPurpose[], missing };
 }
 function saved(value: unknown, operationId: string): InternalWorkSaved {
-  ensure(isRecord(value) && value.operation_id === operationId && (value.disposition === "saved" || value.disposition === "unchanged"));
+  ensure(isRecord(value));
+  ensure(value.operation_id === operationId);
+  ensure(value.disposition === "saved" || value.disposition === "unchanged");
   return { ...adaptInternalWork(value), operation_id: operationId, disposition: value.disposition };
 }
 export async function readInternalWorkSettings(signal?: AbortSignal) { return adaptInternalWork(await apiGet<unknown>("/api/settings/internal-work", signal)); }
@@ -69,17 +75,25 @@ const OPTIONAL_RUN_FIELDS = ["answer", "reason", "detail", "provider", "model", 
 const WAYS = ["api", "login"];
 function runEnsure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid internal work run response"); }
 function attempt(value: unknown): InternalRunAttempt {
-  runEnsure(isRecord(value) && text(value.provider) && text(value.model) && WAYS.includes(String(value.way)) && (value.reason === null || text(value.reason)) && text(value.detail) && count(value.elapsed_ms));
+  runEnsure(isRecord(value));
+  runEnsure(text(value.provider));
+  runEnsure(text(value.model));
+  runEnsure(WAYS.includes(String(value.way)));
+  runEnsure(value.reason === null || text(value.reason));
+  runEnsure(text(value.detail));
+  runEnsure(count(value.elapsed_ms));
   return { provider: value.provider, model: value.model, way: value.way as "api" | "login", reason: value.reason, detail: value.detail, elapsed_ms: value.elapsed_ms };
 }
 const clip = (value: string) => value.length > TRANSCRIPT_TEXT_CHARS ? value.slice(0, TRANSCRIPT_TEXT_CHARS) : value;
 function transcriptItem(value: unknown): TranscriptItem {
-  runEnsure(isRecord(value) && text(value.kind) && (value.clipped === undefined || typeof value.clipped === "boolean"));
+  runEnsure(isRecord(value));
+  runEnsure(text(value.kind));
+  runEnsure(optionalField(value.clipped, v => typeof v === "boolean"));
   const clipped = value.clipped === true ? { clipped: true } : {};
   switch (value.kind) {
     case "text": case "error": runEnsure(text(value.text)); return { kind: value.kind, text: clip(value.text), ...clipped };
-    case "tool": runEnsure(text(value.tool) && text(value.input)); return { kind: "tool", tool: clip(value.tool), input: clip(value.input), ...clipped };
-    case "result": runEnsure(text(value.output) && typeof value.error === "boolean"); return { kind: "result", output: clip(value.output), error: value.error, ...clipped };
+    case "tool": runEnsure(text(value.tool)); runEnsure(text(value.input)); return { kind: "tool", tool: clip(value.tool), input: clip(value.input), ...clipped };
+    case "result": runEnsure(text(value.output)); runEnsure(typeof value.error === "boolean"); return { kind: "result", output: clip(value.output), error: value.error, ...clipped };
     case "clipped": return { kind: "clipped" };
     default: return { kind: "unknown" };
   }
@@ -92,14 +106,29 @@ function transcripts(value: unknown): InternalRunTranscript[] {
   });
 }
 export function adaptInternalRun(value: unknown): InternalRunData {
-  runEnsure(isRecord(value) && uuid(value.id) && purpose(value.purpose) && RUN_STATUSES.includes(value.status as InternalRunStatus));
-  runEnsure(isRecord(value.affected) && text(value.affected.kind) && text(value.affected.id) && (value.affected.project_id === null || uuid(value.affected.project_id)));
-  runEnsure(text(value.instructions) && text(value.input) && Array.isArray(value.attempts) && value.attempts.length <= 64);
-  runEnsure(optionalText(value.reason) && optionalText(value.detail) && optionalText(value.provider) && optionalText(value.model) && optionalText(value.diagnosis));
-  runEnsure(value.way === undefined || WAYS.includes(String(value.way)));
-  runEnsure(optionalCount(value.elapsed_ms) && optionalCount(value.finished_at_ms) && count(value.created_at_ms));
-  runEnsure(value.usage === undefined || (isRecord(value.usage) && count(value.usage.input_tokens) && count(value.usage.output_tokens)));
-  runEnsure(["none", "supervisor", "owner", "resolved"].includes(String(value.escalation)) && (value.retry_of === undefined || uuid(value.retry_of)));
+  runEnsure(isRecord(value));
+  runEnsure(uuid(value.id));
+  runEnsure(purpose(value.purpose));
+  runEnsure(RUN_STATUSES.includes(value.status as InternalRunStatus));
+  runEnsure(isRecord(value.affected));
+  runEnsure(text(value.affected.kind));
+  runEnsure(text(value.affected.id));
+  runEnsure(nullable(value.affected.project_id, uuid));
+  runEnsure(text(value.instructions));
+  runEnsure(text(value.input));
+  runEnsure(Array.isArray(value.attempts) && value.attempts.length <= 64);
+  runEnsure(optionalText(value.reason));
+  runEnsure(optionalText(value.detail));
+  runEnsure(optionalText(value.provider));
+  runEnsure(optionalText(value.model));
+  runEnsure(optionalText(value.diagnosis));
+  runEnsure(optionalField(value.way, way => WAYS.includes(String(way))));
+  runEnsure(optionalCount(value.elapsed_ms));
+  runEnsure(optionalCount(value.finished_at_ms));
+  runEnsure(count(value.created_at_ms));
+  runEnsure(optionalField(value.usage, usage => isRecord(usage) && count(usage.input_tokens) && count(usage.output_tokens)));
+  runEnsure(["none", "supervisor", "owner", "resolved"].includes(String(value.escalation)));
+  runEnsure(optionalField(value.retry_of, uuid));
   const affected = value.affected as InternalRunData["affected"], known = value as unknown as InternalRunData;
   const optional = Object.fromEntries(OPTIONAL_RUN_FIELDS.filter(key => known[key] !== undefined).map(key => [key, known[key]]));
   return {
@@ -115,7 +144,9 @@ function runsUrl(params: InternalRunQuery) {
 }
 export async function listInternalRuns(params: InternalRunQuery, signal?: AbortSignal): Promise<InternalRunPage> {
   const value = await apiGet<unknown>(runsUrl(params), signal);
-  runEnsure(isRecord(value) && Array.isArray(value.runs) && value.runs.length <= 100 && (value.next_cursor === null || text(value.next_cursor)));
+  runEnsure(isRecord(value));
+  runEnsure(Array.isArray(value.runs) && value.runs.length <= 100);
+  runEnsure(value.next_cursor === null || text(value.next_cursor));
   return { runs: value.runs.map(adaptInternalRun), next_cursor: value.next_cursor as string | null };
 }
 export async function readInternalRun(id: string, signal?: AbortSignal) { return adaptInternalRun(await apiGet<unknown>(`/api/internal-work/runs/${encodeURIComponent(id)}`, signal)); }

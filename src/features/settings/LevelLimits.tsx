@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
 import type { IntelligenceFields } from "../../api/roleSettings";
 import { readSwarmSettings, updateSwarmLimits, useSwarmSettings, type SwarmSettings } from "../../api/swarmSettings";
@@ -26,6 +26,12 @@ type Limits = {
 };
 const Context = createContext<Limits | null>(null);
 
+function limitFailure(error: unknown) {
+  if (!isHttpClientError(error)) return { conflict: false, message: "Max agents could not be confirmed as saved. Your entries are kept; reload the limits to see what AQ holds." };
+  if (error.status === 409) return { conflict: true, message: "The agent limits changed elsewhere. Your entries are kept; reload the limits, then save again." };
+  return { conflict: false, message: `AQ did not save max agents: ${error.serverMessage ?? "the request was refused"}. Your entries are kept.` };
+}
+
 export function LevelLimitsProvider({ children }: { children: ReactNode }) {
   const { queryContext } = useSession(), client = useQueryClient();
   const key = queryKey(queryContext, "swarm-settings", {});
@@ -38,9 +44,10 @@ export function LevelLimitsProvider({ children }: { children: ReactNode }) {
   const dirty = Object.entries(drafts).filter(([cell, value]) => value !== saved(cell));
   const invalid = dirty.some(([, value]) => !valid(value));
   function edit(provider: string, level: string, value: string) { setDrafts(old => ({ ...old, [cellKey(provider, level)]: value })); setNotice(null); setError(null); }
+  const saveLocked = saving || invalid || conflict;
   async function save(): Promise<boolean> {
     if (!dirty.length) return true;
-    if (saving || invalid || conflict) return false;
+    if (saveLocked) return false;
     setSaving(true); setError(null); setNotice(null);
     let current: SwarmSettings;
     try { current = await readSwarmSettings(); }
@@ -56,11 +63,9 @@ export function LevelLimitsProvider({ children }: { children: ReactNode }) {
       }
       setNotice("Max agents saved."); return true;
     } catch (e) {
-      const refused = e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500;
-      setConflict(e instanceof ApiError && e.status === 409);
-      setError(e instanceof ApiError && e.status === 409 ? "The agent limits changed elsewhere. Your entries are kept; reload the limits, then save again."
-        : refused ? `AQ did not save max agents: ${(e as ApiError).serverMessage ?? "the request was refused"}. Your entries are kept.`
-          : "Max agents could not be confirmed as saved. Your entries are kept; reload the limits to see what AQ holds.");
+      const failure = limitFailure(e);
+      setConflict(failure.conflict);
+      setError(failure.message);
       return false;
     } finally { setSaving(false); void client.invalidateQueries({ queryKey: key }); }
   }
@@ -70,7 +75,7 @@ export function LevelLimitsProvider({ children }: { children: ReactNode }) {
     catch { setError("The agent limits could not be reloaded. Your entries are kept."); }
     finally { setSaving(false); }
   }
-  const coordinator = useIntelligenceDraft({ id: "level-limits", label: "max agents", dirty: dirty.length > 0, locked: saving || invalid || conflict, save, order: 35 });
+  const coordinator = useIntelligenceDraft({ id: "level-limits", label: "max agents", dirty: dirty.length > 0, locked: saveLocked, save, order: 35 });
   const locked = saving || coordinator.saving;
   const feedback = <div className={styles.limitStatus}>
       <p className={styles.note}>Max agents is how many agents may run at once on a level through one provider. Blank means unlimited; 0 pauses new launches. Running agents finish.</p>

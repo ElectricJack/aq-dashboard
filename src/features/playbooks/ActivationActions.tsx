@@ -11,13 +11,23 @@ import styles from "./Playbooks.module.css";
 
 const FUTURE = "Activation affects future runs only. Existing runs keep their pinned definition. Installing and compiling are separate operations.";
 
+function activationPayload(item: CatalogActivation, chosen: CatalogDefinition | undefined) {
+  if (!chosen) throw new Error("Choose a definition.");
+  return { payload: { binding: item.binding, artifact: chosen.artifact } };
+}
+
+function alternativeDefinitions(items: import("../../api/adapters/playbookCatalog").CatalogItem[] | undefined, current: string) {
+  return (items ?? []).filter((d): d is CatalogDefinition => d.kind === "definition" && d.artifact !== current);
+}
+
 /** Activate or roll back a binding for new runs. Neither relabels a run already admitted. */
 export function ActivationActions({ item, project }: { item: CatalogActivation; project: string }) {
   const { bootstrap } = useSession(); const client = useQueryClient();
   const offered = bootstrap.capability("dashboard.actions").enabled && bootstrap.capability(playbookCapability("playbook.activation.activate")).enabled;
   const definitions = useCatalogPage("definitions", offered);
-  const choices = (definitions.page?.items ?? []).filter((d): d is CatalogDefinition => d.kind === "definition" && d.artifact !== item.artifact);
+  const choices = alternativeDefinitions(definitions.page?.items, item.artifact);
   const [artifact, setArtifact] = useState(""); const chosen = choices.find(d => d.artifact === artifact) ?? choices[0];
+  const selectedArtifact = chosen?.artifact ?? "";
   const subject = { type: "playbook_binding" as const, id: item.binding, revision: item.revision };
   // Conflict review refreshes this binding in place (same keys), so the chosen artifact stays selected.
   const reload = () => Promise.all([client.invalidateQueries({ predicate: q => q.queryKey[4] === "playbook-current-catalog" || q.queryKey[4] === "playbook-current-catalog-detail" }), definitions.refetch()]);
@@ -29,9 +39,9 @@ export function ActivationActions({ item, project }: { item: CatalogActivation; 
         blocked={definitions.unavailable ?? (choices.length === 0 ? "No other definition is represented in this namespace" : undefined)}
         intro={<p>Binds a different installed definition to <strong>{item.binding}</strong> for new runs. {FUTURE}</p>}
         confirm="Confirm activation for new runs."
-        fields={() => <label>Definition<select value={chosen?.artifact ?? ""} onChange={e => setArtifact(e.target.value)}>{choices.map(d => <option key={d.artifact} value={d.artifact}>{d.name} · {shortDigest(d.artifact)}</option>)}</select></label>}
-        build={() => { if (!chosen) throw new Error("Choose a definition."); return { payload: { binding: item.binding, artifact: chosen.artifact } }; }}
-        draft={chosen?.artifact ?? ""}
+        fields={() => <label>Definition<select value={selectedArtifact} onChange={e => setArtifact(e.target.value)}>{choices.map(d => <option key={d.artifact} value={d.artifact}>{d.name} · {shortDigest(d.artifact)}</option>)}</select></label>}
+        build={() => activationPayload(item, chosen)}
+        draft={selectedArtifact}
         pendingText="Activation requested — awaiting confirmation." confirmedText="Activation confirmed for new runs. Refresh activations to see the new binding revision."
         onReload={reload} />
       <PlaybookAction kind="playbook.activation.rollback" project={project} subject={subject}

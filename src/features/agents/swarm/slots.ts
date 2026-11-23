@@ -12,12 +12,11 @@ export type SlotState = "starting" | "running" | "finishing" | "held" | "stopped
 export const SLOT_LABEL: Record<SlotState, string> = {
   starting: "Starting", running: "Running", finishing: "Finishing", held: "Starting or settling", stopped: "Stopped", free: "Free",
 };
+const MANUAL_PHASE = {
+  running: "running", stopping: "finishing", failed: "stopped", stopped: "stopped", pending: "starting", preparing: "starting",
+} as const;
 export function agentState(a: AgentView): Exclude<SlotState, "held" | "free"> {
-  if (a.manual) {
-    const s = a.manual.status;
-    return s === "running" ? "running" : s === "stopping" ? "finishing" : s === "stopped" || s === "failed" ? "stopped" : "starting";
-  }
-  return a.phase ?? "running";
+  return a.manual ? MANUAL_PHASE[a.manual.status] ?? "starting" : a.phase ?? "running";
 }
 
 /** Slots an attempt holds without an agent the read names. Never negative: a server may list an agent before it counts it. */
@@ -27,7 +26,7 @@ export function heldCount(n: NodeView): number {
 
 /** Machines whose workers and slots the page draws; an offline, stopped or booting machine is one card with no slots. */
 export function drawsSlots(m: MachineView): boolean {
-  return m.state !== "offline" && m.state !== "stopped" && m.state !== "booting";
+  return !["offline", "stopped", "booting"].includes(m.state);
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -36,16 +35,19 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n ==
 export type Standing = "holding" | "draining" | "stopped" | "offline" | "booting" | "revoked" | "unknown";
 export type NodeStanding = { standing: Standing | null; reason: string | null };
 
+function machineStanding(m: MachineView, n: NodeView): Standing | null {
+  if (m.state === "offline" || n.health === "offline") return "offline";
+  if (n.health === "revoked") return "revoked";
+  if (m.state === "stopped" || n.service === "stopped") return "stopped";
+  if (m.state === "booting") return "booting";
+  return null;
+}
 function standing(m: MachineView, n: NodeView): NodeStanding {
-  const is = (s: Standing | null, reason: string | null = null) => ({ standing: s, reason });
-  if (m.state === "offline" || n.health === "offline") return is("offline");
-  if (n.health === "revoked") return is("revoked");
-  if (m.state === "stopped" || n.service === "stopped") return is("stopped");
-  if (m.state === "booting") return is("booting");
-  if (n.service === "draining" || m.control?.desired === "draining") return is("draining");
-  if (n.holding[0]) return is("holding", n.holding[0].message);
-  if (n.health === "unknown") return is("unknown");
-  return is(null);
+  const state = machineStanding(m, n);
+  if (state) return { standing: state, reason: null };
+  if (n.service === "draining" || m.control?.desired === "draining") return { standing: "draining", reason: null };
+  if (n.holding[0]) return { standing: "holding", reason: n.holding[0].message };
+  return { standing: n.health === "unknown" ? "unknown" : null, reason: null };
 }
 
 /** The model an agent runs on, as the read names it. */
@@ -66,17 +68,18 @@ export function agentLines(a: AgentView): { who: string; what: string } {
 
 export type Level = "simple" | "standard" | "complex" | "deep";
 const LEVELS: readonly Level[] = ["simple", "standard", "complex", "deep"];
+function levelName(name: string | undefined) {
+  const word = name?.trim().toLowerCase().split(/[^a-z]+/)[0];
+  return LEVELS.find(level => level === word);
+}
 /**
  * The level an agent runs at, for its colour: the first word of the level's id or name ("standard-high", "Complex"),
  * else an older server's class (its "fast" is the simple level). Null when the read names neither.
  */
 export function levelKey(a: Pick<AgentView, "routingProfile" | "ranWith" | "intelligenceClass" | "manual">): Level | null {
-  for (const name of [a.routingProfile?.id, a.ranWith?.level, a.routingProfile?.displayName, a.manual?.spec.profile_name]) {
-    const word = name?.trim().toLowerCase().split(/[^a-z]+/)[0];
-    const hit = LEVELS.find(l => l === word);
-    if (hit) return hit;
-  }
-  return a.intelligenceClass === "fast" ? "simple" : a.intelligenceClass;
+  const names = [a.routingProfile?.id, a.ranWith?.level, a.routingProfile?.displayName, a.manual?.spec.profile_name];
+  const match = names.map(levelName).find(level => level !== undefined);
+  return match ?? (a.intelligenceClass === "fast" ? "simple" : a.intelligenceClass);
 }
 
 /**
@@ -89,7 +92,7 @@ export function slotCapacity(n: NodeView): number {
 /** A node that is there to hold attempts: not offline, revoked, stopped or booting. */
 function nodeLive(m: MachineView, n: NodeView): boolean {
   const s = standing(m, n).standing;
-  return s !== "offline" && s !== "revoked" && s !== "stopped" && s !== "booting";
+  return s === null || !["offline", "revoked", "stopped", "booting"].includes(s);
 }
 export function nodeStanding(m: MachineView, n: NodeView): NodeStanding {
   return standing(m, n);
@@ -129,29 +132,45 @@ export type NodeSlot =
  * range) fill the lowest free positions, then attempts the read does not name; what is left is free.
  */
 export function nodeSlots(m: MachineView, n: NodeView): NodeSlot[] {
-  const capacity = slotCapacity(n), why = standing(m, n).standing;
-  const cells = new Array<AgentView | undefined>(capacity), unplaced: AgentView[] = [], extra: AgentView[] = [];
-  for (const a of holders(n)) {
-    if (a.slot !== undefined && a.slot <= capacity && !cells[a.slot - 1]) cells[a.slot - 1] = a;
-    else unplaced.push(a);
+  const capacity = slotCapacity(n);
+  const { cells, waiting } = claimedSlots(n, capacity);
+  const extra = fillOpenSlots(cells, waiting);
+  const cards = numberedSlots(cells, standing(m, n).standing, heldCount(n));
+  for (const agent of extra) cards.numbered.push({ kind: "agent", agent, slot: null });
+  for (let index = cards.placedHeld; index < heldCount(n); index++) cards.numbered.push({ kind: "held", index, slot: null });
+  for (const agent of n.agents.filter(a => agentState(a) === "stopped")) cards.numbered.push({ kind: "agent", agent, slot: null });
+  return cards.numbered;
+}
+
+function slotAvailable(slot: number | undefined, cells: (AgentView | undefined)[]): slot is number {
+  return slot !== undefined && slot <= cells.length && !cells[slot - 1];
+}
+function claimedSlots(node: NodeView, capacity: number) {
+  const cells = new Array<AgentView | undefined>(capacity);
+  const waiting: AgentView[] = [];
+  for (const agent of holders(node)) {
+    if (slotAvailable(agent.slot, cells)) cells[agent.slot - 1] = agent;
+    else waiting.push(agent);
   }
-  let next = 0;
-  for (const a of unplaced) {
-    while (next < capacity && cells[next]) next += 1;
-    if (next < capacity) cells[next] = a; else extra.push(a);
+  return { cells, waiting };
+}
+function fillOpenSlots(cells: (AgentView | undefined)[], waiting: AgentView[]) {
+  let index = 0;
+  for (let cell = 0; cell < cells.length && index < waiting.length; cell++) {
+    if (!cells[cell]) cells[cell] = waiting[index++];
   }
-  const cards: NodeSlot[] = [];
-  let heldLeft = heldCount(n), heldIndex = 0, freeIndex = 0;
-  for (let slot = 1; slot <= capacity; slot++) {
-    const a = cells[slot - 1];
-    if (a) cards.push({ kind: "agent", agent: a, slot });
-    else if (heldLeft > 0) { heldLeft -= 1; cards.push({ kind: "held", index: heldIndex++, slot }); }
-    else cards.push({ kind: "free", index: freeIndex++, slot, standing: why });
+  return waiting.slice(index);
+}
+function numberedSlots(cells: (AgentView | undefined)[], standing: Standing | null, held: number) {
+  const numbered: NodeSlot[] = [];
+  let placedHeld = 0, free = 0;
+  for (let slot = 1; slot <= cells.length; slot++) {
+    const agent = cells[slot - 1];
+    if (agent) numbered.push({ kind: "agent", agent, slot });
+    else if (placedHeld < held) numbered.push({ kind: "held", index: placedHeld++, slot });
+    else numbered.push({ kind: "free", index: free++, slot, standing });
   }
-  for (const a of extra) cards.push({ kind: "agent", agent: a, slot: null });
-  for (; heldLeft > 0; heldLeft--) cards.push({ kind: "held", index: heldIndex++, slot: null });
-  for (const a of n.agents) if (agentState(a) === "stopped") cards.push({ kind: "agent", agent: a, slot: null });
-  return cards;
+  return { numbered, placedHeld };
 }
 
 /** The nodes of a machine that hold in the current response: only a node's own `holding` list says so. */
@@ -178,6 +197,23 @@ export function machineSlots(m: MachineView): { slots: number; busy: number; wor
   for (const n of m.nodes) { const b = nodeBusy(m, n); slots += slotCapacity(n); busy += b; if (b > 0) workersBusy += 1; }
   return { slots, busy, workers: m.nodes.length, workersBusy };
 }
+type ModelCounts = Map<string, WorkerCounts["models"][number]>;
+function countModel(models: ModelCounts, agent: AgentView) {
+  const model = modelLabel(agent);
+  const seen = models.get(model);
+  if (!seen) { models.set(model, { model, count: 1, cls: agent.intelligenceClass }); return; }
+  seen.count++;
+  if (seen.cls !== agent.intelligenceClass) seen.cls = null;
+}
+function countNode(counts: WorkerCounts, models: ModelCounts, machine: MachineView, node: NodeView) {
+  if (nodeBusy(machine, node) === 0) return;
+  counts.held += heldCount(node);
+  for (const agent of holders(node)) {
+    counts[agentState(agent) as "starting" | "running" | "finishing"]++;
+    countModel(models, agent);
+  }
+}
+
 /**
  * The one count behind the line above the tree and above the board: slots, how many are busy, on how many worker
  * nodes, in which phase, and what runs by model.
@@ -186,16 +222,7 @@ export function workerCounts(view: SwarmView): WorkerCounts {
   const c: WorkerCounts = { slots: 0, busy: 0, starting: 0, running: 0, finishing: 0, held: 0, workers: 0, workersBusy: 0, machines: [], models: [] };
   const models = new Map<string, WorkerCounts["models"][number]>();
   for (const m of view.machines) {
-    for (const n of m.nodes) {
-      if (nodeBusy(m, n) === 0) continue;
-      c.held += heldCount(n);
-      for (const a of holders(n)) {
-        c[agentState(a) as "starting" | "running" | "finishing"] += 1;
-        const model = modelLabel(a), seen = models.get(model);
-        if (seen) { seen.count += 1; if (seen.cls !== a.intelligenceClass) seen.cls = null; }
-        else models.set(model, { model, count: 1, cls: a.intelligenceClass });
-      }
-    }
+    for (const n of m.nodes) countNode(c, models, m, n);
     const own = machineSlots(m);
     c.slots += own.slots; c.busy += own.busy; c.workers += own.workers; c.workersBusy += own.workersBusy;
     c.machines.push({ id: m.id, label: m.label, state: shownMachineState(m), live: drawsSlots(m), ...own });

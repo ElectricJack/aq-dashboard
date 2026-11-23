@@ -20,18 +20,19 @@ export function sourceProvenance(official) {
   return { revision, dirty, official };
 }
 
-export async function writeManifest(root, official) {
-  const source = sourceProvenance(official);
-  const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  const pnpm = execFileSync("pnpm", ["--version"], { encoding: "utf8" }).trim();
-  if (official && pkg.packageManager !== `pnpm@${pnpm}`) throw new Error("Official pnpm version must match packageManager");
+function compareAssetNames(a, b) {
+  if (a.name === b.name) return 0;
+  return a.name < b.name ? -1 : 1;
+}
+
+async function bundleFiles(root) {
   const files = {};
   async function add(name) {
     const bytes = await readFile(join(root, name));
     files[name] = { sha256: sha256(bytes), bytes: bytes.length };
   }
   await add("index.html");
-  for (const item of (await readdir(join(root, "assets"), { withFileTypes: true })).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+  for (const item of (await readdir(join(root, "assets"), { withFileTypes: true })).sort(compareAssetNames)) {
     if (!item.isFile() || !/^[A-Za-z0-9_.-]+\.(js|css|woff2?|png|svg|jpg|webp|ico)$/.test(item.name)) {
       throw new Error(`Unexpected bundle asset: ${item.name}`);
     }
@@ -40,6 +41,15 @@ export async function writeManifest(root, official) {
   if (Object.keys(files).length > 512 || Object.values(files).reduce((n, f) => n + f.bytes, 0) > 32 * 1024 * 1024) {
     throw new Error("Dashboard bundle exceeds server limits");
   }
+  return files;
+}
+
+export async function writeManifest(root, official) {
+  const source = sourceProvenance(official);
+  const pkg = JSON.parse(await readFile("package.json", "utf8"));
+  const pnpm = execFileSync("pnpm", ["--version"], { encoding: "utf8" }).trim();
+  if (official && pkg.packageManager !== `pnpm@${pnpm}`) throw new Error("Official pnpm version must match packageManager");
+  const files = await bundleFiles(root);
   const manifest = {
     schema_version: 2, api_version: "dashboard-read-1", version: pkg.version, source,
     toolchain: { node: process.version, pnpm, lockfile_sha256: sha256(await readFile("pnpm-lock.yaml")) },

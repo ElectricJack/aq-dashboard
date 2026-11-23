@@ -17,24 +17,26 @@ const section = (page: Page, name: string) => inspector(page).locator("section[d
 async function metrics(page: Page) {
   return page.evaluate(() => {
     const box = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
+    const height = (sel: string) => Math.round(box(sel)?.height ?? 0);
+    const top = (sel: string) => box(sel)?.top ?? 0;
     const px = (sel: string, prop: string) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).getPropertyValue(prop) : null; };
     const heads = [...document.querySelectorAll("[data-task-inspector] section[data-section] h3 button")].map(b => b.getBoundingClientRect().height);
     const comments = [...document.querySelectorAll("[data-task-inspector] section[data-section=comments] h3 button")][0]?.getBoundingClientRect();
     return {
       inspectorFont: px("[data-task-inspector]", "font-size"),
       title: px("[data-inspector-title]", "font-size"),
-      headerHeight: Math.round(box("[data-inspector-header]")?.height ?? 0),
+      headerHeight: height("[data-inspector-header]"),
       // From the inspector's top edge to its first section: the whole header, on phones too (where it isn't one box).
-      statusOffset: Math.round((box("[data-task-inspector] section[data-section=status]")?.top ?? 0) - (box("[data-task-inspector]")?.top ?? 0)),
-      attemptHeight: Math.round(box("[data-task-inspector] [data-attempt]")?.height ?? 0),
+      statusOffset: Math.round(top("[data-task-inspector] section[data-section=status]") - top("[data-task-inspector]")),
+      attemptHeight: height("[data-task-inspector] [data-attempt]"),
       sectionHead: Math.round(Math.max(...heads)),
       commentsHeadingTop: Math.round(comments?.top ?? -1),
-      inspectorHeight: Math.round(box("[data-task-inspector]")?.height ?? 0),
+      inspectorHeight: height("[data-task-inspector]"),
       // Inspector top edge to the first comment: everything the owner scrolls past before reading the thread.
-      aboveFirstComment: Math.round((box("[data-task-inspector] [data-comment]")?.top ?? 0) - (box("[data-task-inspector]")?.top ?? 0)),
+      aboveFirstComment: Math.round(top("[data-task-inspector] [data-comment]") - top("[data-task-inspector]")),
       bodyFont: getComputedStyle(document.body).fontSize,
       pageTitle: px("main h1", "font-size"),
-      row: Math.round(box("ul[aria-label=Tasks] a")?.height ?? 0),
+      row: height("ul[aria-label=Tasks] a"),
       rowFont: px("ul[aria-label=Tasks] a", "font-size"),
     };
   });

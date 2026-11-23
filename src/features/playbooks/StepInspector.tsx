@@ -48,6 +48,22 @@ function RelatedSteps({ uses, direction, onNavigate }: {
   </div>;
 }
 
+function stepDescription(step: GraphStep): string {
+  const commandDescription = step.kind === "invoke" && step.target ? commands.get(step.target) : undefined;
+  const fallbackDescription = step.kind === "wait" && !step.target
+    ? "Pauses the workflow until the deadline."
+    : commandDescription ?? descriptions[step.kind];
+  return step.inspection?.summary ?? fallbackDescription;
+}
+
+function stepFacts(step: GraphStep) {
+  const targetLabel = step.kind === "wait" ? "Event" : step.kind === "call" ? "Playbook entry" : "Command";
+  return (step.target || step.facts.length > 0) && <dl className={styles.facts}>
+    {step.target && <div><dt>{targetLabel}</dt><dd><code>{step.target}</code></dd></div>}
+    {step.facts.map(({ label, value }, index) => <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}
+  </dl>;
+}
+
 export function StepInspector({ step, kind, reachable, headingRef, onClose, onNavigate }: {
   step: GraphStep;
   kind: string;
@@ -60,18 +76,10 @@ export function StepInspector({ step, kind, reachable, headingRef, onClose, onNa
   useEffect(() => {
     if (body.current) body.current.scrollTop = 0;
   }, [step.id]);
-  const commandDescription = step.kind === "invoke" && step.target ? commands.get(step.target) : undefined;
-  const fallbackDescription = step.kind === "wait" && !step.target
-    ? "Pauses the workflow until the deadline."
-    : commandDescription ?? descriptions[step.kind];
   const uses = step.inspection?.uses.filter(use => reachable.has(use.producer) && reachable.has(use.consumer)) ?? [];
   const branches = step.transitions.filter(transition => transition.reason);
-  const description = step.inspection?.summary ?? fallbackDescription;
-  const targetLabel = step.kind === "wait" ? "Event" : step.kind === "call" ? "Playbook entry" : "Command";
-  const facts = (step.target || step.facts.length > 0) && <dl className={styles.facts}>
-    {step.target && <div><dt>{targetLabel}</dt><dd><code>{step.target}</code></dd></div>}
-    {step.facts.map(({ label, value }, index) => <div key={`${label}-${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}
-  </dl>;
+  const description = stepDescription(step);
+  const facts = stepFacts(step);
   return <aside className={styles.stepDetail} aria-label="Step details">
     <header className={styles.stepHeader}>
       <div>

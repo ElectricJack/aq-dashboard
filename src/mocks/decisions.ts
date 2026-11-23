@@ -14,6 +14,20 @@ type Options = {
 const refuse = (status: number, code: string, message: string) =>
   HttpResponse.json({ request_id: "mock", code, message, retryable: status >= 500 }, { status });
 
+type Answer = Record<string, unknown> & { operation_id: string; choice: "approve" | "reject" };
+function validAnswer(body: Record<string, unknown> | null, decision: FixtureDecision): body is Answer {
+  if (body?.schema_version !== 1 || body.decision_id !== decision.request.decision_id) return false;
+  return typeof body.operation_id === "string" && (body.choice === "approve" || body.choice === "reject");
+}
+function matchingReceipt(d: FixtureDecision, answer: Answer) {
+  const receipt = d.receipt;
+  if (receipt?.finality.operation_id === answer.operation_id && receipt.finality.choice === answer.choice) return receipt;
+  return null;
+}
+function currentDecision(d: FixtureDecision, expected: unknown) {
+  return d.state === "pending" && d.current_report_head && d.decision_revision === expected;
+}
+
 /**
  * Review inbox, detail and resolve over the labelled fixtures in decisionFixtures.ts.
  * Answers are kept for the life of the mock session, so a recorded review moves from
@@ -42,12 +56,12 @@ export function decisionHandlers({ reads = "ok", conflict = false, principal = F
       const d = decisions.get(String(params.id));
       if (!d) return refuse(404, "not_found", "This review does not exist or is not available to you.");
       const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-      if (!body || body.schema_version !== 1 || body.decision_id !== d.request.decision_id || typeof body.operation_id !== "string" || (body.choice !== "approve" && body.choice !== "reject"))
-        return refuse(400, "invalid_answer", "The answer does not match this review.");
+      if (!validAnswer(body, d)) return refuse(400, "invalid_answer", "The answer does not match this review.");
       const choice = body.choice;
       // Repeating the operation that recorded the answer returns its receipt.
-      if (d.receipt?.finality.operation_id === body.operation_id && d.receipt.finality.choice === choice) return HttpResponse.json(d.receipt);
-      if (conflict || d.state !== "pending" || !d.current_report_head || body.expected_decision_revision !== d.decision_revision)
+      const replay = matchingReceipt(d, body);
+      if (replay) return HttpResponse.json(replay);
+      if (conflict || !currentDecision(d, body.expected_decision_revision))
         return refuse(409, "decision_conflict", "The review changed before this answer was recorded.");
       if (!d.request.eligible_owners.includes(principal)) return refuse(403, "not_eligible", "You are not an eligible owner of this review.");
       const receipt = fixtureReceipt(d, choice, body.operation_id, principal, SERVER_TIME_MS + 1_000);

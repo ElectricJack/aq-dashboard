@@ -8,7 +8,8 @@ const project = "00000000-0000-0000-0000-000000000001";
  * Answers matching requests with `status` from inside the page, ahead of the
  * mock network (MSW patches fetch in-page, so Playwright routing never sees it).
  */
-async function refuse(page: Page, method: string, pattern: string, status: number, body: object) {
+type Refusal = { method: string; pattern: string; status: number; body: object };
+async function refuse(page: Page, refusal: Refusal) {
   await page.addInitScript(({ method, pattern, status, body }) => {
     let inner: typeof fetch = window.fetch.bind(window);
     const outer: typeof fetch = (input, init) => {
@@ -20,7 +21,7 @@ async function refuse(page: Page, method: string, pattern: string, status: numbe
       return inner(input, init);
     };
     Object.defineProperty(window, "fetch", { configurable: true, get: () => outer, set: (value: typeof fetch) => { inner = value; } });
-  }, { method, pattern, status, body });
+  }, refusal);
 }
 const forbidden = { request_id: "qa", code: "forbidden", message: "This request is not available to your account", retryable: false };
 
@@ -36,7 +37,7 @@ test("SO-23: the tab title names the page", async ({ page }) => {
 });
 
 test("WD-05 / SO-03: a 403 on Create task stays in the dialog and keeps the draft", async ({ page }) => {
-  await refuse(page, "POST", `/api/human/projects/${project}/tasks$`, 403, { error: "csrf_rejected", message: "request origin is not allowed" });
+  await refuse(page, { method: "POST", pattern: `/api/human/projects/${project}/tasks$`, status: 403, body: { error: "csrf_rejected", message: "request origin is not allowed" } });
   await page.goto(`/work?scope=project:${project}`);
   await page.getByRole("button", { name: "Create task" }).click();
   const dialog = page.getByRole("dialog", { name: "Create task" });
@@ -50,7 +51,7 @@ test("WD-05 / SO-03: a 403 on Create task stays in the dialog and keeps the draf
 });
 
 test("WD-12: an unknown decision link shows the neutral not-found view inside Decisions", async ({ page }) => {
-  await refuse(page, "GET", "/api/reviews/decisions/e0a20000-0000-4000-8000-00000000beef$", 403, { error: "forbidden", message: "review is not available to this owner" });
+  await refuse(page, { method: "GET", pattern: "/api/reviews/decisions/e0a20000-0000-4000-8000-00000000beef$", status: 403, body: { error: "forbidden", message: "review is not available to this owner" } });
   await page.goto("/decisions/e0a20000-0000-4000-8000-00000000beef");
   await expect(page.getByText("This item does not exist or is not available to you.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Decisions" })).toBeVisible();

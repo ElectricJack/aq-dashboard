@@ -1,3 +1,4 @@
+import { matches, type Rule } from "./resultsFeedbackSchema";
 import schema from "../../../contracts/pinned/results-feedback/v1/schema.json";
 import actions from "../../../contracts/pinned/dashboard-actions/v1/schema.json";
 import { ContractError, isRecord } from "./contract";
@@ -19,28 +20,8 @@ export function viewScoped<T>(read: () => T): T {
 import type { Anchor, Detail, ResultsPage, CommentsPage, Scope } from "../wire/resultsFeedback";
 import type { MediaBinding } from "./resultMedia";
 export type { Detail as ResultDetail, CommentProjection as ResultComment, Anchor as ResultAnchor } from "../wire/resultsFeedback";
-type Rule = { $ref?: string; oneOf?: Rule[]; anyOf?: Rule[]; const?: unknown; enum?: unknown[]; type?: string|string[]; properties?: Record<string,Rule>; required?: string[]; additionalProperties?: boolean; items?: Rule; minItems?: number; maxItems?: number; minLength?: number; maxLength?: number; pattern?: string; format?: string; minimum?: number; maximum?: number };
 const fail = (): never => { throw new ContractError("Invalid Results feedback contract"); };
-const check = (ok: unknown): void => { if (!ok) fail(); };
-// Only the published closed schema's validation vocabulary is interpreted here.
-// No defaults, coercion, remote references or executable data are admitted.
-function matches(v: unknown, rule: Rule, defs: Record<string,Rule>): boolean {
-  if (rule.$ref) return matches(v,defs[rule.$ref.split("/").at(-1)!]!,defs);
-  if (rule.oneOf && rule.oneOf.filter(r=>matches(v,r,defs)).length!==1) return false;
-  if (rule.anyOf && !rule.anyOf.some(r=>matches(v,r,defs))) return false;
-  if ("const" in rule && v!==rule.const || rule.enum && !rule.enum.includes(v)) return false;
-  if (Array.isArray(rule.type)) return rule.type.some(type=>matches(v,{...rule,type},defs));
-  if (rule.type==="null") return v===null;
-  if (rule.type==="object") {
-    if (!isRecord(v) || rule.required?.some(k=>!Object.hasOwn(v,k))) return false;
-    return Object.entries(v).every(([k,value])=>rule.properties?.[k] ? matches(value,rule.properties[k]!,defs) : rule.additionalProperties!==false);
-  }
-  if (rule.type==="array") return Array.isArray(v) && v.length<=(rule.maxItems??1000) && v.length>=(rule.minItems??0) && v.every(x=>!rule.items||matches(x,rule.items,defs));
-  if (rule.type==="string") return typeof v==="string" && [...v].length>=(rule.minLength??0) && [...v].length<=(rule.maxLength??65536) && (!rule.pattern||new RegExp(rule.pattern).test(v)) && (rule.format!=="uuid"||/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(v));
-  if (rule.type==="integer"||rule.type==="number") return typeof v==="number" && Number.isFinite(v) && (rule.type!=="integer"||Number.isSafeInteger(v)) && v>=(rule.minimum??-Infinity) && v<=(rule.maximum??Infinity);
-  if (rule.type==="boolean") return typeof v==="boolean";
-  return true;
-}
+function check(ok: unknown): asserts ok { if (!ok) fail(); }
 /** The process outcomes this bundle knows (results-feedback-1.1 `ProcessOutcome`). */
 export const PROCESS_OUTCOMES = (schema.$defs as unknown as Record<string,Rule>).ProcessOutcome?.enum as readonly string[] ?? [];
 /**
@@ -54,16 +35,32 @@ export function processOutcome(revision: { process_outcome?: string | null }): {
   const v = revision.process_outcome;
   return typeof v === "string" ? { value: v, known: PROCESS_OUTCOMES.includes(v) } : null;
 }
+function checkNonblankText(value: unknown, maxBytes: number): asserts value is string {
+  check(typeof value === "string");
+  check(value.trim());
+  check(new TextEncoder().encode(value).length <= maxBytes);
+}
+
 export function validateResultPayload(kind: string, value: unknown): void {
   const defs = RESULT_DEFS;
   check(!!defs[kind] && matches(value,defs[kind]!,defs));
   if (!isRecord(value)) return;
-  if ("operation_id" in value) check(value.operation_id!=="00000000-0000-0000-0000-000000000000" && typeof value.expected_version==="string" && BigInt(value.expected_version)<=9223372036854775807n);
-  if (kind==="Comment"||kind==="Correction") check(typeof value.body==="string" && !!value.body.trim() && new TextEncoder().encode(value.body).length<=16384 && !/[\uD800-\uDFFF]/u.test(value.body));
+  if ("operation_id" in value) {
+    check(value.operation_id !== "00000000-0000-0000-0000-000000000000");
+    check(typeof value.expected_version === "string");
+    check(BigInt(value.expected_version) <= 9223372036854775807n);
+  }
+  if (["Comment", "Correction"].includes(kind)) {
+    checkNonblankText(value.body, 16384);
+    check(!/\p{Cs}/u.test(value.body));
+  }
   if (kind==="Comment") validateAnchor(value.anchor as Anchor);
   if (kind==="FeedbackDraft") {
-    check(typeof value.title==="string" && !!value.title.trim() && !/\p{Cc}|[\uD800-\uDFFF]/u.test(value.title));
-    for (const [field,max] of [["description",32768],["acceptance_criteria",8192]] as const) check(typeof value[field]==="string" && !!value[field].trim() && new TextEncoder().encode(value[field]).length<=max);
+    check(typeof value.title === "string");
+    check(value.title.trim());
+    check(!/[\p{Cc}\p{Cs}]/u.test(value.title));
+    checkNonblankText(value.description, 32768);
+    checkNonblankText(value.acceptance_criteria, 8192);
   }
   check(new TextEncoder().encode(JSON.stringify(value)).length<=65536 || !["Comment","FeedbackDraft","FeedbackLink","Follow"].includes(kind));
 }

@@ -1,9 +1,17 @@
+class LayoutMatrix {
+  m22: number;
+  constructor(transform?: string) {
+    const scale = /scale\(([\d.]+)\)/.exec(transform ?? "");
+    this.m22 = scale ? Number(scale[1]) : 1;
+  }
+}
+
 /** jsdom has no layout engine: React Flow needs a matrix class and non-zero element sizes to draw nodes. */
 export function stubReactFlowDom(): () => void {
   const restore: (() => void)[] = [];
   const g = globalThis as unknown as { DOMMatrixReadOnly?: unknown };
   if (!g.DOMMatrixReadOnly) {
-    g.DOMMatrixReadOnly = class { m22 = 1; constructor(transform?: string) { const m = /scale\(([\d.]+)\)/.exec(transform ?? ""); if (m) this.m22 = Number(m[1]); } };
+    g.DOMMatrixReadOnly = LayoutMatrix;
     restore.push(() => { delete g.DOMMatrixReadOnly; });
   }
   for (const prop of ["offsetWidth", "offsetHeight"] as const) {

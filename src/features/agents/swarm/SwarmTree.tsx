@@ -18,6 +18,23 @@ const LEGEND: { label: string; color: string; ring?: boolean; dashed?: boolean; 
 /** The part of the React Flow instance the tree uses. */
 type Flow = Pick<ReactFlowInstance, "setViewport" | "setCenter" | "getViewport" | "getInternalNode">;
 
+type Bounds = { x: number; y: number; width: number; height: number };
+function cardBounds(instance: Flow, id: string, nodes: ReturnType<typeof buildSwarmGraph>["nodes"]): Bounds | null {
+  const found = nodes.find(n => n.id === id);
+  const internal = instance.getInternalNode(id);
+  const position = internal?.internals.positionAbsolute ?? found?.position;
+  const width = internal?.measured.width ?? found?.data.box.width;
+  const height = internal?.measured.height ?? found?.data.box.height;
+  if (!position || !width) return null;
+  return height ? { ...position, width, height } : null;
+}
+function insideCanvas(card: Bounds, canvas: HTMLElement, viewport: ReturnType<Flow["getViewport"]>) {
+  const left = card.x * viewport.zoom + viewport.x, top = card.y * viewport.zoom + viewport.y;
+  const insideX = left >= 0 && left + card.width * viewport.zoom <= canvas.clientWidth;
+  const insideY = top >= 0 && top + card.height * viewport.zoom <= canvas.clientHeight;
+  return insideX && insideY;
+}
+
 export function SwarmTree({ view, ready, selected, stale = false, onSelect, onClear, anchor, now }: { view: SwarmView; ready: number | null; selected: Selection | null; stale?: boolean; onSelect(s: Selection): void;
   /** Called when the canvas is clicked or Escape is pressed: nothing is selected. */ onClear?(): void; anchor?: ServerAnchor | undefined; now?: () => number }) {
   const section = useRef<HTMLElement>(null);
@@ -67,15 +84,12 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect, onCl
   const reveal = (id: string, force: boolean) => {
     const instance = flow.current, box = section.current;
     if (!instance || !box) return;
-    const found = laidOut.nodes.find(n => n.id === id);
-    const internal = instance.getInternalNode(id);
-    const pos = internal?.internals.positionAbsolute ?? found?.position;
-    const w = internal?.measured.width ?? found?.data.box.width, h = internal?.measured.height ?? found?.data.box.height;
-    if (!pos || !w || !h) return;
-    const { x, y, zoom } = instance.getViewport();
-    const left = pos.x * zoom + x, top = pos.y * zoom + y;
-    const inside = left >= 0 && top >= 0 && left + w * zoom <= box.clientWidth && top + h * zoom <= box.clientHeight;
-    if (force || !inside) void instance.setCenter(pos.x + w / 2, pos.y + h / 2, { zoom, duration: 200 });
+    const bounds = cardBounds(instance, id, laidOut.nodes);
+    if (!bounds) return;
+    const viewport = instance.getViewport();
+    if (force || !insideCanvas(bounds, box, viewport)) {
+      void instance.setCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, { zoom: viewport.zoom, duration: 200 });
+    }
   };
   const initialised = useRef(false);
   const onInit = (instance: Flow) => {
@@ -112,8 +126,8 @@ export function SwarmTree({ view, ready, selected, stale = false, onSelect, onCl
   };
   // Enter and Space on a focused card select it (React Flow focuses the node and pans to it).
   const keys = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === "Escape" && chosen && onClear) { onClear(); return; }
-    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.key === "Escape") { if (chosen) onClear?.(); return; }
+    if (!["Enter", " "].includes(event.key)) return;
     const holder = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
     const hit = holder && laidOut.nodes.find(n => n.id === holder.dataset.id);
     if (hit) { event.preventDefault(); choose(hit.data.selection); }

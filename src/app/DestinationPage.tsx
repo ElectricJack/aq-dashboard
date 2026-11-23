@@ -24,7 +24,8 @@ export function PageTitle({ children }: { children: ReactNode }) {
     // in-destination navigation (list -> detail) manage their own focus.
     // Back/Forward to an entry left through a link returns focus to that link instead.
     const restoring = navigation === "POP" && returnsFocusOnBack(location.key);
-    if (previous.current !== null && previous.current !== destination && !restoring) ref.current?.focus();
+    const changed = previous.current !== null && previous.current !== destination;
+    if (changed && !restoring) ref.current?.focus();
     previous.current = destination;
   }, [destination, previous, navigation, location.key]);
   return (

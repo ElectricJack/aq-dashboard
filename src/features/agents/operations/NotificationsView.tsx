@@ -13,28 +13,47 @@ import styles from "./Operations.module.css";
 /** U14: this project's notifications for the current account, read only while this view is open.
  * Message, route, attempts, transport receipt, delivery state and acknowledgment are separate facts. */
 export function NotificationsView({ session: s }: { session: SessionDetailView }) {
-  const { bootstrap, queryContext } = useSession();
+  const { bootstrap } = useSession();
   const capability = bootstrap.capability("notifications.read");
   const [selected, setSelected] = useState<string | null>(null);
-  const query = useQuery({ queryKey: queryKey(queryContext, "session-notifications", { project: s.project.id }), enabled: capability.enabled, retry: false, refetchOnWindowFocus: false,
-    queryFn: async ({ signal }) => adaptNotificationPage(await apiGet<unknown>(`/api/notifications?after=0&limit=${NOTIFICATION_PAGE_SIZE}`, signal), queryContext.principalId, 0) });
-  const rows = query.data?.items.filter(r => r.message.project === s.project.id) ?? [];
-  const item = rows.find(r => r.message.id === selected);
+  const query = useNotificationPage(s.project.id, capability.enabled);
   return <section aria-label="Notifications" className={styles.view}>
     <h3>Notifications</h3>
     {!capability.enabled ? <p>Notifications unavailable{capability.reason ? `: ${capability.reason}` : ""}</p>
-      : query.isError || !query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="notifications" onRetry={() => void query.refetch()} />
-      : rows.length === 0 ? <p>No notifications for this project in your first {NOTIFICATION_PAGE_SIZE} messages.</p> : <>
-        <ul aria-label="Project notifications" className={styles.list}>{rows.map(r => <li key={r.message.id}>
-          <button type="button" aria-pressed={selected === r.message.id} onClick={() => setSelected(r.message.id)}>
+      : query.isError || !query.data ? <NotificationReadStatus query={query} label="notifications" />
+      : <ProjectNotifications page={query.data} project={s.project.id} selected={selected} setSelected={setSelected} />}
+  </section>;
+}
+
+function NotificationReadStatus({ query, label }: { query: { isError: boolean; error: Error | null; refetch(): Promise<unknown> }; label: string }) {
+  return <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label={label} onRetry={() => void query.refetch()} />;
+}
+
+function useNotificationPage(project: string, enabled: boolean) {
+  const { queryContext } = useSession();
+  return useQuery({ queryKey: queryKey(queryContext, "session-notifications", { project }), enabled, retry: false, refetchOnWindowFocus: false,
+    queryFn: async ({ signal }) => adaptNotificationPage(await apiGet<unknown>(`/api/notifications?after=0&limit=${NOTIFICATION_PAGE_SIZE}`, signal), queryContext.principalId, 0) });
+}
+
+function ProjectNotifications({ page, project, selected, setSelected }: {
+  page: ReturnType<typeof adaptNotificationPage>; project: string; selected: string | null; setSelected(id: string): void;
+}) {
+  const rows = page.items.filter(row => row.message.project === project);
+  const item = rows.find(row => row.message.id === selected);
+  return rows.length === 0 ? <p>No notifications for this project in your first {NOTIFICATION_PAGE_SIZE} messages.</p> : <>
+        <NotificationRows rows={rows} selected={selected} select={setSelected} />
+        {page.next !== null && <p className={styles.muted}>Showing this project's notifications from your first {NOTIFICATION_PAGE_SIZE} messages. The full inbox is in Settings.</p>}
+        {item && <NotificationDeliveries key={`${item.message.id}:${item.message.revision}`} item={item} />}
+      </>;
+}
+
+function NotificationRows({ rows, selected, select }: { rows: NotificationItem[]; selected: string | null; select(id: string): void }) {
+  return <ul aria-label="Project notifications" className={styles.list}>{rows.map(r => <li key={r.message.id}>
+          <button type="button" aria-pressed={selected === r.message.id} onClick={() => select(r.message.id)}>
             <strong>{r.message.summary.trim().split("\n")[0]!.slice(0, 160)}</strong>
             <span className={styles.muted}><time dateTime={r.message.created}>{r.message.created}</time> · {r.routing === "routed" ? "External route configured" : "No external route"}</span>
           </button>
-        </li>)}</ul>
-        {query.data.next !== null && <p className={styles.muted}>Showing this project's notifications from your first {NOTIFICATION_PAGE_SIZE} messages. The full inbox is in Settings.</p>}
-        {item && <NotificationDeliveries key={`${item.message.id}:${item.message.revision}`} item={item} />}
-      </>}
-  </section>;
+        </li>)}</ul>;
 }
 
 function NotificationDeliveries({ item }: { item: NotificationItem }) {
@@ -42,7 +61,7 @@ function NotificationDeliveries({ item }: { item: NotificationItem }) {
   const key = queryKey(queryContext, "session-notification-detail", { id: item.message.id, revision: item.message.revision });
   const query = useQuery({ queryKey: key, retry: false, refetchOnWindowFocus: false,
     queryFn: async ({ signal }) => adaptNotificationDetail(await apiGet<unknown>(`/api/notifications/${encodeURIComponent(item.message.id)}`, signal), item) });
-  if (query.isError || !query.data) return <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="this notification" onRetry={() => void query.refetch()} />;
+  if (query.isError || !query.data) return <NotificationReadStatus query={query} label="this notification" />;
   return <div className={styles.detail}>
     <p>{query.data.message.summary}</p>
     {query.data.deliveries.length === 0 ? <p>No external route recorded for this message</p>
@@ -51,6 +70,21 @@ function NotificationDeliveries({ item }: { item: NotificationItem }) {
 }
 
 type RetryResult = { kind: "queued"; text: string } | { kind: "error"; text: string };
+function retryDelivery(d: DeliveryView, operationId: string | undefined) {
+  return apiSend<unknown>("POST", "/api/notifications/retry", { operation_id: operationId, delivery_id: d.id, expected_revision: d.revision, accept_duplicate_risk: true });
+}
+
+function retryReceipt(raw: unknown) {
+  const retries = isRecord(raw) && typeof raw.duplicate_risk_retries === "number" ? raw.duplicate_risk_retries : null;
+  return `Retry recorded. Possible duplicate: the earlier attempt may also have been delivered${retries !== null ? ` (duplicate-risk retries: ${retries})` : ""}.`;
+}
+
+function retryFailure(error: unknown) {
+  if (!(error instanceof ApiError)) return "Not retried: AQ rejected the retry.";
+  return error.status === 409 ? "Not retried: the delivery revision or route changed. Refresh before retrying."
+        : error.effectUnknown ? "Retry outcome unknown. Confirming again repeats the same retry operation." : "Not retried: AQ rejected the retry.";
+}
+
 function Delivery({ delivery: d, queryKeyValue }: { delivery: DeliveryView; queryKeyValue: readonly unknown[] }) {
   const client = useQueryClient();
   const ops = useRef(new Map<string, string>());
@@ -64,17 +98,26 @@ function Delivery({ delivery: d, queryKeyValue }: { delivery: DeliveryView; quer
   async function retry() {
     setBusy(true);
     try {
-      const raw = await apiSend<unknown>("POST", "/api/notifications/retry", { operation_id: ops.current.get(opKey), delivery_id: d.id, expected_revision: d.revision, accept_duplicate_risk: true });
-      const retries = isRecord(raw) && typeof raw.duplicate_risk_retries === "number" ? raw.duplicate_risk_retries : null;
-      setResult({ kind: "queued", text: `Retry recorded. Possible duplicate: the earlier attempt may also have been delivered${retries !== null ? ` (duplicate-risk retries: ${retries})` : ""}.` });
+      const raw = await retryDelivery(d, ops.current.get(opKey));
+      setResult({ kind: "queued", text: retryReceipt(raw) });
       setConfirming(false); setAccepted(false);
       void client.invalidateQueries({ queryKey: queryKeyValue });
     } catch (error) {
-      setResult({ kind: "error", text: error instanceof ApiError && error.status === 409 ? "Not retried: the delivery revision or route changed. Refresh before retrying."
-        : error instanceof ApiError && error.effectUnknown ? "Retry outcome unknown. Confirming again repeats the same retry operation." : "Not retried: AQ rejected the retry." });
+      setResult({ kind: "error", text: retryFailure(error) });
     } finally { setBusy(false); }
   }
   return <section role="group" aria-label={`Delivery ${d.id}`} className={styles.status} data-kind={d.kind === "delivery_unknown" || d.kind === "permanently_failed" ? "unknown" : d.kind}>
+    <DeliveryFacts delivery={d} />
+    {d.kind === "delivery_unknown" && (!confirming ? <ActionButton onClick={() => setConfirming(true)}>Retry delivery</ActionButton> : <div className={styles.confirm}>
+      <label><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />I understand a retry may deliver a duplicate message.</label>
+      <div className={styles.row}><ActionButton disabled={!accepted || busy} onClick={() => void retry()}>Confirm retry</ActionButton><ActionButton onClick={() => { setConfirming(false); setAccepted(false); }}>Cancel</ActionButton></div>
+    </div>)}
+    {result && <span role="status">{result.text}</span>}
+  </section>;
+}
+
+function DeliveryFacts({ delivery: d }: { delivery: DeliveryView }) {
+  return <>
     <strong>{d.label}</strong>
     {d.reason && <span>{d.reason}</span>}
     {d.at && <span className={styles.muted}>Recorded <time dateTime={d.at}>{d.at}</time></span>}
@@ -82,10 +125,5 @@ function Delivery({ delivery: d, queryKeyValue }: { delivery: DeliveryView; quer
     <span>Attempts: {d.attempts} · Duplicate-risk retries: {d.duplicateRiskRetries}</span>
     <span>{d.receipt ? `Transport receipt: ${d.receipt}` : "Transport receipt: none recorded"}</span>
     <span>{d.human} · {d.decision}</span>
-    {d.kind === "delivery_unknown" && (!confirming ? <ActionButton onClick={() => setConfirming(true)}>Retry delivery</ActionButton> : <div className={styles.confirm}>
-      <label><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />I understand a retry may deliver a duplicate message.</label>
-      <div className={styles.row}><ActionButton disabled={!accepted || busy} onClick={() => void retry()}>Confirm retry</ActionButton><ActionButton onClick={() => { setConfirming(false); setAccepted(false); }}>Cancel</ActionButton></div>
-    </div>)}
-    {result && <span role="status">{result.text}</span>}
-  </section>;
+  </>;
 }

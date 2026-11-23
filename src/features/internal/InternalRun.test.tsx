@@ -81,12 +81,12 @@ test("a run already in a final state is read once", async () => {
 
 test("Retry posts for the failed run, then follows the new run to its outcome", async () => {
   const fresh = { ...base, id: "00000000-0000-4000-8000-0000000000b1", status: "queued", attempts: [], retry_of: ID };
-  let retried: string | null = null, header: string | null = null, afterRetry = 0;
+  let retried: string | null = null, header: string | null = null;
+  let modelAnswered = false;
   server.use(
     http.get("/api/internal-work/runs", () => {
       if (!retried) return HttpResponse.json({ runs: [failed], next_cursor: null });
-      afterRetry++;
-      return HttpResponse.json({ runs: [afterRetry === 1 ? fresh : { ...fresh, ...answered, id: fresh.id, retry_of: ID }], next_cursor: null });
+      return HttpResponse.json({ runs: [modelAnswered ? { ...fresh, ...answered, id: fresh.id, retry_of: ID } : fresh], next_cursor: null });
     }),
     http.post("/api/internal-work/runs/:id/retry", ({ params, request }) => { retried = String(params.id); header = request.headers.get("X-AQ-Request"); return HttpResponse.json({ id: fresh.id }); }),
   );
@@ -95,6 +95,7 @@ test("Retry posts for the failed run, then follows the new run to its outcome", 
   expect(await screen.findByText("Waiting for a model.")).toBeVisible();
   expect(retried).toBe(ID);
   expect(header).toBe("1");
+  modelAnswered = true;
   expect(await screen.findByText(/Answered by openai/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
 });

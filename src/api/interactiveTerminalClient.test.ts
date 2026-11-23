@@ -8,6 +8,30 @@ import { terminalInputChunks } from './terminalInput';
 vi.mock('./terminalClient', () => ({ terminalJson: vi.fn() }));
 const terminal: TerminalIdentity = { terminal_id: '10000000-0000-4000-8000-000000000001', epoch: 1, session: { kind: 'central', authority_id: '10000000-0000-4000-8000-000000000002', session_id: '10000000-0000-4000-8000-000000000003', generation: 1 } };
 const info = { terminal, session_revision: 2, input_mode: 'finite_v1', terminal_policy: { input_enabled: true, max_input_bytes: 4096, max_pending_input_bytes: 32768 }, disconnected: false, control: { terminal, session_revision: 2, generation: 0, lease: null, fence_acknowledged: false, input_paused: false } };
+type FixtureCommand = { kind: string; body: Record<string, unknown> };
+type FixtureOperations = Partial<Record<string, (doc: FixtureCommand) => unknown>>;
+
+function terminalTransport(operations: FixtureOperations, tail: () => unknown, info: () => unknown) {
+  vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
+    const doc = body as FixtureCommand | undefined;
+    const handler = doc && operations[doc.kind];
+    const read = path.includes('/tail?') ? tail : info;
+    return { body: handler ? handler(doc!) : read(), serverTime: 1000 };
+  });
+}
+
+function fixtureWatch(doc: FixtureCommand) {
+  return { kind: 'watch', body: { terminal, operation_id: doc.body.operation_id, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: doc.body.expires_at_ms } };
+}
+
+function idleTail(expiry: number) {
+  return { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
+}
+
+function fixtureLease(generation: number, lease_id: string) {
+  return { terminal, principal_id: 'fixture', lease_id, generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 };
+}
+
 describe('v1 terminal renderer v2 transport boundary', () => {
   it('retains the complete identity and refuses foreign control or unsupported input mode', () => {
     expect(adaptInteractiveInfo(info, terminal.terminal_id).control.lease).toBeNull();
@@ -36,16 +60,21 @@ it('allows a fresh user operation after a definitive rejection without replaying
   const sent: number[][] = []; const states: string[] = [];
   const uncertainty: boolean[] = [];
   const control = () => ({ ...info.control, generation, lease, fence_acknowledged: lease !== null });
-  vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
-    const doc = body as { kind: string; body: Record<string, unknown> } | undefined;
-    let value: unknown;
-    if (doc?.kind === 'watch') { expiry = doc.body.expires_at_ms as number; value = { kind: 'watch', body: { terminal, operation_id: doc.body.operation_id, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry } }; }
-    else if (doc?.kind === 'control') { generation++; lease = { terminal, principal_id: 'fixture', lease_id: '10000000-0000-4000-8000-000000000005', generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
-    else if (doc?.kind === 'input') { sent.push(doc.body.bytes as number[]); value = { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: sent.length === 1 ? 'rejected' : 'applied', input_paused: false, observed_at_ms: 1000 } }; }
-    else if (path.includes('/tail?')) value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
-    else value = { ...info, disconnected: lease === null, control: control() };
-    return { body: value, serverTime: 1000 };
-  });
+  terminalTransport({
+    watch: doc => {
+      expiry = doc.body.expires_at_ms as number;
+      return fixtureWatch(doc);
+    },
+    control: doc => {
+      generation++;
+      lease = fixtureLease(generation, '10000000-0000-4000-8000-000000000005');
+      return { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } };
+    },
+    input: doc => {
+      sent.push(doc.body.bytes as number[]);
+      return { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: sent.length === 1 ? 'rejected' : 'applied', input_paused: false, observed_at_ms: 1000 } };
+    },
+  }, () => idleTail(expiry), () => ({ ...info, disconnected: lease === null, control: control() }));
   let controlling = false, canControl = false;
   const c = connectInteractiveTerminal({ terminalId: terminal.terminal_id, allowControl: true, read: (_part, fetcher) => fetcher(), write: async () => {}, reset: vi.fn(), state: s => { states.push(s.message); controlling = s.controlling; canControl = s.canControl; uncertainty.push(!!s.inputDeliveryUncertain); } });
   try {
@@ -165,17 +194,21 @@ describe('auto control and takeover notices (spec 0007 §5.4)', () => {
   const mock = (opts: { initialLease?: Record<string, unknown> | null; failFirstTail?: boolean } = {}) => {
     let lease: null | Record<string, unknown> = opts.initialLease ?? null, generation = 0, expiry = 14000, tails = 0; const controls: unknown[] = [];
     const control = () => ({ ...info.control, generation: lease ? lease.generation : generation, lease, fence_acknowledged: lease !== null });
-    vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
-      const doc = body as { kind: string; body: Record<string, unknown> } | undefined;
-      let value: unknown;
-      if (doc?.kind === 'watch') { expiry = doc.body.expires_at_ms as number; value = { kind: 'watch', body: { terminal, operation_id: doc.body.operation_id, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry } }; }
-      else if (doc?.kind === 'control') { controls.push(doc); generation++; lease = { terminal, principal_id: 'fixture', lease_id: ME, generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
-      else if (path.includes('/tail?')) {
-        if (opts.failFirstTail && tails++ === 0) throw new ApiError('http', 'AQ responded 503', { status: 503, envelope: { request_id: 'r', code: 'unavailable', message: 'temporarily unavailable', retryable: true } });
-        value = { terminal, subscription_id: '10000000-0000-4000-8000-000000000004', session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
-      } else value = { ...info, disconnected: lease === null, control: control() };
-      return { body: value, serverTime: 1000 };
-    });
+    terminalTransport({
+      watch: doc => {
+        expiry = doc.body.expires_at_ms as number;
+        return fixtureWatch(doc);
+      },
+      control: doc => {
+        controls.push(doc);
+        generation++;
+        lease = fixtureLease(generation, ME);
+        return { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } };
+      },
+    }, () => {
+      if (opts.failFirstTail && tails++ === 0) throw new ApiError('http', 'AQ responded 503', { status: 503, envelope: { request_id: 'r', code: 'unavailable', message: 'temporarily unavailable', retryable: true } });
+      return idleTail(expiry);
+    }, () => ({ ...info, disconnected: lease === null, control: control() }));
     return { controls, setLease: (next: Record<string, unknown> | null) => { lease = next; } };
   };
   const foreign = { terminal, principal_id: 'other', lease_id: OTHER, generation: 1, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 };
@@ -256,23 +289,31 @@ describe('terminal input packet boundaries', () => {
 });
 
 describe('controller-scoped resize', () => {
-  const subscription = '10000000-0000-4000-8000-000000000004', leaseId = '10000000-0000-4000-8000-000000000005';
+  const leaseId = '10000000-0000-4000-8000-000000000005';
   type Doc = { kind: string; body: Record<string, unknown> };
   function fake() {
     let lease: null | Record<string, unknown> = null, generation = 0, expiry = 14000;
     const resizes: Doc[] = [], inputs: Doc[] = [];
     const control = () => ({ ...info.control, generation, lease, fence_acknowledged: lease !== null });
-    vi.mocked(terminalJson).mockImplementation(async (path, _signal, body) => {
-      const doc = body as Doc | undefined;
-      let value: unknown;
-      if (doc?.kind === 'watch') { expiry = doc.body.expires_at_ms as number; value = { kind: 'watch', body: { terminal, operation_id: doc.body.operation_id, subscription_id: subscription, session_revision: 2, expires_at_ms: expiry } }; }
-      else if (doc?.kind === 'control') { generation++; lease = { terminal, principal_id: 'fixture', lease_id: leaseId, generation, issued_at_ms: 1000, expires_at_ms: 15000, execution_expires_at_ms: 30000 }; value = { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } }; }
-      else if (doc?.kind === 'resize') { resizes.push(doc); value = { kind: 'resize', body: { terminal, operation_id: doc.body.operation_id, sequence: doc.body.sequence } }; }
-      else if (doc?.kind === 'input') { inputs.push(doc); value = { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: 'applied', input_paused: false, observed_at_ms: 1000 } }; }
-      else if (path.includes('/tail?')) value = { terminal, subscription_id: subscription, session_revision: 2, expires_at_ms: expiry, server_time_ms: 1000, last_observed_at_ms: 1000, availability: 'resident_tail', disconnected: false, initial_incomplete: true, grid: null, frames: [], gaps: [], next_sequence: 0, more: false };
-      else value = { ...info, disconnected: lease === null, control: control() };
-      return { body: value, serverTime: 1000 };
-    });
+    terminalTransport({
+      watch: doc => {
+        expiry = doc.body.expires_at_ms as number;
+        return fixtureWatch(doc);
+      },
+      control: doc => {
+        generation++;
+        lease = fixtureLease(generation, leaseId);
+        return { kind: 'control', body: { operation_id: doc.body.operation_id, status: control() } };
+      },
+      resize: doc => {
+        resizes.push(doc);
+        return { kind: 'resize', body: { terminal, operation_id: doc.body.operation_id, sequence: doc.body.sequence } };
+      },
+      input: doc => {
+        inputs.push(doc);
+        return { kind: 'input', body: { terminal, operation_id: doc.body.operation_id, disposition: 'applied', input_paused: false, observed_at_ms: 1000 } };
+      },
+    }, () => idleTail(expiry), () => ({ ...info, disconnected: lease === null, control: control() }));
     return { resizes, inputs, steal: () => { lease = { ...lease, lease_id: '10000000-0000-4000-8000-000000000006' }; generation++; } };
   }
   const open = (allowControl: boolean) => {

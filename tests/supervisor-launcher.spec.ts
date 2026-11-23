@@ -15,14 +15,16 @@ const PAGES = ["/overview", "/agents/sess-07", "/results"];
  */
 async function occludedControls(page: Page) {
   return page.evaluate(() => {
-    const pinned = (el: Element | null) => !!el && /fixed|sticky/.test(getComputedStyle(el).position) && el.getBoundingClientRect().height > 0;
-    const banner = document.querySelector("header[class]") ?? document.querySelector("[role=banner]");
-    const nav = document.querySelector("nav[aria-label='Primary (compact)']");
-    const top = pinned(banner) ? Math.max(0, banner!.getBoundingClientRect().bottom) : 0;
-    const bottom = pinned(nav) ? nav!.getBoundingClientRect().top : innerHeight;
-    return [...document.querySelectorAll<HTMLElement>(
-      "main a[href], main button, main input, main textarea, main select, main summary, main [tabindex]:not([tabindex='-1'])",
-    )].filter((el) => {
+    function viewportEdges() {
+      const pinned = (el: Element | null) => !!el && /fixed|sticky/.test(getComputedStyle(el).position) && el.getBoundingClientRect().height > 0;
+      const banner = document.querySelector("header[class]") ?? document.querySelector("[role=banner]");
+      const nav = document.querySelector("nav[aria-label='Primary (compact)']");
+      const top = pinned(banner) ? Math.max(0, banner!.getBoundingClientRect().bottom) : 0;
+      const bottom = pinned(nav) ? nav!.getBoundingClientRect().top : innerHeight;
+      return { top, bottom };
+    }
+    const { top, bottom } = viewportEdges();
+    function clippedRect(el: HTMLElement) {
       // A Gantt link spans the plot for positioning. Its pinned label is the clickable control.
       const hitArea = el.querySelector("[data-gantt-label]") ?? el;
       const r = hitArea.getBoundingClientRect();
@@ -34,10 +36,18 @@ async function occludedControls(page: Page) {
         const c = p.getBoundingClientRect();
         y0 = Math.max(y0, c.top); y1 = Math.min(y1, c.bottom); x0 = Math.max(x0, c.left); x1 = Math.min(x1, c.right);
       }
-      if (y1 - y0 < 1 || x1 - x0 < 1 || !el.checkVisibility({ visibilityProperty: true })) return false;
+      return { y0, y1, x0, x1 };
+    }
+    function covered(el: HTMLElement) {
+      const { x0, x1, y0, y1 } = clippedRect(el);
+      if (y1 - y0 < 1 || x1 - x0 < 1) return false;
+      if (!el.checkVisibility({ visibilityProperty: true })) return false;
       const hit = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
-      return !hit || !(hit === el || el.contains(hit));
-    }).map((el) => (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 60));
+      return !el.contains(hit);
+    }
+    return [...document.querySelectorAll<HTMLElement>(
+      "main a[href], main button, main input, main textarea, main select, main summary, main [tabindex]:not([tabindex='-1'])",
+    )].filter(covered).map((el) => (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 60));
   });
 }
 

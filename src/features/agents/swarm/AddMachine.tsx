@@ -19,21 +19,28 @@ export function workerUrlProblem(value: string): string | null {
   return url.protocol === "http:" ? "This Worker URL is plain http to a non-loopback address; the worker would send its credentials unencrypted. Use https." : "The Worker URL must start with https://.";
 }
 
+type Published = { origin: string; digest: string; revision: string | null };
+function publishedInstaller(raw: unknown): Published | null {
+  const found = isRecord(raw) ? raw.worker_install : null;
+  if (!isRecord(found)) return null;
+  if (typeof found.origin !== "string" || typeof found.installer_sha256 !== "string") return null;
+  return { origin: found.origin, digest: found.installer_sha256, revision: typeof found.worker_revision === "string" ? found.worker_revision : null };
+}
+
 /**
  * The hosted worker installer as the server publishes it now (`worker_install` on /api/status), so the
  * command always installs the latest published worker. Falls back to the values fixed when this dashboard
  * was built. `refresh` changes whenever the caller is about to show a command.
  */
 export function useWorkerInstaller(refresh?: unknown): { origin: unknown; digest: unknown; revision: string | null } {
-  const [published, setPublished] = useState<{ origin: string; digest: string; revision: string | null } | null>(null);
+  const [published, setPublished] = useState<Published | null>(null);
   useEffect(() => {
     let live = true;
     fetch("/api/status", { credentials: "same-origin", headers: { Accept: "application/json" } })
       .then(response => response.ok ? response.json() : null)
       .then((raw: unknown) => {
-        const found = isRecord(raw) ? raw.worker_install : null;
-        if (!live || !isRecord(found) || typeof found.origin !== "string" || typeof found.installer_sha256 !== "string") return;
-        setPublished({ origin: found.origin, digest: found.installer_sha256, revision: typeof found.worker_revision === "string" ? found.worker_revision : null });
+        const installer = publishedInstaller(raw);
+        if (live && installer) setPublished(installer);
       })
       .catch(() => undefined);
     return () => { live = false; };
@@ -41,10 +48,16 @@ export function useWorkerInstaller(refresh?: unknown): { origin: unknown; digest
   return published ?? { origin: import.meta.env.VITE_AQ_WORKER_INSTALL_URL, digest: import.meta.env.VITE_AQ_WORKER_INSTALL_SHA256, revision: null };
 }
 
+function validOrigin(origin: unknown): origin is string {
+  return typeof origin === "string" && /^https:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]*(?::[0-9]{1,5})?$/.test(origin) && workerUrlProblem(origin) === null;
+}
+function validDigest(digest: unknown): digest is string {
+  return typeof digest === "string" && /^[a-f0-9]{64}$/.test(digest);
+}
+
 /** The operator pins the installer served by AQ's private worker endpoint. */
 export function hostedWorkerCommand(origin: unknown, digest: unknown, controlsOnly = false): string | null {
-  if (typeof origin !== "string" || !/^https:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]*(?::[0-9]{1,5})?$/.test(origin)
-    || typeof digest !== "string" || !/^[a-f0-9]{64}$/.test(digest) || workerUrlProblem(origin)) return null;
+  if (!validOrigin(origin) || !validDigest(digest)) return null;
   const script = [
     'set -eu',
     'f=$(mktemp)',
@@ -64,9 +77,22 @@ type Enrollment = { code: string; expiresAt: string };
  */
 export function AddMachine() {
   const { bootstrap } = useSession();
-  const capability = bootstrap.capability("swarm.worker.enroll");
+  return bootstrap.capability("swarm.worker.enroll").enabled ? <EnrollmentPanel /> : null;
+}
+function decodeEnrollment(raw: unknown): Enrollment | null {
+  if (!isRecord(raw) || typeof raw.code !== "string") return null;
+  if (!raw.code || typeof raw.expires_at !== "string") return null;
+  return { code: raw.code, expiresAt: raw.expires_at };
+}
+async function createEnrollment() {
+  const response = await fetch("/api/enrollments", {
+    method: "POST", credentials: "same-origin", headers: { Accept: "application/json", "X-AQ-Request": "1" },
+  });
+  if (response.status !== 201) return null;
+  return decodeEnrollment(await response.json());
+}
+function useEnrollment() {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
-  const [workerUrl, setWorkerUrl] = useState(defaultWorkerUrl);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false), [copied, setCopied] = useState<"code" | "command" | "failed" | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -77,16 +103,12 @@ export function AddMachine() {
     const timer = setTimeout(() => { setEnrollment(null); setCopied(null); }, Math.max(0, Math.min(left, 2 ** 31 - 1)));
     return () => clearTimeout(timer);
   }, [enrollment]);
-  if (!capability.enabled) return null;
-
-  const installer = useWorkerInstaller(enrollment?.code);
   async function create() {
     setBusy(true); setFailed(false); setEnrollment(null); setCopied(null);
     try {
-      const response = await fetch("/api/enrollments", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json", "X-AQ-Request": "1" } });
-      const raw: unknown = response.status === 201 ? await response.json().catch(() => undefined) : undefined;
+      const value = await createEnrollment();
       if (!mounted.current) return;
-      if (isRecord(raw) && typeof raw.code === "string" && raw.code && typeof raw.expires_at === "string") setEnrollment({ code: raw.code, expiresAt: raw.expires_at });
+      if (value) setEnrollment(value);
       else setFailed(true);
     } catch { if (mounted.current) setFailed(true); }
     finally { if (mounted.current) setBusy(false); }
@@ -94,6 +116,27 @@ export function AddMachine() {
   async function copy(text: string, what: "code" | "command") {
     try { await navigator.clipboard.writeText(text); setCopied(what); } catch { setCopied("failed"); }
   }
+  function clear() { setEnrollment(null); setCopied(null); }
+  return { busy, failed, enrollment, copied, copy, clear, create };
+}
+
+type Instructions = {
+  hosted: string | null; command: string | null; problem: string | null; installer: ReturnType<typeof useWorkerInstaller>;
+  copy: ReturnType<typeof useEnrollment>["copy"];
+};
+function InstallInstructions({ hosted, command, problem, installer, copy }: Instructions) {
+  return <>
+      <p className={styles.actionNote}>{hosted ? `Run this command in Ubuntu WSL or Linux on the new PC, or on a PC that already has a worker to update it. It downloads the ${installer.revision ? `worker (${installer.revision.slice(0, 12)})` : "worker"} and prompts for the code.` : "Run it from an aq-worker checkout on the new machine. ~/aq-bundle holds the runtime binaries, native.json and repositories.json (docs/operations/install-service.md). The machine is allowed automatically and appears on this page."}</p>
+      {hosted ? <div className={styles.hostedCommand}>
+        <ActionButton onClick={() => void copy(hosted, "command")}>Copy command</ActionButton>
+        <details><summary>Show command</summary><code>{hosted}</code></details>
+      </div> : command ? <p><code>{command}</code> <ActionButton onClick={() => void copy(command, "command")}>Copy command</ActionButton></p> : <p role="alert">{problem}</p>}
+  </>;
+}
+function EnrollmentPanel() {
+  const { busy, failed, enrollment, copied, copy, clear, create } = useEnrollment();
+  const installer = useWorkerInstaller(enrollment?.code);
+  const [workerUrl, setWorkerUrl] = useState(defaultWorkerUrl);
   const hosted = hostedWorkerCommand(installer.origin, installer.digest);
   const problem = workerUrlProblem(workerUrl);
   const command = problem ? null : `packaging/service/aq-install.sh --server ${shellQuote(workerUrl.trim())} --bundle ~/aq-bundle --slots 2`;
@@ -102,16 +145,12 @@ export function AddMachine() {
     {failed && <p role="alert">The enrollment code could not be created.</p>}
     {enrollment && <div>
       {!hosted && <label>Worker URL <input type="text" value={workerUrl} onChange={e => setWorkerUrl(e.target.value)} autoComplete="off" spellCheck={false} /></label>}
-      <p className={styles.actionNote}>{hosted ? `Run this command in Ubuntu WSL or Linux on the new PC, or on a PC that already has a worker to update it. It downloads the ${installer.revision ? `worker (${installer.revision.slice(0, 12)})` : "worker"} and prompts for the code.` : "Run it from an aq-worker checkout on the new machine. ~/aq-bundle holds the runtime binaries, native.json and repositories.json (docs/operations/install-service.md). The machine is allowed automatically and appears on this page."}</p>
-      {hosted ? <div className={styles.hostedCommand}>
-        <ActionButton onClick={() => void copy(hosted, "command")}>Copy command</ActionButton>
-        <details><summary>Show command</summary><code>{hosted}</code></details>
-      </div> : command ? <p><code>{command}</code> <ActionButton onClick={() => void copy(command, "command")}>Copy command</ActionButton></p> : <p role="alert">{problem}</p>}
+      <InstallInstructions hosted={hosted} command={command} problem={problem} installer={installer} copy={copy} />
       <label>Enrollment code <input type="text" readOnly value={enrollment.code} autoComplete="off" spellCheck={false} aria-label="Enrollment code" /></label>{" "}
       <ActionButton onClick={() => void copy(enrollment.code, "code")}>Copy code</ActionButton>
       <p className={styles.actionNote}>Paste this when the script asks for it. It works once and expires at <Timestamp iso={enrollment.expiresAt} />.{hosted ? " A PC that already has a worker keeps its enrollment and is not asked for the code." : ""}</p>
       {copied === "failed" ? <p role="status">Copy failed. Select the text and copy it by hand.</p> : copied && <p role="status">{copied === "code" ? "Code copied." : "Command copied."}</p>}
-      <ActionButton onClick={() => { setEnrollment(null); setCopied(null); }}>Done</ActionButton>
+      <ActionButton onClick={clear}>Done</ActionButton>
     </div>}
   </section>;
 }

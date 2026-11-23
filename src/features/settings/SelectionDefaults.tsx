@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError, ApiError } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
 import { FALLBACK_REASONS, problemsOf, problemText, ROLE_SETTINGS, saveSelectionDefaults, useSelectionDefaults, type Fence, type FallbackReason, type Problem, type SelectionDefaults as Defaults, type UnknownCost } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
@@ -64,15 +64,16 @@ export function SelectionDefaults() {
     } catch (failure) {
       const status = failure instanceof ApiError ? failure.status : undefined;
       if (status === 409) { await query.refetch(); setError("The defaults changed since you opened them. Your edits are kept. Save again to replace the saved values, or discard your changes."); }
-      else if (status !== undefined && status >= 400 && status < 500) {
+      else if (isHttpClientError(failure)) {
         const found = problemsOf(failure);
-        if (found.length) setProblems(found); else setError((failure as ApiError).serverMessage ?? "AQ refused these defaults.");
+        if (found.length) setProblems(found); else setError(failure.serverMessage ?? "AQ refused these defaults.");
       } else { setRetry(request); setError("The save could not be confirmed. Your edits are kept. Retrying sends the same save again; AQ applies it once."); }
       return false;
     } finally { setSaving(false); }
   }
   async function save(): Promise<boolean> {
-    if (!dirty || !draft || !saved) return true;
+    if (!draft || !saved) return true;
+    if (!dirty) return true;
     const values = toDefaults(draft);
     if (typeof values === "string") { setError(values); return false; }
     return send({ selection_defaults: values, expected_revision: saved.revision, operation_id: crypto.randomUUID() });

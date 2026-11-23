@@ -28,6 +28,26 @@ const FIXTURE_AGENT_RUN: InternalRunData = { ...FIXTURE_RUN_BASE, id: "00000000-
     { kind: "result", output: "Fixture: token [credential redacted] was in this output", error: true }, { kind: "clipped" },
   ] }] };
 
+function validSave(body: SaveInternalWork | null): body is SaveInternalWork {
+  if (typeof body?.operation_id !== "string") return false;
+  return typeof body.overrides === "object" && !!body.overrides;
+}
+function unknownProfile(body: SaveInternalWork) {
+  const ids = [body.default_profile_id, ...Object.values(body.overrides)].filter(id => id !== null);
+  return ids.find(id => !FIXTURE_LEVELS.includes(id as string));
+}
+
+function invalidOverrides(body: SaveInternalWork) {
+  const unknown = unknownProfile(body);
+  if (unknown !== undefined) return `Choose an Intelligence profile that exists: there is no level ${JSON.stringify(unknown)}`;
+  if (Object.keys(body.overrides).some(purpose => !PURPOSES.includes(purpose as InternalWorkPurpose))) return "Invalid save.";
+  return null;
+}
+
+function applyChanges(snapshot: Snapshot, body: SaveInternalWork, changed: boolean): Snapshot {
+  return { ...snapshot, revision: changed ? String(Number(snapshot.revision) + 1) : snapshot.revision, default_profile_id: body.default_profile_id, overrides: body.overrides };
+}
+
 /** Labelled fixture state for internal work settings; survives reload in the same browser tab. */
 export function internalWorkHandlers() {
   const key = "aq-mock-internal-work";
@@ -64,16 +84,14 @@ export function internalWorkHandlers() {
     }),
     http.post("/api/settings/internal-work", async ({ request }) => {
       const body = await request.json().catch(() => null) as SaveInternalWork | null;
-      if (!body || typeof body.operation_id !== "string" || typeof body.overrides !== "object" || !body.overrides) return fail(400, "Invalid save.");
+      if (!validSave(body)) return fail(400, "Invalid save.");
       const serialized = JSON.stringify(body), previous = operations.get(body.operation_id);
       if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Save identity was reused with different changes.");
       if (body.expected_revision !== snapshot.revision) return fail(409, "Internal work settings changed. Your draft is preserved; reload before saving.");
-      const ids = [body.default_profile_id, ...Object.values(body.overrides)].filter(id => id !== null);
-      const unknown = ids.find(id => !FIXTURE_LEVELS.includes(id as string));
-      if (unknown !== undefined) return fail(400, `Choose an Intelligence profile that exists: there is no level ${JSON.stringify(unknown)}`);
-      if (Object.keys(body.overrides).some(purpose => !PURPOSES.includes(purpose as InternalWorkPurpose))) return fail(400, "Invalid save.");
+      const problem = invalidOverrides(body);
+      if (problem) return fail(400, problem);
       const changed = JSON.stringify({ d: body.default_profile_id, o: body.overrides }) !== JSON.stringify({ d: snapshot.default_profile_id, o: snapshot.overrides });
-      snapshot = { ...snapshot, revision: changed ? String(Number(snapshot.revision) + 1) : snapshot.revision, default_profile_id: body.default_profile_id, overrides: body.overrides };
+      snapshot = applyChanges(snapshot, body, changed);
       sessionStorage.setItem(key, JSON.stringify(snapshot));
       const response = { ...snapshot, operation_id: body.operation_id, disposition: changed ? "saved" : "unchanged" };
       operations.set(body.operation_id, { request: serialized, response });

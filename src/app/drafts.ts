@@ -30,7 +30,8 @@ export function clearDrafts() {
 export function activateDrafts(identity: string) {
   try {
     const previous = sessionStorage.getItem(IDENTITY);
-    if (previous !== identity || (owner !== null && owner !== identity)) clearDrafts();
+    const memoryBelongsToAnotherOwner = owner !== null && owner !== identity;
+    if (previous !== identity || memoryBelongsToAnotherOwner) clearDrafts();
     sessionStorage.setItem(IDENTITY, identity); unavailable = false;
   } catch {
     if (owner !== identity) memory.clear();

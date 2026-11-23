@@ -32,14 +32,22 @@ function limits(v: unknown): SwarmCellLimit[] | null {
   });
 }
 export function adaptSwarmSettings(v: unknown): SwarmSettings {
-  ensure(isRecord(v) && revision(v.revision) && mode(v.active_mode) && Array.isArray(v.cells) && v.cells.length <= 4096 && Array.isArray(v.unclassified) && v.unclassified.length <= 4096);
+  ensure(isRecord(v));
+  ensure(revision(v.revision));
+  ensure(mode(v.active_mode));
+  ensure(Array.isArray(v.cells));
+  ensure(v.cells.length <= 4096);
+  ensure(Array.isArray(v.unclassified));
+  ensure(v.unclassified.length <= 4096);
   const normal = limits(v.normal), reduced = limits(v.reduced);
   function overrides(value: unknown, cell: boolean) {
     if (value === undefined) return undefined; // Compatible with older server snapshots and receipts.
     ensure(Array.isArray(value) && value.length <= 4096);
     const keys = new Set<string>();
     return value.map((item: unknown) => {
-      ensure(isRecord(item) && text(item.provider) && nullableUint(item.limit) && (item.limit === null || item.limit <= 4294967295));
+      ensure(isRecord(item));
+      ensure(text(item.provider));
+      ensure(nullableUint(item.limit) && (item.limit === null || item.limit <= 4294967295));
       if (cell) ensure(text(item.intelligence_class));
       const key = JSON.stringify(cell ? [item.provider, item.intelligence_class] : [item.provider]);
       ensure(!keys.has(key)); keys.add(key);
@@ -51,7 +59,15 @@ export function adaptSwarmSettings(v: unknown): SwarmSettings {
   const cellOverrides = new Map(cellLimits?.map(item => [JSON.stringify([item.provider, item.intelligence_class]), item.limit]));
   const seen = new Set<string>();
   const cells = v.cells.map((x: unknown): SwarmCell => {
-    ensure(isRecord(x) && text(x.provider) && text(x.intelligence_class) && text(x.display_name) && nullableUint(x.normal_limit) && nullableUint(x.reduced_limit) && nullableUint(x.effective_limit) && nullableUint(x.running) && nullableUint(x.waiting));
+    ensure(isRecord(x));
+    ensure(text(x.provider));
+    ensure(text(x.intelligence_class));
+    ensure(text(x.display_name));
+    ensure(nullableUint(x.normal_limit));
+    ensure(nullableUint(x.reduced_limit));
+    ensure(nullableUint(x.effective_limit));
+    ensure(nullableUint(x.running));
+    ensure(nullableUint(x.waiting));
     const key = JSON.stringify([x.provider, x.intelligence_class]); ensure(!seen.has(key)); seen.add(key);
     return { provider: x.provider, intelligence_class: x.intelligence_class, display_name: x.display_name, normal_limit: x.normal_limit, reduced_limit: x.reduced_limit, effective_limit: x.effective_limit, running: x.running, waiting: x.waiting };
   });
@@ -73,7 +89,9 @@ export function adaptSwarmSettings(v: unknown): SwarmSettings {
   for (const cell of cells) {
     const key = JSON.stringify([cell.provider, cell.intelligence_class]);
     const normalLimit = normalByCell.get(key) ?? null, reducedLimit = reducedByCell.get(key) ?? null;
-    ensure(cell.normal_limit === normalLimit && cell.reduced_limit === reducedLimit && cell.effective_limit === (cellOverrides.has(key) ? cellOverrides.get(key) : v.active_mode === "normal" ? normalLimit : reducedLimit));
+    ensure(cell.normal_limit === normalLimit);
+    ensure(cell.reduced_limit === reducedLimit);
+    ensure(cell.effective_limit === (cellOverrides.has(key) ? cellOverrides.get(key) : v.active_mode === "normal" ? normalLimit : reducedLimit));
   }
   return { revision: v.revision, active_mode: v.active_mode, normal, reduced, cells, unclassified, ...(providerLimits === undefined ? {} : { provider_limits: providerLimits }), ...(cellLimits === undefined ? {} : { cell_limits: cellLimits }) };
 }
@@ -94,7 +112,7 @@ function useSwarmMutation<T>(mutationFn: (request: T) => Promise<SwarmSettings>)
       client.setQueryData<SwarmSettings>(key, old => !old || BigInt(data.revision) >= BigInt(old.revision) ? data : old);
     },
     onError: error => {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) reportAccessDenied(error);
+      if (error instanceof ApiError && [401, 403].includes(error.status ?? 0)) reportAccessDenied(error);
     },
     onSettled: () => { void client.invalidateQueries({ queryKey: key }); },
   });

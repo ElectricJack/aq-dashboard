@@ -18,20 +18,34 @@ async function open(page: Page, id: string, vp: Viewport) {
 }
 
 /** The focused element has a visible indicator and is not entirely hidden by sticky or fixed content (2.4.7, 2.4.11). */
+function visibleRing(style: { outline: string; width: number; shadow: string }) {
+  return (style.outline !== "none" && style.width > 0) || style.shadow !== "none";
+}
 async function focusState(page: Page) {
-  return page.evaluate(() => {
+  const focused = await page.evaluate(() => {
     const el = document.activeElement as HTMLElement | null;
     if (!el || el === document.body) return null;
-    const style = getComputedStyle(el);
+    function ringStyle(element: Element) {
+      const style = getComputedStyle(element);
+      return { outline: style.outlineStyle, width: parseFloat(style.outlineWidth), shadow: style.boxShadow };
+    }
+    // Gantt task links cover the plot; the pinned task label draws their keyboard focus ring.
+    const target = el.querySelector<HTMLElement>(":scope > [data-gantt-label]") ?? el;
+    const rings = [ringStyle(target)];
     // A wrapper's :focus-within ring counts (the decision note draws its ring on its field).
-    const ring = (s: CSSStyleDeclaration) => (s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0) || s.boxShadow !== "none";
-    const indicator = ring(style) || (!!el.parentElement && el.parentElement.matches(":focus-within") && ring(getComputedStyle(el.parentElement)));
-    const r = el.getBoundingClientRect();
-    const points = [[0.5, 0.5], [0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]].map(([x, y]) => [r.left + r.width * x, r.top + r.height * y]);
-    const visible = points.some(([x, y]) => { const hit = document.elementFromPoint(x, y); return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); });
-    const label = `${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 40)}"`;
-    return { label, indicator, visible };
+    const parent = el.parentElement;
+    if (parent?.matches(":focus-within")) rings.push(ringStyle(parent));
+    const r = target.getBoundingClientRect();
+    const points = [[0.5, 0.5], [0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]];
+    const visible = points.some(([x, y]) => {
+      const hit = document.elementFromPoint(r.left + r.width * x, r.top + r.height * y);
+      return el.contains(hit) || !!hit?.contains(el);
+    });
+    return { tag: el.tagName, text: el.getAttribute("aria-label") ?? el.textContent, rings, visible };
   });
+  if (!focused) return null;
+  const label = `${focused.tag.toLowerCase()} "${(focused.text ?? "").trim().slice(0, 40)}"`;
+  return { label, indicator: focused.rings.some(visibleRing), visible: focused.visible };
 }
 
 for (const vp of [desktop, phone]) {
@@ -122,6 +136,10 @@ test("the terminal does not announce frames through a live region", async ({ pag
   await open(page, "agents", desktop);
   await expect(page.locator(".xterm")).toHaveCount(1);
   await expect(page.locator(".xterm [aria-live]")).toHaveCount(0);
-  // Session state changes are announced once through the labelled status, not per frame.
-  await expect(page.getByRole("status").filter({ hasText: "Watch only" })).toBeVisible();
+  // The fixture now takes control when it opens. Disconnect announces the state change through the terminal's single status.
+  const terminal = page.getByRole("region", { name: "Interactive agent terminal" });
+  const status = terminal.getByRole("status");
+  await expect(status).toHaveCount(1);
+  await terminal.getByRole("button", { name: "Disconnect" }).click();
+  await expect(status).toHaveText("Disconnected");
 });

@@ -1,3 +1,4 @@
+import type { UsageCounter } from "../../../api/wire/sessionUsage";
 import { useQuery } from "@tanstack/react-query";
 import { adaptSessionDetail, type SessionDetailView } from "../../../api/adapters/inspection";
 import { adaptSessionUsage } from "../../../api/adapters/sessionUsage";
@@ -8,6 +9,10 @@ import { useRead } from "../../../app/useRead";
 import { useSession } from "../../../app/session";
 
 const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+
+function knownTokens(counter?: UsageCounter): number | undefined {
+  return counter?.kind === "known" ? counter.value : undefined;
+}
 
 /** "41k in / 6k out" from the session's accounting, or "unknown". Unknown is never shown as 0. */
 export function useAgentTokens(sessionId: string): { text: string } {
@@ -23,6 +28,7 @@ export function useAgentTokens(sessionId: string): { text: string } {
     staleTime: 0, refetchOnWindowFocus: false,
   });
   const counters = usage.data?.usage.counters;
-  if (!counters || counters.input.kind !== "known" || counters.output.kind !== "known") return { text: "unknown" };
-  return { text: `${fmt(counters.input.value)} in / ${fmt(counters.output.value)} out` };
+  const input = knownTokens(counters?.input), output = knownTokens(counters?.output);
+  if (input === undefined || output === undefined) return { text: "unknown" };
+  return { text: `${fmt(input)} in / ${fmt(output)} out` };
 }

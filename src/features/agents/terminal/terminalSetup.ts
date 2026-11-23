@@ -120,7 +120,7 @@ export function withControlModifier(data: string): string {
   if (CTRL_ARROWS[data]) return CTRL_ARROWS[data];
   if (data.length !== 1) return data;
   const code = data.charCodeAt(0);
-  if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) return String.fromCharCode(code & 0x1f);
+  if (/[A-Za-z]/.test(data)) return String.fromCharCode(code & 0x1f);
   const symbol = CTRL_SYMBOLS[data];
   return symbol === undefined ? data : String.fromCharCode(symbol);
 }

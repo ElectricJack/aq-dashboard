@@ -55,16 +55,17 @@ const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const percent = (bps: unknown): number => Math.round((num(bps) ?? 0) / 100);
 
 const GENERATION = /^[1-9][0-9]{0,18}$/;
+const validGeneration = (value: unknown): value is string => typeof value === "string" && GENERATION.test(value);
 function control(c: MachineControl | null | undefined): MachineControlView | null {
   if (!isRecord(c)) return null;
   const desired = oneOfOrNull(c.desired, ["running", "draining", "stopped"] as const);
-  if (!desired || typeof c.generation !== "string" || !GENERATION.test(c.generation)) return null;
+  if (!desired || !validGeneration(c.generation)) return null;
   return { desired, generation: c.generation, since: text(c.since), pendingHandoffs: num(c.pending_handoffs) ?? 0 };
 }
 function availability(a: OwnerAvailability | null | undefined): OwnerAvailabilityView | null {
   if (!isRecord(a)) return null;
   const state = oneOfOrNull(a.state, ["unset", "on", "off"] as const);
-  if (!state || typeof a.generation !== "string" || !GENERATION.test(a.generation)) return null;
+  if (!state || !validGeneration(a.generation)) return null;
   return { state, generation: a.generation, since: text(a.since), note: text(a.note) };
 }
 
@@ -76,16 +77,20 @@ function hold(r: HoldReason): HoldReasonView {
 }
 const holds = (v: unknown): HoldReasonView[] => list<HoldReason>(v).filter(isRecord).map(hold);
 
+function basisPoints(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10_000;
+}
+const optionalPercent = (value: unknown) => value == null ? null : percent(value);
+
 function load(l: MachineLoad | null | undefined): LoadView | null {
   if (!isRecord(l)) return null;
-  const cpu = num(l.cpu_busy_bps);
-  const memory = num(l.memory_used_bps);
-  if (cpu === null || memory === null || cpu < 0 || cpu > 10_000 || memory < 0 || memory > 10_000) return null;
+  const cpu = l.cpu_busy_bps, memory = l.memory_used_bps;
+  if (!basisPoints(cpu) || !basisPoints(memory)) return null;
   return {
     source: oneOf(l.source, ["linux", "windows_host"] as const, "unknown" as const),
     hostProbe: oneOf(l.host_probe, ["not_applicable", "fresh", "stale", "missing"] as const, "not_applicable"),
     cpuPercent: percent(cpu), memoryPercent: percent(memory),
-    cpuAvgPercent: l.cpu_avg_15m_bps == null ? null : percent(l.cpu_avg_15m_bps), memoryAvgPercent: l.memory_avg_15m_bps == null ? null : percent(l.memory_avg_15m_bps),
+    cpuAvgPercent: optionalPercent(l.cpu_avg_15m_bps), memoryAvgPercent: optionalPercent(l.memory_avg_15m_bps),
     samples: num(l.samples_15m) ?? 0, observedAt: text(l.observed_at) ?? "", fresh: l.fresh === true,
   };
 }
@@ -97,9 +102,14 @@ export function agentClassLabel(agent: AgentView): string {
 }
 
 const RAN_WITH = ["role", "level", "provider", "model", "reasoning", "harness"] as const;
+function nonblank(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 /** The six facts the page shows, or null when any is missing: a partial record is not shown as a whole one. */
 export function adaptAgentRanWith(v: unknown): RanWithView | null {
-  if (!isRecord(v) || !RAN_WITH.every(key => typeof v[key] === "string" && (v[key] as string).trim() !== "" && (v[key] as string).length <= 256)) return null;
+  if (!isRecord(v)) return null;
+  if (!RAN_WITH.every(key => nonblank(v[key]) && v[key].length <= 256)) return null;
   return Object.fromEntries(RAN_WITH.map(key => [key, v[key]])) as RanWithView;
 }
 
@@ -113,6 +123,25 @@ function slotCount(slots: Record<string, unknown>): number | null {
   return total === null || !Number.isInteger(total) || total < 0 ? null : total;
 }
 
+function routingProfile(profile: unknown) {
+  if (profile === undefined) return {};
+  if (!isRecord(profile)) return { routingProfile: null };
+  if (nonblank(profile.id) && nonblank(profile.display_name)) {
+    return { routingProfile: { id: profile.id, displayName: profile.display_name } };
+  }
+  return { routingProfile: null };
+}
+
+function agentObservation(a: SwarmAgent) {
+  const phase = oneOfOrNull(a.phase, PHASES), slot = slotIndex(a.slot);
+  return {
+    ...(phase ? { phase } : {}),
+    ...(a.ran_with === undefined ? {} : { ranWith: adaptAgentRanWith(a.ran_with) }),
+    ...(a.last_output_at === undefined ? {} : { lastOutputAt: text(a.last_output_at) }),
+    ...(slot === null ? {} : { slot }),
+  };
+}
+
 function agent(a: SwarmAgent): AgentView {
   return {
     sessionId: String(a.session_id), attemptId: String(a.attempt_id),
@@ -120,12 +149,9 @@ function agent(a: SwarmAgent): AgentView {
     project: { id: String(a.project?.id ?? ""), label: String(a.project?.label ?? "") },
     provider: text(a.provider), model: text(a.model), harness: text(a.harness),
     intelligenceClass: oneOfOrNull(a.intelligence_class, CLASSES),
-    ...(a.routing_profile === undefined ? {} : { routingProfile: isRecord(a.routing_profile) && typeof a.routing_profile.id === "string" && a.routing_profile.id.trim() && typeof a.routing_profile.display_name === "string" && a.routing_profile.display_name.trim() ? { id: a.routing_profile.id, displayName: a.routing_profile.display_name } : null }),
+    ...routingProfile(a.routing_profile),
     terminalId: isRecord(a.terminal) ? text(a.terminal.id) : null, startedAt: text(a.started_at),
-    ...(oneOfOrNull(a.phase, PHASES) ? { phase: oneOfOrNull(a.phase, PHASES)! } : {}),
-    ...(a.ran_with === undefined ? {} : { ranWith: adaptAgentRanWith(a.ran_with) }),
-    ...(a.last_output_at === undefined ? {} : { lastOutputAt: text(a.last_output_at) }),
-    ...(slotIndex(a.slot) === null ? {} : { slot: slotIndex(a.slot)! }),
+    ...agentObservation(a),
   };
 }
 
@@ -148,18 +174,30 @@ function node(n: SwarmNode): NodeView {
   };
 }
 
+function hardware(hw: unknown): MachineView["hardware"] {
+  if (!isRecord(hw)) return null;
+  return { logicalCpus: num(hw.logical_cpus), memoryTotalBytes: num(hw.memory_total_bytes) ?? 0,
+    diskTotalBytes: num(hw.disk_total_bytes), diskFreeBytes: num(hw.disk_free_bytes) };
+}
+
+function machineCost(cost: unknown): MachineView["cost"] {
+  if (!isRecord(cost)) return null;
+  return { currency: String(cost.currency), microsPerHour: num(cost.micros_per_hour) ?? 0, startedAt: String(cost.started_at) };
+}
+
 function machine(m: SwarmMachine): MachineView {
-  if (!isRecord(m) || typeof m.id !== "string" || typeof m.label !== "string") throw new ContractError("swarm machine needs id and label");
-  const hw = isRecord(m.hardware) ? m.hardware : null;
-  const cost = isRecord(m.cost) ? m.cost : null;
+  const issue = "swarm machine needs id and label";
+  if (!isRecord(m)) throw new ContractError(issue);
+  if (typeof m.id !== "string" || typeof m.label !== "string") throw new ContractError(issue);
+  const machineControl = control(m.control);
   return {
     id: m.id, label: m.label, kind: oneOf(m.kind, ["local", "cloud"] as const, "unknown" as const),
     state: oneOf(m.state, ["online", "holding", "offline", "stopped", "booting"] as const, "unknown" as const),
     holding: holds(m.holding), lastSeenAt: text(m.last_seen_at), load: load(m.load),
-    hardware: hw ? { logicalCpus: num(hw.logical_cpus), memoryTotalBytes: num(hw.memory_total_bytes) ?? 0, diskTotalBytes: num(hw.disk_total_bytes), diskFreeBytes: num(hw.disk_free_bytes) } : null,
+    hardware: hardware(m.hardware),
     agentMax: num(m.agent_max),
-    cost: cost ? { currency: String(cost.currency), microsPerHour: num(cost.micros_per_hour) ?? 0, startedAt: String(cost.started_at) } : null,
-    control: control(m.control), controlUnrecognised: isRecord(m.control) && control(m.control) === null,
+    cost: machineCost(m.cost),
+    control: machineControl, controlUnrecognised: isRecord(m.control) && machineControl === null,
     nodes: list<SwarmNode>(m.nodes).filter(isRecord).map(node),
   };
 }
@@ -173,7 +211,9 @@ function waitingAgent(w: WaitingAgent): WaitingAgentView {
 
 /** Unknown fields and unknown enum values degrade (to "unknown", null or "unreported"); a malformed shape is a contract error. */
 export function adaptSwarm(raw: Swarm, serverTime: string): SwarmView {
-  if (!isRecord(raw) || !Array.isArray(raw.machines) || !isRecord(raw.waiting)) throw new ContractError("swarm needs machines and waiting");
+  const issue = "swarm needs machines and waiting";
+  if (!isRecord(raw)) throw new ContractError(issue);
+  if (!Array.isArray(raw.machines) || !isRecord(raw.waiting)) throw new ContractError(issue);
   const server = isRecord(raw.server) ? raw.server : { version: "", source_revision: "", running_agents: null };
   return {
     serverTime,

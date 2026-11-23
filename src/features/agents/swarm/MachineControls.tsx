@@ -19,6 +19,19 @@ function statusLine(m: MachineView): string {
   return c.pendingHandoffs > 0 ? `Worker: stopped, handing off ${c.pendingHandoffs}` : "Worker: stopped";
 }
 
+function UnavailableControls({ reason }: { reason?: string | null }) {
+  return <>
+    <div className={styles.actions}>{["Start worker", "Stop worker", "Drain"].map(label => <ActionButton key={label} disabled>{label}</ActionButton>)}</div>
+    <p className={styles.actionNote}>{reason && !GENERIC_REASONS.has(reason) ? reason : "Worker start, stop and drain are not available on this server yet."}</p>
+  </>;
+}
+
+function MissingControl({ machine }: { machine: MachineView }) {
+  return <p className={styles.actionNote}>{machine.controlUnrecognised
+    ? "This machine's worker reported an unrecognised state, so it cannot be started or stopped here. You can remove it using the controls above."
+    : "This machine's worker is not installed as a service, so it cannot be started or stopped here."}</p>;
+}
+
 export function MachineControls({ m }: { m: MachineView }) {
   const { bootstrap } = useSession();
   const control = bootstrap.capability("swarm.worker.control");
@@ -26,13 +39,10 @@ export function MachineControls({ m }: { m: MachineView }) {
   const c = m.control;
   const l = m.label;
   const worker = (kind: "worker.start" | "worker.stop" | "worker.drain", blocked: string | undefined, intro: React.ReactNode, confirm: string, pendingText: string, confirmedText: string) =>
-    c ? <SwarmAction label={workerLabels[kind]} capability="swarm.worker.control" scope={`${m.id}:${kind}`} blocked={blocked} intro={intro} confirm={confirm}
-      freeze={() => freezeWorkerAction(kind, m)} pendingText={pendingText} confirmedText={confirmedText} /> : null;
+    <SwarmAction label={workerLabels[kind]} capability="swarm.worker.control" scope={`${m.id}:${kind}`} blocked={blocked} intro={intro} confirm={confirm}
+      freeze={() => freezeWorkerAction(kind, m)} pendingText={pendingText} confirmedText={confirmedText} />;
   if (!control.enabled) {
-    return <>
-      <div className={styles.actions}>{["Start worker", "Stop worker", "Drain"].map(label => <ActionButton key={label} disabled>{label}</ActionButton>)}</div>
-      <p className={styles.actionNote}>{control.reason && !GENERIC_REASONS.has(control.reason) ? control.reason : "Worker start, stop and drain are not available on this server yet."}</p>
-    </>;
+    return <UnavailableControls reason={control.reason} />;
   }
   return <>
     {c && <p role="status">{statusLine(m)}</p>}
@@ -48,7 +58,6 @@ export function MachineControls({ m }: { m: MachineView }) {
           <p>Running agents on {l} finish; no new work starts here.</p>, `Drain ${l}`, "Drain requested — awaiting confirmation.", "Worker drain confirmed.")}
       </> : ["Start worker", "Stop worker", "Drain"].map(label => <ActionButton key={label} disabled>{label}</ActionButton>)}
     </div>
-    {!c && m.controlUnrecognised && <p className={styles.actionNote}>This machine's worker reported an unrecognised state, so it cannot be started or stopped here. You can remove it using the controls above.</p>}
-    {!c && !m.controlUnrecognised && <p className={styles.actionNote}>This machine's worker is not installed as a service, so it cannot be started or stopped here.</p>}
+    {!c && <MissingControl machine={m} />}
   </>;
 }

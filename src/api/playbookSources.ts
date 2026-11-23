@@ -58,46 +58,65 @@ const short = (value: string) => clip(value, PLAYBOOK_DISPLAY_LIMITS.textChars);
 const list = (value: unknown) => { ensure(Array.isArray(value)); return value.slice(0, PLAYBOOK_DISPLAY_LIMITS.items) as unknown[]; };
 
 function comparison(value: unknown): PlaybookComparison | null {
-  if (value === null || value === undefined) return null;
+  if (value == null) return null;
   ensure(isRecord(value) && PLAYBOOK_CHANGES.includes(value.change as PlaybookChange));
   return { change: value.change as PlaybookChange };
 }
 function playbookCase(value: unknown): PlaybookCase {
-  ensure(isRecord(value) && text(value.name, 512) && text(value.situation) && text(value.result) && typeof value.passed === "boolean");
+  ensure(isRecord(value));
+  ensure(text(value.name, 512));
+  ensure(text(value.situation));
+  ensure(text(value.result));
+  ensure(typeof value.passed === "boolean");
   return { name: value.name, situation: short(value.situation), result: short(value.result), passed: value.passed };
 }
 function previous(value: unknown): PreviousPlaybook | null {
-  if (value === null || value === undefined) return null;
-  ensure(isRecord(value) && instant(value.since_ms) && (value.summary === undefined || value.summary === null || text(value.summary)));
+  if (value == null) return null;
+  ensure(isRecord(value));
+  ensure(instant(value.since_ms));
+  ensure(value.summary == null || text(value.summary));
   return { since_ms: value.since_ms, summary: typeof value.summary === "string" ? short(value.summary) : null };
 }
 function active(value: unknown): ActivePlaybook | null {
-  if (value === null || value === undefined) return null;
-  ensure(isRecord(value) && text(value.artifact, 512) && instant(value.since_ms) && (value.can_rollback === undefined || typeof value.can_rollback === "boolean"));
+  if (value == null) return null;
+  ensure(isRecord(value));
+  ensure(text(value.artifact, 512));
+  ensure(instant(value.since_ms));
+  ensure(value.can_rollback === undefined || typeof value.can_rollback === "boolean");
   return { artifact: value.artifact, since_ms: value.since_ms, comparison: comparison(value.comparison), can_rollback: value.can_rollback === true,
     previous: previous(value.previous), cases: list(value.cases).map(playbookCase) };
 }
 function question(value: unknown): AuthoringQuestion | null {
-  if (value === null || value === undefined) return null;
+  if (value == null) return null;
   ensure(isRecord(value) && text(value.question));
   const sentences = list(value.sentences).map((item): QuotedSentence => {
-    ensure(isRecord(item) && count(item.line) && (item.end_line === undefined || item.end_line === null || count(item.end_line)) && text(item.text));
+    ensure(isRecord(item));
+    ensure(count(item.line));
+    ensure(item.end_line == null || count(item.end_line));
+    ensure(text(item.text));
     return { line: item.line, end_line: (item.end_line as number | null | undefined) ?? null, text: short(item.text) };
   });
   return { question: clip(value.question, PLAYBOOK_DISPLAY_LIMITS.reasonChars), sentences };
 }
 function unable(value: unknown): UnableSentence | null {
-  if (value === null || value === undefined) return null;
-  ensure(isRecord(value) && text(value.sentence) && text(value.reason) && (value.line === undefined || value.line === null || count(value.line)));
+  if (value == null) return null;
+  ensure(isRecord(value));
+  ensure(text(value.sentence));
+  ensure(text(value.reason));
+  ensure(value.line == null || count(value.line));
   ensure(value.host_fault === undefined || typeof value.host_fault === "boolean");
   return { sentence: short(value.sentence), reason: clip(value.reason, PLAYBOOK_DISPLAY_LIMITS.reasonChars), line: (value.line as number | null | undefined) ?? null, host_fault: value.host_fault === true };
 }
 function latest(value: unknown): LatestRun | null {
-  if (value === null || value === undefined) return null;
-  ensure(isRecord(value) && text(value.run, 128) && typeof value.status === "string" && count(value.created_at_ms) && count(value.elapsed_ms));
-  ensure(value.internal_task_id === null || value.internal_task_id === undefined || text(value.internal_task_id, 64));
-  ensure(value.finished_at_ms === null || value.finished_at_ms === undefined || count(value.finished_at_ms));
-  ensure(value.refusal === null || value.refusal === undefined || typeof value.refusal === "string");
+  if (value == null) return null;
+  ensure(isRecord(value));
+  ensure(text(value.run, 128));
+  ensure(typeof value.status === "string");
+  ensure(count(value.created_at_ms));
+  ensure(count(value.elapsed_ms));
+  ensure(value.internal_task_id == null || text(value.internal_task_id, 64));
+  ensure(value.finished_at_ms == null || count(value.finished_at_ms));
+  ensure(value.refusal == null || typeof value.refusal === "string");
   return {
     run: value.run, status: RUN_STATUSES.includes(value.status as typeof RUN_STATUSES[number]) ? value.status as RunStatus : "unknown",
     question: question(value.question), unable: unable(value.unable), refusal: typeof value.refusal === "string" ? clip(value.refusal, PLAYBOOK_DISPLAY_LIMITS.reasonChars) : null,
@@ -106,7 +125,12 @@ function latest(value: unknown): LatestRun | null {
   };
 }
 export function adaptSourceView(value: unknown): SourceView {
-  ensure(isRecord(value) && text(value.id, 128) && text(value.kind, 64) && text(value.binding, 128) && text(value.purpose) && count(value.revision));
+  ensure(isRecord(value));
+  ensure(text(value.id, 128));
+  ensure(text(value.kind, 64));
+  ensure(text(value.binding, 128));
+  ensure(text(value.purpose));
+  ensure(count(value.revision));
   return { id: value.id, kind: value.kind, binding: value.binding, purpose: short(value.purpose), revision: value.revision, active: active(value.active), latest: latest(value.latest) };
 }
 export function adaptSourceList(value: unknown): SourceView[] {
