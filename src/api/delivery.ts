@@ -1,4 +1,5 @@
-import { apiGet, apiSend, ApiError } from "./client";
+import { settingsRevision, settingsSaves, savedRevision } from "./settingsSaves";
+import { apiGet, ApiError } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 
 /**
@@ -29,47 +30,21 @@ export type SaveDeliveryLimits = { limits: DeliveryLimits; expected_revision: st
 /** The server has no delivery (its build has the feature off): it answers 404 on these routes. */
 export const isDeliveryUnavailable = (error: unknown): boolean => error instanceof ApiError && error.status === 404;
 
-const revision = (value: unknown): value is string => typeof value === "string" && value.length <= 128 && /^(0|[1-9]\d*)$/.test(value);
 function ensure(condition: unknown, what: string): asserts condition { if (!condition) throw new ContractError(`Invalid ${what} response`); }
-
-/** The saves this page has sent, by operation id, so a retry or a status check sends exactly the same save. */
-function saver<S extends { operation_id: string }>(path: string, what: string, copy: (request: S) => S) {
-  const sent = new Map<string, S>();
-  async function save(request: S): Promise<string> {
-    const body = sent.get(request.operation_id) ?? copy(request);
-    if (!sent.has(body.operation_id)) { if (sent.size >= 16) sent.delete(sent.keys().next().value!); sent.set(body.operation_id, body); }
-    let receipt: unknown;
-    try { receipt = await apiSend<unknown>("PUT", path, body); } catch (error) {
-      // A refusal is an answer: the save is over. Anything else leaves it kept for the retry.
-      if (error instanceof ApiError && error.status !== undefined && error.status >= 400 && error.status < 500) sent.delete(body.operation_id);
-      throw error;
-    }
-    ensure(isRecord(receipt) && revision(receipt.revision), what);
-    sent.delete(body.operation_id);
-    return receipt.revision;
-  }
-  /** The same save again; a save this page did not send cannot be checked. */
-  async function inspect(operationId: string): Promise<string> {
-    const body = sent.get(operationId);
-    if (!body) throw new ApiError("http", "This save was not sent from this page", { status: 404 });
-    return save(body);
-  }
-  return { save, inspect };
-}
 
 export async function readDeliveryDocument(signal?: AbortSignal): Promise<DeliveryDocument> {
   const value = await apiGet<unknown>(DELIVERY_DOCUMENT_PATH, signal);
-  ensure(isRecord(value) && revision(value.revision) && typeof value.markdown === "string" && value.markdown.length <= DELIVERY_DOCUMENT_READ_BYTES, "delivery document");
+  ensure(isRecord(value) && settingsRevision(value.revision) && typeof value.markdown === "string" && value.markdown.length <= DELIVERY_DOCUMENT_READ_BYTES, "delivery document");
   return { markdown: value.markdown, revision: value.revision };
 }
-const documentSaves = saver<SaveDeliveryDocument>(DELIVERY_DOCUMENT_PATH, "delivery document", request => ({ ...request }));
+const documentSaves = settingsSaves(DELIVERY_DOCUMENT_PATH, (request: SaveDeliveryDocument) => ({ ...request }), receipt => savedRevision(receipt, "delivery document"));
 /** Saves the document and answers the new revision. */
 export const saveDeliveryDocument = (request: SaveDeliveryDocument): Promise<string> => documentSaves.save(request);
 export const inspectDeliveryDocumentSave = (operationId: string): Promise<string> => documentSaves.inspect(operationId);
 
 export async function readDeliveryLimits(signal?: AbortSignal): Promise<DeliveryLimitsRead> {
   const value = await apiGet<unknown>(DELIVERY_LIMITS_PATH, signal);
-  ensure(isRecord(value) && revision(value.revision) && isRecord(value.limits), "delivery limits");
+  ensure(isRecord(value) && settingsRevision(value.revision) && isRecord(value.limits), "delivery limits");
   const limits = {} as DeliveryLimits;
   for (const key of DELIVERY_LIMIT_KEYS) {
     const field = value.limits[key];
@@ -78,7 +53,7 @@ export async function readDeliveryLimits(signal?: AbortSignal): Promise<Delivery
   }
   return { limits, revision: value.revision };
 }
-const limitSaves = saver<SaveDeliveryLimits>(DELIVERY_LIMITS_PATH, "delivery limits", request => ({ ...request, limits: { ...request.limits } }));
+const limitSaves = settingsSaves(DELIVERY_LIMITS_PATH, (request: SaveDeliveryLimits) => ({ ...request, limits: { ...request.limits } }), receipt => savedRevision(receipt, "delivery limits"));
 /** Saves the limits and answers the new revision. */
 export const saveDeliveryLimits = (request: SaveDeliveryLimits): Promise<string> => limitSaves.save(request);
 export const inspectDeliveryLimitsSave = (operationId: string): Promise<string> => limitSaves.inspect(operationId);
