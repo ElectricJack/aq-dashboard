@@ -155,6 +155,51 @@ describe('managed task terminal', () => {
     } finally { done(); }
   });
 
+  test.each([
+    [{ cols: 20, rows: 2 }, 80, 8],
+    [{ cols: 900, rows: 600 }, 500, 300],
+  ] as const)('bounds the controller grid proposed as %o', (proposed, cols, rows) => {
+    mocks.proposed = proposed;
+    const { container, done } = mount();
+    try {
+      act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: true }));
+      expect(mocks.managedResize).toHaveBeenCalledExactlyOnceWith(cols, rows);
+      expect(pane(container).dataset.cols).toBe(String(cols));
+      expect(pane(container).dataset.fitCols).toBe(String(proposed.cols));
+    } finally { done(); }
+  });
+
+  test.each([undefined, { cols: NaN, rows: 30 }, { cols: 100, rows: Infinity }])(
+    'retains the session grid for invalid fit dimensions %o', proposed => {
+      mocks.proposed = proposed;
+      const { container, done } = mount();
+      try {
+        act(() => mocks.managed!.emit({ grid: { columns: 120, rows: 40 }, controlling: true }));
+        expect(mocks.managedResize).not.toHaveBeenCalled();
+        expect(pane(container).dataset.cols).toBe('120');
+      } finally { done(); }
+    },
+  );
+
+  test('fits the phone frame on viewport events and removes listeners on unmount', () => {
+    const viewport = Object.assign(new EventTarget(), { width: 390, height: 600, offsetTop: 10 });
+    const remove = vi.spyOn(viewport, 'removeEventListener');
+    vi.stubGlobal('visualViewport', viewport);
+    const { container, done } = mount();
+    const frame = container.querySelector<HTMLElement>('[data-fixed]')!.parentElement!;
+    try {
+      expect(frame.style.maxHeight).toBe('602px');
+      viewport.height = 400;
+      act(() => viewport.dispatchEvent(new Event('resize')));
+      expect(frame.style.maxHeight).toBe('402px');
+      viewport.width = 900;
+      act(() => viewport.dispatchEvent(new Event('scroll')));
+      expect(frame.style.maxHeight).toBe('');
+    } finally { done(); }
+    expect(remove).toHaveBeenCalledWith('resize', expect.any(Function));
+    expect(remove).toHaveBeenCalledWith('scroll', expect.any(Function));
+  });
+
   test('a hidden pane is fitted and resized once it is shown', () => {
     mocks.proposed = { cols: NaN, rows: NaN };
     rectSpy.mockReturnValue(rect(0, 0));
