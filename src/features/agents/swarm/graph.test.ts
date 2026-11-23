@@ -8,7 +8,7 @@ const agent = (n: number, provider: string, cls: AgentView["intelligenceClass"])
   provider, model: null, harness: null, intelligenceClass: cls, terminalId: `term${n}`, startedAt: null,
 });
 /** A node as the adapter gives it: `capacity` is the slot count the server reports, absent when it reports none. */
-const worker = (id: string, total: number | null, occupied: number, idle: number | null, agents: AgentView[] = []): NodeView => ({
+const worker = (id: string, { total, occupied, idle }: NodeView["slots"], agents: AgentView[] = []): NodeView => ({
   ...(total === null ? {} : { capacity: total }),
   id, name: id, health: "online", service: "unreported", serviceSince: null, backendKind: "docker-local", workerVersion: "0.1.0",
   sandboxTemplates: [], agentChannel: "unreported", lastSeenAt: NOW, slots: { total, occupied, idle }, holding: [], agents,
@@ -23,9 +23,9 @@ function view(): SwarmView {
     serverTime: NOW, server: { version: "0.1.0", sourceRevision: "85070006", runningAgents: 4, ownerAvailability: null },
     machines: [
       machine("desktop", "online", { hardware: { logicalCpus: 24, memoryTotalBytes: 2 ** 36, diskTotalBytes: null, diskFreeBytes: null }, agentMax: 5, load: load(61, 58),
-        nodes: [worker("local-1", 3, 3, 0, [agent(1, "claude", "standard"), agent(2, "claude", "deep"), agent(3, "codex", "fast")]), worker("local-2", 2, 1, 1, [agent(4, "claude", "fast")])] }),
-      machine("laptop", "offline", { lastSeenAt: "2026-11-07T10:00:00.000Z", nodes: [worker("laptop-1", 2, 0, null)] }),
-      machine("studio", "holding", { holding: [{ code: "capability_expired", message: "Capability report expired", remedy: null }], nodes: [worker("studio-1", 2, 0, 2)], load: load(24, 40) }),
+        nodes: [worker("local-1", { total: 3, occupied: 3, idle: 0 }, [agent(1, "claude", "standard"), agent(2, "claude", "deep"), agent(3, "codex", "fast")]), worker("local-2", { total: 2, occupied: 1, idle: 1 }, [agent(4, "claude", "fast")])] }),
+      machine("laptop", "offline", { lastSeenAt: "2026-11-07T10:00:00.000Z", nodes: [worker("laptop-1", { total: 2, occupied: 0, idle: null })] }),
+      machine("studio", "holding", { holding: [{ code: "capability_expired", message: "Capability report expired", remedy: null }], nodes: [worker("studio-1", { total: 2, occupied: 0, idle: 2 })], load: load(24, 40) }),
       machine("vm-a", "booting", { kind: "cloud" }),
     ],
     waiting: { reasons: [{ code: "no_free_slot", message: "Every slot on an eligible machine is busy", remedy: null }], agents: [] },
@@ -74,23 +74,23 @@ describe("buildSwarmGraph", () => {
     expect(build().edges.find(x => x.target === "machine:desktop")!.animated).toBe(true);
   });
   it("a busy node with no slot total is one card: its attempt, and no free card", () => {
-    const v = view(); v.machines[0]!.nodes = [worker("local-1", null, 1, null, [agent(1, "claude", "fast")])];
+    const v = view(); v.machines[0]!.nodes = [worker("local-1", { total: null, occupied: 1, idle: null }, [agent(1, "claude", "fast")])];
     const g = build(v);
     expect(g.nodes.some(n => n.id.startsWith("free:local-1"))).toBe(false);
     expect(byId(g, "node:local-1")!.data.sub).toBe("1 of 1 slot busy");
     expect(g.edges.filter(e => e.source === "node:local-1").map(e => e.target)).toEqual(["agent:s1"]);
   });
   it("draws exactly as many slot cards as the node has slots: twelve free slots are twelve cards, none folded into a count", () => {
-    const v = view(); v.machines[0]!.nodes = [worker("local-1", 12, 0, 12)];
+    const v = view(); v.machines[0]!.nodes = [worker("local-1", { total: 12, occupied: 0, idle: 12 })];
     const free = build(v).nodes.filter(n => n.id.startsWith("free:local-1"));
     expect(free.map(n => [n.data.slot, n.data.label, n.data.ariaLabel])).toEqual(Array.from({ length: 12 }, (_, i) => [i + 1, "free", `Slot ${i + 1} free`]));
     // The owner sets the node to five slots: five cards.
-    v.machines[0]!.nodes = [worker("local-1", 5, 0, 5)];
+    v.machines[0]!.nodes = [worker("local-1", { total: 5, occupied: 0, idle: 5 })];
     expect(build(v).nodes.filter(n => n.id.startsWith("free:local-1"))).toHaveLength(5);
     expect(byId(build(v), "node:local-1")!.data.sub).toBe("0 of 5 slots busy");
   });
   it("a node with more agent rows than slots draws them all and says so", () => {
-    const v = view(); v.machines[0]!.nodes = [worker("local-1", 2, 3, 0, [agent(1, "claude", "fast"), agent(2, "claude", "fast"), agent(3, "claude", "fast")])];
+    const v = view(); v.machines[0]!.nodes = [worker("local-1", { total: 2, occupied: 3, idle: 0 }, [agent(1, "claude", "fast"), agent(2, "claude", "fast"), agent(3, "claude", "fast")])];
     const g = build(v);
     expect(g.nodes.filter(n => n.data.kind === "agent").map(n => [n.data.slot, n.data.over, n.data.ariaLabel.replace(/^.* (?=Slot \d|No slot)/, "")])).toEqual([[1, false, "Slot 1"], [2, false, "Slot 2"], [null, true, "No slot"]]);
     expect(byId(g, "node:local-1")!.data).toMatchObject({ sub: "3 of 2 slots busy", reason: "more agents than slots: 3 on 2", over: true });
@@ -128,7 +128,7 @@ describe("buildSwarmGraph", () => {
   it("an agent card leads with the task's title, then role and level, then model and effort, and carries its level's colour", () => {
     const v = view();
     const ranWith = { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-sonnet-5-5", reasoning: "high", harness: "claude" };
-    v.machines[0]!.nodes = [worker("local-1", 3, 2, 1, [
+    v.machines[0]!.nodes = [worker("local-1", { total: 3, occupied: 2, idle: 1 }, [
       { ...agent(1, "anthropic", "standard"), task: { id: "t1", title: "Write an architecture overview" }, routingProfile: { id: "standard-high", displayName: "Standard, high" }, ranWith, phase: "finishing", startedAt: NOW },
       agent(2, "anthropic", "fast"),
     ])];
@@ -143,7 +143,7 @@ describe("buildSwarmGraph", () => {
   it("a node with eight slots and agents in slots 1 to 8 is eight cards in slot order, four across and two down", () => {
     const v = view();
     const agents = [8, 3, 1, 6, 2, 7, 5, 4].map(slot => ({ ...agent(slot, "claude", "standard"), slot }));
-    v.machines = [machine("desktop", "online", { nodes: [worker("local-1", 8, 8, 0, agents)] })];
+    v.machines = [machine("desktop", "online", { nodes: [worker("local-1", { total: 8, occupied: 8, idle: 0 }, agents)] })];
     const g = build(v), placed = layoutSwarm(g.nodes, g.edges);
     const cards = g.edges.filter(e => e.source === "node:local-1").map(e => placed.find(n => n.id === e.target)!);
     expect(cards.map(c => [c.data.slot, c.id])).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map(slot => [slot, `agent:s${slot}`]));
@@ -155,14 +155,59 @@ describe("buildSwarmGraph", () => {
     expect(cards.map(c => c.position.y)).toEqual([...cards].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x).map(c => c.position.y));
     expect(new Set(cards.map(c => c.position.y)).size).toBe(2);
     // Three busy of eight: the free slots keep their places.
-    v.machines[0]!.nodes = [worker("local-1", 8, 3, 5, agents.filter(a => [2, 5, 8].includes(a.slot)))];
+    v.machines[0]!.nodes = [worker("local-1", { total: 8, occupied: 3, idle: 5 }, agents.filter(a => [2, 5, 8].includes(a.slot)))];
     expect(build(v).nodes.filter(n => n.data.kind === "agent" || n.data.kind === "free").map(n => [n.data.slot, n.data.kind])).toEqual([[1, "free"], [2, "agent"], [3, "free"], [4, "free"], [5, "agent"], [6, "free"], [7, "free"], [8, "agent"]]);
   });
 });
 
+type Placed = ReturnType<typeof layoutSwarm>;
+type Rect = { x: number; y: number; width: number; height: number };
+function cardBox(card: Placed[number]): Rect {
+  return { ...card.position, width: card.width!, height: card.height! };
+}
+function touchOrSeparate(a: Rect, b: Rect) {
+  const horizontal = a.x + a.width <= b.x || b.x + b.width <= a.x;
+  const vertical = a.y + a.height <= b.y || b.y + b.height <= a.y;
+  return horizontal || vertical;
+}
+function frameContains(frame: Rect, card: Rect) {
+  const horizontal = card.x >= frame.x && card.x + card.width <= frame.x + frame.width;
+  const vertical = card.y >= frame.y && card.y + card.height <= frame.y + frame.height;
+  return horizontal && vertical;
+}
+function overlaps(placed: Placed) {
+  const boxes = placed.map(card => ({ ...cardBox(card), id: card.id }));
+  for (const [i, card] of boxes.entries()) {
+    const other = boxes.slice(i + 1).find(candidate => !touchOrSeparate(card, candidate));
+    if (other) return `${card.id} overlaps ${other.id}`;
+  }
+  return null;
+}
+
+type CanvasFit = {
+  placed: Placed; graph: ReturnType<typeof build>; viewport: NonNullable<ReturnType<typeof fitViewport>>;
+  bounds: ReturnType<typeof treeBounds>; width: number; height: number;
+};
+function expectCanvasFit({ placed, graph: g, viewport, bounds, width, height }: CanvasFit) {
+  // Every card, and every worker's frame, is inside the canvas.
+  const frames = slotFrames(placed, g.edges);
+  expect(frames.map(f => f.id)).toEqual(["frame:node:d1", "frame:node:d2", "frame:node:l3"]);
+  const left = Math.min(bounds.x, ...frames.map(f => f.x)), top = Math.min(bounds.y, ...frames.map(f => f.y));
+  const right = Math.max(bounds.x + bounds.width, ...frames.map(f => f.x + f.width)), bottom = Math.max(bounds.y + bounds.height, ...frames.map(f => f.y + f.height));
+  expect(left * viewport.zoom + viewport.x).toBeGreaterThanOrEqual(0);
+  expect(top * viewport.zoom + viewport.y).toBeGreaterThanOrEqual(0);
+  expect(right * viewport.zoom + viewport.x).toBeLessThanOrEqual(width);
+  expect(bottom * viewport.zoom + viewport.y).toBeLessThanOrEqual(height);
+  // No two frames overlap, and each holds its worker and all of that worker's slot cards.
+  for (const f of frames) for (const o of frames) if (f !== o) expect(touchOrSeparate(f, o)).toBe(true);
+  for (const f of frames) for (const c of [f.id.slice(6), ...g.edges.filter(e => e.source === f.id.slice(6)).map(e => e.target)].map(id => placed.find(n => n.id === id)!)) {
+    expect(frameContains(f, cardBox(c)), `${c.id} in ${f.id}`).toBe(true);
+  }
+}
+
 describe("the tree on a screen", () => {
   // The live stack's shape: a desktop with two worker nodes of eight slots and a laptop with one of four. Seven busy.
-  const slotted = (id: string, total: number, busy: number[]) => worker(id, total, busy.length, total - busy.length, busy.map(slot => ({ ...agent(Number(`${id.slice(1)}${slot}`), "claude", "standard"), slot })));
+  const slotted = (id: string, total: number, busy: number[]) => worker(id, { total, occupied: busy.length, idle: total - busy.length }, busy.map(slot => ({ ...agent(Number(`${id.slice(1)}${slot}`), "claude", "standard"), slot })));
   const twenty = () => {
     const v = view();
     v.machines = [
@@ -170,13 +215,6 @@ describe("the tree on a screen", () => {
       machine("laptop", "online", { load: load(20, 30), nodes: [slotted("l3", 4, [1])] }),
     ];
     return v;
-  };
-  const overlaps = (placed: ReturnType<typeof layoutSwarm>) => {
-    for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
-      const a = placed[i]!, b = placed[j]!;
-      if (!(a.position.x + a.width! <= b.position.x || b.position.x + b.width! <= a.position.x || a.position.y + a.height! <= b.position.y || b.position.y + b.height! <= a.position.y)) return `${a.id} overlaps ${b.id}`;
-    }
-    return null;
   };
   it("draws one card per slot: twenty slots on three workers are twenty cards, each in a place of one size, the free ones smaller", () => {
     const g = build(twenty()), placed = layoutSwarm(g.nodes, g.edges);
@@ -216,20 +254,7 @@ describe("the tree on a screen", () => {
     const viewport = fitViewport(placed, { width, height }, g.edges)!, bounds = treeBounds(placed);
     expect(viewport.zoom).toBeGreaterThan(least);
     expect(viewport.zoom).toBeLessThanOrEqual(FIT.maxZoom);
-    // Every card, and every worker's frame, is inside the canvas.
-    const frames = slotFrames(placed, g.edges);
-    expect(frames.map(f => f.id)).toEqual(["frame:node:d1", "frame:node:d2", "frame:node:l3"]);
-    const left = Math.min(bounds.x, ...frames.map(f => f.x)), top = Math.min(bounds.y, ...frames.map(f => f.y));
-    const right = Math.max(bounds.x + bounds.width, ...frames.map(f => f.x + f.width)), bottom = Math.max(bounds.y + bounds.height, ...frames.map(f => f.y + f.height));
-    expect(left * viewport.zoom + viewport.x).toBeGreaterThanOrEqual(0);
-    expect(top * viewport.zoom + viewport.y).toBeGreaterThanOrEqual(0);
-    expect(right * viewport.zoom + viewport.x).toBeLessThanOrEqual(width);
-    expect(bottom * viewport.zoom + viewport.y).toBeLessThanOrEqual(height);
-    // No two frames overlap, and each holds its worker and all of that worker's slot cards.
-    for (const f of frames) for (const o of frames) if (f !== o) expect(f.x + f.width <= o.x || o.x + o.width <= f.x || f.y + f.height <= o.y || o.y + o.height <= f.y).toBe(true);
-    for (const f of frames) for (const c of [f.id.slice(6), ...g.edges.filter(e => e.source === f.id.slice(6)).map(e => e.target)].map(id => placed.find(n => n.id === id)!)) {
-      expect(c.position.x >= f.x && c.position.y >= f.y && c.position.x + c.width! <= f.x + f.width && c.position.y + c.height! <= f.y + f.height, `${c.id} in ${f.id}`).toBe(true);
-    }
+    expectCanvasFit({ placed, graph: g, viewport, bounds, width, height });
   });
   it("without a canvas it wraps at four; a tall narrow canvas takes more rows", () => {
     const g = build(twenty());
@@ -286,7 +311,7 @@ it("shows the routing profile while retaining the legacy palette", () => {
 it.each([100, 200])("stacks %i agents per worker in two columns and reserves the complete fleet footprint", count => {
   const v = view();
   v.machines = Array.from({ length: 2 }, (_, m) => machine(`fleet-${m}`, "online", {
-    nodes: Array.from({ length: 2 }, (_, w) => worker(`fleet-${m}-${w}`, count + 3, count, 3,
+    nodes: Array.from({ length: 2 }, (_, w) => worker(`fleet-${m}-${w}`, { total: count + 3, occupied: count, idle: 3 },
       Array.from({ length: count }, (_, a) => agent(m * count * 2 + w * count + a, "codex", "fast")))),
   }));
   v.waiting.agents = Array.from({ length: count }, (_, i) => ({ taskId: `waiting-${i}`, title: "Waiting task", project: { id: "p", label: "proj" }, provider: "codex", intelligenceClass: "fast" as const, reasons: [], since: null }));
@@ -306,18 +331,15 @@ it.each([100, 200])("stacks %i agents per worker in two columns and reserves the
       expect(graph.edges.find(e => e.source === parent.id && e.target === child.id)).toBeDefined();
     }
   }
-  for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
-    const a = placed[i]!, b = placed[j]!;
-    expect(a.position.x + a.width! <= b.position.x || b.position.x + b.width! <= a.position.x || a.position.y + a.height! <= b.position.y || b.position.y + b.height! <= a.position.y, `${a.id} overlaps ${b.id}`).toBe(true);
-  }
+  expect(overlaps(placed)).toBeNull();
 });
 
 it("top-aligns heterogeneous branches without letting a long waiting queue push workers down", () => {
   const v = view();
   v.machines = [machine("large", "online", { nodes: [
-    worker("large-worker", 200, 200, 0, Array.from({ length: 200 }, (_, i) => agent(i, "codex", "fast"))),
-    worker("small-sibling", 1, 1, 0, [agent(200, "codex", "fast")]),
-  ] }), machine("small", "online", { nodes: [worker("small-worker", 1, 1, 0, [agent(201, "codex", "fast")])] })];
+    worker("large-worker", { total: 200, occupied: 200, idle: 0 }, Array.from({ length: 200 }, (_, i) => agent(i, "codex", "fast"))),
+    worker("small-sibling", { total: 1, occupied: 1, idle: 0 }, [agent(200, "codex", "fast")]),
+  ] }), machine("small", "online", { nodes: [worker("small-worker", { total: 1, occupied: 1, idle: 0 }, [agent(201, "codex", "fast")])] })];
   v.waiting.agents = Array.from({ length: 200 }, (_, i) => ({ taskId: `waiting-${i}`, title: "Waiting task", project: { id: "p", label: "proj" }, provider: "codex", intelligenceClass: "fast" as const, reasons: [], since: null }));
   const graph = build(v), placed = layoutSwarm(graph.nodes, graph.edges);
   const card = (id: string) => placed.find(n => n.id === id)!;
@@ -328,9 +350,6 @@ it("top-aligns heterogeneous branches without letting a long waiting queue push 
   }
   expect(card("node:large-worker").position.y).toBe(card("node:small-sibling").position.y);
   expect(card("node:large-worker").position.y).toBe(card("node:small-worker").position.y);
-  for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
-    const a = placed[i]!, b = placed[j]!;
-    expect(a.position.x + a.width! <= b.position.x || b.position.x + b.width! <= a.position.x || a.position.y + a.height! <= b.position.y || b.position.y + b.height! <= a.position.y, `${a.id} overlaps ${b.id}`).toBe(true);
-  }
+  expect(overlaps(placed)).toBeNull();
 });
 });
