@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type FormEvent, type RefObject } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useLocation } from "react-router";
 import { adaptSupervisorDiscovery, adaptSupervisorHistory, freezeSupervisorMessage, mergeSupervisorMessages, supervisorId, validateSupervisorText,
@@ -14,7 +14,7 @@ import { PageTitle } from "../../app/DestinationPage";
 import { ActionButton } from "../../components/layout/Workspace";
 import { ArrowDown, History, Info, LoaderCircle, MessagesSquare, SendHorizontal } from "lucide-react";
 import { Icon } from "../../components/icons";
-import {SupervisorHistoryReceipt} from "./SupervisorWorkCards";
+import { SupervisorHistoryReceipt } from "./SupervisorWorkCards";
 import { SupervisorMarkdown } from "./SupervisorMarkdown";
 import { AttachmentPicker, MessageAttachments, PendingAttachments } from "./SupervisorAttachments";
 import { useSupervisorAttachments } from "./useSupervisorAttachments";
@@ -23,7 +23,19 @@ import styles from "./SupervisorConversation.module.css";
 const MAX_LOADED = 64;
 const deliveryText = { not_attempted: "Delivery not attempted", pending: "Host delivery pending", delivery_unknown: "Delivery unknown · do not resend", delivered: "Delivered to supervisor host · work not confirmed", not_delivered: "Host delivery failed" };
 const validDraft = (value: unknown): value is string => typeof value === "string";
-export function SupervisorConversation({ presentation = "full", visible = true, controls,projectId=null,label,management,runtimeAvailable }: { presentation?: "full" | "dock"; visible?: boolean; controls?: ReactNode;projectId?:string|null;label?:string;management?:ReactNode;runtimeAvailable?:boolean }) {
+interface SupervisorConversationProps {
+  presentation?: "full" | "dock";
+  visible?: boolean;
+  controls?: ReactNode;
+  projectId?: string | null;
+  label?: string;
+  management?: ReactNode;
+  runtimeAvailable?: boolean;
+}
+
+export function SupervisorConversation({
+  presentation = "full", visible = true, controls, projectId = null, label, management, runtimeAvailable,
+}: SupervisorConversationProps) {
   const { bootstrap, queryContext } = useSession();
   const client = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -68,22 +80,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
   const attachmentsLocked = !!operation && receipt?.disposition !== "confirmed" || sending;
   const settled = receipt !== null && ["confirmed", "conflict", "rejected"].includes(receipt.disposition);
   useEffect(() => { active.current = true; return () => { active.current = false; ticket.current++; for (const job of jobs.current) job.abort(); pending.current = null; }; }, []);
-  useLayoutEffect(() => {
-    const element = workspace.current;
-    if (!element) return;
-    // Only the dock measures; the full page fits the viewport through the shell's flex column.
-    if (full) { element.style.removeProperty("--conversation-available-height"); return; }
-    const measure = () => {
-      const viewport = window.visualViewport;
-      const available = Math.max(0, (viewport?.height ?? window.innerHeight) - Math.max(0, element.getBoundingClientRect().top - (viewport?.offsetTop ?? 0)));
-      const value = `${Math.floor(available)}px`;
-      if (element.style.getPropertyValue("--conversation-available-height") !== value) element.style.setProperty("--conversation-available-height", value);
-    };
-    measure(); window.addEventListener("resize", measure); window.visualViewport?.addEventListener("resize", measure); window.visualViewport?.addEventListener("scroll", measure);
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    for (const parent of [element.parentElement, element.parentElement?.parentElement]) if (parent) observer?.observe(parent);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", measure); window.visualViewport?.removeEventListener("resize", measure); window.visualViewport?.removeEventListener("scroll", measure); };
-  }, [presentation, visible]);
+  useConversationViewport(workspace, presentation, visible);
   // Scroll only after React commits the new rows, so initial history and pending
   // bubbles use their real height. Older pages preserve the reader's anchor.
   useLayoutEffect(() => {
@@ -229,13 +226,10 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
       {older && <ActionButton disabled={historyBusy || messages.length >= MAX_LOADED} onClick={() => void load("older")}>Load older messages</ActionButton>}
       {messages.length >= MAX_LOADED && <p>Showing up to 64 loaded messages. <ActionButton disabled={historyBusy} onClick={() => { atBottom.current = true; void load("latest"); }}>Show latest messages</ActionButton></p>}
       {loaded && !historyError && messages.length === 0 && <p className={styles.empty}>No messages have been admitted to this conversation.</p>}
-      <ol className={styles.messages} aria-label="Supervisor messages">{messages.map(message => { const supervisor = message.author.kind === "supervisor"; const metadata = <p className={styles.metadata}>{message.author.kind === "supervisor" ? "Supervisor" : message.author.user_id === queryContext.principalId ? "You" : `Human ${message.author.user_id.slice(0, 8)}`}<span className={styles.timestamp}> · <time title={new Date(message.created_at_ms).toISOString()} dateTime={new Date(message.created_at_ms).toISOString()}>{new Date(message.created_at_ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></span> · {message.author.kind === "supervisor" ? "Reply received" : full ? `Queued · ${deliveryText[message.host_delivery]}`
-          : <span className={styles.delivery} tabIndex={0}>Queued<span className={styles.deliveryDetail}><span className={styles.separator}> · </span>{deliveryText[message.host_delivery]}</span></span>}</p>;
-        return <li key={message.message_id} data-message-id={message.message_id} tabIndex={-1} className={styles.message} data-author={message.author.kind} data-own={message.author.kind === "human" && message.author.user_id === queryContext.principalId}>
-          {/* Supervisor replies carry the shared avatar mark and lead with who spoke, as in the reference. */}
-          {supervisor ? <><span className={styles.avatar} aria-hidden="true">aq</span><div className={styles.messageContent}>{metadata}<SupervisorMarkdown source={message.body} />{message.author.kind==="supervisor"&&message.attachments?.filter((a):a is ActionReceiptAttachment=>"type" in a&&a.type==="action_receipt").map(a=><SupervisorHistoryReceipt key={a.operation_id} receipt={a}/>)}</div></> : <><p className={styles.body}>{message.body}</p>{message.author.kind==="human"&&message.attachments&&<MessageAttachments attachments={message.attachments as AttachmentDescriptor[]}/>}{metadata}</>}
-        </li>; })}</ol>
-      {frozen && !messages.some(item => item.message_id === frozen.message) && <div className={styles.pending} data-message-id={frozen.message} tabIndex={-1}><p className={styles.body}>{JSON.parse(frozen.bytes).body}</p><MessageAttachments attachments={sentFiles}/><p role="status">{sending ? "Sending · awaiting admission" : receipt?.disposition === "confirmed" ? "Queued · awaiting history" : receipt?.disposition === "pending" ? "Admission pending" : settled ? "Not queued" : "Admission unknown"}</p></div>}
+      <ol className={styles.messages} aria-label="Supervisor messages">
+        {messages.map(message => <ConversationMessage key={message.message_id} message={message} principalId={queryContext.principalId} full={full} />)}
+      </ol>
+      {frozen && !messages.some(item => item.message_id === frozen.message) && <div className={styles.pending} data-message-id={frozen.message} tabIndex={-1}><p className={styles.body}>{JSON.parse(frozen.bytes).body}</p><MessageAttachments attachments={sentFiles}/><p role="status">{pendingMessageStatus(sending, receipt, settled)}</p></div>}
       {/* The marker stays in the reading flow, pinned to the history's bottom edge (§5). */}
       {newAvailable && <ActionButton className={styles.newMarker} onClick={showLatest}>New messages<Icon icon={ArrowDown} size={16} /></ActionButton>}
     </div>
@@ -249,7 +243,7 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
       {attachments.blocked && <p role="status">{attachments.blocked}</p>}
       {!canSend && <p role="status">Sending is unavailable. Your draft is preserved.</p>}
       {sendError && <p role="status">{sendError}</p>}
-      {receipt && <p role="status">{receipt.disposition === "confirmed" ? <>Message queued. <button type="button" className={styles.confirmedReset} aria-label="Compose another message" disabled={sending} onClick={another}>New message</button></> : receipt.disposition === "conflict" ? "Not queued: the conversation revision changed. Revise before sending a new request." : receipt.disposition === "pending" ? "Admission pending. Check message status; no delivery is confirmed." : receipt.disposition === "unknown" ? "Admission unknown. Check the original operation; no replacement is sent." : `Not queued: the request was rejected.${frozen && JSON.parse(frozen.bytes).attachments.length ? " If a file expired or was removed, remove it and attach it again." : ""}`}</p>}
+      {receipt && <p role="status"><ReceiptStatus receipt={receipt} frozen={frozen} sending={sending} onAnother={another} /></p>}
       {operation && receipt?.disposition !== "confirmed" && <div className={styles.recovery}>
         <small>Operation {operation}</small>
         <ActionButton disabled={sending} onClick={() => retry("lookup")}>Check message status</ActionButton>
@@ -261,4 +255,105 @@ export function SupervisorConversation({ presentation = "full", visible = true, 
     </form>
     <p className={styles.footer}><Icon icon={Info} size={16} />{projectId?"Project conversation":"Global conversation"} · draft preserved across views</p>
   </section>;
+}
+
+function useConversationViewport(workspace: RefObject<HTMLElement | null>, presentation: "full" | "dock", visible: boolean) {
+  useLayoutEffect(() => {
+    const element = workspace.current;
+    if (!element) return;
+    // Only the dock measures; the full page fits the viewport through the shell's flex column.
+    if (presentation === "full") {
+      element.style.removeProperty("--conversation-available-height");
+      return;
+    }
+    const measure = () => {
+      const viewport = window.visualViewport;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const top = Math.max(0, element.getBoundingClientRect().top - (viewport?.offsetTop ?? 0));
+      const available = Math.max(0, viewportHeight - top);
+      const value = `${Math.floor(available)}px`;
+      if (element.style.getPropertyValue("--conversation-available-height") !== value) {
+        element.style.setProperty("--conversation-available-height", value);
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("scroll", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    for (const parent of [element.parentElement, element.parentElement?.parentElement]) {
+      if (parent) observer?.observe(parent);
+    }
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("scroll", measure);
+    };
+  }, [presentation, visible]);
+}
+
+function MessageDelivery({ message, full }: { message: SupervisorMessage; full: boolean }) {
+  if (message.author.kind === "supervisor") return <>Reply received</>;
+  if (full) return <>Queued · {deliveryText[message.host_delivery]}</>;
+  return <span className={styles.delivery} tabIndex={0}>
+    Queued<span className={styles.deliveryDetail}><span className={styles.separator}> · </span>{deliveryText[message.host_delivery]}</span>
+  </span>;
+}
+
+function MessageMetadata({ message, principalId, full }: { message: SupervisorMessage; principalId: string; full: boolean }) {
+  const author = message.author.kind === "supervisor"
+    ? "Supervisor"
+    : message.author.user_id === principalId ? "You" : `Human ${message.author.user_id.slice(0, 8)}`;
+  const createdAt = new Date(message.created_at_ms);
+  return <p className={styles.metadata}>
+    {author}<span className={styles.timestamp}> · <time title={createdAt.toISOString()} dateTime={createdAt.toISOString()}>{createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></span> · <MessageDelivery message={message} full={full} />
+  </p>;
+}
+
+function ConversationMessage({ message, principalId, full }: { message: SupervisorMessage; principalId: string; full: boolean }) {
+  const metadata = <MessageMetadata message={message} principalId={principalId} full={full} />;
+  return <li data-message-id={message.message_id} tabIndex={-1} className={styles.message} data-author={message.author.kind} data-own={message.author.kind === "human" && message.author.user_id === principalId}>
+    {message.author.kind === "supervisor" ? <>
+      {/* Supervisor replies carry the shared avatar mark and lead with who spoke, as in the reference. */}
+      <span className={styles.avatar} aria-hidden="true">aq</span>
+      <div className={styles.messageContent}>
+        {metadata}
+        <SupervisorMarkdown source={message.body} />
+        {message.attachments?.filter((attachment): attachment is ActionReceiptAttachment => "type" in attachment && attachment.type === "action_receipt")
+          .map(attachment => <SupervisorHistoryReceipt key={attachment.operation_id} receipt={attachment} />)}
+      </div>
+    </> : <>
+      <p className={styles.body}>{message.body}</p>
+      {message.attachments && <MessageAttachments attachments={message.attachments as AttachmentDescriptor[]} />}
+      {metadata}
+    </>}
+  </li>;
+}
+
+function pendingMessageStatus(sending: boolean, receipt: ActionOperation | null, settled: boolean) {
+  if (sending) return "Sending · awaiting admission";
+  if (receipt?.disposition === "confirmed") return "Queued · awaiting history";
+  if (receipt?.disposition === "pending") return "Admission pending";
+  return settled ? "Not queued" : "Admission unknown";
+}
+
+function ReceiptStatus({ receipt, frozen, sending, onAnother }: {
+  receipt: ActionOperation;
+  frozen: FrozenSupervisorMessage | null;
+  sending: boolean;
+  onAnother: () => void;
+}) {
+  switch (receipt.disposition) {
+    case "confirmed":
+      return <>Message queued. <button type="button" className={styles.confirmedReset} aria-label="Compose another message" disabled={sending} onClick={onAnother}>New message</button></>;
+    case "conflict":
+      return <>Not queued: the conversation revision changed. Revise before sending a new request.</>;
+    case "pending":
+      return <>Admission pending. Check message status; no delivery is confirmed.</>;
+    case "unknown":
+      return <>Admission unknown. Check the original operation; no replacement is sent.</>;
+    default:
+      return <>Not queued: the request was rejected.{frozen && JSON.parse(frozen.bytes).attachments.length ? " If a file expired or was removed, remove it and attach it again." : ""}</>;
+  }
 }
