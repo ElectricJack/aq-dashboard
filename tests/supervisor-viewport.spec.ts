@@ -31,15 +31,19 @@ async function inject(page: Page, count: number) {
   const caps = ["supervisor.history.read", "supervisor.conversation", "dashboard.actions", "supervisor.message.enqueue"];
   await page.addInitScript(({ conv, me, caps, discovery, history }) => {
     const json = (o: unknown) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
+    const requestUrl = (input: RequestInfo | URL) => new URL(input instanceof Request ? input.url : input, location.href);
+    function messages(url: URL) {
+      // Backward pages of at most 16, matching the contract's history_page.
+      const before = url.searchParams.get("before");
+      const end = before ? history.items.findIndex(item => item.cursor === before) : history.items.length;
+      const items = history.items.slice(Math.max(0, end - 16), end), more = end > 16;
+      return json({ ...history, items, has_more: more, next_cursor: more ? items[0]!.cursor : null });
+    }
     const wrap = (inner: typeof fetch): typeof fetch => async (input, init) => {
-      const path = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href).pathname;
+      const url = requestUrl(input), path = url.pathname;
       if (path === "/api/human/conversations/global") return json(discovery);
       if (path === `/api/human/conversations/${conv}/messages`) {
-        // Backward pages of at most 16, matching the contract's history_page.
-        const before = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href).searchParams.get("before");
-        const end = before ? history.items.findIndex(item => item.cursor === before) : history.items.length;
-        const items = history.items.slice(Math.max(0, end - 16), end), more = end > 16;
-        return json({ ...history, items, has_more: more, next_cursor: more ? items[0]!.cursor : null });
+        return messages(url);
       }
       const response = await inner(input, init);
       if (path !== "/api/v1/bootstrap") return response;
