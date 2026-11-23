@@ -58,6 +58,8 @@ export type SwarmAgent = {
 };
 export type SwarmRanWith = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string; execution_profile?: string; snapshot_digest?: string | null };
 export type SwarmNode = {
+  capability_observed_at?: Timestamp;
+  inventory_rejection?: { request_id: string; observed_at_ms: number; stage: string; status: number; code: string };
   node: EntityRef; name: string; health: "online" | "offline" | "revoked" | "unknown"; service: WorkerService;
   backend_kind: string | null; worker_version: string; sandbox_templates: string[]; agent_channel: ReportedState;
   last_seen_at: Timestamp | null; slots: NodeSlots; holding: HoldReason[]; agents: SwarmAgent[];
