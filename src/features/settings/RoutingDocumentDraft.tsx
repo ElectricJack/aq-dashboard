@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
-import { ApiError } from "../../api/client";
+import { isHttpClientError, ApiError } from "../../api/client";
 import { inspectRoutingDocumentSave, readRoutingDocument, saveRoutingDocument, type RoutingDocument, type SaveRoutingDocument } from "../../api/routingDocument";
 import { useProfileLimits } from "../../api/roleSettings";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -21,6 +21,11 @@ export function useRoutingDocumentDraft() {
 }
 
 /** The draft of the routing document. It is saved at the revision read just before the save, and only when the saved text is still the one the edit started from. */
+function keepLatest(old: RoutingDocument | undefined, result: RoutingDocument) {
+  if (old && BigInt(old.revision) > BigInt(result.revision)) return old;
+  return { markdown: result.markdown, revision: result.revision };
+}
+
 export function RoutingDocumentDraftProvider({ children }: { children: ReactNode }) {
   const { queryContext } = useSession(); const client = useQueryClient();
   const key = queryKey(queryContext, ROUTING_DOCUMENT, {});
@@ -41,24 +46,26 @@ export function RoutingDocumentDraftProvider({ children }: { children: ReactNode
     setPending(true); setError(null); setNotice(null);
     try {
       const result = await (inspect ? inspectRoutingDocumentSave(request.operation_id) : saveRoutingDocument(request));
-      client.setQueryData<RoutingDocument>(key, old => !old || BigInt(result.revision) >= BigInt(old.revision) ? { markdown: result.markdown, revision: result.revision } : old);
+      client.setQueryData<RoutingDocument>(key, old => keepLatest(old, result));
       setPolicyState(null); setUnknown(null); setConflict(false); setRetrySame(false);
       setNotice(result.disposition === "unchanged" ? "The routing document was already saved as written." : "Routing document saved.");
       void client.invalidateQueries({ queryKey: key }); return true;
     } catch (e) {
       if (inspect) {
-        setUnknown(request); setRetrySame(e instanceof ApiError && e.status === 404);
-        setError(e instanceof ApiError && e.status === 404 ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. Your edits are preserved.");
-      } else if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) {
+        const missing = e instanceof ApiError && e.status === 404;
+        setUnknown(request); setRetrySame(missing);
+        setError(missing ? "Save not recorded yet. Retry the same save safely." : "Save status is unavailable. Your edits are preserved.");
+      } else if (isHttpClientError(e)) {
         setUnknown(null); setConflict(e.status === 409);
         setError(e.status === 409 ? "Settings changed during the save. Your edits are preserved; reload to discard these edits." : e.serverMessage ?? "AQ refused the routing document. Your edits are preserved.");
       } else { setUnknown(request); setRetrySame(false); setError("The routing document save is unconfirmed. Check its status before editing again."); }
       return false;
     } finally { setPending(false); }
   }
+  const saveLocked = locked || invalid || conflict;
   async function save(): Promise<boolean> {
     if (!policy) return true;
-    if (locked || invalid || conflict) return false;
+    if (saveLocked) return false;
     setPending(true); setError(null); setNotice(null);
     try {
       const latest = await readRoutingDocument();
@@ -67,7 +74,7 @@ export function RoutingDocumentDraftProvider({ children }: { children: ReactNode
     } catch { setError("Could not load current settings. Your edits are preserved."); return false; }
     finally { setPending(false); }
   }
-  const coordinator = useIntelligenceDraft({ id: "routing-document", label: "Routing policy", dirty, locked: locked || invalid || conflict, save, order: 100 });
+  const coordinator = useIntelligenceDraft({ id: "routing-document", label: "Routing policy", dirty, locked: saveLocked, save, order: 100 });
   const feedback = <>{notice && <p className={styles.success} role="status">{notice}</p>}{error && <p className={styles.warning} role="alert">{error}</p>}
     {conflict && <ActionButton disabled={pending} onClick={() => { setPending(true); void readRoutingDocument().then(latest => { client.setQueryData(key, latest); setPolicyState(null); setConflict(false); setError(null); }).catch(() => setError("Could not reload settings. Your edits are preserved.")).finally(() => setPending(false)); }}>Reload the routing document</ActionButton>}
     {unknown && <div className={styles.rowActions}><ActionButton disabled={pending} onClick={() => void run(unknown, true)}>Check save status</ActionButton>{retrySame && <ActionButton disabled={pending} onClick={() => void run(unknown)}>Retry same save</ActionButton>}</div>}</>;

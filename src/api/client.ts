@@ -64,6 +64,12 @@ function failureMessage(payload: unknown): string | undefined {
   return typeof payload.message === "string" && payload.message.length <= 2000 ? payload.message : undefined;
 }
 
+export function isHttpClientError(error: unknown): error is ApiError & { status: number } {
+  if (!(error instanceof ApiError)) return false;
+  const status = error.status ?? 0;
+  return status >= 400 && status < 500;
+}
+
 /** HTTP failure with the parsed envelope (when the body is one) and any retry hint. */
 export function httpError(response: Pick<Response, "status" | "headers">, payload?: unknown, message = `AQ responded ${response.status}`): ApiError {
   const envelope = isErrorEnvelope(payload) ? payload : undefined;

@@ -1,4 +1,4 @@
-import { apiSend, ApiError } from "./client";
+import { apiSend, ApiError, isHttpClientError } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 
 export const settingsRevision = (value: unknown): value is string =>
@@ -7,12 +7,6 @@ export const settingsRevision = (value: unknown): value is string =>
 export function savedRevision(receipt: unknown, what: string): string {
   if (isRecord(receipt) && settingsRevision(receipt.revision)) return receipt.revision;
   throw new ContractError(`Invalid ${what} response`);
-}
-
-function refused(error: unknown): boolean {
-  if (!(error instanceof ApiError)) return false;
-  const status = error.status ?? 0;
-  return status >= 400 && status < 500;
 }
 
 /** Retain the exact submitted operation for retries whose outcome is unknown. */
@@ -35,7 +29,7 @@ export function settingsSaves<S extends { operation_id: string }, R>(
     let receipt: unknown;
     try { receipt = await apiSend<unknown>("PUT", path, body); }
     catch (error) {
-      if (refused(error)) sent.delete(body.operation_id);
+      if (isHttpClientError(error)) sent.delete(body.operation_id);
       throw error;
     }
     const result = accepted(receipt, body);

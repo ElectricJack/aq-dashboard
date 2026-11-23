@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError } from "../../api/client";
 import {
   DELIVERY_LIMIT_FIELDS, inspectDeliveryDocumentSave, inspectDeliveryLimitsSave, isDeliveryUnavailable, limitFromText, limitToText, readDeliveryDocument, readDeliveryLimits,
   saveDeliveryDocument, saveDeliveryLimits, type DeliveryDocument, type DeliveryLimitKey, type DeliveryLimits, type DeliveryLimitsRead,
@@ -46,15 +46,16 @@ function useSaveFlow<V>(flow: Flow<V>) {
       setUnknown(null); setConflict(false); setNotice(`${flow.title} saved.`);
       return true;
     } catch (e) {
-      if (e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500) {
+      if (isHttpClientError(e)) {
         setUnknown(null); setConflict(e.status === 409);
         setError(e.status === 409 ? `Settings changed during the save. Your edits are preserved; reload to discard these edits.` : e.serverMessage ?? `AQ refused the ${flow.what}. Your edits are preserved.`);
       } else { setUnknown({ value, operationId }); setError(`The ${flow.what} save is unconfirmed. Check its status before editing again.`); }
       return false;
     }
   }
+  const saveLocked = pending || Boolean(unknown) || conflict;
   async function save(base: V, value: V) {
-    if (pending || unknown || conflict) return;
+    if (saveLocked) return;
     setPending(true); clear();
     try {
       let latest: { value: V; revision: string };
@@ -112,6 +113,14 @@ function DeliveryDocumentEditor({ current }: { current: DeliveryDocument }) {
 const sameLimits = (a: DeliveryLimits, b: DeliveryLimits) => DELIVERY_LIMIT_FIELDS.every(({ key }) => a[key] === b[key]);
 const limitsText = (limits: DeliveryLimits) => Object.fromEntries(DELIVERY_LIMIT_FIELDS.map(({ key, unit }) => [key, limitToText(limits[key], unit)])) as Record<DeliveryLimitKey, string>;
 
+function parseLimits(text: Record<DeliveryLimitKey, string>) {
+  const parsed = DELIVERY_LIMIT_FIELDS.map(({ key, unit }) => ({ key, result: limitFromText(text[key], unit) }));
+  const problems = new Map<DeliveryLimitKey, string>();
+  for (const { key, result } of parsed) if ("problem" in result) problems.set(key, result.problem);
+  const limits = problems.size === 0 ? Object.fromEntries(parsed.map(({ key, result }) => [key, "value" in result ? result.value : 0])) as DeliveryLimits : null;
+  return { problems, limits };
+}
+
 function DeliveryLimitsForm({ current }: { current: DeliveryLimitsRead }) {
   const { queryContext } = useSession(); const client = useQueryClient();
   const key = queryKey(queryContext, DELIVERY_LIMITS, {});
@@ -125,10 +134,7 @@ function DeliveryLimitsForm({ current }: { current: DeliveryLimitsRead }) {
     reloaded: (limits, revision) => { client.setQueryData<DeliveryLimitsRead>(key, { limits, revision }); setDraft(null); },
   });
   const text = draft ?? limitsText(base);
-  const parsed = DELIVERY_LIMIT_FIELDS.map(({ key, unit }) => ({ key, result: limitFromText(text[key], unit) }));
-  const problems = new Map<DeliveryLimitKey, string>();
-  for (const { key, result } of parsed) if ("problem" in result) problems.set(key, result.problem);
-  const limits = problems.size === 0 ? Object.fromEntries(parsed.map(({ key, result }) => [key, "value" in result ? result.value : 0])) as DeliveryLimits : null;
+  const { problems, limits } = parseLimits(text);
   const changed = limits !== null && !sameLimits(limits, base);
   function edit(field: DeliveryLimitKey, value: string) {
     const next = { ...text, [field]: value };

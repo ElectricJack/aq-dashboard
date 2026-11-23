@@ -1,6 +1,6 @@
 import {useRef,useState} from 'react';
 import {useNavigate} from 'react-router';
-import {apiSend,ApiError} from '../../../api/client';
+import {apiSend,ApiError,isHttpClientError} from '../../../api/client';
 import {useSession} from '../../../app/session';
 import {ActionButton} from '../../../components/layout/Workspace';
 export function HostTerminalAction({nodeId,onOpened}:{nodeId:string;onOpened?:()=>void}) {
@@ -13,8 +13,7 @@ export function HostTerminalAction({nodeId,onOpened}:{nodeId:string;onOpened?:()
   catch (error) {
    const fallback = 'Host terminal is unavailable. Update this worker’s controls.';
    if (error instanceof ApiError) {
-    const status = error.status ?? 0;
-    if (status >= 400 && status < 500) operation.current = null;
+    if (isHttpClientError(error)) operation.current = null;
     setError(error.serverMessage ?? fallback);
    } else {
     setError('Confirmation is pending. Retry to open the same shell.');

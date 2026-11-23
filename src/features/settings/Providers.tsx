@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError, isProtectedReadFailure } from "../../api/client";
+import { isHttpClientError, ApiError, isProtectedReadFailure } from "../../api/client";
 import { inspectProviderSave, saveProviderSettings, useProviderSettings, validLoginAge, type ProviderSettings, type SaveProviders } from "../../api/providerSettings";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
@@ -9,6 +9,10 @@ import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import { useIntelligenceDraft } from "./IntelligenceDrafts";
 import styles from "./Providers.module.css";
+
+function sameProviders(next: string[], saved: string[]) {
+  return next.length === saved.length && next.every(id => saved.includes(id));
+}
 
 export function Providers() {
   const query = useProviderSettings(); const client = useQueryClient(); const { queryContext } = useSession();
@@ -32,7 +36,7 @@ export function Providers() {
   const dirty = !!baseline && (ageDirty || providers.length !== baseline.providers.length || providers.some(id => !baseline.providers.includes(id)));
   function edit(next: string[]) {
     if (draft === null) base.current = query.data!;
-    if (base.current && next.length === base.current.providers.length && next.every(id => base.current!.providers.includes(id))) { setDraft(null); base.current = null; } else setDraft(next);
+    if (base.current && sameProviders(next, base.current.providers)) { setDraft(null); base.current = null; } else setDraft(next);
     setError(null); setNotice(null);
   }
   async function complete(result: ProviderSettings) {
@@ -46,9 +50,11 @@ export function Providers() {
     setPending(true); setError(null);
     try { await complete(await (inspect ? inspectProviderSave(request.operation_id) : saveProviderSettings(request))); return true; }
     catch (e) {
-      if (inspect || !(e instanceof ApiError && e.status !== undefined && e.status >= 400 && e.status < 500)) {
-        setUnknown(request); setRetry(inspect && e instanceof ApiError && e.status === 404);
-        setError(inspect && e instanceof ApiError && e.status === 404 ? "Save not recorded yet. Retry the same save safely." : "Provider save is unconfirmed. Check its status before editing again.");
+      if (inspect || !isHttpClientError(e)) {
+        const missing = e instanceof ApiError && e.status === 404;
+        const retry = inspect && missing;
+        setUnknown(request); setRetry(retry);
+        setError(retry ? "Save not recorded yet. Retry the same save safely." : "Provider save is unconfirmed. Check its status before editing again.");
       } else {
         setUnknown(null); setConflict(e.status === 409);
         setError(e.serverMessage ?? "Providers could not be saved. Your edits are preserved.");

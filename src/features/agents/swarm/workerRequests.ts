@@ -1,13 +1,7 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ContractError, isRecord } from "../../../api/adapters/contract";
-import { apiSend, ApiError } from "../../../api/client";
-
-function definitiveFailure(error: unknown) {
-  if (!(error instanceof ApiError)) return false;
-  const status = error.status ?? 0;
-  return status >= 400 && status < 500;
-}
+import { apiSend, ApiError, isHttpClientError } from "../../../api/client";
 
 type WorkerOperation = { operation_id: string };
 const requestTypes = {
@@ -35,7 +29,7 @@ export function useWorkerRequest<T extends WorkerOperation>(kind: keyof typeof r
       setPending(null);
       await client.invalidateQueries({ predicate: q => q.queryKey.includes(kind) });
     } catch (e) {
-      if (definitiveFailure(e)) setPending(null);
+      if (isHttpClientError(e)) setPending(null);
       setError(e instanceof ApiError ? e.serverMessage ?? config.declined : config.unknown);
     } finally { setBusy(false); lock.current = false; }
   }
