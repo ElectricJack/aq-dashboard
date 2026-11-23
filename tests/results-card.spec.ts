@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 // RS-H: Results card header, status chip, density and footer against mocks
 // 10 (desktop) and 13 (phone), using the labelled fixtures in src/mocks/results.ts.
@@ -8,6 +8,39 @@ const VIEWPORTS = [
   { name: "phone-390", width: 390, height: 844 },
 ];
 const SHOTS = process.env.RS_H_SHOTS;
+
+async function undersizedText(card: Locator) {
+  return card.evaluate((root) => {
+    const out: string[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement!;
+      if (!node.textContent!.trim() || !el.checkVisibility()) continue;
+      const size = parseFloat(getComputedStyle(el).fontSize);
+      // The dashboard's type floor is 12px since the global step down (owner request 2026-11-06).
+      if (size < 12) out.push(`${size}px ${node.textContent!.trim().slice(0, 40)}`);
+    }
+    return out;
+  });
+}
+
+async function checkCard(card: Locator, width: number) {
+  const footer = card.locator("footer");
+  // No review flow exists for results yet, so no "Review result" dead end (RA-04); feedback creation lives in the discussion.
+  await expect(footer.getByRole("link", { name: /review result/i })).toHaveCount(0);
+  await expect(footer.getByRole("button", { name: "Create feedback task" })).toHaveCount(0);
+  await expect(footer.getByText(/^Acceptance:/)).toBeVisible();
+  // Relative time keeps the absolute timestamp in its title.
+  await expect(card.locator("header time")).toHaveAttribute("title", /\d/);
+
+  const box = (await card.boundingBox())!, chip = (await card.locator("[data-result-status]").boundingBox())!;
+  expect(chip.x + chip.width / 2).toBeGreaterThan(box.x + box.width / 2);
+  expect(chip.y + chip.height / 2).toBeLessThan(box.y + box.height / 2);
+  if (width >= 1440) expect(box.height).toBeLessThanOrEqual(520);
+
+  const small = await undersizedText(card);
+  expect(small).toEqual([]);
+}
 
 for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
@@ -20,32 +53,7 @@ for (const vp of VIEWPORTS) {
       await expect(cards.first().getByRole("button", { name: /^Comments \d/ })).toBeVisible();
 
       for (const card of await cards.all()) {
-        const footer = card.locator("footer");
-        // No review flow exists for results yet, so no "Review result" dead end (RA-04); feedback creation lives in the discussion.
-        await expect(footer.getByRole("link", { name: /review result/i })).toHaveCount(0);
-        await expect(footer.getByRole("button", { name: "Create feedback task" })).toHaveCount(0);
-        await expect(footer.getByText(/^Acceptance:/)).toBeVisible();
-        // Relative time keeps the absolute timestamp in its title.
-        await expect(card.locator("header time")).toHaveAttribute("title", /\d/);
-
-        const box = (await card.boundingBox())!, chip = (await card.locator("[data-result-status]").boundingBox())!;
-        expect(chip.x + chip.width / 2).toBeGreaterThan(box.x + box.width / 2);
-        expect(chip.y + chip.height / 2).toBeLessThan(box.y + box.height / 2);
-        if (vp.width >= 1440) expect(box.height).toBeLessThanOrEqual(520);
-
-        const small = await card.evaluate((root) => {
-          const out: string[] = [];
-          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            const el = node.parentElement!;
-            if (!node.textContent!.trim() || !el.checkVisibility()) continue;
-            const size = parseFloat(getComputedStyle(el).fontSize);
-            // The dashboard's type floor is 12px since the global step down (owner request 2026-11-06).
-            if (size < 12) out.push(`${size}px ${node.textContent!.trim().slice(0, 40)}`);
-          }
-          return out;
-        });
-        expect(small).toEqual([]);
+        await checkCard(card, vp.width);
       }
 
       // Fixture assessments: first is flagged for review, the others carry the server's "unreviewed".
