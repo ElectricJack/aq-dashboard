@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { adaptSessionUsage } from "../../api/adapters/sessionUsage";
 import { sessionUsageJson } from "../../api/sessionUsageClient";
 import { queryKey } from "../../api/queryKeys";
-import { USAGE_CATEGORIES, type UnknownUsageReason, type UsageBinding, type UsageCost } from "../../api/wire/sessionUsage";
+import { USAGE_CATEGORIES, type SessionUsage as UsageProjection, type UnknownUsageReason, type UsageBinding, type UsageCost } from "../../api/wire/sessionUsage";
 import { useSession } from "../../app/session";
 import { ActionButton, DetailList } from "../../components/layout/Workspace";
 import styles from "./SessionUsage.module.css";
@@ -24,6 +24,19 @@ function Cost({ cost }: { cost: UsageCost }) {
   return <>{money(cost)} · {cost.basis === "local_model_allocation" ? "Local model allocation estimate" : "Non-invoice estimate"}{basis}</>;
 }
 
+function UsageCategories({ data }: { data: UsageProjection }) {
+  return <div className={styles.categories}>
+          {USAGE_CATEGORIES.map((category, index) => {
+            const counter = data.usage.counters[category];
+            return <div key={category}>
+              <strong>{CATEGORY_LABELS[category]}</strong>
+              <span>{counter.kind === "known" ? counter.value.toLocaleString("en-US") : `Unknown · ${REASONS[counter.reason]}`}</span>
+              {counter.kind === "unknown" && data.canonical_calls > 0 && <small>Reported subtotal: {data.known_category_subtotals[index]!.toLocaleString("en-US")} · partial</small>}
+            </div>;
+          })}
+        </div>;
+}
+
 /** Mounted only while Session details is open; its key includes every binding field. */
 export function SessionUsage({ binding }: { binding: UsageBinding }) {
   const { queryContext } = useSession();
@@ -41,16 +54,7 @@ export function SessionUsage({ binding }: { binding: UsageBinding }) {
     </> : <>
       {query.data.revision === 0 ? <p>No accounting projection has been recorded for this session.</p> : <>
         <p>{query.data.usage.completeness.kind === "unknown" ? "Accounting completeness unknown" : query.data.usage.completeness.kind === "incomplete" ? `Incomplete accounting · ${query.data.usage.completeness.reason}` : "Complete for the recorded accounting policy"}</p>
-        <div className={styles.categories}>
-          {USAGE_CATEGORIES.map((category, index) => {
-            const counter = query.data.usage.counters[category];
-            return <div key={category}>
-              <strong>{CATEGORY_LABELS[category]}</strong>
-              <span>{counter.kind === "known" ? counter.value.toLocaleString("en-US") : `Unknown · ${REASONS[counter.reason]}`}</span>
-              {counter.kind === "unknown" && query.data.canonical_calls > 0 && <small>Reported subtotal: {query.data.known_category_subtotals[index]!.toLocaleString("en-US")} · partial</small>}
-            </div>;
-          })}
-        </div>
+        <UsageCategories data={query.data} />
         <DetailList>
           <dt>Canonical calls</dt><dd>{query.data.canonical_calls.toLocaleString("en-US")}</dd>
           <dt>Incomplete calls</dt><dd>{query.data.incomplete_calls.toLocaleString("en-US")}</dd>

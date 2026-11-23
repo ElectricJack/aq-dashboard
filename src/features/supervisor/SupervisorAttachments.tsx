@@ -20,10 +20,10 @@ export function AttachmentPicker({ capability, maxFiles, disabled, onFiles }: { 
 }
 
 /** Files chosen for the next message: name, upload status, retry for recoverable failures and removal until the message is sent. */
-export function PendingAttachments({ items, notice, locked, onRetry, onRemove }: { items: PendingAttachment[]; notice: string | null; locked: boolean; onRetry: (id: string) => void; onRemove: (id: string) => void }) {
-  if (!items.length && !notice) return null;
-  return <div className={styles.pendingFiles}>
-    {items.length > 0 && <ul aria-label="Attachments to send">{items.map(item => <li key={item.id} data-status={item.status}>
+type AttachmentActions = { locked: boolean; onRetry: (id: string) => void; onRemove: (id: string) => void };
+
+function PendingFile({ item, locked, onRetry, onRemove }: AttachmentActions & { item: PendingAttachment }) {
+  return <li data-status={item.status}>
       <span className={styles.fileName} title={item.name}>{item.name}</span>
       <span className={styles.fileMeta}>{typeLabel(item.mediaType)} · {formatBytes(item.size)}</span>
       <span className={styles.fileStatus} role="status">{item.status === "uploading" || item.status === "removing" ? <Icon icon={LoaderCircle} size={14} /> : null}{STATUS_TEXT[item.status]}</span>
@@ -32,7 +32,13 @@ export function PendingAttachments({ items, notice, locked, onRetry, onRemove }:
         {item.status === "failed" && item.retryable && <button type="button" disabled={locked} onClick={() => onRetry(item.id)}>Retry<span className="visually-hidden"> upload of {item.name}</span></button>}
         <button type="button" disabled={locked || item.status === "removing"} aria-label={`Remove ${item.name}`} onClick={() => onRemove(item.id)}><Icon icon={X} size={16} /></button>
       </span>
-    </li>)}</ul>}
+    </li>;
+}
+
+export function PendingAttachments({ items, notice, locked, onRetry, onRemove }: AttachmentActions & { items: PendingAttachment[]; notice: string | null }) {
+  if (!items.length && !notice) return null;
+  return <div className={styles.pendingFiles}>
+    {items.length > 0 && <ul aria-label="Attachments to send">{items.map(item => <PendingFile key={item.id} item={item} locked={locked} onRetry={onRetry} onRemove={onRemove} />)}</ul>}
     {notice && <p role="alert" className={styles.fileError}>{notice}</p>}
   </div>;
 }

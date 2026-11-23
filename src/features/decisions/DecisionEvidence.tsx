@@ -10,6 +10,25 @@ import { ActionButton } from "../../components/layout/Workspace";
 import { CopyValue, ShortId, shortDigest, shortId } from "./DecisionContext";
 import styles from "./DecisionEvidence.module.css";
 
+function reviewStatus(d: DecisionDetail) {
+  return d.finality ? { text: `Recorded decision: ${d.finality}`, tone: styles.chipNeutral }
+    : d.state !== "pending" ? { text: d.state[0]!.toUpperCase() + d.state.slice(1), tone: styles.chipNeutral }
+    : !d.current ? { text: "Historical review", tone: styles.chipNeutral }
+    : { text: "Awaiting your decision", tone: styles.chipAttention };
+}
+
+function DecisionRequest({ detail: d, noteId }: { detail: DecisionDetail; noteId: string }) {
+  const policy = d.evidence.find(e => e.label === "Validation policy")?.id;
+  return <div role="note" aria-labelledby={noteId} className={styles.callout}>
+      <Icon icon={Info} size={20} className={styles.calloutIcon} />
+      <div>
+        <h3 id={noteId} className={styles.calloutTitle}>Decision requested</h3>
+        <p>{d.finality ? "This review has a recorded decision." : !d.current ? "This request applies to an earlier result report." : "Approve this result report or request changes."}</p>
+        {policy && <p className={styles.muted}>Validation policy · <code>{policy}</code></p>}
+      </div>
+    </div>;
+}
+
 /**
  * Middle column of reference 03: the evidence/proposal workspace for one review.
  * Only facts the decision and human-graph reads supply are shown; the requested
@@ -25,12 +44,8 @@ export function DecisionEvidence({ detail: d, onRefresh, children }: { detail: D
   const scope = new URLSearchParams({ scope: `project:${d.projectId}` }).toString();
   const work = { pathname: `/work/${d.taskId}`, search: scope };
   const results = { pathname: "/results", search: `${scope}&${new URLSearchParams({ task: d.taskId })}` };
-  const policy = d.evidence.find(e => e.label === "Validation policy")?.id;
   const superseded = !d.current;
-  const status = d.finality ? { text: `Recorded decision: ${d.finality}`, tone: styles.chipNeutral }
-    : d.state !== "pending" ? { text: d.state[0]!.toUpperCase() + d.state.slice(1), tone: styles.chipNeutral }
-    : superseded ? { text: "Historical review", tone: styles.chipNeutral }
-    : { text: "Awaiting your decision", tone: styles.chipAttention };
+  const status = reviewStatus(d);
   return <section className={styles.panel} aria-labelledby={headingId} data-decision-evidence="">
     {superseded && <div role="status" className={styles.warning}>
       <Icon icon={TriangleAlert} size={20} className={styles.warningIcon} />
@@ -50,14 +65,7 @@ export function DecisionEvidence({ detail: d, onRefresh, children }: { detail: D
         <ActionButton className={styles.refresh} onClick={onRefresh}>Refresh evidence</ActionButton>
       </div>
     </header>
-    <div role="note" aria-labelledby={noteId} className={styles.callout}>
-      <Icon icon={Info} size={20} className={styles.calloutIcon} />
-      <div>
-        <h3 id={noteId} className={styles.calloutTitle}>Decision requested</h3>
-        <p>{d.finality ? "This review has a recorded decision." : superseded ? "This request applies to an earlier result report." : "Approve this result report or request changes."}</p>
-        {policy && <p className={styles.muted}>Validation policy · <code>{policy}</code></p>}
-      </div>
-    </div>
+    <DecisionRequest detail={d} noteId={noteId} />
     {d.conclusion && <section className={styles.section} aria-labelledby={`${headingId}-result`}>
       <h3 id={`${headingId}-result`}>Recorded result</h3><p>{d.conclusion}</p><p className={styles.muted}>Reported process outcome: {d.processOutcome}</p>
     </section>}
