@@ -1,18 +1,19 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowLeft, ChevronRight, Link2, Maximize2, Minimize2 } from "lucide-react";
-import { RecordActions } from "../actions/RecordActions";
+import { RecordActions, type TaskExecutionFacts } from "../actions/RecordActions";
 import { type GraphEnvelope, type GraphNode } from "../../api/adapters/humanGraph";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { formatAge } from "../../components/time/relative";
 import { DocumentBody } from "../knowledge/DocumentBody";
 import { RecordFacts } from "../knowledge/KnowledgeDocument";
 import { CopyValue } from "../decisions/DecisionContext";
-import { useTaskComments, useTaskHistory, useTaskSummary, useTaskWork } from "./taskWork";
+import { type TaskWork, type TaskAttempt, useTaskComments, useTaskHistory, useTaskSummary, useTaskWork } from "./taskWork";
 import { useSession } from "../../app/session";
 import { useMediaQuery } from "../../components/useMediaQuery";
 import { TaskComments } from "./inspector/TaskComments";
 import { IdValue, ServerNow } from "./inspector/common";
+import { useStickyTop } from "./inspector/useStickyTop";
 import { Section } from "./inspector/Section";
 import { useSectionOpen } from "./inspector/sections";
 import { StatusBadge, TaskStatusSection, endedHolder } from "./inspector/TaskStatus";
@@ -51,44 +52,98 @@ function Description({ body }: { body: string }) {
 /** Phones pin only the compact title bar (P1-02); wider layouts pin the whole header. Matches the CSS breakpoint. */
 export const COMPACT_HEADER_QUERY = "(max-width: 600px)";
 
-/**
- * The sticky header's offset (the shell's own sticky top bar, when it has one at this width), and the scroll margin
- * that keeps a focused or scrolled-to control clear of everything pinned above it (P1-04). The document's
- * `scroll-padding-top` already clears the shell bar, so the margin adds only what the inspector pins below it.
- */
-function useStickyTop(ref: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const bar = document.querySelector<HTMLElement>("main#content")?.parentElement?.querySelector<HTMLElement>(":scope > header");
-    // The pinned element is the whole header on wide layouts and only its title bar on a phone (the header is then `display: contents`).
-    const pinned = () => [...element.querySelectorAll<HTMLElement>("[data-inspector-header],[data-inspector-bar]")].find(e => { const style = getComputedStyle(e); return style.position === "sticky" && style.display !== "contents"; });
-    const apply = () => {
-      const top = bar && getComputedStyle(bar).position === "sticky" ? bar.offsetHeight : 0;
-      element.style.setProperty("--inspector-sticky-top", `${top}px`);
-      const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
-      const margin = Math.max(0, Math.ceil(top + (pinned()?.offsetHeight ?? 0) + 12 - padding));
-      element.style.setProperty("--inspector-scroll-margin", `${margin}px`);
-    };
-    // Text fields scroll their caret, not their box, into view, which ignores the scroll margin: after any focus
-    // change, a control still under the pinned header is scrolled just clear of it.
-    let frame = 0;
-    const reveal = (event: FocusEvent) => {
-      const target = event.target instanceof HTMLElement ? event.target : null, header = pinned();
-      if (!target || !header || header.contains(target) || target.closest("dialog")) return;
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const box = target.getBoundingClientRect(), edge = header.getBoundingClientRect().bottom;
-        if (box.top < edge && box.bottom > 0 && box.height < window.innerHeight - edge) window.scrollBy({ top: box.top - edge - 12 });
-      });
-    };
-    apply();
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(apply);
-    if (bar) observer?.observe(bar);
-    element.querySelectorAll("[data-inspector-header],[data-inspector-bar]").forEach(e => observer?.observe(e));
-    window.addEventListener("resize", apply); element.addEventListener("focusin", reveal);
-    return () => { observer?.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("resize", apply); element.removeEventListener("focusin", reveal); };
-  }, [ref]);
+function executionFacts(work: TaskWork | undefined, attempts: TaskAttempt[] | undefined): TaskExecutionFacts | undefined {
+  if (!work) return undefined;
+  const facts: TaskExecutionFacts = {
+    holding: !!work.execution, blockers: work.blockers.length, complete: work.complete, blockerIds: work.blockers.map(blocker => blocker.id),
+  };
+  if (attempts) facts.attempts = attempts.length;
+  if (work.routing) facts.routing = work.routing;
+  if (work.role) {
+    facts.role = work.role;
+    // An attempt past being offered or prepared was granted. Its task role is then fixed.
+    facts.started = [work.execution, ...(attempts ?? [])].some(attempt => attempt && !NOT_STARTED.includes(attempt.status));
+  }
+  return facts;
+}
+
+function commentSummary(query: ReturnType<typeof useTaskComments>) {
+  if (!query.data) return undefined;
+  const count = query.data.pages.reduce((total, page) => total + page.data.items.length, 0);
+  return `${count}${query.hasNextPage ? "+" : ""}`;
+}
+
+function attemptSummary(query: ReturnType<typeof useTaskHistory>) {
+  const first = query.data?.pages[0]?.data;
+  if (!first) return undefined;
+  return `${first.attempts.length}${first.attempts_truncated ? "+" : ""}`;
+}
+
+// One history read serves Attempts, History and Retry attempt's precondition (WD-11).
+function useAttemptRead(project: string, node: GraphNode, work: ReturnType<typeof useTaskWork>) {
+  const [attemptsOpen] = useSectionOpen("attempts"), [historyOpen] = useSectionOpen("history");
+  const needsRetry = node.task_state === "active" && !!work.data && !work.data.data.execution;
+  return useTaskHistory(project, node.id, attemptsOpen || historyOpen || needsRetry);
+}
+
+function useInspectorReads(project: string, n: GraphNode) {
+  const work = useTaskWork(project, n.id);
+  const [commentsOpen] = useSectionOpen("comments");
+  const { bootstrap } = useSession();
+  const summary = useTaskSummary(project, n.id, bootstrap.capability("tasks.activate.subtree").enabled && bootstrap.capability("dashboard.actions").enabled);
+  const hasDraftDescendants = (summary.data?.data.by_state.draft ?? "0") !== "0";
+  const comments = useTaskComments(project, n.id, commentsOpen && bootstrap.capability("tasks.comments.read").enabled);
+  const history = useAttemptRead(project, n, work);
+  const attempts = history.data?.pages[0]?.data.attempts;
+  const w = work.data?.data, ended = endedHolder(w, attempts);
+  return { work, w, comments, history, attempts, ended, hasDraftDescendants };
+}
+
+function InspectorNavigation({ search, parent, projectName, focused, onFocus }: {
+  search: string; parent?: TaskWork["parent"]; projectName: string; focused: boolean; onFocus?: (focused: boolean) => void;
+}) {
+  return (
+    <div className={styles.headTop}>
+      <BackToTasks search={search} />
+      <nav aria-label="Task location" className={styles.crumbs}>
+        <span>{projectName}</span>
+        {parent && <><ChevronRight size={14} aria-hidden /><Link to={{ pathname: `/work/${encodeURIComponent(parent.id)}`, search }} data-parent-link="">{parent.title ?? `Parent task ${parent.id.slice(0, 8)}`}</Link></>}
+      </nav>
+      {onFocus && <button type="button" className={styles.expand} aria-pressed={focused} onClick={() => onFocus(!focused)} title={focused ? "Restore the list (Esc)" : "Give the task the full width"}>
+        {focused ? <Minimize2 size={16} aria-hidden /> : <Maximize2 size={16} aria-hidden />}{focused ? "Collapse" : "Expand"}
+      </button>}
+    </div>
+  );
+}
+
+function taskLink(record: GraphEnvelope<GraphNode>) {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams({ scope: `project:${record.project.id}` });
+  return `${window.location.origin}/work/${encodeURIComponent(record.data.id)}?${params}`;
+}
+
+function TaskDescription({ node: n }: { node: GraphNode }) {
+  return <>
+    <Section id="description" title="Description"><Description body={n.body} /></Section>
+    <Section id="acceptance" title="Acceptance criteria">{n.acceptance_criteria ? <DocumentBody body={n.acceptance_criteria} /> : <p className={styles.meta}>No acceptance criteria recorded.</p>}</Section>
+  </>;
+}
+
+function InspectorIdentity({ node: n, link }: { node: GraphNode; link: string }) {
+  return (
+    <div className={styles.identity}>
+      <p className={styles.taskId}><span className="visually-hidden">Task ID </span><IdValue id={n.id} label="task ID" full /></p>
+      {link && <span className={styles.copyLink}><CopyValue value={link} label="task link" icon={Link2} /></span>}
+      {(n.retired || n.deleted) && <p className={styles.meta}>Record lifecycle: {n.deleted ? "Deleted" : "Retired"}</p>}
+      {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels" title={n.labels.join(", ")}>{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
+    </div>
+  );
+}
+
+function Estimate({ points }: { points: GraphNode["story_points"] }) {
+  if (points === undefined) return null;
+  const label = points === null ? "Unestimated" : `${points} story ${points === 1 ? "point" : "points"}`;
+  return <span className={styles.estimate}>{label}</span>;
 }
 
 /**
@@ -102,39 +157,18 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
   const n = record.data, project = record.project.id, titleId = useId(), root = useRef<HTMLElement>(null);
   useDocumentTitle(n.title);
   useStickyTop(root);
-  const work = useTaskWork(project, n.id);
-  const [attemptsOpen] = useSectionOpen("attempts"), [historyOpen] = useSectionOpen("history"), [commentsOpen] = useSectionOpen("comments");
-  const { bootstrap } = useSession();
-  const summary = useTaskSummary(project, n.id, bootstrap.capability("tasks.activate.subtree").enabled && bootstrap.capability("dashboard.actions").enabled);
-  const hasDraftDescendants = (summary.data?.data.by_state.draft ?? "0") !== "0";
-  const comments = useTaskComments(project, n.id, commentsOpen && bootstrap.capability("tasks.comments.read").enabled);
-  const commentCount = comments.data ? `${comments.data.pages.reduce((total, p) => total + p.data.items.length, 0)}${comments.hasNextPage ? "+" : ""}` : undefined;
-  // One history read serves Attempts, History and Retry attempt's precondition (WD-11).
-  const retryNeedsAttempts = n.task_state === "active" && !!work.data && !work.data.data.execution;
-  const history = useTaskHistory(project, n.id, attemptsOpen || historyOpen || retryNeedsAttempts);
-  const attempts = history.data?.pages[0]?.data.attempts, attemptCount = attempts?.length;
-  const w = work.data?.data, parent = w?.parent, ended = endedHolder(w, attempts);
+  const { work, w, comments, history, attempts, ended, hasDraftDescendants } = useInspectorReads(project, n);
+  const parent = w?.parent;
   const compact = useMediaQuery(COMPACT_HEADER_QUERY);
   const linkSearch = listSearch(search);
-  // An attempt past being offered or prepared was granted; AQ then no longer changes the task's role.
-  const started = [w?.execution, ...(attempts ?? [])].some(a => a && !NOT_STARTED.includes(a.status));
-  const facts = w ? { holding: !!w.execution, ...(w.role ? { role: w.role, started } : {}), ...(w.routing ? { routing: w.routing } : {}), blockers: w.blockers.length, complete: w.complete, blockerIds: w.blockers.map(b => b.id), ...(attemptCount !== undefined ? { attempts: attemptCount } : {}) } : undefined;
-  const link = typeof window === "undefined" ? "" : `${window.location.origin}/work/${encodeURIComponent(n.id)}?${new URLSearchParams({ scope: `project:${project}` })}`;
+  const facts = executionFacts(w, attempts);
+  const link = taskLink(record);
   return <ServerNow serverTime={record.observed_at}>
     <section ref={root} className={classes(styles.inspector, className)} aria-labelledby={titleId} data-task-inspector="" data-focused={focused || undefined}>
       {/* Wide layouts pin this whole block. On a phone it lays out as if absent, and only the title bar (title,
           status, one action menu) is pinned, so the sections keep most of the screen (P1-02). */}
       <div className={styles.header} data-inspector-header="">
-        <div className={styles.headTop}>
-          <BackToTasks search={search} />
-          <nav aria-label="Task location" className={styles.crumbs}>
-            <span>{record.project.name}</span>
-            {parent && <><ChevronRight size={14} aria-hidden /><Link to={{ pathname: `/work/${encodeURIComponent(parent.id)}`, search }} data-parent-link="">{parent.title ?? `Parent task ${parent.id.slice(0, 8)}`}</Link></>}
-          </nav>
-          {onFocus && <button type="button" className={styles.expand} aria-pressed={focused} onClick={() => onFocus(!focused)} title={focused ? "Restore the list (Esc)" : "Give the task the full width"}>
-            {focused ? <Minimize2 size={16} aria-hidden /> : <Maximize2 size={16} aria-hidden />}{focused ? "Collapse" : "Expand"}
-          </button>}
-        </div>
+        <InspectorNavigation search={search} parent={parent} projectName={record.project.name} focused={focused} onFocus={onFocus} />
         <header className={styles.bar} data-inspector-bar="">
           <div className={styles.titleRow}>
             <h2 id={titleId} data-inspector-title="" title={n.title}>{n.title}</h2>
@@ -142,15 +176,10 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
           </div>
           <div className={styles.statusLine}>
             <StatusBadge work={w} lifecycle={n.task_state} ended={ended} />
-            {n.story_points !== undefined && <span className={styles.estimate}>{n.story_points === null ? "Unestimated" : `${n.story_points} story ${n.story_points === 1 ? "point" : "points"}`}</span>}
+            <Estimate points={n.story_points} />
           </div>
         </header>
-        <div className={styles.identity}>
-          <p className={styles.taskId}><span className="visually-hidden">Task ID </span><IdValue id={n.id} label="task ID" full /></p>
-          {link && <span className={styles.copyLink}><CopyValue value={link} label="task link" icon={Link2} /></span>}
-          {(n.retired || n.deleted) && <p className={styles.meta}>Record lifecycle: {n.deleted ? "Deleted" : "Retired"}</p>}
-          {n.labels.length > 0 && <ul className={styles.labels} aria-label="Labels" title={n.labels.join(", ")}>{n.labels.map(l => <li key={l}>{l}</li>)}</ul>}
-        </div>
+        <InspectorIdentity node={n} link={link} />
       </div>
       {notice}
       <Section id="status" title="Status">
@@ -158,10 +187,9 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
         {n.requested_by && <p className={parts.meta} data-task-requester="">Requested by <strong>{n.requested_by.name}</strong> · {n.requested_by.email}</p>}
       </Section>
       {/* Comments come straight after Status: the part the owner reads most stays on the first screen (spec 0004 §3, P1-03). */}
-      <Section id="comments" title="Comments" summary={commentCount}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
-      <Section id="description" title="Description"><Description body={n.body} /></Section>
-      <Section id="acceptance" title="Acceptance criteria">{n.acceptance_criteria ? <DocumentBody body={n.acceptance_criteria} /> : <p className={styles.meta}>No acceptance criteria recorded.</p>}</Section>
-      <Section id="attempts" title="Attempts" summary={attemptCount !== undefined ? `${attemptCount}${history.data?.pages[0]?.data.attempts_truncated ? "+" : ""}` : undefined}><TaskAttempts query={history} linkSearch={linkSearch} holding={w?.execution} /></Section>
+      <Section id="comments" title="Comments" summary={commentSummary(comments)}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
+      <TaskDescription node={n} />
+      <Section id="attempts" title="Attempts" summary={attemptSummary(history)}><TaskAttempts query={history} linkSearch={linkSearch} holding={w?.execution} /></Section>
       <Section id="results" title="Results"><TaskResults project={project} task={n.id} /></Section>
       <Section id="hierarchy" title="Dependencies and hierarchy"><TaskHierarchy project={project} node={n} work={w} search={search} /></Section>
       <Section id="history" title="History"><TaskHistory query={history} /></Section>
