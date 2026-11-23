@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
-import { ContractError, isRecord } from "../../api/adapters/contract";
+import { ContractError, isRecord, nullable } from "../../api/adapters/contract";
+import type { CapabilityState } from "../../api/adapters/bootstrap";
 import { useSession } from "../../app/session";
 import { Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { AddMachine } from "../agents/swarm/AddMachine";
-import { useWorkerSettings } from "../agents/swarm/WorkerManagement";
+import { useWorkerSettings, type Setting } from "../agents/swarm/workerManagementData";
 import { Timestamp } from "./Timestamp";
 import { OverviewDiagnostics } from "./OverviewDiagnostics";
 import styles from "./Settings.module.css";
@@ -15,14 +16,17 @@ type Worker = { id: string; name: string; worker_version: string; status: string
 
 function workers(raw: unknown): Worker[] {
   if (!Array.isArray(raw)) throw new ContractError("Invalid worker list");
-  return raw.map((row: unknown) => {
-    if (!isRecord(row) || typeof row.id !== "string" || typeof row.name !== "string" ||
-      typeof row.worker_version !== "string" || typeof row.status !== "string" ||
-      !(row.last_seen_at === null || typeof row.last_seen_at === "string")) {
-      throw new ContractError("Invalid worker record");
-    }
-    return { id: row.id, name: row.name, worker_version: row.worker_version, status: row.status, last_seen_at: row.last_seen_at };
-  });
+  return raw.map(workerRecord);
+}
+function workerRecord(row: unknown): Worker {
+  if (!isRecord(row)) throw new ContractError("Invalid worker record");
+  const stringField = (key: string) => {
+    const value = row[key];
+    if (typeof value !== "string") throw new ContractError("Invalid worker record");
+    return value;
+  };
+  if (!nullable(row.last_seen_at, (value): value is string => typeof value === "string")) throw new ContractError("Invalid worker record");
+  return { id: stringField("id"), name: stringField("name"), worker_version: stringField("worker_version"), status: stringField("status"), last_seen_at: row.last_seen_at };
 }
 
 /** Health strings shown with the success dot; anything else is reported verbatim with a neutral dot. */
@@ -49,12 +53,8 @@ export function FrameworkStatus() {
     refetchInterval: 15_000,
     queryFn: async ({ signal }) => workers(await apiGet<unknown>("/api/workers", signal)),
   });
-  const currentWorkers = roster.data?.filter(worker => worker.status !== "revoked" && !management.data?.settings.some(s => s.kind === "node" && s.id === worker.id && s.removed));
-  const daemon = !statusCapability.enabled
-    ? { state: "unknown", text: statusCapability.reason }
-    : status.isError ? { state: "unavailable", text: "Status unavailable" }
-      : status.data === undefined ? { state: "unknown", text: "Checking…" }
-        : { state: HEALTHY.has(status.data.toLowerCase()) ? "healthy" : "unknown", text: status.data };
+  const currentWorkers = visibleWorkers(roster.data, management.data?.settings);
+  const daemon = daemonStatus(statusCapability, status);
   return (
     <Panel className={styles.connection} title="Framework connection" description="AQ daemon health and the worker nodes enrolled with it.">
       <p className={styles.status} data-state={daemon.state} role="status">Daemon: {daemon.text}</p>
@@ -64,20 +64,38 @@ export function FrameworkStatus() {
       ) : (
         <>
           {roster.isError && <p className={styles.meta} role="status">Refresh failed. These worker observations may be out of date.</p>}
-          {currentWorkers.length === 0 ? <p className={styles.meta}>No worker nodes enrolled.</p> : (
-            <ul className={styles.workers} aria-label="Worker nodes">
-              {currentWorkers.map((worker) => (
-                <li key={worker.id}>
-                  <span><strong>{worker.name}</strong> · {["online", "offline", "revoked"].includes(worker.status) ? worker.status : "Unknown status"} · version {worker.worker_version}</span>
-                  <span className={styles.meta}>Last heartbeat: {worker.last_seen_at ? <Timestamp iso={worker.last_seen_at} /> : "Never reported"}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <WorkerList nodes={currentWorkers} />
         </>
       )}
       <AddMachine />
       <OverviewDiagnostics />
     </Panel>
   );
+}
+
+
+function daemonStatus(capability: CapabilityState, status: { isError: boolean; data?: string }) {
+  if (!capability.enabled) return { state: "unknown", text: capability.reason };
+  if (status.isError) return { state: "unavailable", text: "Status unavailable" };
+  if (status.data === undefined) return { state: "unknown", text: "Checking…" };
+  return { state: HEALTHY.has(status.data.toLowerCase()) ? "healthy" : "unknown", text: status.data };
+}
+
+function WorkerList({ nodes }: { nodes: Worker[] }) {
+  return nodes.length === 0 ? <p className={styles.meta}>No worker nodes enrolled.</p> : (
+            <ul className={styles.workers} aria-label="Worker nodes">
+              {nodes.map((worker) => (
+                <li key={worker.id}>
+                  <span><strong>{worker.name}</strong> · {["online", "offline", "revoked"].includes(worker.status) ? worker.status : "Unknown status"} · version {worker.worker_version}</span>
+                  <span className={styles.meta}>Last heartbeat: {worker.last_seen_at ? <Timestamp iso={worker.last_seen_at} /> : "Never reported"}</span>
+                </li>
+              ))}
+            </ul>
+          );
+}
+
+
+function visibleWorkers(roster: Worker[] | undefined, settings: Setting[] | undefined) {
+  const removed = new Set(settings?.filter(setting => setting.kind === "node" && setting.removed).map(setting => setting.id));
+  return roster?.filter(worker => worker.status !== "revoked" && !removed.has(worker.id));
 }
