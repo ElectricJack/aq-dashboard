@@ -37,7 +37,9 @@ function definition(raw: unknown): LoadedDefinition {
 }
 export function adaptLoadedDefinitions(raw: unknown, project: string | null): LoadedDefinitions {
   exact(raw, ["api_version", "namespace", "server_time_ms", "captured_at_ms", "source", "current_catalog", "items"]);
-  ensure(raw.api_version === LOADED_DEFINITIONS_VERSION && raw.source === "runtime_startup_configuration" && raw.current_catalog === false);
+  ensure(raw.api_version === LOADED_DEFINITIONS_VERSION);
+  ensure(raw.source === "runtime_startup_configuration");
+  ensure(raw.current_catalog === false);
   ensure(new TextEncoder().encode(JSON.stringify(raw)).length <= 262144);
   exact(raw.namespace, ["id", "generation", "name", "project_id"]);
   const projectId = uuid(raw.namespace.project_id), generation = text(raw.namespace.generation, 19);

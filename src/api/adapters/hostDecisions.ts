@@ -1,4 +1,4 @@
-import { ContractError, isRecord } from "./contract";
+import { ContractError, isRecord, timestampMs } from "./contract";
 import { validGraphId } from "./humanGraph";
 
 export const HOST_DECISIONS = "playbooks.decisions";
@@ -40,25 +40,40 @@ export function isHostDecisionResponder(decision: HostDecision, principalId: str
   return decision.responders.some(value => compactUuid(value.slice(5)) === principal);
 }
 
+function decisionSubject(subject: unknown): HostDecision["subject"] {
+  ensure(isRecord(subject));
+  ensure(typeof subject.id === "string" && subject.id.length > 0);
+  ensure(typeof subject.revision === "number" && Number.isSafeInteger(subject.revision) && subject.revision >= 0);
+  return { id: subject.id, revision: subject.revision };
+}
+
+function decisionChoices(choices: unknown): HostChoice[] {
+  ensure(Array.isArray(choices) && choices.length > 0 && choices.every(validChoice));
+  ensure(new Set(choices).size === choices.length);
+  return choices;
+}
+
+function decisionResponders(responders: unknown): string[] {
+  ensure(Array.isArray(responders) && responders.length > 0);
+  ensure(responders.every(r => typeof r === "string" && r.startsWith("user:") && /^[0-9a-f]{32}$/.test(compactUuid(r.slice(5)))));
+  return responders;
+}
+
 function adaptHostDecision(value: unknown): HostDecision {
   ensure(isRecord(value) && validGraphId(value.handle) && isRecord(value.namespace));
   const namespace = value.namespace;
-  ensure(validGraphId(namespace.project_id) && validGraphId(namespace.workspace_id) &&
-    validGraphId(namespace.owner_user_id) && typeof namespace.name === "string" && namespace.name.trim());
-  const subject = value.subject;
-  ensure(isRecord(subject) && typeof subject.id === "string" && subject.id.length > 0 &&
-    typeof subject.revision === "number" && Number.isSafeInteger(subject.revision) && subject.revision >= 0);
-  const choices = value.choices;
-  const responders = value.responders;
+  ensure(validGraphId(namespace.project_id));
+  ensure(validGraphId(namespace.workspace_id));
+  ensure(validGraphId(namespace.owner_user_id));
+  ensure(typeof namespace.name === "string" && namespace.name.trim());
+  const subject = decisionSubject(value.subject);
   ensure(typeof value.question === "string" && value.question.trim());
-  ensure(Array.isArray(choices) && choices.length > 0 && choices.every(validChoice) && new Set(choices).size === choices.length);
-  ensure(Array.isArray(responders) && responders.length > 0 && responders.every(r =>
-    typeof r === "string" && r.startsWith("user:") && /^[0-9a-f]{32}$/.test(compactUuid(r.slice(5)))));
-  ensure(typeof value.expires_at_ms === "number" && Number.isSafeInteger(value.expires_at_ms) &&
-    value.expires_at_ms > 0 && value.expires_at_ms <= 8640000000000000);
+  const choices = decisionChoices(value.choices);
+  const responders = decisionResponders(value.responders);
+  ensure(timestampMs(value.expires_at_ms));
   return {
     handle: value.handle, projectId: namespace.project_id, workspaceId: namespace.workspace_id,
-    namespace: namespace.name, subject: { id: subject.id, revision: subject.revision },
+    namespace: namespace.name, subject,
     question: value.question, choices, responders, expiresAt: value.expires_at_ms,
   };
 }
@@ -81,10 +96,15 @@ export function adaptHostDecisionDetail(value: unknown, handle: string): HostDec
 }
 
 export function adaptHostDecisionAnswer(value: unknown, decision: HostDecision): HostChoice {
-  ensure(isRecord(value) && validChoice(value.outcome) && decision.choices.includes(value.outcome) && isRecord(value.output));
+  ensure(isRecord(value));
+  ensure(validChoice(value.outcome));
+  ensure(decision.choices.includes(value.outcome));
+  ensure(isRecord(value.output));
   const subject = value.output.subject;
-  ensure(value.output.reference === `decision:${decision.handle}` && isRecord(subject) &&
-    subject.id === decision.subject.id && subject.revision === decision.subject.revision);
+  ensure(value.output.reference === `decision:${decision.handle}`);
+  ensure(isRecord(subject));
+  ensure(subject.id === decision.subject.id);
+  ensure(subject.revision === decision.subject.revision);
   return value.outcome;
 }
 

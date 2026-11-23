@@ -76,20 +76,33 @@ function roleFields(v: unknown): RoleFields {
   ensure(text(v.execution, 128) && texts(v.operations) && typeof v.enabled === "boolean" && text(v.role_md, MAX_MARKDOWN_CHARS) && text(v.rules_md, MAX_MARKDOWN_CHARS));
   return { id: v.id, name: v.name, description: v.description, execution: v.execution, operations: v.operations, enabled: v.enabled, role_md: v.role_md, rules_md: v.rules_md };
 }
-function intelligenceFields(v: unknown): IntelligenceFields {
-  identity(v);
-  ensure(Array.isArray(v.candidates) && v.candidates.length <= 1024 && (v.selection === undefined || isRecord(v.selection)));
-  const candidates = v.candidates.map((c: unknown): Candidate => {
-    ensure(isRecord(c) && text(c.provider) && text(c.model) && text(c.reasoning) && texts(c.harnesses, 16));
-    return { provider: c.provider, model: c.model, reasoning: c.reasoning, harnesses: c.harnesses };
-  });
+function candidate(value: unknown): Candidate {
+  ensure(isRecord(value));
+  ensure(text(value.provider) && text(value.model) && text(value.reasoning));
+  ensure(texts(value.harnesses, 16));
+  return { provider: value.provider, model: value.model, reasoning: value.reasoning, harnesses: value.harnesses };
+}
+
+function selectionOverrides(raw: unknown): SelectionOverrides {
+  if (raw === undefined) return {};
+  ensure(isRecord(raw));
   const selection: SelectionOverrides = {};
-  for (const [key, value] of Object.entries(v.selection ?? {})) {
+  for (const [key, value] of Object.entries(raw)) {
     ensure(value === null || text(value) || typeof value === "boolean" || count(value) || texts(value, 16));
     selection[key] = value;
   }
-  return { id: v.id, name: v.name, description: v.description, candidates, selection };
+  return selection;
 }
+
+function intelligenceFields(v: unknown): IntelligenceFields {
+  identity(v);
+  ensure(Array.isArray(v.candidates) && v.candidates.length <= 1024);
+  return {
+    id: v.id, name: v.name, description: v.description,
+    candidates: v.candidates.map(candidate), selection: selectionOverrides(v.selection),
+  };
+}
+
 function executionFields(v: unknown): ExecutionFields {
   identity(v);
   ensure(texts(v.harnesses, 16) && text(v.environment) && text(v.confinement, 64) && isRecord(v.credentials) && isRecord(v.limits));
@@ -102,10 +115,14 @@ function executionFields(v: unknown): ExecutionFields {
 const FIELDS: { [K in DocumentKind]: (v: unknown) => DocumentFields[K] } = { role: roleFields, intelligence: intelligenceFields, execution: executionFields };
 
 export function adaptDocument<K extends DocumentKind>(kind: K, v: unknown): SettingsDocument<K> {
-  ensure(isRecord(v) && v.kind === kind && text(v.id, 128) && v.id.length > 0 && revision(v.revision) && count(v.updated_at_ms) && text(v.markdown, MAX_MARKDOWN_CHARS));
+  ensure(isRecord(v) && v.kind === kind);
+  ensure(text(v.id, 128) && v.id.length > 0);
+  ensure(revision(v.revision));
+  ensure(count(v.updated_at_ms));
+  ensure(text(v.markdown, MAX_MARKDOWN_CHARS));
   ensure(v.problem === null || text(v.problem, 65_536));
   // A stored document that no longer parses has no fields; the text and the reason are still shown.
-  ensure(v.fields === null ? v.problem !== null : v.problem === null);
+  ensure((v.fields === null) === (v.problem !== null));
   return { kind, id: v.id, revision: v.revision, updated_at_ms: v.updated_at_ms, markdown: v.markdown, fields: v.fields === null ? null : FIELDS[kind](v.fields), problem: v.problem };
 }
 export function adaptDocumentList<K extends DocumentKind>(kind: K, v: unknown): DocumentList<K> {
@@ -123,11 +140,19 @@ export function adaptSnapshot(v: unknown): ProfileSnapshot {
   return { revision: v.revision, active_digest: v.active_digest };
 }
 export function adaptSelectionDefaults(v: unknown): { revision: string; selection_defaults: SelectionDefaults } {
-  ensure(isRecord(v) && revision(v.revision) && isRecord(v.selection_defaults));
+  ensure(isRecord(v) && revision(v.revision));
+  ensure(isRecord(v.selection_defaults));
   const d = v.selection_defaults;
-  ensure(count(d.max_attempts) && Array.isArray(d.fallback_on) && d.fallback_on.every(reason => FALLBACK_REASONS.includes(reason as FallbackReason)) && count(d.max_lineage_elapsed_ms) && count(d.observation_max_age_ms));
-  ensure(typeof d.allow_unknown_availability === "boolean" && (d.unknown_cost === "allow_bounded" || d.unknown_cost === "deny") && typeof d.require_complete_accounting === "boolean" && typeof d.require_hard_cost_enforcement === "boolean");
-  ensure((d.max_cost_microunits === null || count(d.max_cost_microunits)) && (d.currency === null || text(d.currency, 16)));
+  ensure(count(d.max_attempts));
+  ensure(Array.isArray(d.fallback_on) && d.fallback_on.every(reason => FALLBACK_REASONS.includes(reason as FallbackReason)));
+  ensure(count(d.max_lineage_elapsed_ms));
+  ensure(count(d.observation_max_age_ms));
+  ensure(typeof d.allow_unknown_availability === "boolean");
+  ensure(d.unknown_cost === "allow_bounded" || d.unknown_cost === "deny");
+  ensure(typeof d.require_complete_accounting === "boolean");
+  ensure(typeof d.require_hard_cost_enforcement === "boolean");
+  ensure(d.max_cost_microunits === null || count(d.max_cost_microunits));
+  ensure(d.currency === null || text(d.currency, 16));
   return { revision: v.revision, selection_defaults: {
     max_attempts: d.max_attempts, fallback_on: d.fallback_on as FallbackReason[], max_lineage_elapsed_ms: d.max_lineage_elapsed_ms, observation_max_age_ms: d.observation_max_age_ms,
     allow_unknown_availability: d.allow_unknown_availability, unknown_cost: d.unknown_cost, require_complete_accounting: d.require_complete_accounting,
@@ -135,7 +160,11 @@ export function adaptSelectionDefaults(v: unknown): { revision: string; selectio
   } };
 }
 export function adaptProfileLimits(v: unknown): { revision: string; limits: ProfileLimits } {
-  ensure(isRecord(v) && revision(v.revision) && isRecord(v.limits) && isRecord(v.limits.documents) && count(v.limits.snapshots_kept) && count(v.limits.operations_kept) && (v.limits.refusals_kept === undefined || count(v.limits.refusals_kept)));
+  ensure(isRecord(v) && revision(v.revision));
+  ensure(isRecord(v.limits) && isRecord(v.limits.documents));
+  ensure(count(v.limits.snapshots_kept));
+  ensure(count(v.limits.operations_kept));
+  ensure(v.limits.refusals_kept === undefined || count(v.limits.refusals_kept));
   const documents = {} as ProfileLimits["documents"];
   for (const key of DOCUMENT_LIMIT_KEYS) { const value = v.limits.documents[key]; ensure(count(value)); documents[key] = value; }
   // A save replaces the whole set, so a limit that is read is kept and sent back.
@@ -171,17 +200,31 @@ export async function saveProfileLimits(request: Fence & { limits: ProfileLimits
 export type ModelSuggestion = { provider: string; model: string; source: string | null; observed_at: string | null };
 /** `GET /api/settings/model-suggestions` answers `{harnesses: [{harness, models}]}`; this is the models by harness. */
 export type ModelSuggestions = Record<string, ModelSuggestion[]>;
+function modelSuggestion(value: unknown): ModelSuggestion | undefined {
+  if (!isRecord(value)) return;
+  const { provider, model, source, observed_at } = value;
+  if (!text(provider, 256)) return;
+  if (!text(model, 256) || !model) return;
+  return { provider, model, source: text(source, 256) ? source : null, observed_at: text(observed_at, 64) ? observed_at : null };
+}
+
+function collectModels(entry: unknown, out: ModelSuggestions) {
+  if (!isRecord(entry)) return;
+  if (!text(entry.harness, 128) || !Array.isArray(entry.models)) return;
+  const models = out[entry.harness] ??= [];
+  for (const value of entry.models.slice(0, MAX_DOCUMENTS)) {
+    const suggestion = modelSuggestion(value);
+    if (!suggestion) continue;
+    const known = models.some(m => m.provider === suggestion.provider && m.model === suggestion.model);
+    if (!known) models.push(suggestion);
+  }
+}
+
 /** Suggestions never gate anything, so an entry this page cannot read is left out instead of failing the read. */
 export function adaptModelSuggestions(v: unknown): ModelSuggestions {
   const out: ModelSuggestions = {};
-  if (!isRecord(v) || !Array.isArray(v.harnesses)) return out;
-  for (const entry of v.harnesses.slice(0, 64)) {
-    if (!isRecord(entry) || !text(entry.harness, 128) || !Array.isArray(entry.models)) continue;
-    const models = out[entry.harness] ??= [];
-    for (const m of entry.models.slice(0, MAX_DOCUMENTS)) {
-      if (!isRecord(m) || !text(m.provider, 256) || !text(m.model, 256) || !m.model || models.some(known => known.provider === m.provider && known.model === m.model)) continue;
-      models.push({ provider: m.provider, model: m.model, source: text(m.source, 256) ? m.source : null, observed_at: text(m.observed_at, 64) ? m.observed_at : null });
-    }
+  if (isRecord(v) && Array.isArray(v.harnesses)) {
+    for (const entry of v.harnesses.slice(0, 64)) collectModels(entry, out);
   }
   return out;
 }
