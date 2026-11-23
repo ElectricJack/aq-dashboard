@@ -30,9 +30,21 @@ function draftFor(record:ActionContext,author:boolean):Draft {const n=author?und
 /** Fields the edit dialogs submit; compared field by field after a conflict reload (WDR-01). */
 type EditField="title"|"body"|"acceptance"|"storyPoints"|"labels"|"category";
 const EDIT_FIELD_LABEL:Record<EditField,string>={title:"Title",body:"Description",acceptance:"Acceptance criteria",storyPoints:"Story points",labels:"Labels",category:"Category"};
-const editFields=(k:ActionKind):EditField[]=>k==="task.edit"?["title","body","acceptance","storyPoints","labels"]:k==="knowledge.correct"?["title","body","labels","category"]:[];
+function editFields(kind: ActionKind): EditField[] {
+  switch (kind) {
+    case "task.edit": return ["title", "body", "acceptance", "storyPoints", "labels"];
+    case "knowledge.correct": return ["title", "body", "labels", "category"];
+    default: return [];
+  }
+}
 const labelSet=(v:string)=>[...new Set(v.split(",").map(x=>x.trim()).filter(Boolean))].join(", ");
-const fieldValue=(d:Draft,f:EditField)=>f==="labels"?labelSet(d.labels):f==="storyPoints"?d.storyPoints.trim():d[f];
+function fieldValue(draft: Draft, field: EditField): string {
+  switch (field) {
+    case "labels": return labelSet(draft.labels);
+    case "storyPoints": return draft.storyPoints.trim();
+    default: return draft[field];
+  }
+}
 /** What "Reload current versions" did to the draft: fields refreshed from AQ, and fields both sides changed. */
 type Rebased={version:string;refreshed:EditField[];overlapping:{field:EditField;current:string}[]};
 /**
@@ -44,14 +56,26 @@ type Rebased={version:string;refreshed:EditField[];overlapping:{field:EditField;
  *   with "Use AQ's value", so the user decides with both values in view before resubmitting.
  * Labels edited back to the original set count as unchanged (and are again left out of the request).
  */
-function rebase(draft:Draft,before:Draft,after:Draft,fields:EditField[]):{draft:Draft;refreshed:EditField[];overlapping:Rebased["overlapping"]}{
-  const next={...draft},refreshed:EditField[]=[],overlapping:Rebased["overlapping"]=[];
-  for(const f of fields){
-    const mine=fieldValue(draft,f),was=fieldValue(before,f),now=fieldValue(after,f);
-    if(mine===was||(f==="labels"&&!draft.labelsEdited)){if(now!==was)refreshed.push(f);next[f]=after[f];if(f==="labels")next.labelsEdited=false;}
-    else if(now!==was&&now!==mine)overlapping.push({field:f,current:after[f]});
+function rebase(draft: Draft, before: Draft, after: Draft, fields: EditField[]): { draft: Draft; refreshed: EditField[]; overlapping: Rebased["overlapping"] } {
+  const next = { ...draft };
+  const refreshed: EditField[] = [];
+  const overlapping: Rebased["overlapping"] = [];
+  for (const field of fields) {
+    const mine = fieldValue(draft, field);
+    const original = fieldValue(before, field);
+    const current = fieldValue(after, field);
+    const unchangedInDraft = mine === original || (field === "labels" && !draft.labelsEdited);
+    if (unchangedInDraft) {
+      if (current !== original) refreshed.push(field);
+      next[field] = after[field];
+      if (field === "labels") next.labelsEdited = false;
+      continue;
+    }
+    if (current !== original && current !== mine) {
+      overlapping.push({ field, current: after[field] });
+    }
   }
-  return {draft:next,refreshed,overlapping};
+  return { draft: next, refreshed, overlapping };
 }
 type ActionFields = { payload: Record<string, unknown>; reason?: string };
 
