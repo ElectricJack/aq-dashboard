@@ -10,6 +10,10 @@ import styles from "./Inspector.module.css";
 
 export const ATTEMPTS_PREVIEW = 3;
 
+function attemptProfile(attempt: TaskAttempt, holding: TaskExecution | null | undefined) {
+  return attempt.ran_with ?? (holding?.attempt_id === attempt.attempt_id ? holding.ran_with : undefined);
+}
+
 /**
  * Attempts from the history read (item 4): the holding attempt first, then the rest as AQ lists them. `holding` is the
  * work read's attempt: it carries what that attempt ran with, which the history read does not.
@@ -25,16 +29,14 @@ export function TaskAttempts({ query, linkSearch, holding }: { query: ReturnType
   return <>
     <RetainedNotice query={query} />
     {!sessions.enabled && <NotOffered what="Session details" reason={sessions.reason} />}
-    <ol className={styles.attempts} aria-label="Attempts">{shown.map(a => <AttemptRow key={a.attempt_id} attempt={a} linkSearch={linkSearch} sessions={sessions.enabled} ranWith={a.ran_with ?? (holding?.attempt_id === a.attempt_id ? holding.ran_with : undefined)} />)}</ol>
+    <ol className={styles.attempts} aria-label="Attempts">{shown.map(a => <AttemptRow key={a.attempt_id} attempt={a} linkSearch={linkSearch} sessions={sessions.enabled} ranWith={attemptProfile(a, holding)} />)}</ol>
     <ShowAll shown={ATTEMPTS_PREVIEW} total={page.attempts.length} noun="attempts" expanded={all} onShowAll={setAll} />
     {page.attempts_truncated && <p className={styles.meta}>AQ recorded more than {page.attempts.length} attempts; only these are shown.</p>}
   </>;
 }
 
 function AttemptRow({ attempt: a, linkSearch, sessions, ranWith }: { attempt: TaskAttempt; linkSearch: string; sessions: boolean; ranWith?: RanWith }) {
-  const session = useAttemptSession(a.session_id, sessions), s = session.data;
-  // What the attempt ran with says more than the session's profile (role, level, reasoning), so it replaces that line's first part.
-  const profile = s && !ranWith ? [["provider", s.profile.provider], ["model", s.profile.model], ["harness", s.profile.harness]] as const : null;
+  const session = useAttemptSession(a.session_id, sessions);
   return <li className={styles.attempt} data-attempt={a.attempt_id}>
     <p className={styles.attemptHead}>
       <span>Attempt</span> <IdValue id={a.attempt_id} label="attempt ID" />
@@ -43,15 +45,27 @@ function AttemptRow({ attempt: a, linkSearch, sessions, ranWith }: { attempt: Ta
     </p>
     {ranWith && <RanWithLine ranWith={ranWith} />}
     {/* Profile and times share one metadata line (v1 density, 2026-11-06). */}
-    {sessions && <p className={styles.meta}>{profile
-      ? <span data-attempt-profile="">{profile.map(([name, value], i) => <span key={name}>{i > 0 && " · "}{value ?? `${name} not reported`}</span>)}</span>
-      : s ? null : session.isError ? "Session details unavailable." : "Reading session details…"}
-      {s && <span data-attempt-times="">{profile && " · "}
-        {s.lifecycle?.startedAt ? <>Started <Ago at={s.lifecycle.startedAt} /></> : "Start not recorded"}
-        {" · "}{s.lifecycle?.stoppedAt ? <>Stopped <Ago at={s.lifecycle.stoppedAt} /></> : "No stop recorded"}
-      </span>}
-    </p>}
+    {sessions && <AttemptMetadata session={session} ranWith={ranWith} />}
     <p className={styles.agentLinks}><span>Session</span> <IdValue id={a.session_id} label="session ID" />
       <Link to={{ pathname: `/agents/${encodeURIComponent(a.session_id)}`, search: linkSearch }} aria-label={`Open session ${a.session_id.slice(0, 8)}`}>Open session</Link></p>
   </li>;
+}
+
+function AttemptMetadata({ session, ranWith }: { session: ReturnType<typeof useAttemptSession>; ranWith: RanWith | undefined }) {
+  const s = session.data;
+  // What the attempt ran with says more than the session's profile (role, level, reasoning), so it replaces that line's first part.
+  const profile = s && !ranWith ? [["provider", s.profile.provider], ["model", s.profile.model], ["harness", s.profile.harness]] as const : null;
+  return <p className={styles.meta}>{profile
+      ? <span data-attempt-profile="">{profile.map(([name, value], i) => <span key={name}>{i > 0 && " · "}{value ?? `${name} not reported`}</span>)}</span>
+      : s ? null : session.isError ? "Session details unavailable." : "Reading session details…"}
+      {s && <AttemptTimes s={s} separated={Boolean(profile)} />}
+    </p>;
+}
+
+
+function AttemptTimes({ s, separated }: { s: NonNullable<ReturnType<typeof useAttemptSession>["data"]>; separated: boolean }) {
+  return <span data-attempt-times="">{separated && " · "}
+        {s.lifecycle?.startedAt ? <>Started <Ago at={s.lifecycle.startedAt} /></> : "Start not recorded"}
+        {" · "}{s.lifecycle?.stoppedAt ? <>Stopped <Ago at={s.lifecycle.stoppedAt} /></> : "No stop recorded"}
+      </span>;
 }
