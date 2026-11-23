@@ -25,6 +25,10 @@ function holdFollowingReads(first: PageOptions, following: PageOptions) {
   const gate = new Promise<void>(resolve => { release = resolve; });
   return { release, options: async (n: number) => { if (n === 1) return first; await gate; return following; } };
 }
+async function tailFrames(o: PageOptions, reads: number, after: number) {
+  return o.notRetained || (reads > 1 && !o.gap) ? [] : [await frame(o.gap ? after + 2 : 1, o.text ?? "hello <img src=x>\x1b[2J")];
+}
+
 function setup(options: (n: number) => PageOptions | Promise<PageOptions> = () => ({})) {
   const expires = 25000;
   let subscription = "", reads = 0, watches = 0;
@@ -45,7 +49,7 @@ function setup(options: (n: number) => PageOptions | Promise<PageOptions> = () =
       const after = Number(url.searchParams.get("after_sequence"));
       return HttpResponse.json({ terminal, subscription_id: subscription, session_revision: 1, expires_at_ms: expires, server_time_ms: 10000, last_observed_at_ms: 9999,
         availability: o.notRetained ? "not_retained" : "resident_tail", initial_incomplete: true, grid: null, disconnected: o.disconnected ?? false,
-        frames: o.notRetained || (reads > 1 && !o.gap) ? [] : [await frame(o.gap ? after + 2 : 1, o.text ?? "hello <img src=x>\x1b[2J")],
+        frames: await tailFrames(o, reads, after),
         gaps: o.gap ? [{ terminal, first_missing: after + 1, last_missing: after + 1 }] : [], next_sequence: o.notRetained ? after : o.gap ? after + 2 : Math.max(1, after), more: true,
       }, { headers });
     }),
