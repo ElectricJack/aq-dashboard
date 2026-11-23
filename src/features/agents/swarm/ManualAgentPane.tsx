@@ -33,7 +33,7 @@ export function ManualAgentPane({agent}:{agent:AgentView}){
  const m=agent.manual!,manual=useManualAgents();const [params,setParams]=useSearchParams();const focused=params.get('focus')==='terminal';
  const { busy, error, run } = useManualAction(manual);
  const stop = () => run(service => service.stop(m.id), 'Stop could not be confirmed. Retry to check the same agent.');
- const retry = () => run(service => service.launch(m.node_id, m.project_id, m.id, m.spec.intelligence_profile), 'Launch is still awaiting confirmation.');
+ const retry = () => run(service => service.launch({ node: m.node_id, project: m.project_id, id: m.id, intelligence: m.spec.intelligence_profile }), 'Launch is still awaiting confirmation.');
  return <><header className={styles.manualHead}><ManualIdentity m={m} />
  <div className={styles.manualActions}>{(focused||m.status==='running')&&<ActionButton onClick={()=>setParams(p => focusSearch(p, focused),{replace:true})}>{focused?'Back to graph':'Expand terminal'}</ActionButton>}{m.uncertain?<ActionButton disabled={busy} onClick={()=>void retry()}>Retry same launch</ActionButton>:!['stopped','failed'].includes(m.status)&&<ActionButton disabled={busy||m.status==='stopping'} onClick={()=>void stop()}>{m.status==='stopping'?'Stopping…':'Stop agent'}</ActionButton>}</div>
 </header>
