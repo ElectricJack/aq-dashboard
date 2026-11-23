@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listInternalRuns, readInternalRun, retryInternalRun, type InternalRunAttempt, type InternalRunTranscript, type TranscriptItem } from "../../api/internalWork";
+import { listInternalRuns, readInternalRun, retryInternalRun, type InternalRunData, type InternalRunAttempt, type InternalRunTranscript, type TranscriptItem } from "../../api/internalWork";
 import { queryKey } from "../../api/queryKeys";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
@@ -11,8 +11,13 @@ const AGENT_PURPOSE = "playbook_compilation";
 const WAY: Record<string, string> = { api: "API", login: "logged-in harness" };
 export function duration(ms: number) { return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`; }
 const reasonText = (reason: string | null) => (reason ?? "").replaceAll("_", " ");
+function failureText(reason?: string | null, detail?: string) {
+  const reasonLabel = reasonText(reason ?? null);
+  return detail ? `${reasonLabel} - ${detail}` : reasonLabel;
+}
+
 function Attempt({ attempt }: { attempt: InternalRunAttempt }) {
-  return <li>{attempt.provider} · {attempt.model} ({WAY[attempt.way]}), {duration(attempt.elapsed_ms)}: {attempt.reason ? `${reasonText(attempt.reason)}${attempt.detail ? ` - ${attempt.detail}` : ""}` : "answered"}</li>;
+  return <li>{attempt.provider} · {attempt.model} ({WAY[attempt.way]}), {duration(attempt.elapsed_ms)}: {attempt.reason ? failureText(attempt.reason, attempt.detail) : "answered"}</li>;
 }
 
 const REDACTION = "[credential redacted]";
@@ -53,22 +58,53 @@ function Steps({ transcript, position, total }: { transcript: InternalRunTranscr
   </details>;
 }
 
-/** The newest internal run for one item: what was asked, who answered, how long it took, the answer or the error, and Retry on a failure. Renders nothing when there is no run. */
-export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affectedKind: string; affectedId: string; /** How often to re-read a queued or running run; only tests change it. */ pollMs?: number }) {
+function showTranscripts(run: InternalRunData | undefined, asked: string | null) {
+  if (!run || !["answered", "failed"].includes(run.status)) return false;
+  return run.purpose === AGENT_PURPOSE || asked === run.id;
+}
+
+function useTranscripts(run?: InternalRunData) {
+  const { queryContext } = useSession();
+  // The list never carries transcripts; the read of one run does, once the run has ended. It is read only for an agent run, or when the owner opens the run's details, never eagerly for every run.
+  const [asked, setAsked] = useState<string | null>(null);
+  const id = run?.id ?? "";
+  const detail = useQuery({ queryKey: queryKey(queryContext, "internal-run-read", { id }), queryFn: ({ signal }) => readInternalRun(id, signal),
+    enabled: showTranscripts(run, asked), retry: false });
+  const transcripts = detail.data?.transcripts ?? [];
+  return { setAsked, transcripts };
+}
+
+function nextPoll(run: InternalRunData | undefined, interval: number) {
+  return run && ["queued", "running"].includes(run.status) ? interval : false;
+}
+
+function useInternalRun(affectedKind: string, affectedId: string, pollMs: number) {
   const { queryContext } = useSession();
   const client = useQueryClient();
   const params = { affected_kind: affectedKind, affected_id: affectedId, limit: 1 };
   const key = queryKey(queryContext, "internal-run", params);
   const query = useQuery({ queryKey: key, queryFn: ({ signal }) => listInternalRuns(params, signal), retry: false,
-    refetchInterval: current => ["queued", "running"].includes(current.state.data?.runs[0]?.status ?? "") ? pollMs : false });
+    refetchInterval: current => nextPoll(current.state.data?.runs[0], pollMs) });
   const retry = useMutation({ mutationFn: retryInternalRun, onSuccess: () => client.invalidateQueries({ queryKey: key }) });
   const run = query.data?.runs[0];
-  // The list never carries transcripts; the read of one run does, once the run has ended. It is read only for an agent run, or when the owner opens the run's details, never eagerly for every run.
-  const [asked, setAsked] = useState<string | null>(null);
-  const ended = run?.status === "answered" || run?.status === "failed";
-  const detail = useQuery({ queryKey: queryKey(queryContext, "internal-run-read", { id: run?.id ?? "" }), queryFn: ({ signal }) => readInternalRun(run!.id, signal),
-    enabled: ended && (run?.purpose === AGENT_PURPOSE || asked === run?.id), retry: false });
-  const transcripts = detail.data?.transcripts ?? [];
+  const { setAsked, transcripts } = useTranscripts(run);
+  return { query, retry, run, setAsked, transcripts };
+}
+
+function RunOutcome({ run }: { run: InternalRunData }) {
+  return <>
+    {run.status === "answered" && <>
+      <p className={styles.meta}>Answered by {run.provider} · {run.model} ({WAY[run.way ?? "api"]}) in {duration(run.elapsed_ms ?? 0)}</p>
+      <pre className={styles.pre} aria-label="Answer">{typeof run.answer === "string" ? run.answer : JSON.stringify(run.answer, null, 2)}</pre>
+    </>}
+    {run.status === "failed" && <p className={styles.failed} role="alert">Failed: {failureText(run.reason, run.detail)}</p>}
+    {(run.status === "queued" || run.status === "running") && <p className={styles.meta}>{run.status === "queued" ? "Waiting for a model." : "A model is working on it."}</p>}
+  </>;
+}
+
+/** The newest internal run for one item: what was asked, who answered, how long it took, the answer or the error, and Retry on a failure. Renders nothing when there is no run. */
+export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affectedKind: string; affectedId: string; /** How often to re-read a queued or running run; only tests change it. */ pollMs?: number }) {
+  const { query, retry, run, setAsked, transcripts } = useInternalRun(affectedKind, affectedId, pollMs);
   if (query.isError) return <p className={styles.meta} role="status">Internal work could not be loaded.</p>;
   if (!run) return null;
   return <section className={styles.run} aria-label="Internal work">
@@ -81,12 +117,7 @@ export function InternalRun({ affectedKind, affectedId, pollMs = 2000 }: { affec
       <pre className={styles.pre}>{run.instructions}</pre>
       <pre className={styles.pre}>{run.input}</pre>
     </details>
-    {run.status === "answered" && <>
-      <p className={styles.meta}>Answered by {run.provider} · {run.model} ({WAY[run.way ?? "api"]}) in {duration(run.elapsed_ms ?? 0)}</p>
-      <pre className={styles.pre} aria-label="Answer">{typeof run.answer === "string" ? run.answer : JSON.stringify(run.answer, null, 2)}</pre>
-    </>}
-    {run.status === "failed" && <p className={styles.failed} role="alert">Failed: {reasonText(run.reason ?? null)}{run.detail ? ` - ${run.detail}` : ""}</p>}
-    {(run.status === "queued" || run.status === "running") && <p className={styles.meta}>{run.status === "queued" ? "Waiting for a model." : "A model is working on it."}</p>}
+    <RunOutcome run={run} />
     {transcripts.map((transcript, index) => <Steps key={transcript.candidate_index} transcript={transcript} position={index + 1} total={transcripts.length} />)}
     {run.attempts.length > 0 && <ul className={styles.attempts} aria-label="Attempts">{run.attempts.map((attempt, index) => <Attempt key={index} attempt={attempt} />)}</ul>}
     {run.status === "failed" && <div className={styles.actions}>
