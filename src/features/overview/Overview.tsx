@@ -355,7 +355,7 @@ function overviewGantt(scope: Scope, bootstrap: ReturnType<typeof useSession>["b
     runningProjects={runningProjects} showOffline={!query.data} />;
 }
 
-function PendingOverview({ query, search, gantt }: OverviewDisplay) {
+function renderPendingOverview({ query, search, gantt }: OverviewDisplay) {
   if (!query.isError) return (
     <div className={styles.layout}>
       <OverviewHeader>Checking what needs you…</OverviewHeader>
@@ -392,9 +392,10 @@ export function Overview() {
   const query = useOverviewRead(scope);
   if (!query.data && unavailableProject(scope.kind, query.error)) return <ProjectUnavailable />;
   const gantt = overviewGantt(scope, bootstrap, query);
-  if (!query.data) return <PendingOverview query={query} search={search} gantt={gantt} />;
-  return <OverviewData query={query} data={query.data} search={search} gantt={gantt}
-    taskContributions={taskContributions} canOpenWork={bootstrap.capability("tasks.read").enabled} />;
+  // Keep the mounted page header, including its active supervisor and task buttons, across the first read.
+  const display = { query, search, gantt };
+  if (!query.data) return renderPendingOverview(display);
+  return renderOverviewData({ ...display, data: query.data, taskContributions, canOpenWork: bootstrap.capability("tasks.read").enabled });
 }
 
 function WorkCounts({ counts, needsYou }: { counts: OverviewView["counts"]; needsYou: NeedsYou }) {
@@ -456,7 +457,7 @@ function RecentOutcomes({ outcomes, complete, serverTime, search }: {
   );
 }
 
-function OverviewData({ query, data, search, gantt, taskContributions, canOpenWork }: OverviewDisplay & {
+function renderOverviewData({ query, data, search, gantt, taskContributions, canOpenWork }: OverviewDisplay & {
   data: Read<OverviewView>; taskContributions: boolean; canOpenWork: boolean;
 }) {
   const { view, serverTime, coverage } = data;
