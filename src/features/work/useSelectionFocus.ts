@@ -1,15 +1,16 @@
 import { useEffect, useRef } from "react";
+import type { GraphNode } from "../../api/adapters/humanGraph";
 import { useMediaQuery } from "../../components/useMediaQuery";
-import { pathFor } from "../knowledge/HumanNodeWorkspace";
+import { pathFor } from "../knowledge/recordRoutes";
 import inspectorStyles from "../knowledge/HumanNodeWorkspace.module.css";
 
 type FocusMode = { id?: string; graph: boolean; gantt: boolean; phone: boolean };
 
-function selectionTarget(element: HTMLElement, id: string | undefined, graph: boolean, restore?: string) {
-  if (id && !graph) return element.querySelector<HTMLElement>(`[data-work-inspector] .${inspectorStyles.detail}:not([aria-busy=true]) h2[data-inspector-title]`);
-  if (restore) return [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(link => new URL(link.href).pathname === pathFor("task", restore));
+type TargetView = {kind:GraphNode["kind"];heading:string};
+function selectionTarget(element: HTMLElement, view: TargetView, mode: FocusMode, restore?: string) {
+  if (mode.id && !mode.graph) return element.querySelector<HTMLElement>(view.heading);
+  if (restore) return [...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(link => new URL(link.href).pathname === pathFor(view.kind, restore));
 }
-
 function focusWhenAvailable(element: HTMLElement, find: () => HTMLElement | null | undefined, options: FocusOptions) {
   function focus() {
     const target = find();
@@ -30,8 +31,9 @@ function restoreFocus(mode: FocusMode, previous: { id?: string; graph: boolean }
   if (!mode.id || mode.graph) return previous.id;
 }
 
-export function useSelectionFocus({ id, graph, gantt, phone }: FocusMode) {
-  const stacked = useMediaQuery("(max-width: 999px)");
+function useSelectedRecordFocus(mode: FocusMode, view: TargetView, stacked?:boolean) {
+  const {id, graph, gantt, phone} = mode;
+  const {kind,heading} = view;
   const workspace = useRef<HTMLDivElement>(null), previous = useRef<{ id?: string; graph: boolean }>({ graph: false }), mounted = useRef(false);
   useEffect(() => {
     const before = previous.current; previous.current = { id, graph };
@@ -42,13 +44,20 @@ export function useSelectionFocus({ id, graph, gantt, phone }: FocusMode) {
     // Selection focuses its loaded heading; Back restores the previously selected row/node.
     // Phone graph: a node tap keeps the graph open, so focus stays on the tapped node.
     const restore = restoreFocus({ id, graph, gantt, phone }, before);
-    const options: FocusOptions = { preventScroll: gantt && !stacked, ...(arrival ? { focusVisible: false } : {}) };
-    return focusWhenAvailable(element, () => selectionTarget(element, id, graph, restore), options);
-  }, [id, graph, gantt, phone, stacked]);
+    const options: FocusOptions = {...(stacked===undefined?{}:{preventScroll:gantt&&!stacked}),...(arrival?{focusVisible:false}:{})};
+    return focusWhenAvailable(element, () => selectionTarget(element, {kind,heading}, {id,graph,gantt,phone}, restore), options);
+  }, [id, graph, gantt, phone, stacked, kind, heading]);
 
   return workspace;
 }
 
+export function useSelectionFocus(mode: FocusMode) {
+  const stacked = useMediaQuery("(max-width: 999px)");
+  return useSelectedRecordFocus(mode, {kind:"task",heading:`[data-work-inspector] .${inspectorStyles.detail}:not([aria-busy=true]) h2[data-inspector-title]`},stacked);
+}
+export function useNodeFocus(mode: Omit<FocusMode,"gantt">,kind:GraphNode["kind"]) {
+  return useSelectedRecordFocus({...mode,gantt:false},{kind,heading:`.${inspectorStyles.detail}:not([aria-busy=true]) h2`});
+}
 export function useEscapeFocus(focused: boolean, update: (key: string, value: string) => void) {
   // Esc restores the split, unless a dialog, menu or field is handling the key.
   useEffect(() => {
