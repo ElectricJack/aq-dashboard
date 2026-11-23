@@ -1,8 +1,14 @@
 import { delay, http, HttpResponse } from "msw";
-import type { SaveSwarmSettings, SwarmCellLimit, SwarmMode, SwarmSettings, SwarmProviderLimit, SwarmLimitOverride, UpdateSwarmLimits } from "../api/swarmSettings";
+import type { SaveSwarmSettings, SetSwarmMode, SwarmCellLimit, SwarmMode, SwarmSettings, SwarmProviderLimit, SwarmLimitOverride, UpdateSwarmLimits } from "../api/swarmSettings";
 
-/** Labelled fixture settings; these are not observations of the connected system. */
-export function swarmSettingsHandlers(scenario?: string | null) {
+type CellKey = Pick<SwarmCellLimit, "provider" | "intelligence_class">;
+type ProviderKey = Pick<SwarmProviderLimit, "provider">;
+const sameProvider = (a: ProviderKey, b: ProviderKey) => a.provider === b.provider;
+const sameCell = (a: CellKey, b: CellKey) => sameProvider(a, b) && a.intelligence_class === b.intelligence_class;
+const fail = (status: number, message: string) => HttpResponse.json({ error: "swarm_settings", message }, { status });
+const OPERATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function catalogFor(scenario?: string | null) {
   const catalog = [
     { provider: "fixture-provider", intelligence_class: "fixture-standard", display_name: "Fixture standard" },
     { provider: "fixture-provider", intelligence_class: "fixture-advanced", display_name: "Fixture advanced" },
@@ -11,6 +17,49 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   if (scenario === "level-limits") catalog.push({ provider: "fixture-provider", intelligence_class: "standard-low", display_name: "Fixture standard, low" },
     { provider: "fixture-provider", intelligence_class: "standard-high", display_name: "Fixture standard, high" }, { provider: "anthropic", intelligence_class: "standard-high", display_name: "Fixture standard, high" });
   if (scenario === "swarm-two-providers") catalog.push({ provider: "fixture-provider-two", intelligence_class: "fixture-standard-two", display_name: "Fixture second standard" });
+  return catalog;
+}
+
+function matrixMatches(rows: unknown, catalog: CellKey[]): rows is SwarmCellLimit[] {
+  if (!Array.isArray(rows) || rows.length !== catalog.length) return false;
+  const valid = rows.filter(row => row && Number.isSafeInteger(row.limit) && row.limit >= 0);
+  return catalog.every(cell => valid.filter(row => sameCell(row, cell)).length === 1);
+}
+
+function validMatrix(body: SaveSwarmSettings, catalog: CellKey[], mode: SwarmMode) {
+  if (!matrixMatches(body.normal, catalog)) return false;
+  if (body.reduced === null) return mode !== "reduced";
+  if (!matrixMatches(body.reduced, catalog)) return false;
+  return body.reduced.every(row => row.limit <= body.normal.find(normal => sameCell(normal, row))!.limit);
+}
+
+function limitError(body: UpdateSwarmLimits, catalog: CellKey[]) {
+  if (!body.provider && !body.cell) return "Choose a limit.";
+  for (const item of [body.provider, body.cell].filter((value): value is SwarmProviderLimit => !!value)) {
+    if (!validLimit(item.limit)) return "Invalid limit.";
+    if (!catalog.some(cell => sameProvider(cell, item))) return "Unknown provider.";
+  }
+  const cell = body.cell;
+  if (cell && !catalog.some(known => sameCell(known, cell))) return "Unknown class.";
+  return null;
+}
+
+function validLimit(value: number | null) {
+  if (value === null) return true;
+  return Number.isInteger(value) && value >= 0 && value <= 4294967295;
+}
+
+function updateItem<T>(items: T[], next: T, matches: (a: T, b: T) => boolean) {
+  const index = items.findIndex(item => matches(item, next));
+  if (index < 0) items.push(next);
+  else items[index] = next;
+}
+
+type Operation = { operation_id: string; expected_revision: string };
+
+/** Labelled fixture settings; these are not observations of the connected system. */
+export function swarmSettingsHandlers(scenario?: string | null) {
+  const catalog = catalogFor(scenario);
   const storageKey = `aq-mock-swarm-settings:${scenario ?? "default"}`;
   const operations = new Map<string, { request: string; response: SwarmSettings }>();
   let revision = 1;
@@ -28,75 +77,67 @@ export function swarmSettingsHandlers(scenario?: string | null) {
   } catch { /* Fresh labelled fixture state. */ }
   const result = (): SwarmSettings => ({ revision: String(revision), active_mode: activeMode, normal, reduced, unclassified: [], provider_limits: providerLimits, cell_limits: cellLimits,
     cells: catalog.map(c => {
-      const find = (list: SwarmCellLimit[] | null) => list?.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class)?.limit ?? null;
-      const override = cellLimits.find(x => x.provider === c.provider && x.intelligence_class === c.intelligence_class);
+      const find = (list: SwarmCellLimit[] | null) => list?.find(x => sameCell(x, c))?.limit ?? null;
+      const override = cellLimits.find(x => sameCell(x, c));
       return { ...c, normal_limit: find(normal), reduced_limit: find(reduced), effective_limit: override ? override.limit : find(activeMode === "normal" ? normal : reduced), running: null, waiting: null };
     }),
   });
-  const fail = (status: number, message: string) => HttpResponse.json({ error: "swarm_settings", message }, { status });
-  const valid = (value: unknown): value is SwarmCellLimit[] => Array.isArray(value) && value.length === catalog.length && catalog.every(c => value.filter(x => x && x.provider === c.provider && x.intelligence_class === c.intelligence_class && Number.isSafeInteger(x.limit) && x.limit >= 0).length === 1);
+  async function unavailable() {
+    if (scenario === "swarm-settings-pending") await delay(3000);
+    if (scenario === "swarm-settings-conflict") return fail(409, "Settings changed; reload and try again.");
+    if (scenario === "swarm-settings-error") return fail(503, "Fixture service unavailable.");
+  }
+
+  function apply<T extends Operation>(kind: string, body: T, update: (body: T) => string | null) {
+    const previous = operations.get(body.operation_id);
+    const serialized = JSON.stringify([kind, body]);
+    if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
+    if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
+    const error = update(body);
+    if (error) return fail(400, error);
+    revision++;
+    const response = structuredClone(result());
+    operations.set(body.operation_id, { request: serialized, response });
+    sessionStorage.setItem(storageKey, JSON.stringify(response));
+    return HttpResponse.json(response);
+  }
+
+  function post<T extends Operation>(path: string, kind: string, update: (body: T) => string | null) {
+    return http.post(path, async ({ request }) => {
+      const failure = await unavailable();
+      if (failure) return failure;
+      if (kind === "limits") return apply(kind, await request.json() as T, update);
+      const body = await request.json().catch(() => null) as T | null;
+      if (!body || typeof body.operation_id !== "string") return fail(400, "Invalid operation ID.");
+      if (!OPERATION_ID.test(body.operation_id)) return fail(400, "Invalid operation ID.");
+      return apply(kind, body, update);
+    });
+  }
+
   return [
     http.get("/api/settings/swarm", () => HttpResponse.json(result())),
     http.get("/api/settings/swarm/operations/:id", ({ params }) => {
       const entry = operations.get(String(params.id));
       return entry ? HttpResponse.json(entry.response) : fail(404, "Operation not found.");
     }),
-    http.post("/api/settings/swarm", async ({ request }) => {
-      if (scenario === "swarm-settings-pending") await delay(3000);
-      if (scenario === "swarm-settings-conflict") return fail(409, "Settings changed; reload and try again.");
-      if (scenario === "swarm-settings-error") return fail(503, "Fixture service unavailable.");
-      const body = await request.json().catch(() => null) as SaveSwarmSettings | null;
-      if (!body || typeof body.operation_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.operation_id)) return fail(400, "Invalid operation ID.");
-      const previous = operations.get(body.operation_id), serialized = JSON.stringify(["save", body]);
-      if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
-      if (!valid(body.normal) || (body.reduced !== null && !valid(body.reduced)) || (activeMode === "reduced" && body.reduced === null) || body.reduced?.some(r => r.limit > body.normal.find(n => n.provider === r.provider && n.intelligence_class === r.intelligence_class)!.limit)) return fail(400, "Invalid settings matrix.");
-      normal = body.normal; reduced = body.reduced; revision++;
-      const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
-      sessionStorage.setItem(storageKey, JSON.stringify(response));
-      return HttpResponse.json(response);
+    post("/api/settings/swarm", "save", (body: SaveSwarmSettings) => {
+      if (!validMatrix(body, catalog, activeMode)) return "Invalid settings matrix.";
+      normal = body.normal;
+      reduced = body.reduced;
+      return null;
     }),
-    http.post("/api/settings/swarm/limits", async ({ request }) => {
-      if (scenario === "swarm-settings-pending") await delay(3000);
-      if (scenario === "swarm-settings-conflict") return fail(409, "Settings changed; reload and try again.");
-      if (scenario === "swarm-settings-error") return fail(503, "Fixture service unavailable.");
-      const body = await request.json() as UpdateSwarmLimits;
-      const previous = operations.get(body.operation_id), serialized = JSON.stringify(["limits", body]);
-      if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
-      if (!body.provider && !body.cell) return fail(400, "Choose a limit.");
-      for (const item of [body.provider, body.cell].filter(Boolean)) {
-        if (item!.limit !== null && (!Number.isInteger(item!.limit) || item!.limit! < 0 || item!.limit! > 4294967295)) return fail(400, "Invalid limit.");
-        if (!catalog.some(c => c.provider === item!.provider)) return fail(400, "Unknown provider.");
-      }
-      if (body.provider) {
-        const index = providerLimits.findIndex(x => x.provider === body.provider!.provider);
-        if (index >= 0) providerLimits[index] = body.provider; else providerLimits.push(body.provider);
-      }
-      if (body.cell) {
-        if (!catalog.some(c => c.provider === body.cell!.provider && c.intelligence_class === body.cell!.intelligence_class)) return fail(400, "Unknown class.");
-        const index = cellLimits.findIndex(x => x.provider === body.cell!.provider && x.intelligence_class === body.cell!.intelligence_class);
-        if (index >= 0) cellLimits[index] = body.cell; else cellLimits.push(body.cell);
-      }
-      revision++;
-      const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
-      sessionStorage.setItem(storageKey, JSON.stringify(response));
-      return HttpResponse.json(response);
+    post("/api/settings/swarm/limits", "limits", (body: UpdateSwarmLimits) => {
+      const error = limitError(body, catalog);
+      if (error) return error;
+      if (body.provider) updateItem(providerLimits, body.provider, sameProvider);
+      if (body.cell) updateItem(cellLimits, body.cell, sameCell);
+      return null;
     }),
-    http.post("/api/settings/swarm/mode", async ({ request }) => {
-      if (scenario === "swarm-settings-pending") await delay(3000);
-      if (scenario === "swarm-settings-conflict") return fail(409, "Settings changed; reload and try again.");
-      if (scenario === "swarm-settings-error") return fail(503, "Fixture service unavailable.");
-      const body = await request.json().catch(() => null) as { operation_id?: string; expected_revision?: string; active_mode?: SwarmMode } | null;
-      if (!body || typeof body.operation_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.operation_id)) return fail(400, "Invalid operation ID.");
-      const previous = operations.get(body.operation_id), serialized = JSON.stringify(["mode", body]);
-      if (previous) return previous.request === serialized ? HttpResponse.json(previous.response) : fail(409, "Operation ID already used.");
-      if (body.expected_revision !== String(revision)) return fail(409, "Settings changed; reload and try again.");
-      if ((body.active_mode !== "normal" && body.active_mode !== "reduced") || (body.active_mode === "reduced" && reduced === null)) return fail(400, "Invalid mode.");
-      activeMode = body.active_mode; revision++;
-      const response = structuredClone(result()); operations.set(body.operation_id, { request: serialized, response });
-      sessionStorage.setItem(storageKey, JSON.stringify(response));
-      return HttpResponse.json(response);
+    post("/api/settings/swarm/mode", "mode", ({ active_mode }: SetSwarmMode) => {
+      if (active_mode !== "normal" && active_mode !== "reduced") return "Invalid mode.";
+      if (active_mode === "reduced" && reduced === null) return "Invalid mode.";
+      activeMode = active_mode;
+      return null;
     }),
   ];
 }
