@@ -6,7 +6,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const origin = new URL(process.env.AQ_LIVE_URL ?? "");
 if (!["http:", "https:"].includes(origin.protocol) || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Explicit human-listener origin required");
-function required(name) { const value = process.env[name]; if (!value || value.length > 256 || /[\u0000-\u001f]/.test(value)) throw new Error(`Missing or invalid ${name}`); return value; }
+function required(name) {
+  const value = process.env[name] ?? "";
+  const validLength = value.length > 0 && value.length <= 256;
+  if (!validLength || /[\u0000-\u001f]/.test(value)) throw new Error(`Missing or invalid ${name}`);
+  return value;
+}
 const run = required("AQ_LIVE_RUN_ID"), child = required("AQ_LIVE_CHILD_RUN_ID");
 const artifact = required("AQ_LIVE_PLAYBOOK_ARTIFACT"), childArtifact = required("AQ_LIVE_CHILD_ARTIFACT");
 const output = process.env.AQ_LIVE_OUTPUT_DIR ?? await mkdtemp(join(tmpdir(), "aq-playbooks-browser-"));
