@@ -33,10 +33,16 @@ export type Surface = {
 
 const h = (page: Page, level: number, name: string | RegExp) => page.getByRole("heading", { level, name }).first();
 
+async function overviewReady(page: Page) {
+  await expect(h(page, 1, "Overview")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Capacity" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Gantt" })).toBeVisible();
+}
+
 export const SURFACES: Surface[] = [
   {
     id: "overview", assets: ["01-overview-v3.png"], path: `/overview?${scope}`,
-    ready: async (page) => { await expect(h(page, 1, "Overview")).toBeVisible(); await expect(page.getByRole("region", { name: "Capacity" })).toBeVisible(); },
+    ready: overviewReady,
   },
   {
     id: "work", assets: ["02-work-explorer-v3.png"], path: `/work/${ROOT}?${scope}&view=gantt`,
@@ -51,7 +57,7 @@ export const SURFACES: Surface[] = [
   },
   {
     id: "supervisor-docked", assets: ["04-supervisor-chat.png"], path: `/overview?${scope}`, fixture: supervisorFixture,
-    ready: async (page) => { await expect(h(page, 1, "Overview")).toBeVisible(); await expect(page.getByRole("region", { name: "Capacity" })).toBeVisible(); },
+    ready: overviewReady,
     // The dock exists only on wide desktop; tablet and phone open the full page (0002 §9).
     open: async (page, vp) => {
       if (vp.kind === "desktop") await page.getByRole("button", { name: "Open supervisor" }).click();
