@@ -76,15 +76,23 @@ export const unrecognizedLabel = (value: string) => `Unknown (${value})`;
  */
 const ENDED_ATTEMPT = new Set(["finished", "declined", "never_granted", "failed", "succeeded", "canceled", "cancelled", "expired", "stopped"]);
 export const attemptEnded = (status: string | null | undefined) => !!status && ENDED_ATTEMPT.has(status.toLowerCase());
+function inactiveStatus(state: string | null): TaskStatus {
+  switch (state) {
+    case "draft": case "completed": case "canceled": return state;
+    default: return "unknown";
+  }
+}
+
 /**
  * List status: the lifecycle state, or running when an attempt holds the task (held when that attempt has ended).
  * List pages carry no readiness, so the ended-attempt rule is the list's own; `readiness`, the task's work read
  * when it is loaded (the inspected task), wins when the server says the task is held (aq-server #99).
  */
 export function listStatus(task: { task_state: string | null }, holding: string | boolean | null | undefined, readiness?: string): TaskStatus {
-  if (task.task_state === "active" && readiness === "held") return "held";
-  if (task.task_state === "active") return !holding ? "active" : typeof holding === "string" && attemptEnded(holding) ? "held" : "running";
-  return task.task_state === "draft" || task.task_state === "completed" || task.task_state === "canceled" ? task.task_state : "unknown";
+  if (task.task_state !== "active") return inactiveStatus(task.task_state);
+  if (readiness === "held") return "held";
+  if (!holding) return "active";
+  return typeof holding === "string" && attemptEnded(holding) ? "held" : "running";
 }
 /** Rare record states keep a short inline marker on the one-line row. */
 export function recordMarker(task: { retired?: boolean; deleted?: boolean }): string | null {
