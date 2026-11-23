@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
+import { expect, test, type Page, type Request, type WebSocketRoute } from "@playwright/test";
 import bootstrap from "../../contracts/proposed/bootstrap.json" with { type: "json" };
 import requirements from "../../src/app/bundle-requirements.json" with { type: "json" };
 import { SESSIONS } from "../../src/mocks/inspectionData";
@@ -24,8 +24,7 @@ const sessions = () => Array.from({ length: 5 }, (_, i) => ({
   created_at_ms: now() - 86_400_000 * 3, updated_at_ms: now(), worker_seen_at_ms: now(),
 }));
 
-async function fixture(page: Page, hostEnabled = false) {
-  let hostShell: null | {id:string;status:string;desired_running:boolean} = null;
+function fixtureState() {
   const hostInputs: string[] = [], hostStops: string[] = [];
   const agents = sessions(), connects = new Map<string, number>(), inputs = new Map<string, string>();
   const sockets = new Map<string, WebSocketRoute>(), stops: string[] = [], sizes: number[][] = [];
@@ -34,24 +33,44 @@ async function fixture(page: Page, hostEnabled = false) {
     { role: "assistant", text: "The scope is limited to the fixture project.\nThis is a saved conversation." },
   ];
 
-  await page.route(url => url.pathname.startsWith("/api/"), async route => {
-    const request = route.request(), url = new URL(request.url()), path = url.pathname;
+  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, messages };
+}
+type FixtureState = ReturnType<typeof fixtureState>;
+
+function readEnvelope(url: URL) {
     const scope = url.searchParams.get("scope");
-    const envelope = { ...bootstrap, api_version: "dashboard-read-1", server_time: new Date().toISOString(),
+    return { ...bootstrap, api_version: "dashboard-read-1", server_time: new Date().toISOString(),
       scope: scope?.startsWith("project:") ? {kind:"project",project_id:scope.slice(8)} : {kind:"all_authorized"} };
-    let json: unknown;
-    if (path === "/api/v1/bootstrap") json = { ...envelope, data: { ...bootstrap.data,
+}
+
+function standardRead(url: URL, hostEnabled: boolean) {
+    const envelope = readEnvelope(url), path = url.pathname;
+    if (path === "/api/v1/bootstrap") return { ...envelope, data: { ...bootstrap.data,
       principal: { ...bootstrap.data.principal, display_name: "Fixture owner" },
       contracts: [{name:"dashboard-read",version:"dashboard-read-1",digest:`sha256:${"0".repeat(64)}`}],
       capabilities: [...new Set([...requirements.required_capabilities,"swarm.read",...(hostEnabled?["swarm.worker.control"]:[])])].map(name => ({ name, version: "1", enabled: ["sessions.read", "swarm.read", "tasks.create", "projects.read", ...(hostEnabled?["swarm.worker.control"]:[])].includes(name), reason:"Disabled in this fixture" })) } };
-    else if (path === "/api/v1/swarm") json = { ...envelope, data: { ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: [] })) })) } };
-    else if (path === "/api/v1/projects" || path === "/api/v1/sessions") json = { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [queuedSession], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 1, accuracy: "exact" } } };
-    else if (path.startsWith("/api/worker-terminals/") && !path.includes("/terminal/")) {
-      if (path.endsWith("/stop")) { hostStops.push(hostShell!.id); hostShell!.desired_running=false; hostShell!.status="ended"; }
-      else if (request.method()==="POST" && !hostShell?.desired_running) hostShell={id:uuid(99),status:"running",desired_running:true};
-      json={ready:true,node_name:"Fixture WSL worker",shell:hostShell};
+    if (path === "/api/v1/swarm") return { ...envelope, data: { ...SWARM_MOCKUP, machines: SWARM_MOCKUP.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: [] })) })) } };
+    if (path === "/api/v1/projects" || path === "/api/v1/sessions") return { ...envelope, data: { items: path.endsWith("projects") ? [{ id: project, label: "Fixture project" }] : [queuedSession], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 1, accuracy: "exact" } } };
+}
+
+function hostShellResponse(state: FixtureState) {
+  let shell: { id: string; status: string; desired_running: boolean } | null = null;
+  return (request: Request, path: string) => {
+    if (path.endsWith("/stop")) {
+      state.hostStops.push(shell!.id);
+      shell!.desired_running = false;
+      shell!.status = "ended";
+    } else if (request.method() === "POST" && !shell?.desired_running) {
+      shell = { id: uuid(99), status: "running", desired_running: true };
     }
-    else if (path === "/api/manual-agents") json = { sessions: agents, workers: [], slots: [], projects: [], server_time_ms: now() };
+    return { ready: true, node_name: "Fixture WSL worker", shell };
+  };
+}
+
+function manualResponse(state: FixtureState, path: string) {
+    const { agents, messages, connects, stops } = state;
+    let json: unknown;
+    if (path === "/api/manual-agents") json = { sessions: agents, workers: [], slots: [], projects: [], server_time_ms: now() };
     else if (path === "/api/manual-agents/history") json = { sessions: [{ ...agents[0], conversation_available: true }], next_cursor: null, server_time_ms: now() };
     else if (path.endsWith("/conversation")) json = { session_id: path.split("/").at(-2), project_id: project, conversation: { partial: false, messages } };
     else if (/^\/api\/manual-agents\/[^/]+$/.test(path)) {
@@ -61,10 +80,28 @@ async function fixture(page: Page, hostEnabled = false) {
     } else if (path.endsWith("/stop")) {
       const id = path.split("/")[3]!; stops.push(id); const a = agents.find(a => a.id === id)!; a.status = "stopped"; a.desired_running = false; json = a;
     } else {
-      await route.fulfill({ status: 404, json: { error: "fixture_not_supported" } }); return;
+      return { status: 404, json: { error: "fixture_not_supported" } };
     }
-    await route.fulfill({ json });
+    return { json };
+}
+
+async function routeFixtureReads(page: Page, state: FixtureState, hostEnabled: boolean) {
+  const host = hostShellResponse(state);
+  await page.route(url => url.pathname.startsWith("/api/"), async route => {
+    const request = route.request(), url = new URL(request.url()), path = url.pathname;
+    const read = standardRead(url, hostEnabled);
+    if (read) return route.fulfill({ json: read });
+    if (path.startsWith("/api/worker-terminals/") && !path.includes("/terminal/")) {
+      return route.fulfill({ json: host(request, path) });
+    }
+    await route.fulfill(manualResponse(state, path));
   });
+}
+
+async function fixture(page: Page, hostEnabled = false) {
+  const state = fixtureState();
+  const { inputs, sizes, sockets, hostInputs } = state;
+  await routeFixtureReads(page, state, hostEnabled);
   await page.routeWebSocket(/\/api\/manual-agents\/.*\/terminal\/live/, ws => {
     const id = new URL(ws.url()).pathname.split("/")[3]!; sockets.set(id, ws);
     ws.onMessage(message => {
@@ -78,7 +115,7 @@ async function fixture(page: Page, hostEnabled = false) {
     ws.onMessage(message=>{if(typeof message!=="string"){hostInputs.push(message.toString());ws.send(message);}});
     ws.send(JSON.stringify({kind:"ready",server_time_ms:now()}));ws.send(Buffer.from("\r\nFixture host shell\r\n$ "));
   });
-  return { hostInputs, hostStops, agents, connects, inputs, sockets, stops, sizes, messages };
+  return state;
 }
 
 async function noOverflow(page: Page) {
