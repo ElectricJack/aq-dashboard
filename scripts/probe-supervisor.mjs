@@ -33,7 +33,7 @@ try {
   await expect(desktop.getByRole("heading", { name: "Global supervisor", exact: true })).toBeVisible();
   const input = desktop.getByRole("textbox", { name: "Message the global supervisor", exact: true });
   const body = process.env.AQ_SUPERVISOR_PROBE_BODY ?? `${fixture ? "[Fixture] " : ""}G8 connectivity probe: please reply briefly in this conversation. Do not create work.`;
-  await input.fill(body); await desktop.getByRole("button", { name: "Send message", exact: true }).click();
+  await input.fill(body); await desktop.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].path).toBe("/api/v1/actions");
   const sent = JSON.parse(writes[0].body); expect(sent.kind).toBe("supervisor.message.send");
@@ -62,19 +62,26 @@ try {
   await desktop.getByRole("button", { name: "Dock chat", exact: true }).click();
   await expect(desktop).toHaveURL(/\/overview/); expect(writes).toHaveLength(1);
   for (const viewport of [{ width: 390, height: 844, name: "phone" }, { width: 320, height: 740, name: "compact" }, { width: 390, height: 530, name: "keyboard" }, { width: 900, height: 1000, name: "tablet" }]) {
-    const page = await browser.newPage({ viewport });
+    const keyboard = viewport.name === "keyboard";
+    const page = await browser.newPage({ viewport: keyboard ? { width: viewport.width, height: 844 } : viewport });
     page.on("pageerror", error => errors.push(error.message));
     page.on("request", req => { if (!["GET", "HEAD"].includes(req.method())) writes.push({ method: req.method(), path: new URL(req.url()).pathname, body: req.postData() }); });
-    await page.goto(new URL("/supervisor", origin).href);
+    await page.goto(new URL("/overview", origin).href);
+    await page.getByRole("button", { name: "Open supervisor", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Global supervisor", exact: true })).toBeVisible();
-    await expect(page.locator(`[data-message-id="${reply.message_id}"]`).getByText(reply.body, { exact: true })).toBeInViewport({ ratio: viewport.height < 650 ? 0.5 : 1 });
     const editor = page.getByRole("textbox", { name: "Message the global supervisor", exact: true });
+    if (keyboard) {
+      await editor.focus();
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    }
+    await expect(page.locator(`[data-message-id="${reply.message_id}"]`).getByText(reply.body, { exact: true })).toBeInViewport({ ratio: viewport.height < 650 ? 0.5 : 1 });
+
     await editor.fill(fixture ? "[Fixture] Unsent phone draft" : "Unsent phone draft");
     await editor.focus(); await editor.press("Shift+Enter");
     await editor.dispatchEvent("compositionstart"); await editor.press("Enter"); await editor.dispatchEvent("compositionend");
     await editor.fill(fixture ? "[Fixture] Unsent phone draft" : "Unsent phone draft");
     await expect(page.locator(`[data-message-id="${reply.message_id}"]`).getByText(reply.body, { exact: true })).toBeInViewport({ ratio: viewport.height < 650 ? 0.5 : 1 });
-    const send = await page.getByRole("button", { name: "Send message", exact: true }).boundingBox();
+    const send = await page.getByRole("button", { name: "Send", exact: true }).boundingBox();
     const compactNav = page.getByRole("navigation", { name: "Primary (compact)", exact: true });
     const nav = await compactNav.isVisible() ? await compactNav.boundingBox() : null;
     expect(send.y).toBeGreaterThanOrEqual(0); expect(send.y + send.height).toBeLessThanOrEqual(nav?.y ?? viewport.height);
@@ -88,12 +95,20 @@ try {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
       page.on("pageerror", error => errors.push(error.message));
       if (state === "empty") await page.route("**/api/human/conversations/*/messages?*", route => route.fulfill({ json: { contract: discovery.contract, conversation: discovery.conversation, runtime: discovery.runtime, direction: "backward", through_cursor: "0", items: [], has_more: false, next_cursor: null } }));
-      else await page.route("**/api/v1/bootstrap", route => route.fulfill({ json: { ...bootstrap, data: { ...bootstrap.data, global_supervisor: { status: "unavailable", conversation_id: discovery.conversation.id }, capabilities: bootstrap.data.capabilities.map(cap => cap.name === "supervisor.conversation" ? { ...cap, enabled: false } : cap) } } }));
+      else {
+        await page.route("**/api/v1/bootstrap", route => route.fulfill({ json: { ...bootstrap, data: { ...bootstrap.data, global_supervisor: { status: "unavailable", conversation_id: discovery.conversation.id }, capabilities: bootstrap.data.capabilities.map(cap => cap.name === "supervisor.conversation" ? { ...cap, enabled: false } : cap) } } }));
+        await page.route("**/api/supervisors", async route => {
+          const fleet = await (await route.fetch()).json();
+          const supervisors = fleet.supervisors.map(control =>
+            control.project_id === null ? { ...control, phase: "unavailable" } : control);
+          await route.fulfill({ json: { ...fleet, supervisors } });
+        });
+      }
       await page.goto(new URL("/supervisor", origin).href);
-      if (state === "empty") await expect(page.getByText("No messages have been admitted to this global conversation.", { exact: true })).toBeVisible();
+      if (state === "empty") await expect(page.getByText("No messages have been admitted to this conversation.", { exact: true })).toBeVisible();
       else {
         await page.getByRole("textbox", { name: "Message the global supervisor", exact: true }).fill("[Fixture] Draft retained while unavailable");
-        await expect(page.getByRole("button", { name: "Send message", exact: true })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
         await expect(page.getByText(/Conversation unavailable; your draft is preserved/)).toBeVisible();
       }
       await capture(page, `phone-${state}.png`); await page.close();
