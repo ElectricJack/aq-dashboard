@@ -73,7 +73,7 @@ export const SURFACES: Surface[] = [
   },
   {
     id: "agents", assets: ["08-agents-focus-desktop.png", "11-agent-mobile-v2.png"], path: "/agents/sess-07",
-    ready: async (page) => { await expect(h(page, 2, "Worker 07")).toBeAttached(); await expect(page.getByRole("status").filter({ hasText: "Watch only" })).toBeVisible(); },
+    ready: async (page) => { await expect(h(page, 2, "Worker 07")).toBeAttached(); await expect(page.getByRole("region", { name: "Interactive agent terminal" }).getByRole("status")).toHaveText("You have control"); },
   },
   {
     id: "supervisor-full", assets: ["09-supervisor-full-desktop.png", "12-supervisor-mobile.png"], path: "/supervisor", fixture: supervisorFixture,
@@ -88,21 +88,25 @@ export const SURFACES: Surface[] = [
   },
   {
     id: "settings", assets: [], path: "/settings",
-    ready: async (page) => { await expect(h(page, 1, "Settings")).toBeVisible(); await expect(page.getByRole("region", { name: "Display" })).toBeVisible(); },
+    ready: async (page) => { await expect(h(page, 1, "Settings")).toBeVisible(); await page.getByRole("tab", { name: "Display" }).click(); await expect(page.getByRole("region", { name: "Display" })).toBeVisible(); },
   },
 ];
 
 /** Labelled [Fixture] supervisor conversation injected through a fetch wrapper (as in supervisor-viewport.spec.ts). */
-export async function supervisorFixture(page: Page) {
-  const conv = "11111111-2222-4333-8444-555555555555", me = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+function supervisorMessages(conv: string, me: string) {
   const t0 = Date.parse("2026-11-03T10:00:00Z");
-  const items = Array.from({ length: 6 }, (_, i) => {
+  return Array.from({ length: 6 }, (_, i) => {
     const human = i % 2 === 0, n = Math.floor(i / 2) + 1, cursor = human ? String(n) : `${n}.1`;
     const body = human ? `[Fixture] Question ${n}: what changed in the queue?` : `[Fixture] Reply ${n}: nothing was created. This reply is long enough to wrap so the history has real height.`;
     const base = { message_id: `00000000-1111-4111-8111-${String(i + 1).padStart(12, "0")}`, thread_id: conv, conversation_id: conv, cursor, body, body_digest: "sha256:" + createHash("sha256").update(body).digest("hex"), created_at_ms: t0 + i * 60000, logical_admission: "queued", agent_receipt: null };
     return human ? { ...base, author: { kind: "human", user_id: me }, host_delivery: "delivered" }
       : { ...base, author: { kind: "supervisor", actor_id: "22222222-3333-4444-8555-666666666666", generation: 1, session_id: "33333333-4444-4555-8666-777777777777" }, host_delivery: "not_attempted", dispatch: { dispatch_id: "44444444-5555-4666-8777-888888888888", host_operation_id: "55555555-6666-4777-8888-999999999999", batch_digest: "a".repeat(64) } };
   });
+}
+
+export async function supervisorFixture(page: Page) {
+  const conv = "11111111-2222-4333-8444-555555555555", me = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const items = supervisorMessages(conv, me);
   const conversation = { id: conv, revision: "1", label: "Global supervisor" };
   const runtime = { state: "unavailable", binding: null, reason: "central_runtime_not_connected" };
   const discovery = { contract: "human-supervisor-conversation-1", conversation, runtime, limits: { body_bytes: 16384, context_refs: 16, attachments: 4, history_page: 16 } };
