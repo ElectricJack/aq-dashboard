@@ -24,7 +24,10 @@ export type AgentView = { manual?: import("../../features/agents/swarm/manualAge
   /** The node slot the attempt holds, from one; absent from a row that names none. */
   slot?: number };
 export type RanWithView = { role: string; level: string; provider: string; model: string; reasoning: string; harness: string };
-export type NodeView = { id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
+type InventoryRejectionView = { requestId: string; observedAt: string; stage: string; status: number; code: string };
+export type NodeView = {
+  capabilityObservedAt?: string | null;
+  inventoryRejection?: InventoryRejectionView | null; id: string; name: string; health: "online" | "offline" | "revoked" | "unknown";
   service: "running" | "stopped" | "draining" | "unreported"; serviceSince: string | null; backendKind: string | null; workerVersion: string;
   sandboxTemplates: string[]; agentChannel: "ready" | "unavailable" | "unreported"; lastSeenAt: string | null;
   /** `held`: slots an attempt holds for which the read names no agent (occupied minus the agents listed). */
@@ -155,6 +158,15 @@ function agent(a: SwarmAgent): AgentView {
   };
 }
 
+function inventoryRejection(raw: unknown): InventoryRejectionView | null {
+  if (!isRecord(raw)) return null;
+  const requestId = text(raw.request_id), stage = text(raw.stage), code = text(raw.code);
+  const status = num(raw.status), milliseconds = num(raw.observed_at_ms);
+  if (!requestId || !stage || !code || status === null || milliseconds === null) return null;
+  const observed = new Date(milliseconds);
+  return Number.isNaN(observed.getTime()) ? null : { requestId, stage, code, status, observedAt: observed.toISOString() };
+}
+
 function node(n: SwarmNode): NodeView {
   const slots = isRecord(n.slots) ? n.slots : { total: null, occupied: 0, idle: null };
   const agents = list<SwarmAgent>(n.agents).filter(isRecord).map(agent);
@@ -168,6 +180,8 @@ function node(n: SwarmNode): NodeView {
     sandboxTemplates: list<unknown>(n.sandbox_templates).filter((t): t is string => typeof t === "string"),
     agentChannel: oneOf(n.agent_channel, ["ready", "unavailable", "unreported"] as const, "unreported"),
     lastSeenAt: text(n.last_seen_at),
+    capabilityObservedAt: text(n.capability_observed_at),
+    inventoryRejection: inventoryRejection(n.inventory_rejection),
     // `held`: slots the server counts as occupied for which it lists no agent row.
     slots: { total: num(slots.total), occupied: num(slots.occupied) ?? 0, idle: num(slots.idle), held: Math.max(0, (num(slots.occupied) ?? 0) - agents.length) },
     holding: holds(n.holding), agents,

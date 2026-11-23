@@ -108,6 +108,24 @@ function RuntimeDetails({ node }: { node: NodeView }) {
         </DetailList>;
 }
 
+function CapabilityReporting({ node }: { node: NodeView }) {
+  const rejection = node.inventoryRejection;
+  return <section className={styles.group} aria-label="Capability reporting">
+    <h3>Capability reporting</h3>
+    <DetailList className={paneStyles.facts}>
+      <dt>Worker build</dt><dd>{node.workerVersion || "Unreported"}</dd>
+      <dt>Last heartbeat</dt><dd>{node.lastSeenAt ?? "Never received"}</dd>
+      <dt>Last accepted report</dt><dd>{node.capabilityObservedAt ?? "Unavailable"}</dd>
+      {rejection && <>
+        <dt>Latest rejection</dt>
+        <dd>HTTP {rejection.status} ({rejection.code}) at {rejection.stage.replaceAll("_", " ")}</dd>
+        <dt>Rejected at</dt><dd>{rejection.observedAt}</dd>
+        <dt>Request ID</dt><dd>{rejection.requestId}</dd>
+      </>}
+    </DetailList>
+  </section>;
+}
+
 export function WorkerInspector({ node, machine, serverTime, onClose }: {
   node: NodeView; machine: MachineView; serverTime: string; onClose(): void;
 }) {
@@ -157,6 +175,7 @@ export function WorkerInspector({ node, machine, serverTime, onClose }: {
     <div {...panelProps("diagnostics")}>
       <div className={styles.sectionBody}>
         <RuntimeDetails node={node} />
+        <CapabilityReporting node={node} />
         {canManage && <WorkerDiagnostics nodeId={node.id} />}
         <div className={styles.group}>
           <h3>Service controls</h3>
