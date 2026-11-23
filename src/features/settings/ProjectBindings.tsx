@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api/client";
-import { adaptProjectBindings, mergeProjectPages, PROJECT_PAGE_SIZE, validationLabel } from "../../api/adapters/projectBindings";
+import { adaptProjectBindings, mergeProjectPages, PROJECT_PAGE_SIZE, validationLabel, type ProjectBindingView } from "../../api/adapters/projectBindings";
 import { queryKey } from "../../api/queryKeys";
 import { levelLabel } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
@@ -11,35 +11,11 @@ import { Timestamp } from "./Timestamp";
 import styles from "./ProjectBindings.module.css";
 
 const MAX_PAGES = 4;
-export function ProjectBindings() {
-  const { bootstrap, queryContext } = useSession();
-  const capability = bootstrap.capability("projects.read");
-  const query = useInfiniteQuery({
-    queryKey: queryKey(queryContext, "project-execution-bindings", {}),
-    enabled: capability.enabled,
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam, signal }) => {
-      const params = new URLSearchParams({ limit: String(PROJECT_PAGE_SIZE) });
-      if (pageParam) params.set("after", pageParam);
-      return adaptProjectBindings(await apiGet<unknown>(`/api/projects?${params}`, signal), pageParam);
-    },
-    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined,
-    retry: false,
-  });
-  const pages = query.data?.pages;
-  let items: ReturnType<typeof mergeProjectPages> = [];
-  let pageError: unknown;
-  try { items = mergeProjectPages(pages ?? []); } catch (e) { pageError = e; }
-  const loaded = capability.enabled && !!pages && !query.isError && !pageError;
-  return <Panel title="Projects" description="Start permits queued work to launch. Stop prevents new launches; running agents may stop at their next policy check."
-    actions={loaded && <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh projects</ActionButton>}>
-    {!capability.enabled ? <p className={styles.meta}>{capability.reason}</p> : !pages || query.isError || pageError ?
-      <QueryStatus status={query.isError || pageError ? "error" : "pending"} error={query.error ?? pageError} label="project execution bindings" onRetry={() => void query.refetch()} /> : <>
-      {pages[0]?.items.length === 0 && <p className={styles.meta}>No project execution bindings configured.</p>}
-      <ul className={styles.list} aria-label="Project execution bindings">
-        {items.map(p => <li className={styles.card} key={p.id} data-project-id={p.id}>
+function ProjectCard({ p, refresh }: { p: ProjectBindingView; refresh(): Promise<unknown> }) {
+  const { queryContext } = useSession();
+  return <li className={styles.card} data-project-id={p.id}>
           <div className={styles.heading}><h3>{p.name}</h3><span className={styles.state} data-started={p.enabled && p.workerPolicy === "enabled" || undefined}>{projectState(p)}</span></div>
-          <ProjectControl key={`${p.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} project={p} onChanged={()=>query.refetch()}/>
+          <ProjectControl key={`${p.id}:${queryContext.principalId}:${queryContext.authorizationRevision}`} project={p} onChanged={refresh}/>
           {/* What a task of this project runs as when it names no role, and on when the router assigned no level (read-only). */}
           <dl className={styles.facts} aria-label={`Defaults of ${p.name}`}>
             <dt>Default role</dt><dd>{p.defaultRole}</dd>
@@ -73,10 +49,54 @@ export function ProjectBindings() {
           <p>Worker admission uses listed node IDs or configured group membership.</p>
           </details>
           </details>
-        </li>)}
+        </li>;
+}
+
+function useProjectBindings() {
+  const { bootstrap, queryContext } = useSession();
+  const capability = bootstrap.capability("projects.read");
+  const query = useInfiniteQuery({
+    queryKey: queryKey(queryContext, "project-execution-bindings", {}),
+    enabled: capability.enabled,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam, signal }) => {
+      const params = new URLSearchParams({ limit: String(PROJECT_PAGE_SIZE) });
+      if (pageParam) params.set("after", pageParam);
+      return adaptProjectBindings(await apiGet<unknown>(`/api/projects?${params}`, signal), pageParam);
+    },
+    getNextPageParam: (last, all) => all.length < MAX_PAGES ? last.next ?? undefined : undefined,
+    retry: false,
+  });
+  const pages = query.data?.pages;
+  let items: ReturnType<typeof mergeProjectPages> = [];
+  let pageError: unknown;
+  try { items = mergeProjectPages(pages ?? []); } catch (e) { pageError = e; }
+  const failed = query.isError || pageError;
+  return { query, capability, pages, pageError, items, failed };
+}
+
+function ProjectPages({ query, items, pages }: {
+  query: ReturnType<typeof useProjectBindings>["query"]; items: ProjectBindingView[]; pages: NonNullable<ReturnType<typeof useProjectBindings>["pages"]>;
+}) {
+  const capped = pages.length === MAX_PAGES && pages[MAX_PAGES - 1]!.next;
+  return <>
+      {pages[0]?.items.length === 0 && <p className={styles.meta}>No project execution bindings configured.</p>}
+      <ul className={styles.list} aria-label="Project execution bindings">
+        {items.map(p => <ProjectCard key={p.id} p={p} refresh={() => query.refetch()} />)}
       </ul>
       {query.hasNextPage && <button type="button" className={styles.more} disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load more project bindings</button>}
-      {pages.length === MAX_PAGES && pages[MAX_PAGES - 1]!.next && <p>Showing the first {MAX_PAGES * PROJECT_PAGE_SIZE} bindings. Additional bindings are not displayed.</p>}
+      {capped && <p>Showing the first {MAX_PAGES * PROJECT_PAGE_SIZE} bindings. Additional bindings are not displayed.</p>}
+  </>;
+}
+
+export function ProjectBindings() {
+  const { query, capability, pages, pageError, items, failed } = useProjectBindings();
+  const loaded = capability.enabled && Boolean(pages) && !failed;
+  return <Panel title="Projects" description="Start permits queued work to launch. Stop prevents new launches; running agents may stop at their next policy check."
+    actions={loaded && <ActionButton disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh projects</ActionButton>}>
+    {!capability.enabled ? <p className={styles.meta}>{capability.reason}</p> : !pages || failed ?
+      <QueryStatus status={failed ? "error" : "pending"} error={query.error ?? pageError} label="project execution bindings" onRetry={() => void query.refetch()} /> : <>
+      <ProjectPages query={query} items={items} pages={pages} />
     </>}
   </Panel>;
 }
