@@ -121,7 +121,7 @@ async function installBranchingFixture(page: Page) {
       });
       if (url.pathname.startsWith(path + "/") && url.pathname.endsWith("/graph")) {
         const id = url.pathname.split("/").at(-2);
-        const edges = dependencies.filter(edge => [edge.source, edge.target].includes(id));
+        const edges = dependencies.filter(edge => [edge.source, edge.target].some(endpoint => endpoint === id));
         const linked = new Set([id, ...edges.flatMap(edge => [edge.source, edge.target])]);
         return wrap({ root_id: id, nodes: tasks.filter(task => linked.has(task.id)), edges, truncated: false });
       }
