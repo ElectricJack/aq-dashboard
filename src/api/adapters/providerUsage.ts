@@ -65,58 +65,107 @@ export function usageStale(serverTime: string, observedAt: string, freshUntil: s
   return Number.isNaN(observed) || now > observed + USAGE_POLL_MS + USAGE_STALE_MARGIN_MS;
 }
 
+function check(value: unknown, issue: string): asserts value { if (!value) throw new ContractError(issue); }
+
+function reportedTime(value: unknown): boolean {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function inRange(value: unknown, maximum: number): value is number {
+  return typeof value === "number" && value >= 0 && value <= maximum;
+}
+
 function adaptWindow(win: QuotaWindow, serverTime: string): QuotaWindowView {
-  if (!isRecord(win) || typeof win.id !== 'string' || typeof win.label !== 'string' || !isRecord(win.observation) ||
-      typeof win.observation.observed_at !== 'string' || !Number.isFinite(Date.parse(win.observation.observed_at)) ||
-      typeof win.observation.fresh_until !== 'string' || !Number.isFinite(Date.parse(win.observation.fresh_until)) ||
-      (win.resets_at != null && !Number.isFinite(Date.parse(win.resets_at)))) throw new ContractError('Invalid quota window');
+  const issue = 'Invalid quota window';
+  check(isRecord(win), issue);
+  check(typeof win.id === 'string', issue);
+  check(typeof win.label === 'string', issue);
+  check(isRecord(win.observation), issue);
+  check(reportedTime(win.observation.observed_at), issue);
+  check(reportedTime(win.observation.fresh_until), issue);
+  if (win.resets_at != null) check(Number.isFinite(Date.parse(win.resets_at)), issue);
   let state: QuotaState = KNOWN_STATES.has(win.state) ? win.state : "unsupported";
   const pct = win.used_percent;
-  const validPercent = typeof pct === "number" && Number.isFinite(pct) && pct >= 0 && pct <= 100;
-  if (state === "known" && !validPercent) state = "unknown";
+  if (state === "known" && !inRange(pct, 100)) state = "unknown";
+  const reading = { observedAt: win.observation.observed_at, freshUntil: win.observation.fresh_until, quality: win.observation.quality };
   return {
     id: win.id,
     label: win.label,
     usedPercent: state === "known" ? pct! : null,
     resetsAt: win.resets_at ?? null,
     state,
-    freshness: usageStale(serverTime, win.observation.observed_at, win.observation.fresh_until, win.observation.quality) ? "stale" : "fresh",
-    observedAt: win.observation.observed_at,
-    freshUntil: win.observation.fresh_until,
-    quality: win.observation.quality,
+    freshness: freshness(serverTime, reading),
+    ...reading,
     coverage: win.observation.coverage,
   };
 }
 
 const UNKNOWN_RESETS: ResetCreditsView = { state: "unknown", availableCount: null, grants: null, freshness: "fresh", observedAt: null, freshUntil: null, quality: "unknown" };
-const validCount = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
+const validCount = (value: unknown): value is number => inRange(value, 1_000_000) && Number.isSafeInteger(value);
 function validDate(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const match = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.exec(value);
   if (!match || !Number.isFinite(Date.parse(value))) return false;
   const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  return month >= 1 && month <= 12 && day >= 1 && day <= [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!;
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function grantAvailability(grant: Record<string, unknown>) {
+  const expiresAt = validDate(grant.expires_at) ? grant.expires_at : null;
+  // An invalid supplied expiry may already have elapsed.
+  const hasValidExpiry = grant.expires_at == null || expiresAt !== null;
+  const usableNow = hasValidExpiry && typeof grant.usable_now === "boolean" ? grant.usable_now : null;
+  return { expiresAt, usableNow };
+}
+
+function grantLabel(value: unknown): string { return typeof value === "string" ? value.trim().slice(0, 120) : ""; }
+
+function resetGrant(grant: unknown) {
+  if (!isRecord(grant)) return [];
+  const label = grantLabel(grant.label);
+  if (!label) return [];
+  return [{
+    label,
+    remainingCount: validCount(grant.remaining_count) ? grant.remaining_count : null,
+    ...grantAvailability(grant),
+    clears: grantClears(grant.clears),
+  }];
+}
+
+function grantClears(values: unknown) {
+  if (!Array.isArray(values)) return [];
+  return values.filter((v): v is string => typeof v === "string" && !!v.trim()).slice(0, 16).map(v => v.trim().slice(0, 80));
+}
+
+function resetState(raw: Record<string, unknown>): ResetCreditsView["state"] {
+  if (raw.state === "known" && validCount(raw.available_count)) return "known";
+  return raw.state === "unavailable" ? "unavailable" : "unknown";
+}
+
+function resetObservation(value: unknown): value is Record<string, unknown> & { observed_at: string; fresh_until: string } {
+  return isRecord(value) && validDate(value.observed_at) && validDate(value.fresh_until);
 }
 
 function adaptResetCredits(raw: unknown, serverTime: string): ResetCreditsView {
-  if (!isRecord(raw) || !isRecord(raw.observation) || !validDate(raw.observation.observed_at) || !validDate(raw.observation.fresh_until)) return { ...UNKNOWN_RESETS };
-  const state = raw.state === "known" && validCount(raw.available_count) ? "known" : raw.state === "unavailable" ? "unavailable" : "unknown";
-  const grants = state === "known" && Array.isArray(raw.grants) ? raw.grants.slice(0, 100).flatMap((grant) => {
-    if (!isRecord(grant) || typeof grant.label !== "string" || !grant.label.trim()) return [];
-    return [{
-      label: grant.label.trim().slice(0, 120),
-      remainingCount: validCount(grant.remaining_count) ? grant.remaining_count : null,
-      expiresAt: validDate(grant.expires_at) ? grant.expires_at : null,
-      // An invalid supplied expiry may already have elapsed; do not assert usability.
-      usableNow: (grant.expires_at == null || validDate(grant.expires_at)) && typeof grant.usable_now === "boolean" ? grant.usable_now : null,
-      clears: Array.isArray(grant.clears) ? grant.clears.filter((v): v is string => typeof v === "string" && !!v.trim()).slice(0, 16).map(v => v.trim().slice(0, 80)) : [],
-    }];
-  }) : null;
-  const quality = typeof raw.observation.quality === "string" ? raw.observation.quality : "unknown";
+  if (!isRecord(raw) || !resetObservation(raw.observation)) return { ...UNKNOWN_RESETS };
+  const { observation } = raw, state = resetState(raw);
+  const grants = state === "known" && Array.isArray(raw.grants) ? raw.grants.slice(0, 100).flatMap(resetGrant) : null;
+  const quality = typeof observation.quality === "string" ? observation.quality : "unknown";
+  const reading = { observedAt: observation.observed_at, freshUntil: observation.fresh_until, quality };
   return { state, availableCount: state === "known" ? raw.available_count as number : null, grants,
-    freshness: usageStale(serverTime, raw.observation.observed_at, raw.observation.fresh_until, quality) ? "stale" : "fresh",
-    observedAt: raw.observation.observed_at, freshUntil: raw.observation.fresh_until, quality };
+    freshness: freshness(serverTime, reading), ...reading };
+}
+
+function checkProvider(p: ProviderUsage) {
+  const issue = 'Invalid provider account';
+  check(isRecord(p), issue);
+  check(p.scope === 'provider_account', issue);
+  check(typeof p.provider_id === 'string', issue);
+  check(typeof p.account_ref === 'string', issue);
+  check(typeof p.account_label === 'string', issue);
+  check(Array.isArray(p.windows), issue);
 }
 
 export function adaptProviderUsage(envelope: Envelope<ProviderUsage[]>): ProviderUsageResult {
@@ -125,11 +174,9 @@ export function adaptProviderUsage(envelope: Envelope<ProviderUsage[]>): Provide
     serverTime: envelope.server_time,
     coverage: envelope.coverage,
     providers: envelope.data.map((p) => {
-      if (!isRecord(p) || p.scope !== 'provider_account' || typeof p.provider_id !== 'string' || typeof p.account_ref !== 'string' || typeof p.account_label !== 'string' || !Array.isArray(p.windows)) throw new ContractError('Invalid provider account');
+      checkProvider(p);
       const windows = p.windows.map((w) => adaptWindow(w, envelope.server_time));
-      const preferred = windows.some((w) => w.id === p.preferred_window_id)
-        ? p.preferred_window_id ?? null
-        : null;
+      const preferred = windows.find(w => w.id === p.preferred_window_id)?.id ?? null;
       return {
         providerId: p.provider_id,
         accountRef: p.account_ref,
@@ -143,6 +190,12 @@ export function adaptProviderUsage(envelope: Envelope<ProviderUsage[]>): Provide
   };
 }
 
+function freshness(serverTime: string, reading: Pick<ResetCreditsView, "observedAt" | "freshUntil" | "quality">): Freshness {
+  const { observedAt, freshUntil, quality } = reading;
+  if (!observedAt || !freshUntil) return "fresh";
+  return usageStale(serverTime, observedAt, freshUntil, quality) ? "stale" : "fresh";
+}
+
 /** Re-evaluates freshness at a later server-anchored time, so ages keep moving between polls. */
 export function atServerTime(result: ProviderUsageResult, serverTime: string): ProviderUsageResult {
   return {
@@ -150,10 +203,10 @@ export function atServerTime(result: ProviderUsageResult, serverTime: string): P
     serverTime,
     providers: result.providers.map((p) => ({
       ...p,
-      resetCredits: p.resetCredits && { ...p.resetCredits, freshness: p.resetCredits.observedAt && p.resetCredits.freshUntil && usageStale(serverTime, p.resetCredits.observedAt, p.resetCredits.freshUntil, p.resetCredits.quality) ? "stale" : "fresh" },
+      resetCredits: p.resetCredits && { ...p.resetCredits, freshness: freshness(serverTime, p.resetCredits) },
       windows: p.windows.map((w) => ({
         ...w,
-        freshness: usageStale(serverTime, w.observedAt, w.freshUntil, w.quality) ? "stale" : "fresh",
+        freshness: freshness(serverTime, w),
       })),
     })),
   };
