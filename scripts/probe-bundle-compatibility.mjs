@@ -21,6 +21,27 @@ async function capture(name) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.screenshot({ path: join(output, name) });
 }
+function isDecisionPost(request, path) {
+  return request.method() === "POST" && path.endsWith("/resolve");
+}
+
+function graphFixture(path) {
+  if (path.endsWith("/graph")) return graphEnvelope({root_id:graphId(10),nodes:[graphNode("task")],edges:[],truncated:false});
+  if (path === `/api/human/projects/${graphProject}/tasks/${graphId(10)}`) return graphEnvelope(graphNode("task"));
+  if (path === `/api/human/projects/${graphProject}/tasks`) return graphEnvelope({ items: [{ ...graphNode("task"), title: "G12 fixture task: verify safe dashboard update" }], next_cursor: null });
+}
+
+function readFixture(path, digest) {
+  if (path === "/api/v1/bootstrap") return { ...fixture, data: { ...fixture.data, principal: { ...fixture.data.principal, id: supervisorActor, display_name: "G12 fixture owner" }, product: { ...fixture.data.product, dashboard_digest: digest }, capabilities: requirements.required_capabilities.map(name => ({ name, version: "1", enabled: enabled.has(name), reason: "Unavailable in this G12 fixture" })) } };
+  if (path === "/api/v1/projects") return { ...fixture, data: { items: [{ id: graphProject, label: "G12 fixture project" }], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 1, accuracy: "exact" } } };
+  if (path === "/api/projects") return { items: [], next_cursor: null };
+  if (path === "/api/human/conversations/global") return supervisorDiscovery;
+  if (path.endsWith(`/conversations/${supervisorDiscovery.conversation.id}/messages`)) return supervisorHistory([supervisorMessage(1, "G12 fixture: retained human message. This conversation has no connected supervisor runtime.")]);
+  if (path === "/api/reviews/decisions") return decisionPage();
+  if (path === `/api/reviews/decisions/${decisionId(1)}`) { const detail = decisionDetail(); detail.request.eligible_owners = [supervisorActor]; return detail; }
+  return graphFixture(path);
+}
+
 try {
   for (const [name, width, height] of [["desktop",1440,1000],["phone",390,844],["narrow",320,740]]) {
     page = await browser.newPage({ viewport: { width, height } }); page.setDefaultTimeout(8000);
@@ -28,19 +49,15 @@ try {
     let digest = manifestDigest; let decisions = false;
     await page.route("**/api/**", async route => {
       const request = route.request(), path = new URL(request.url()).pathname;
-      if (decisions && request.method() === "POST" && path.endsWith("/resolve")) { interceptedDecisionRefusals++; return route.fulfill({status:426,body:""}); }
-      if (request.method() !== "GET") { writes.push(path); return route.fulfill({status:503,body:'{}'}); }
-      let body;
-      if (path === "/api/v1/bootstrap") body = { ...fixture, data: { ...fixture.data, principal: { ...fixture.data.principal, id: supervisorActor, display_name: "G12 fixture owner" }, product: { ...fixture.data.product, dashboard_digest: digest }, capabilities: requirements.required_capabilities.map(name => ({ name, version: "1", enabled: enabled.has(name), reason: "Unavailable in this G12 fixture" })) } };
-      else if (path === "/api/v1/projects") body = { ...fixture, data: { items: [{ id: graphProject, label: "G12 fixture project" }], next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 1, accuracy: "exact" } } };
-      else if (path === "/api/projects") body = { items: [], next_cursor: null };
-      else if (path === "/api/human/conversations/global") body = supervisorDiscovery;
-      else if (path.endsWith(`/conversations/${supervisorDiscovery.conversation.id}/messages`)) body = supervisorHistory([supervisorMessage(1, "G12 fixture: retained human message. This conversation has no connected supervisor runtime.")]);
-      else if (path === "/api/reviews/decisions") body = decisionPage();
-      else if (path === `/api/reviews/decisions/${decisionId(1)}`) { body = decisionDetail(); body.request.eligible_owners = [supervisorActor]; }
-      else if (path.endsWith("/graph")) body = graphEnvelope({root_id:graphId(10),nodes:[graphNode("task")],edges:[],truncated:false});
-      else if (path === `/api/human/projects/${graphProject}/tasks/${graphId(10)}`) body = graphEnvelope(graphNode("task"));
-      else if (path === `/api/human/projects/${graphProject}/tasks`) body = graphEnvelope({ items: [{ ...graphNode("task"), title: "G12 fixture task: verify safe dashboard update" }], next_cursor: null });
+      if (request.method() !== "GET") {
+        if (decisions && isDecisionPost(request, path)) {
+          interceptedDecisionRefusals++;
+          return route.fulfill({status:426,body:""});
+        }
+        writes.push(path);
+        return route.fulfill({status:503,body:'{}'});
+      }
+      const body = readFixture(path, digest);
       if (body) return route.fulfill({ json: body });
       return route.fulfill({ status: 503, json: { message: "Unavailable in G12 fixture" } });
     });
@@ -92,12 +109,12 @@ try {
     await graph.getByRole("link", {name:/Implement recovery/}).click();
     await expect(page.getByRole("heading", {name:"Implement recovery",exact:true})).toBeVisible();
     if (name === "desktop") await page.getByRole("navigation", {name:"Primary",exact:true}).getByRole("link", {name:"Work",exact:true}).click();
-    else await page.getByRole("link", {name:"All tasks",exact:true}).click();
-    await expect(page.getByRole("region", {name:"1 tasks loaded",exact:true})).toBeVisible();
+    else await page.getByRole("link", {name:"Back to list",exact:true}).click();
+    await expect(page.getByRole("region", {name:"1 task loaded",exact:true})).toBeVisible();
     await expect(graph).toHaveCount(0);
     decisions = true; await page.goto(`${origin}/decisions/${decisionId(1)}`);
     const decisionNote = page.getByRole("textbox", {name:"Decision note",exact:true}); await decisionNote.fill("G12 fixture review note: preserve after upgrade refusal.");
-    await page.getByRole("button", {name:"Approve revision 1",exact:true}).click();
+    await page.getByRole("button", {name:`Approve task version ${decisionDetail().subject.task.version}`,exact:true}).click();
     await expect(notice).toContainText("Install compatible versions, then reload."); await expect(decisionNote).toHaveValue(/preserve after upgrade refusal/);
     await expect(page.getByRole("button", {name:"Retry same answer"})).toHaveCount(0);
     await capture(`decision-upgrade-${name}.png`);

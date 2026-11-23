@@ -66,22 +66,59 @@ function op(id){return {...action,scope:{kind:"project",project_id:binding.proje
 const sourceFiles=[...new Set(execFileSync("git",["ls-files","-co","--exclude-standard","src","scripts","contracts","package.json","pnpm-lock.yaml","vite.config.ts","tsconfig.json","tsconfig.app.json","tsconfig.node.json"],{encoding:"utf8"}).trim().split("\n"))].sort();
 const sourceSnapshot={};for(const file of sourceFiles)sourceSnapshot[file]=hash(await readFile(file));
 const captures=[],errors=[],unexpected=[],served=[],mutations=[];
+async function verifyServedAsset(response) {
+  const url = new URL(response.url());
+  if (url.origin !== origin.origin || !url.pathname.startsWith("/assets/")) return;
+  const name = url.pathname.slice(1);
+  const expected = manifest.files[name]?.sha256;
+  const actual = createHash("sha256").update(await response.body()).digest("hex");
+  if (!expected || expected !== actual) errors.push(`Served asset mismatch ${name}`);
+  served.push({ name, sha256: actual });
+}
+
+function readResultPage(path, state) {
+  if(path==="/api/v1/bootstrap")return {json:{...originalBootstrap,api_version:"dashboard-read-1",data:{...originalBootstrap.data,contracts:[{name:"dashboard-read",version:"dashboard-read-1",digest:"sha256:"+"a".repeat(64)},{name:"dashboard-actions",version:"dashboard-actions-1",digest:"sha256:97fdea9aa4aeae795415d53bb3a4081684416bafd6f1b44e598a8e70a51df9ce"}],principal:{id:id(900),display_name:"G7 labelled fixtures",authorization_revision:"1"},product:{version:"G7-fixture-preview",dashboard_digest:hash(manifestBytes)},capabilities:[...manifest.required_capabilities.map(name=>({name,version:"1",enabled:["results.read","results.comment","results.feedback","results.media.read"].includes(name)&&state!=="disabled",reason:"Unavailable in labelled fixture preview"})),...[]],global_supervisor:{status:"unconfigured",conversation_id:null}}}};
+  if(path==="/api/projects")return {json:{items:[],next_cursor:null}};
+  if (path === "/api/v1/results") {
+    if (state === "unavailable") return { status: 503, json: { message: "Fixture unavailable" } };
+    return { json: env({ items: state === "empty" ? [] : [detail], next_cursor: null }) };
+  }
+  if(path===`/api/v1/results/${binding.report_id}/revisions/${binding.report_revision}`)return {json:env(detail,true)};
+}
+
+function mediaContent(url) {
+  const file = files.find(item => url.pathname.includes(item.id));
+  const variant = file[url.searchParams.get("variant")];
+  return {
+    body: variant.bytes,
+    headers: {
+      "Content-Type": "image/png", "Content-Length": String(variant.bytes.length),
+      "AQ-Media-Digest": hash(variant.bytes), "AQ-Media-Receipt-Digest": artifact(file).receipt_digest,
+      "Cache-Control": "private, no-store",
+    },
+  };
+}
+
+function commentResponse(route, discussion) {
+  const request = route.request();
+  if (request.method() !== "POST") return route.fulfill({ json: env({ items: discussion.comments, next_cursor: null }, true) });
+  const body = request.postDataJSON();
+  mutations.push({ kind: "comment", body });
+  discussion.comments.push({ ...comment, id: body.operation_id, position: "2", body: body.body, anchor: body.anchor });
+  return route.fulfill({ json: op(body.operation_id) });
+}
+
 async function pageFor(viewport,state="normal"){
- const page=await browser.newPage({viewport});let comments=[structuredClone(comment)],feedback;
+ const page=await browser.newPage({viewport});const discussion = { comments: [structuredClone(comment)] }; let feedback;
  page.on("pageerror",error=>errors.push(error.message));
- page.on("response",async response=>{const url=new URL(response.url());if(url.origin===origin.origin&&url.pathname.startsWith("/assets/")){const bytes=await response.body();const name=url.pathname.slice(1);const expected=manifest.files[name]?.sha256;const actual=createHash("sha256").update(bytes).digest("hex");if(!expected||expected!==actual)errors.push(`Served asset mismatch ${name}`);served.push({name,sha256:actual});}});
+ page.on("response", verifyServedAsset);
  await page.route(`${origin.origin}/api/**`,async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname;
-  if(path==="/api/v1/bootstrap")return route.fulfill({json:{...originalBootstrap,api_version:"dashboard-read-1",data:{...originalBootstrap.data,contracts:[{name:"dashboard-read",version:"dashboard-read-1",digest:"sha256:"+"a".repeat(64)},{name:"dashboard-actions",version:"dashboard-actions-1",digest:"sha256:97fdea9aa4aeae795415d53bb3a4081684416bafd6f1b44e598a8e70a51df9ce"}],principal:{id:id(900),display_name:"G7 labelled fixtures",authorization_revision:"1"},product:{version:"G7-fixture-preview",dashboard_digest:hash(manifestBytes)},capabilities:[...manifest.required_capabilities.map(name=>({name,version:"1",enabled:["results.read","results.comment","results.feedback","results.media.read"].includes(name)&&state!=="disabled",reason:"Unavailable in labelled fixture preview"})),...[]],global_supervisor:{status:"unconfigured",conversation_id:null}}}});
-  if(path==="/api/projects")return route.fulfill({json:{items:[],next_cursor:null}});
-  if(path==="/api/v1/results")return state==="unavailable"?route.fulfill({status:503,json:{message:"Fixture unavailable"}}):route.fulfill({json:env({items:state==="empty"?[]:[detail],next_cursor:null})});
-  if(path===`/api/v1/results/${binding.report_id}/revisions/${binding.report_revision}`)return route.fulfill({json:env(detail,true)});
-  if(path.endsWith("/comments")){
-   if(req.method()==="POST"){const body=req.postDataJSON();mutations.push({kind:"comment",body});comments=[...comments,{...comment,id:body.operation_id,position:"2",body:body.body,anchor:body.anchor}];return route.fulfill({json:op(body.operation_id)});}
-   return route.fulfill({json:env({items:comments,next_cursor:null},true)});
-  }
+  const response = readResultPage(path, state);
+  if (response) return route.fulfill(response);
+  if (path.endsWith("/comments")) return commentResponse(route, discussion);
   if(path.endsWith("/media"))return route.fulfill({json:{contract:"human-result-media-1",server_time_ms:now,binding,limits,items:files.map(file=>artifact(file))}});
-  if(path.endsWith("/content")){const file=files.find(file=>path.includes(file.id)),variant=url.searchParams.get("variant"),descriptor=artifact(file);return route.fulfill({body:file[variant].bytes,headers:{"Content-Type":"image/png","Content-Length":String(file[variant].bytes.length),"AQ-Media-Digest":hash(file[variant].bytes),"AQ-Media-Receipt-Digest":descriptor.receipt_digest,"Cache-Control":"private, no-store"}});}
+  if (path.endsWith("/content")) return route.fulfill(mediaContent(url));
   if(path===`/api/human/projects/${binding.project_id}/tasks`)return route.fulfill({json:{contract:"human-graph-1",project:{id:binding.project_id,name:"Fixture project",revision:"1",workspace_id:id(901)},observed_at:new Date(now).toISOString(),data:{items:[],next_cursor:null}}});
   if(path==="/api/v1/feedback-tasks"&&req.method()==="POST"){feedback=req.postDataJSON();mutations.push({kind:"feedback",body:feedback});return route.fulfill({json:op(feedback.operation_id)});}
   if(path.startsWith("/api/v1/feedback-tasks/"))return route.fulfill({json:env({operation_id:feedback.operation_id,task_id:feedback.operation_id,creation_disposition:"confirmed",link_confirmed:true,result_id:binding.report_id,revision:binding.report_revision,origin:feedback},true)});
