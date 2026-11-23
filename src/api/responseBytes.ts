@@ -34,3 +34,12 @@ export async function readBoundedBody(
     void reader.cancel().catch(() => undefined);
   }
 }
+
+export function rejectResponse(response: Response, error: Error): never {
+  void response.body?.cancel();
+  throw error;
+}
+
+export function hasJsonMediaType(response: Response): boolean {
+  return response.headers.get("content-type")?.split(";")[0]?.trim() === "application/json";
+}

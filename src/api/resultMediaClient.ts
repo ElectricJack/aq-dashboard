@@ -1,4 +1,4 @@
-import { readBoundedBody } from "./responseBytes";
+import { readBoundedBody, hasJsonMediaType } from "./responseBytes";
 import { ApiError } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 import { MEDIA_CONTRACT, MEDIA_MAX, mediaCheck, mediaDigest, mediaShape, sameMediaBinding, type MediaArtifact, type MediaBinding } from "./adapters/resultMedia";
@@ -18,13 +18,10 @@ async function readBytes(response: Response, maximum: number): Promise<Uint8Arra
 }
 function json(bytes: Uint8Array): unknown { try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw new ContractError("Invalid supplemental media JSON"); } }
 function requireAccess(response: Response) { if ([401, 403].includes(response.status)) { void response.body?.cancel(); throw new ApiError("http", `AQ responded ${response.status}`, { status: response.status }); } }
-function hasJsonType(response: Response): boolean {
-  return response.headers.get("content-type")?.split(";")[0]?.trim() === "application/json";
-}
 export async function resultMediaJson(binding: MediaBinding, signal: AbortSignal): Promise<unknown> {
   signal = AbortSignal.any([signal, AbortSignal.timeout(6000)]); const response = await request(resultMediaPath(binding), signal);
   if (!response.ok) { void response.body?.cancel(); throw new ApiError("http", `AQ responded ${response.status}`, { status: response.status }); }
-  if (!hasJsonType(response)) { void response.body?.cancel(); throw new ContractError("Invalid supplemental media JSON type"); }
+  if (!hasJsonMediaType(response)) { void response.body?.cancel(); throw new ContractError("Invalid supplemental media JSON type"); }
   return json(await readBytes(response, 262144));
 }
 /** Expected descriptor comes only from an independently report-bound, validated listing. */
@@ -35,7 +32,7 @@ export async function resultMediaBytes(binding: MediaBinding, artifact: MediaArt
   mediaCheck(artifact.availability.state === "available" && expected.mime === "image/png" && expected.bytes <= (variant === "preview" ? MEDIA_MAX.max_preview_bytes : MEDIA_MAX.max_render_bytes));
   const response = await request(`${resultMediaPath(binding)}/${encodeURIComponent(artifact.receipt.artifact_id)}/content?variant=${variant}`, signal); requireAccess(response);
   if (!response.ok) {
-    if ([404, 409, 410].includes(response.status) && hasJsonType(response)) {
+    if ([404, 409, 410].includes(response.status) && hasJsonMediaType(response)) {
       let raw: unknown;
       try { raw = json(await readBytes(response, 4096)); } catch { throw new ApiError("http", `AQ responded ${response.status}`, { status: response.status }); }
       if (!isRecord(raw) || raw.contract !== MEDIA_CONTRACT) throw new ApiError("http", `AQ responded ${response.status}`, { status: response.status });

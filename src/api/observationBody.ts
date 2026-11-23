@@ -1,3 +1,4 @@
+import { rejectResponse } from "./responseBytes";
 import { ApiError } from "./client";
 
 /** Historical observation endpoints use finite same-origin requests and share the HTTP contract. */
@@ -16,17 +17,12 @@ export async function observationBody(path: string, signal: AbortSignal, label: 
   return checkedBody(response, label);
 }
 
-function discard(response: Response, error: ApiError): never {
-  void response.body?.cancel();
-  throw error;
-}
-
 function checkedBody(response: Response, label: string): ReadableStream<Uint8Array> {
   if (!response.ok) {
-    discard(response, new ApiError("http", `AQ responded ${response.status}`, { status: response.status }));
+    rejectResponse(response, new ApiError("http", `AQ responded ${response.status}`, { status: response.status }));
   }
   if (!response.headers.get("content-type")?.includes("application/json") || !response.body) {
-    discard(response, new ApiError("contract", `Invalid ${label.toLowerCase()} response`));
+    rejectResponse(response, new ApiError("contract", `Invalid ${label.toLowerCase()} response`));
   }
   return response.body;
 }

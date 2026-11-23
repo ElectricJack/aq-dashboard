@@ -1,33 +1,44 @@
-/** Size of one escape-prefixed keyboard report. Incomplete reports have no
+const STRING_CONTROLS = new Set([0x5d, 0x50, 0x58, 0x5e, 0x5f]);
+
+function inRange(byte: number | undefined, low: number, high: number): boolean {
+  return byte !== undefined && byte >= low && byte <= high;
+}
+
+function skipRange(bytes: Uint8Array, at: number, low: number, high: number) {
+  while (inRange(bytes[at], low, high)) at++;
+  return at;
+}
+
+function controlSequenceEnd(bytes: Uint8Array, start: number): number | undefined {
+  const intermediate = skipRange(bytes, start + 1, 0x30, 0x3f);
+  const end = skipRange(bytes, intermediate, 0x20, 0x2f);
+  if (!inRange(bytes[end], 0x40, 0x7e)) return;
+  const mouse = bytes[start] === 0x5b && end === start + 1 && bytes[end] === 0x4d;
+  if (!mouse) return end + 1;
+  const coordinates = bytes.subarray(end + 1, end + 4);
+  return coordinates.length === 3 && !coordinates.includes(0x1b) ? end + 4 : undefined;
+}
+
+function controlStringEnd(bytes: Uint8Array, start: number): number | undefined {
+  for (let end = start + 1; end < bytes.length; end++) {
+    if (bytes[start] === 0x5d && bytes[end] === 7) return end + 1;
+    if (bytes[end] === 0x1b) return bytes[end + 1] === 0x5c ? end + 2 : undefined;
+  }
+}
+
+/** End of one escape-prefixed keyboard report. An incomplete report has no
  * boundary, including ESC by itself. Escape has its own explicit key action. */
 function escapeEnd(bytes: Uint8Array, start: number): number | undefined {
   const prefix = bytes[start];
-  let end = start + 1;
-  if (prefix === 0x5b || prefix === 0x4f) {
-    while (bytes[end]! >= 0x30 && bytes[end]! <= 0x3f) end++;
-    while (bytes[end]! >= 0x20 && bytes[end]! <= 0x2f) end++;
-    if (!(bytes[end]! >= 0x40 && bytes[end]! <= 0x7e)) return;
-    if (prefix === 0x5b && end === start + 1 && bytes[end] === 0x4d) {
-      const coordinates = bytes.subarray(end + 1, end + 4);
-      return coordinates.length === 3 && !coordinates.includes(0x1b) ? end + 4 : undefined;
-    }
-    return end + 1;
-  }
-  if (prefix === 0x5d || prefix === 0x50 || prefix === 0x58 || prefix === 0x5e || prefix === 0x5f) {
-    for (; end < bytes.length; end++) {
-      if (prefix === 0x5d && bytes[end] === 7) return end + 1;
-      if (bytes[end] === 0x1b) return bytes[end + 1] === 0x5c ? end + 2 : undefined;
-    }
-    return;
-  }
   if (prefix === undefined || prefix === 0x1b) return;
-  if (prefix >= 0x20 && prefix <= 0x2f) {
-    while (bytes[end]! >= 0x20 && bytes[end]! <= 0x2f) end++;
-    if (bytes[end]! >= 0x30 && bytes[end]! <= 0x7e) return end + 1;
-    return;
+  if ([0x5b, 0x4f].includes(prefix)) return controlSequenceEnd(bytes, start);
+  if (STRING_CONTROLS.has(prefix)) return controlStringEnd(bytes, start);
+  if (inRange(prefix, 0x20, 0x2f)) {
+    const end = skipRange(bytes, start + 1, 0x20, 0x2f);
+    return inRange(bytes[end], 0x30, 0x7e) ? end + 1 : undefined;
   }
-  const width = utf8Width(prefix);
-  if (start + width <= bytes.length) return start + width;
+  const end = start + utf8Width(prefix);
+  return end <= bytes.length ? end : undefined;
 }
 
 function utf8Width(first: number): number {
