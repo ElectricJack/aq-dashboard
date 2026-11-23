@@ -1,3 +1,4 @@
+import { nextTab } from "../../components/nextTab";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BookOpen, ExternalLink, ShieldCheck, FileText } from "lucide-react";
@@ -25,22 +26,36 @@ const httpUrl = (v: unknown) => { const raw = str(v); if (!raw) return undefined
 
 type SourceView = { title: string; meta?: ReactNode; label: string; href?: string };
 /** Readable summary of a typed provenance descriptor (human-graph Source oneOf). Never fetches or asserts retention beyond the descriptor. */
+type SourceDescriptor = Record<string, unknown>;
+type SourceReader = (descriptor: SourceDescriptor, fallback: string, year: number) => SourceView;
+const sourceReaders = new Map<unknown, SourceReader>([
+  ["task", taskSource], ["review", reviewSource], ["artifact", artifactSource], ["url", urlSource],
+  ["git", (d, fallback) => ({ title: str(d.path) ?? str(d.repository) ?? fallback, meta: short(d.commit), label: "Git commit" })],
+  ["legacy", (d, fallback) => ({ title: [str(d.store), str(d.key)].filter(Boolean).join("/") || fallback, meta: str(d.snapshot_id) ? `snapshot ${short(d.snapshot_id)}` : undefined, label: "Legacy snapshot" })],
+]);
 function describeSource(source: unknown, index: number, year: number): SourceView {
-  const d = typeof source === "object" && source !== null ? source as Record<string, unknown> : {};
+  const d = typeof source === "object" && source !== null ? source as SourceDescriptor : {};
   const fallback = `Recorded source ${index + 1}`;
-  switch (d.kind) {
-    case "task": return { title: `Task ${str(d.task_id) ?? "unknown"}`, meta: str(d.attempt_id) ? `attempt ${short(d.attempt_id)}` : undefined, label: "Task record" };
-    case "review": return { title: `Review ${str(d.review_id) ?? "unknown"}`, meta: typeof d.revision === "number" ? `r${d.revision}` : undefined, label: "Review revision" };
-    case "git": return { title: str(d.path) ?? str(d.repository) ?? fallback, meta: short(d.commit), label: "Git commit" };
-    case "artifact": return { title: `Artifact ${short(d.artifact_id) ?? "unknown"}`, meta: short(d.sha256) ? `sha256 ${short(d.sha256)}` : undefined, label: "Artifact" };
-    case "url": {
-      const u = httpUrl(d.url);
-      return { title: u ? `${u.host}${u.pathname === "/" ? "" : u.pathname}` : str(d.url) ?? fallback, href: u?.href, meta: str(d.observed_at) ? <When iso={d.observed_at as string} year={year} /> : undefined, label: d.retained === true ? "Retained snapshot" : "External page" };
-    }
-    case "legacy": return { title: [str(d.store), str(d.key)].filter(Boolean).join("/") || fallback, meta: str(d.snapshot_id) ? `snapshot ${short(d.snapshot_id)}` : undefined, label: "Legacy snapshot" };
-    default: return { title: str(d.source_id) ?? fallback, label: "Recorded source" };
-  }
+  const reader = sourceReaders.get(d.kind);
+  return reader ? reader(d, fallback, year) : { title: str(d.source_id) ?? fallback, label: "Recorded source" };
 }
+function taskSource(d: Record<string, unknown>): SourceView {
+  return { title: `Task ${str(d.task_id) ?? "unknown"}`, meta: str(d.attempt_id) ? `attempt ${short(d.attempt_id)}` : undefined, label: "Task record" };
+}
+
+function reviewSource(d: Record<string, unknown>): SourceView {
+  return { title: `Review ${str(d.review_id) ?? "unknown"}`, meta: typeof d.revision === "number" ? `r${d.revision}` : undefined, label: "Review revision" };
+}
+
+function artifactSource(d: Record<string, unknown>): SourceView {
+  return { title: `Artifact ${short(d.artifact_id) ?? "unknown"}`, meta: short(d.sha256) ? `sha256 ${short(d.sha256)}` : undefined, label: "Artifact" };
+}
+
+function urlSource(d: Record<string, unknown>, fallback: string, year: number): SourceView {
+  const u = httpUrl(d.url);
+  return { title: u ? `${u.host}${u.pathname === "/" ? "" : u.pathname}` : str(d.url) ?? fallback, href: u?.href, meta: str(d.observed_at) ? <When iso={d.observed_at as string} year={year} /> : undefined, label: d.retained === true ? "Retained snapshot" : "External page" };
+}
+
 function SourceList({ node, year }: { node: GraphNode; year: number }) {
   if (!node.provenance.length) return <p className={styles.meta}>No sources recorded for this revision.</p>;
   return <ul className={styles.sourceCards} aria-label="Recorded sources">{node.provenance.map((source, index) => {
@@ -50,7 +65,7 @@ function SourceList({ node, year }: { node: GraphNode; year: number }) {
   })}</ul>;
 }
 type TabKey = "content" | "sources" | "history" | "relationships";
-function DocumentTabs({ tab, setTab, sources }: { tab: TabKey; setTab: (t: TabKey) => void; sources: number }) {
+function useTabOverflow() {
   const scroller = useRef<HTMLDivElement>(null), [more, setMore] = useState(false);
   useEffect(() => {
     const el = scroller.current; if (!el) return;
@@ -59,20 +74,29 @@ function DocumentTabs({ tab, setTab, sources }: { tab: TabKey; setTab: (t: TabKe
     const ro = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update); ro?.observe(el);
     return () => { el.removeEventListener("scroll", update); ro?.disconnect(); };
   }, []);
-  const tabs: { key: TabKey; label: string; count?: number; disabled?: string }[] = [
+  return { scroller, more };
+}
+
+type DocumentTab = { key: TabKey; label: string; count?: number; disabled?: string };
+function TabButton({ item: t, tab, setTab }: { item: DocumentTab; tab: TabKey; setTab(tab: TabKey): void }) {
+  return <button id={`doc-tab-${t.key}`} type="button" role="tab" aria-selected={tab === t.key} aria-controls={t.disabled ? undefined : `doc-panel-${t.key}`} aria-disabled={t.disabled ? true : undefined} title={t.disabled} tabIndex={tab === t.key ? 0 : -1} onClick={() => { if (!t.disabled) setTab(t.key); }}>{t.label}{t.count !== undefined && <span className={styles.countPill}>{t.count}</span>}</button>;
+}
+
+function DocumentTabs({ tab, setTab, sources }: { tab: TabKey; setTab: (t: TabKey) => void; sources: number }) {
+  const { scroller, more } = useTabOverflow();
+  const tabs: DocumentTab[] = [
     { key: "content", label: "Content" }, { key: "sources", label: "Sources", count: sources }, { key: "history", label: "History" },
     { key: "relationships", label: "Relationships", disabled: "Relationship browsing is not offered by this read contract" },
   ];
   const enabled = tabs.filter(t => !t.disabled).map(t => t.key);
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const i = enabled.indexOf(tab), last = enabled.length - 1;
-    const next = e.key === "ArrowRight" ? enabled[i === last ? 0 : i + 1] : e.key === "ArrowLeft" ? enabled[i === 0 ? last : i - 1] : e.key === "Home" ? enabled[0] : e.key === "End" ? enabled[last] : undefined;
+    const next = nextTab(enabled, tab, e.key);
     if (!next) return;
     e.preventDefault(); setTab(next); scroller.current?.querySelector<HTMLElement>(`#doc-tab-${next}`)?.focus();
   };
   return <div className={styles.documentTabsWrap} data-more={more || undefined}>
     <div ref={scroller} className={styles.documentTabs} role="tablist" aria-label="Document sections" onKeyDown={onKeyDown}>
-      {tabs.map(t => <button key={t.key} id={`doc-tab-${t.key}`} type="button" role="tab" aria-selected={tab === t.key} aria-controls={t.disabled ? undefined : `doc-panel-${t.key}`} aria-disabled={t.disabled ? true : undefined} title={t.disabled} tabIndex={tab === t.key ? 0 : -1} onClick={() => { if (!t.disabled) setTab(t.key); }}>{t.label}{t.count !== undefined && <span className={styles.countPill}>{t.count}</span>}</button>)}
+      {tabs.map(t => <TabButton key={t.key} item={t} tab={tab} setTab={setTab} />)}
     </div>
   </div>;
 }
@@ -91,37 +115,46 @@ function SectionOutline({ outline }: { outline: DocumentOutlineEntry[] }) {
     <ul>{outline.map(entry => <li key={entry.id}><a href={`#${entry.id}`} data-level={entry.level} onClick={event => jump(event, entry.id)}>{entry.text}</a></li>)}</ul>
   </nav>;
 }
+function Verification({ node: n, year }: { node: GraphNode; year: number }) {
+  const recorded = [n.last_verified_by && `Recorded by ${n.last_verified_by}`, n.last_verified_at && <When key="at" iso={n.last_verified_at} year={year} />, (n.last_verified_by || n.last_verified_at) && `applies to revision ${n.content_revision}`].filter(Boolean);
+  return <section className={styles.documentVerification} aria-label="Verification assertion"><ShieldCheck size={22} aria-hidden /><div>
+        <h3>Verification</h3>
+        <p>{nodeLabel(n.verification)}</p>
+        {recorded.length > 0 && <p className={styles.verificationFacts}>{recorded.map((part, i) => <span key={i}>{i > 0 && "· "}{part}</span>)}</p>}
+        {n.review_at && <p className={styles.verificationFacts}><span>Next review: <When iso={n.review_at} year={year} /></span></p>}
+        {n.valid_until && <p className={styles.verificationFacts}><span>Valid until <When iso={n.valid_until} year={year} /></span></p>}
+      </div></section>;
+}
+
+function DocumentIdentity({ node: n, pinned }: { node: GraphNode; pinned?: string }) {
+  return <div className={styles.documentIdentity}>
+      <span><BookOpen size={16} aria-hidden />{categoryLabel(n.content_type)}</span>
+      <span data-tone={n.retired ? "retired" : "active"}>{n.deleted ? "Deleted" : n.retired ? "Retired" : "Active"}</span>
+      <span data-tone={n.verification ?? "unknown"}><ShieldCheck size={16} aria-hidden />{nodeLabel(n.verification)}</span>
+      <span className={styles.meta}>{pinned ? "Pinned" : "Current"} revision {n.content_revision}</span>
+    </div>;
+}
+
 export function KnowledgeDocument({ record, pinned, notice }: { record: GraphEnvelope<GraphNode>; pinned?: string; notice?: ReactNode }) {
   const n = record.data, [params, setParams] = useSearchParams();
   const [tab, setTab] = useState<TabKey>("content"), [revision, setRevision] = useState(pinned ?? "");
   const listParams = new URLSearchParams(params); listParams.delete("revision");
   const year = new Date(record.observed_at).getUTCFullYear();
-  const recorded = [n.last_verified_by && `Recorded by ${n.last_verified_by}`, n.last_verified_at && <When key="at" iso={n.last_verified_at} year={year} />, (n.last_verified_by || n.last_verified_at) && `applies to revision ${n.content_revision}`].filter(Boolean);
+
   const outline = useMemo(() => documentOutline(n.body, "doc"), [n.body]);
   // The back link precedes the document so phones read it as a page with a visible exit.
   return <>
   <Link className={`${styles.back} ${styles.documentBack}`} to={{ pathname: "/knowledge", search: `?${listParams}` }}>All records</Link>
   <Panel title={n.title} actions={<DocumentActions record={record} pinned={pinned} />} className={`${styles.detail} ${styles.knowledgeDocument}`}>
     {notice}
-    <div className={styles.documentIdentity}>
-      <span><BookOpen size={16} aria-hidden />{categoryLabel(n.content_type)}</span>
-      <span data-tone={n.retired ? "retired" : "active"}>{n.deleted ? "Deleted" : n.retired ? "Retired" : "Active"}</span>
-      <span data-tone={n.verification ?? "unknown"}><ShieldCheck size={16} aria-hidden />{nodeLabel(n.verification)}</span>
-      <span className={styles.meta}>{pinned ? "Pinned" : "Current"} revision {n.content_revision}</span>
-    </div>
+    <DocumentIdentity node={n} pinned={pinned} />
     <p className={styles.meta}>Project: {record.project.name} · Updated <When iso={n.updated_at} year={year} /></p>
     <DocumentTabs tab={tab} setTab={setTab} sources={n.provenance.length} />
     <div id={`doc-panel-${tab}`} role="tabpanel" aria-labelledby={`doc-tab-${tab}`} className={styles.documentPanel}>
     {tab === "content" && <>
       {outline.length > 1 && <SectionOutline outline={outline} />}
       <DocumentBody body={n.body} idPrefix="doc" />
-      <section className={styles.documentVerification} aria-label="Verification assertion"><ShieldCheck size={22} aria-hidden /><div>
-        <h3>Verification</h3>
-        <p>{nodeLabel(n.verification)}</p>
-        {recorded.length > 0 && <p className={styles.verificationFacts}>{recorded.map((part, i) => <span key={i}>{i > 0 && "· "}{part}</span>)}</p>}
-        {n.review_at && <p className={styles.verificationFacts}><span>Next review: <When iso={n.review_at} year={year} /></span></p>}
-        {n.valid_until && <p className={styles.verificationFacts}><span>Valid until <When iso={n.valid_until} year={year} /></span></p>}
-      </div></section>
+      <Verification node={n} year={year} />
       <div className={styles.documentLinks}>
         <section className={styles.sourcesPanel} aria-labelledby="doc-sources-heading"><h3 id="doc-sources-heading">Sources ({n.provenance.length})</h3><SourceList node={n} year={year} /></section>
         <section className={styles.sourcesPanel} aria-labelledby="doc-linked-heading"><h3 id="doc-linked-heading">Linked work</h3><p className={styles.meta}>Linked work is not offered by this read contract.</p></section>
