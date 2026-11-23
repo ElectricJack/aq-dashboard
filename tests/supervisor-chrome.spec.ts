@@ -29,20 +29,24 @@ async function inject(page: Page, count: number) {
     const store = [...items];
     (window as unknown as { __svAppendNewer: () => void }).__svAppendNewer = () => { store.push(...newer); };
     const json = (o: unknown) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
+    const requestUrl = (input: RequestInfo | URL) => new URL(input instanceof Request ? input.url : input, location.href);
+    function messages(url: URL) {
+      const before = url.searchParams.get("before"), after = url.searchParams.get("after");
+      const through = store.at(-1)!.cursor.split(".")[0];
+      const base = { contract: discovery.contract, conversation: discovery.conversation, runtime: discovery.runtime, through_cursor: through };
+      if (after !== null) {
+        const page = store.slice(store.findIndex(entry => entry.cursor === after) + 1).slice(0, 16);
+        return json({ ...base, direction: "forward", items: page, has_more: false, next_cursor: null });
+      }
+      const end = before ? store.findIndex(entry => entry.cursor === before) : store.length;
+      const page = store.slice(Math.max(0, end - 16), end), more = end > 16;
+      return json({ ...base, direction: "backward", items: page, has_more: more, next_cursor: more ? page[0]!.cursor : null });
+    }
     const wrap = (inner: typeof fetch): typeof fetch => async (input, init) => {
-      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href);
+      const url = requestUrl(input);
       if (url.pathname === "/api/human/conversations/global") return json(discovery);
       if (url.pathname === `/api/human/conversations/${conv}/messages`) {
-        const before = url.searchParams.get("before"), after = url.searchParams.get("after");
-        const through = store.at(-1)!.cursor.split(".")[0];
-        const base = { contract: discovery.contract, conversation: discovery.conversation, runtime: discovery.runtime, through_cursor: through };
-        if (after !== null) {
-          const page = store.slice(store.findIndex(entry => entry.cursor === after) + 1).slice(0, 16);
-          return json({ ...base, direction: "forward", items: page, has_more: false, next_cursor: null });
-        }
-        const end = before ? store.findIndex(entry => entry.cursor === before) : store.length;
-        const page = store.slice(Math.max(0, end - 16), end), more = end > 16;
-        return json({ ...base, direction: "backward", items: page, has_more: more, next_cursor: more ? page[0]!.cursor : null });
+        return messages(url);
       }
       const response = await inner(input, init);
       if (url.pathname !== "/api/v1/bootstrap") return response;

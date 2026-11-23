@@ -28,27 +28,45 @@ async function limited<T>(job: () => Promise<T>): Promise<T> {
 type Target = { project: string; task: string; attempt: string };
 type Facts = { titles: Map<string, string>; ranWith: Map<string, RanWithView> };
 
+function swarmAgents(view: SwarmView | undefined) {
+  return view?.machines.flatMap(machine => machine.nodes.flatMap(node => node.agents)) ?? [];
+}
+function factTarget(agent: AgentView): Target | null {
+  if (agent.manual || !agent.task) return null;
+  const { id: project } = agent.project, { id: task } = agent.task;
+  if (!validGraphId(project) || !validGraphId(task)) return null;
+  return { project, task, attempt: agent.attemptId };
+}
+
 /** The agents whose row lacks a title or a `ran_with` and whose ids the Graph reads accept. */
 export function factTargets(view: SwarmView | undefined): { titles: Target[]; ranWith: Target[] } {
   const titles = new Map<string, Target>(), ranWith = new Map<string, Target>();
-  for (const m of view?.machines ?? []) for (const n of m.nodes) for (const a of n.agents) {
-    if (a.manual || !a.task || !validGraphId(a.project.id) || !validGraphId(a.task.id)) continue;
-    const target = { project: a.project.id, task: a.task.id, attempt: a.attemptId };
-    if (titleMissing(a.task)) titles.set(a.task.id, target);
-    if (!a.ranWith) ranWith.set(a.attemptId, target);
+  for (const agent of swarmAgents(view)) {
+    const target = factTarget(agent);
+    if (!target) continue;
+    if (titleMissing(agent.task)) titles.set(target.task, target);
+    if (!agent.ranWith) ranWith.set(target.attempt, target);
   }
   return { titles: [...titles.values()], ranWith: [...ranWith.values()] };
+}
+
+function taskWithTitle(task: AgentView["task"], titles: Facts["titles"]) {
+  if (!task || !titleMissing(task)) return task;
+  const title = titles.get(task.id);
+  return title === undefined ? task : { id: task.id, title };
+}
+function fillAgent(agent: AgentView, facts: Facts): AgentView {
+  const task = taskWithTitle(agent.task, facts.titles);
+  const updated = facts.ranWith.get(agent.attemptId);
+  const addRun = !agent.ranWith && updated !== undefined;
+  if (task === agent.task && !addRun) return agent;
+  return addRun ? { ...agent, task, ranWith: updated } : { ...agent, task };
 }
 
 /** The swarm view with the facts filled in. Rows the reads did not answer are returned unchanged. */
 export function applyFacts(view: SwarmView, facts: Facts): SwarmView {
   if (facts.titles.size === 0 && facts.ranWith.size === 0) return view;
-  const fill = (a: AgentView): AgentView => {
-    const title = a.task && titleMissing(a.task) ? facts.titles.get(a.task.id) : undefined;
-    const ranWith = a.ranWith ? undefined : facts.ranWith.get(a.attemptId);
-    return title === undefined && ranWith === undefined ? a : { ...a, ...(title === undefined ? {} : { task: { id: a.task!.id, title } }), ...(ranWith === undefined ? {} : { ranWith }) };
-  };
-  return { ...view, machines: view.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: n.agents.map(fill) })) })) };
+  return { ...view, machines: view.machines.map(m => ({ ...m, nodes: m.nodes.map(n => ({ ...n, agents: n.agents.map(a => fillAgent(a, facts)) })) })) };
 }
 
 /** `ran_with` of the attempt that holds the task, only when it is the attempt the swarm row names. */
@@ -59,6 +77,19 @@ export function ranWithOf(raw: unknown, project: string, attempt: string): RanWi
   }).data;
 }
 
+function usableTitle(title: unknown, task: string): title is string {
+  return typeof title === "string" && title.trim() !== "" && title !== task;
+}
+
+async function readTitle(target: Target, signal: AbortSignal) {
+  const raw = await apiGet<unknown>(graphPath(target.project, "task", target.task), signal);
+  return adaptGraphDetail(raw, target.project, "task", target.task).data.title;
+}
+async function readAttempt(target: Target, signal: AbortSignal) {
+  const raw = await apiGet<unknown>(`${graphPath(target.project, "task", target.task)}/work`, signal);
+  return ranWithOf(raw, target.project, target.attempt);
+}
+
 export function useAgentFacts(view: SwarmView | undefined): SwarmView | undefined {
   const { bootstrap, queryContext } = useSession();
   const enabled = bootstrap.capability("human.graph.read").enabled;
@@ -67,13 +98,13 @@ export function useAgentFacts(view: SwarmView | undefined): SwarmView | undefine
   const titles = useQueries({
     queries: targets.titles.map(t => ({
       ...common, queryKey: queryKey(queryContext, "swarm-task-title", { project: t.project, id: t.task }),
-      queryFn: ({ signal }: { signal: AbortSignal }) => limited(async () => adaptGraphDetail(await apiGet<unknown>(graphPath(t.project, "task", t.task), signal), t.project, "task", t.task).data.title),
+      queryFn: ({ signal }: { signal: AbortSignal }) => limited(() => readTitle(t, signal)),
     })),
   });
   const ranWith = useQueries({
     queries: targets.ranWith.map(t => ({
       ...common, queryKey: queryKey(queryContext, "swarm-attempt-ran-with", { project: t.project, id: t.task, attempt: t.attempt }),
-      queryFn: ({ signal }: { signal: AbortSignal }) => limited(async () => ranWithOf(await apiGet<unknown>(`${graphPath(t.project, "task", t.task)}/work`, signal), t.project, t.attempt)),
+      queryFn: ({ signal }: { signal: AbortSignal }) => limited(() => readAttempt(t, signal)),
     })),
   });
   // The query results are new arrays on every render; key the memo on what they hold.
@@ -81,7 +112,7 @@ export function useAgentFacts(view: SwarmView | undefined): SwarmView | undefine
   return useMemo(() => {
     if (!view) return view;
     const facts: Facts = { titles: new Map(), ranWith: new Map() };
-    targets.titles.forEach((t, i) => { const title = titles[i]?.data; if (typeof title === "string" && title.trim() && title !== t.task) facts.titles.set(t.task, title); });
+    targets.titles.forEach((t, i) => { const title = titles[i]?.data; if (usableTitle(title, t.task)) facts.titles.set(t.task, title); });
     targets.ranWith.forEach((t, i) => { const r = ranWith[i]?.data; if (r) facts.ranWith.set(t.attempt, r); });
     return applyFacts(view, facts);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -55,31 +55,44 @@ function TransitionPath({ id, data, markerEnd, style, label }: EdgeProps<PathEdg
 const nodeTypes = { step: StepCard };
 const edgeTypes = { path: TransitionPath };
 
-function layout(graph: DefinitionGraph, start: string, vertical: boolean) {
-  const width = vertical ? 164 : 174;
+function reachableSteps(graph: DefinitionGraph, start: string) {
   const order = new Set([start]);
   for (const id of order) {
     for (const transition of graph.steps.get(id)!.transitions) order.add(transition.to);
   }
+  return order;
+}
 
+function transitionGroups(step: GraphStep) {
+  // Several outcomes can reach the same step. Show those together on one path.
+  const groups = new Map<string, { to: string; labels: string[]; error: boolean }>();
+  for (const { to, label, error } of step.transitions) {
+    const key = JSON.stringify([to, error]);
+    const group = groups.get(key) ?? { to, labels: [], error };
+    group.labels.push(humanize(label));
+    groups.set(key, group);
+  }
+  return groups;
+}
+
+function transitionLabel(labels: string[]) {
+  const fullLabel = labels.join(" / ");
+  return fullLabel.length > 22 ? `${fullLabel.slice(0, 21)}…` : fullLabel;
+}
+
+function layout(graph: DefinitionGraph, start: string, vertical: boolean) {
+  const width = vertical ? 164 : 174;
+  const order = reachableSteps(graph, start);
   const diagram = new dagre.graphlib.Graph({ multigraph: true });
   diagram.setGraph({ rankdir: vertical ? "TB" : "LR", ranksep: vertical ? 48 : 46, nodesep: 28, edgesep: 20 });
   // Graphlib stores node names as object keys. Prefix IDs to keep names such as "__proto__" ordinary.
   const nodePrefix = "step:";
   for (const id of order) diagram.setNode(nodePrefix + id, { width, height });
   for (const id of order) {
-    // Several outcomes can reach the same step. Show those together on one path.
-    const groups = new Map<string, { to: string; labels: string[]; error: boolean }>();
-    for (const { to, label, error } of graph.steps.get(id)!.transitions) {
-      const key = JSON.stringify([to, error]);
-      const group = groups.get(key) ?? { to, labels: [], error };
-      group.labels.push(humanize(label));
-      groups.set(key, group);
-    }
+    const groups = transitionGroups(graph.steps.get(id)!);
     let sequence = 0;
     for (const { to, labels, error } of groups.values()) {
-      const fullLabel = labels.join(" / ");
-      const label = fullLabel.length > 22 ? `${fullLabel.slice(0, 21)}…` : fullLabel;
+      const label = transitionLabel(labels);
       diagram.setEdge(nodePrefix + id, nodePrefix + to, {
         label, error, width: label.length * 6 + 12, height: 20, labelpos: "c",
       }, JSON.stringify([id, sequence++]));
@@ -145,7 +158,8 @@ function GraphCanvas({ graph, start, vertical }: { graph: DefinitionGraph; start
       if (!instance || !canvas.current) return;
       const { clientWidth, clientHeight } = canvas.current;
       const previous = canvasSize.current;
-      if (!clientWidth || (clientWidth === previous.width && clientHeight === previous.height)) return;
+      const unchanged = clientWidth === previous.width && clientHeight === previous.height;
+      if (!clientWidth || unchanged) return;
       canvasSize.current = { width: clientWidth, height: clientHeight };
       const node = nodes.find(node => node.id === stepId);
       if (node) {
@@ -229,9 +243,14 @@ function GraphWorkspace({ graph, initialEntry }: { graph: DefinitionGraph; initi
   </Panel>;
 }
 
-export function WorkflowGraph({ artifact, namespace, entry, showDescription = false }: {
-  artifact: string; namespace: Namespace; entry?: string; showDescription?: boolean;
-}) {
+function GraphStatus({ enabled, query }: { enabled: boolean; query: { isError: boolean; isPending: boolean; error: Error | null; refetch(): Promise<unknown> } }) {
+  return !enabled ? <p>Compiled graphs are unavailable on this AQ server.</p>
+      : query.isError || query.isPending ?
+        <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="the compiled workflow" onRetry={() => void query.refetch()} />
+        : <p>No compiled graph was recorded for this version.</p>;
+}
+
+function useDefinitionGraph(artifact: string, namespace: Namespace) {
   const [scope] = useScope();
   const { bootstrap, queryContext } = useSession();
   const capability = bootstrap.capability(DEFINITION_GRAPH_CAPABILITY);
@@ -246,13 +265,17 @@ export function WorkflowGraph({ artifact, namespace, entry, showDescription = fa
       return adaptDefinitionGraph(raw, artifact, namespace);
     },
   });
+  return { capability, query };
+}
+
+export function WorkflowGraph({ artifact, namespace, entry, showDescription = false }: {
+  artifact: string; namespace: Namespace; entry?: string; showDescription?: boolean;
+}) {
+  const { capability, query } = useDefinitionGraph(artifact, namespace);
   const inspection = capability.enabled && !query.isError ? query.data : undefined;
   return <>
     {inspection?.graph ? <GraphWorkspace key={artifact} graph={inspection.graph} initialEntry={entry} /> : <Panel title="Compiled workflow">
-    {!capability.enabled ? <p>Compiled graphs are unavailable on this AQ server.</p>
-      : query.isError || query.isPending ?
-        <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="the compiled workflow" onRetry={() => void query.refetch()} />
-        : <p>No compiled graph was recorded for this version.</p>}
+      <GraphStatus enabled={capability.enabled} query={query} />
     </Panel>}
     {showDescription && inspection?.descriptionMarkdown && <PlaybookDescription markdown={inspection.descriptionMarkdown} />}
   </>;

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
@@ -24,6 +24,33 @@ class ExactCatalogConflict extends ApiError {
   constructor(readonly stamp: CatalogStamp) { super("http", "Catalog changed during exact read", { status: 409 }); }
 }
 
+type CatalogRead = { kind: CatalogKind; project: string | null; request: CatalogRequest };
+async function readExactCatalog({ kind, project, request }: CatalogRead, signal: AbortSignal, refused: RefObject<ExactCatalogConflict | null>) {
+  try {
+    return adaptCatalog(await playbookCatalogJson(kind, project, request, signal), kind, project, request);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 409) throw error;
+    if (!request.stamp) throw error;
+    const conflict = new ExactCatalogConflict(request.stamp);
+    if (!signal.aborted) refused.current = conflict;
+    throw conflict;
+  }
+}
+
+function catalogIdentity(stamp?: CatalogStamp) {
+  return { namespace: stamp?.namespace.id, generation: stamp?.namespace.generation, incarnation: stamp?.incarnation, metadataRevision: stamp?.metadataRevision };
+}
+
+function catalogGroups(rows: CatalogItem[]) {
+  const groups = new Map<string, CatalogItem[]>();
+  for (const item of rows) {
+    const key = item.kind === "definition" ? JSON.stringify([item.scope, item.name]) : item.key;
+    const group = groups.get(key);
+    if (group) group.push(item); else groups.set(key, [item]);
+  }
+  return groups;
+}
+
 export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
   const queryClient = useQueryClient();
   const { bootstrap, queryContext } = useSession(); const [scope] = useScope(); const [params, setParams] = useSearchParams();
@@ -37,11 +64,9 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
   let rows: ReturnType<typeof mergeCatalogPages> = [], invalid: unknown = null;
   try { if (pages.data) rows = mergeCatalogPages(pages.data.pages); } catch (error) { invalid = error; }
   const stamp = pages.data?.pages[0], detailRequest = { exact: selected, stamp }, refused = useRef<ExactCatalogConflict | null>(null);
-  const detail = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-current-catalog-detail", { kind, selected, epoch, namespace: stamp?.namespace.id, generation: stamp?.namespace.generation, incarnation: stamp?.incarnation, metadataRevision: stamp?.metadataRevision }), enabled: capability.enabled && Boolean(selected && validSelection && stamp && !pages.isError && !invalid), retry: false, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
-    queryFn: async ({ signal }) => {
-      try { return adaptCatalog(await playbookCatalogJson(kind, project, detailRequest, signal), kind, project, detailRequest); }
-      catch (error) { if (error instanceof ApiError && error.status === 409 && stamp) { const failure = new ExactCatalogConflict(stamp); if (!signal.aborted) refused.current = failure; throw failure; } throw error; }
-    } });
+  const readable = capability.enabled && !!stamp && !pages.isError && !invalid;
+  const detail = useQuery({ queryKey: scopedKey(queryContext, scope, "playbook-current-catalog-detail", { kind, selected, epoch, ...catalogIdentity(stamp) }), enabled: readable && !!selected && validSelection, retry: false, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    queryFn: ({ signal }) => readExactCatalog({ kind, project, request: detailRequest }, signal, refused) });
   useLayoutEffect(() => {
     if (!capability.enabled) {
       // A disabled observer retains data. Clear this feature's source context
@@ -61,16 +86,11 @@ export function CurrentCatalog({ kind }: { kind: CatalogKind }) {
   const listSearch = (() => { const next = new URLSearchParams(params); next.delete(parameter); return next.toString(); })();
   const back = (onClick?: () => void) => <Link className={styles.mobileBack} to={{ pathname: "/playbooks", search: listSearch }} onClick={onClick}>{kind === "definitions" ? "All playbooks" : "All deployments"}</Link>;
   const title = kind === "definitions" ? "Playbook library" : "Deployments", singular = kind === "definitions" ? "definition" : "activation";
-  const groups = new Map<string, CatalogItem[]>();
-  for (const item of rows) {
-    const key = item.kind === "definition" ? JSON.stringify([item.scope, item.name]) : item.key;
-    const group = groups.get(key);
-    if (group) group.push(item); else groups.set(key, [item]);
-  }
+  const groups = catalogGroups(rows);
   const versions = useQuery({
     queryKey: scopedKey(queryContext, scope, "playbook-current-catalog", { bindingsForVersions: true, epoch,
-      namespace: stamp?.namespace.id, generation: stamp?.namespace.generation, incarnation: stamp?.incarnation, metadataRevision: stamp?.metadataRevision }),
-    enabled: capability.enabled && !pages.isError && !invalid && !!stamp && [...groups.values()].some(group => group.length > 1),
+      ...catalogIdentity(stamp) }),
+    enabled: readable && [...groups.values()].some(group => group.length > 1),
     queryFn: ({signal}) => boundArtifacts(project, stamp!, signal), retry: false, gcTime: 0,
   });
   function primary(group: CatalogItem[]) {

@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { checkTerminalView, withinViewport } from "./support/terminal-view";
+import { expect, test } from "@playwright/test";
 
 // AG-C: Details and Transcript open on demand over the focused workspace
 // (right drawer on desktop, bottom sheet on phone) while the terminal stays
@@ -11,25 +11,6 @@ const VIEWPORTS = [
   { name: "desktop-1440", width: 1440, height: 900, phone: false },
   { name: "phone-390", width: 390, height: 844, phone: true },
 ];
-const SHOTS = process.env.FIXTURE_SHOTS;
-
-async function axe(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-  expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
-}
-async function noOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
-}
-async function withinViewport(page: Page, region: Locator) {
-  const box = (await region.boundingBox())!;
-  const vp = page.viewportSize()!;
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(vp.width + 0.5);
-  expect(box.y + box.height).toBeLessThanOrEqual(vp.height + 0.5);
-  return box;
-}
-
 for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
@@ -44,9 +25,7 @@ for (const vp of VIEWPORTS) {
       // The fixture server doesn't advertise session.message.enqueue, so Message states that reason (RA-14).
       if (vp.phone) await expect(message).toHaveAccessibleDescription("Not offered by this AQ server");
       else await expect(actions.getByText("Not offered by this AQ server")).toBeVisible();
-      await noOverflow(page);
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-focus-${vp.name}.png` });
-      await axe(page);
+      await checkTerminalView(page, `after-focus-${vp.name}`);
 
       const more = terminal.getByRole("button", { name: "More terminal actions" });
       const detailsButton = vp.phone ? more : actions.getByRole("button", { name: "Session details" });
@@ -64,9 +43,7 @@ for (const vp of VIEWPORTS) {
         expect(box.width).toBeCloseTo(vp.width, 0);
         expect(box.y + box.height).toBeCloseTo(vp.height, 0);
       }
-      await noOverflow(page);
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-details-${vp.name}.png` });
-      await axe(page);
+      await checkTerminalView(page, `after-details-${vp.name}`);
       await page.keyboard.press("Escape");
       await expect(details).toBeHidden();
       await expect(detailsButton).toBeFocused();
@@ -83,9 +60,7 @@ for (const vp of VIEWPORTS) {
       await expect(transcript.getByRole("status").filter({ hasText: "Following the terminal's watch" })).toBeVisible();
       await expect(transcript.getByRole("button", { name: /Watch output for/ })).toHaveCount(0);
       await expect(transcript.getByLabel("Literal worker output")).toContainText("Tests: 1 failed, 20 passed, 21 total");
-      await noOverflow(page);
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/after-transcript-${vp.name}.png` });
-      await axe(page);
+      await checkTerminalView(page, `after-transcript-${vp.name}`);
       await transcript.getByRole("button", { name: "Close" }).click();
       await expect(transcript).toBeHidden();
       await expect(transcriptButton).toBeFocused();

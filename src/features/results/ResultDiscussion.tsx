@@ -3,6 +3,7 @@ import type {UseInfiniteQueryResult,InfiniteData} from "@tanstack/react-query";
 import {ChevronDown,FilePlus2,FileText,Image as ImageIcon,ImagePlus,Video,X} from "lucide-react";
 import type {CommentsPage} from "../../api/wire/resultsFeedback";
 import {validateResultPayload,mediaBinding,type ResultDetail,type ResultComment,type ResultAnchor} from "../../api/adapters/resultsFeedback";
+import type { MediaArtifact } from "../../api/adapters/resultMedia";
 import {useSession} from "../../app/session";
 import {formatElapsed} from "../../components/time/relative";
 import {ActionButton} from "../../components/layout/Workspace";
@@ -74,42 +75,125 @@ function ThreadGroup({thread,detail,feedback}:{thread:Thread;detail:ResultDetail
   </div>
  </section>;
 }
-export function ResultDiscussion({detail,query,sheet,onClose,onFeedback}:{detail:ResultDetail;query:CommentsQuery;sheet?:boolean;onClose():void;onFeedback?(id?:string):void}){
- const {bootstrap}=useSession(),dialog=useRef<HTMLDialogElement>(null),[body,setBody]=useState(""),[error,setError]=useState<string|null>(null),[imageMode,setImageMode]=useState(false),[pin,setPin]=useState<{artifact_id:string;digest:string}|null>(null),[region,setRegion]=useState({x:.1,y:.1,width:.3,height:.3}),[draft,setDraft]=useState(false),[attach,setAttach]=useState(false);
- const operation=useResultOperation(detail.result.project_id,"results.comment");
- // Close the modal before it unmounts so the browser returns focus to the Comments button.
- const close=()=>{if(sheet)dialog.current?.close();onClose();};
- const comments=query.data?.pages.flatMap(p=>p.items)??[],threads=groupThreads(comments),more=!!query.hasNextPage;
- const canFeedback=bootstrap.capability("results.feedback").enabled,canImage=bootstrap.capability("results.media.read").enabled,canUpload=bootstrap.capability("results.media.upload").enabled;
- useEffect(()=>{const element=dialog.current;if(sheet)element?.showModal();return()=>element?.close();},[sheet]);
+type Pin = { artifact_id: string; digest: string };
+type Region = { x: number; y: number; width: number; height: number };
+
+function selectedAnchor(imageMode: boolean, pin: Pin | null, region: Region): ResultAnchor {
+  if (!imageMode) return { kind: "result" };
+  if (!pin) throw new Error("Choose a retained image first");
+  return { kind: "image_region", ...pin, ...region };
+}
+
+function clampRegion(region: Region) {
+  return { ...region, x: Math.min(region.x, 1 - region.width), y: Math.min(region.y, 1 - region.height) };
+}
+
+function usePinning() {
+  const [pin, setPin] = useState<Pin | null>(null);
+  const [region, setRegion] = useState<Region>({ x: .1, y: .1, width: .3, height: .3 });
+  function selectArtifact(artifact: MediaArtifact) {
+    const next = { artifact_id: artifact.receipt.artifact_id, digest: artifact.receipt.input.digest };
+    setPin(old => old?.artifact_id === next.artifact_id && old.digest === next.digest ? old : next);
+  }
+  return { pin, region, selectArtifact,
+    place(x: number, y: number) { setRegion(old => clampRegion({ ...old, x, y })); },
+    resize(field: keyof Region, value: number) { setRegion(old => clampRegion({ ...old, [field]: value })); },
+  };
+}
+
+function useDiscussionDraft(detail: ResultDetail, query: CommentsQuery) {
+  const [body,setBody] = useState(""), [error,setError] = useState<string | null>(null);
+  const [imageMode,setImageMode] = useState(false), [attach,setAttach] = useState(false);
+  const pinning = usePinning();
+  const operation = useResultOperation(detail.result.project_id, "results.comment");
  async function post(event:React.FormEvent){event.preventDefault();if(operation.id)return;setError(null);try{
-  const anchor:ResultAnchor=imageMode&&pin?{kind:"image_region",...pin,...region}:{kind:"result"};if(imageMode&&!pin)throw new Error("Choose a retained image first");
+  const anchor = selectedAnchor(imageMode, pinning.pin, pinning.region);
   const full={operation_id:crypto.randomUUID(),expected_version:detail.result.version,body,anchor,result_id:detail.result.id,revision:detail.revision.revision};validateResultPayload("Comment",full);
   const {result_id:ignoredResult,revision:ignoredRevision,...payload}=full;void ignoredResult;void ignoredRevision;
   const op=await operation.submit("POST",`/api/v1/results/${detail.result.id}/revisions/${detail.revision.revision}/comments`,payload);
   if(op?.disposition==="confirmed"){setBody("");void query.refetch();}
  }catch{setError("Enter a comment and choose a valid retained image region.");}}
- const content=<><header className={styles.panelHeader}><div><h2>Comments{query.data&&` · ${comments.length}${more?"+":""}`}</h2><p className={styles.meta}>Task {shortId(detail.result.task_id)} · <span title={`Exact result revision ${detail.revision.revision}`}>revision {detail.revision.revision.slice(0,7)}</span></p></div><ActionButton className={styles.iconButton} onClick={close} aria-label="Close comments"><X aria-hidden="true" size={18}/></ActionButton></header>
-  {query.isPending?<p role="status">Loading comments…</p>:query.isError?<p role="alert">Comments unavailable. <ActionButton onClick={()=>void query.refetch()}>Try comments again</ActionButton></p>:<>
-   <div className={styles.threads}>{threads.map(t=><ThreadGroup key={t.key} thread={t} detail={detail} feedback={canFeedback?id=>onFeedback?onFeedback(id):setDraft(true):undefined}/>)}{!comments.length&&<p className={styles.meta}>No comments on this revision.</p>}</div>
-   {query.hasNextPage&&<ActionButton disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>Load more comments</ActionButton>}
-   {query.data?.pages.length===4&&query.data.pages.at(-1)?.next_cursor&&<p className={styles.meta}>Showing 80 comments. Open the exact revision again for a fresh snapshot.</p>}
-  </>}
-  {bootstrap.capability("results.comment").enabled?<form onSubmit={e=>void post(e)} className={styles.composer}>
+  return { body, setBody, error, imageMode, setImageMode, attach, setAttach, pinning, operation, post };
+}
+
+function ImageRegion({ detail, pinning }: { detail: ResultDetail; pinning: ReturnType<typeof usePinning> }) {
+  const { region } = pinning;
+  return <section aria-label="Image region editor" className={styles.regionEditor}><p className={styles.meta}>Tap the image to place the region. Adjust before posting.</p><ResultMedia binding={mediaBinding(detail)} onArtifact={pinning.selectArtifact} annotation={{ ...region, onPlace: pinning.place }}/>{(["x","y","width","height"] as const).map(field=><label key={field}>Region {field}<input type="range" min={(field==="width"||field==="height") ? .01 : 0} max={1} step={.01} value={region[field]} onChange={e => pinning.resize(field, Number(e.target.value))}/><output>{region[field].toFixed(2)}</output></label>)}</section>;
+}
+
+function CommentComposer({ detail, query, draft }: { detail: ResultDetail; query: CommentsQuery; draft: ReturnType<typeof useDiscussionDraft> }) {
+  const { bootstrap } = useSession();
+  const capability = bootstrap.capability("results.comment");
+  if (!capability.enabled) return <p className={styles.meta}>{capability.reason ?? ""}</p>;
+  const canImage = bootstrap.capability("results.media.read").enabled, canUpload = bootstrap.capability("results.media.upload").enabled;
+  const { body, setBody, error, imageMode, attach, pinning, operation, post } = draft;
+  return <form onSubmit={e=>void post(e)} className={styles.composer}>
    <fieldset disabled={!!operation.id}><textarea aria-label="Comment" rows={2} required value={body} onChange={e=>setBody(e.target.value)} placeholder="Comment on this result…"/>
-   {imageMode&&<section aria-label="Image region editor" className={styles.regionEditor}><p className={styles.meta}>Tap the image to place the region. Adjust before posting.</p><ResultMedia binding={mediaBinding(detail)} onArtifact={a=>{const next={artifact_id:a.receipt.artifact_id,digest:a.receipt.input.digest};setPin(old=>old?.artifact_id===next.artifact_id&&old.digest===next.digest?old:next);}} annotation={{...region,onPlace:(x,y)=>setRegion(old=>({...old,x:Math.min(x,1-old.width),y:Math.min(y,1-old.height)}))}}/>{(["x","y","width","height"] as const).map(field=><label key={field}>Region {field}<input type="range" min={(field==="width"||field==="height") ? .01 : 0} max={1} step={.01} value={region[field]} onChange={e=>setRegion(old=>{const next={...old,[field]:Number(e.target.value)};next.x=Math.min(next.x,1-next.width);next.y=Math.min(next.y,1-next.height);return next;})}/><output>{region[field].toFixed(2)}</output></label>)}</section>}
-   <div className={styles.composerBar}>
-    {canUpload?<ActionButton className={styles.iconButton} aria-label="Attach image to this result" aria-expanded={attach} onClick={()=>setAttach(a=>!a)}><ImagePlus aria-hidden="true" size={18}/></ActionButton>:null}
-    {canImage?<select className={styles.anchorChip} aria-label="Anchor" value={imageMode?"image":"result"} onChange={e=>setImageMode(e.target.value==="image")}><option value="result">Whole result</option><option value="image">Image region</option></select>:<span className={styles.anchorChip}><span className={styles.anchorChipLabel}>Anchor</span> Whole result</span>}
-    {!operation.id&&<ActionButton type="submit" className={`${styles.primary} ${styles.post}`}>Post comment</ActionButton>}
-   </div>
+   {imageMode && <ImageRegion detail={detail} pinning={pinning} />}
+   <ComposerBar draft={draft} canImage={canImage} canUpload={canUpload} />
    </fieldset>
    {attach&&canUpload&&<ResultMediaUpload binding={mediaBinding(detail)}/>}
    {error&&<p role="alert">{error}</p>}
    <OperationStatus operation={operation} onCheck={()=>{void query.refetch();}}/>{operation.status?.disposition==="confirmed"&&<ActionButton onClick={operation.reset}>Write another comment</ActionButton>}
-  </form>:<p className={styles.meta}>{capReason(bootstrap.capability("results.comment"))}</p>}
- </>;
- return <>{sheet?<dialog ref={dialog} className={styles.commentsDialog} aria-label="Result comments" onCancel={e=>{e.preventDefault();close();}}>{content}</dialog>:<aside className={styles.discussion} aria-label="Discussion">{content}</aside>}{draft&&<FeedbackDraft detail={detail} comments={comments} onClose={()=>setDraft(false)}/>}</>;
+  </form>;
 }
 
-function capReason(cap:{enabled:boolean;reason?:string}){return cap.reason??"";}
+function ComposerBar({ draft, canImage, canUpload }: {
+  draft: ReturnType<typeof useDiscussionDraft>; canImage: boolean; canUpload: boolean;
+}) {
+  const { attach, setAttach, imageMode, setImageMode, operation } = draft;
+  return <div className={styles.composerBar}>
+    {canUpload?<ActionButton className={styles.iconButton} aria-label="Attach image to this result" aria-expanded={attach} onClick={()=>setAttach(a=>!a)}><ImagePlus aria-hidden="true" size={18}/></ActionButton>:null}
+    {canImage?<select className={styles.anchorChip} aria-label="Anchor" value={imageMode?"image":"result"} onChange={e=>setImageMode(e.target.value==="image")}><option value="result">Whole result</option><option value="image">Image region</option></select>:<span className={styles.anchorChip}><span className={styles.anchorChipLabel}>Anchor</span> Whole result</span>}
+    {!operation.id&&<ActionButton type="submit" className={`${styles.primary} ${styles.post}`}>Post comment</ActionButton>}
+   </div>;
+}
+
+function DiscussionThreads({ detail, query, comments, feedback }: {
+  detail: ResultDetail; query: CommentsQuery; comments: ResultComment[]; feedback?: (id: string) => void;
+}) {
+  const threads = groupThreads(comments);
+  if (query.isPending) return <p role="status">Loading comments…</p>;
+  if (query.isError) return <p role="alert">Comments unavailable. <ActionButton onClick={() => void query.refetch()}>Try comments again</ActionButton></p>;
+  return <>
+   <div className={styles.threads}>{threads.map(t=><ThreadGroup key={t.key} thread={t} detail={detail} feedback={feedback}/>)}{!comments.length&&<p className={styles.meta}>No comments on this revision.</p>}</div>
+   {query.hasNextPage&&<ActionButton disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>Load more comments</ActionButton>}
+   {query.data?.pages.length===4&&query.data.pages.at(-1)?.next_cursor&&<p className={styles.meta}>Showing 80 comments. Open the exact revision again for a fresh snapshot.</p>}
+  </>;
+}
+
+function useDiscussionDialog(sheet: boolean | undefined, onClose: () => void) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const close = () => { if (sheet) dialog.current?.close(); onClose(); };
+  useEffect(() => {
+    const element = dialog.current;
+    if (sheet) element?.showModal();
+    return () => element?.close();
+  }, [sheet]);
+  return { dialog, close };
+}
+
+function commentCount(query: CommentsQuery, count: number) {
+  if (!query.data) return undefined;
+  return ` · ${count}${query.hasNextPage ? "+" : ""}`;
+}
+
+function DiscussionHeader({ detail, count, close }: { detail: ResultDetail; count?: string; close(): void }) {
+  return <header className={styles.panelHeader}><div><h2>Comments{count}</h2><p className={styles.meta}>Task {shortId(detail.result.task_id)} · <span title={`Exact result revision ${detail.revision.revision}`}>revision {detail.revision.revision.slice(0,7)}</span></p></div><ActionButton className={styles.iconButton} onClick={close} aria-label="Close comments"><X aria-hidden="true" size={18}/></ActionButton></header>;
+}
+
+export function ResultDiscussion({detail,query,sheet,onClose,onFeedback}:{detail:ResultDetail;query:CommentsQuery;sheet?:boolean;onClose():void;onFeedback?(id?:string):void}) {
+  const { bootstrap } = useSession();
+  const { dialog, close } = useDiscussionDialog(sheet, onClose);
+  const [draft, setDraft] = useState(false);
+  const composer = useDiscussionDraft(detail, query);
+  const comments = query.data?.pages.flatMap(page => page.items) ?? [];
+  const count = commentCount(query, comments.length);
+  const feedback = onFeedback ?? (() => setDraft(true));
+  const content = <>
+    <DiscussionHeader detail={detail} count={count} close={close} />
+    <DiscussionThreads detail={detail} query={query} comments={comments} feedback={bootstrap.capability("results.feedback").enabled ? feedback : undefined} />
+    <CommentComposer detail={detail} query={query} draft={composer} />
+  </>;
+ return <>{sheet?<dialog ref={dialog} className={styles.commentsDialog} aria-label="Result comments" onCancel={e=>{e.preventDefault();close();}}>{content}</dialog>:<aside className={styles.discussion} aria-label="Discussion">{content}</aside>}{draft&&<FeedbackDraft detail={detail} comments={comments} onClose={()=>setDraft(false)}/>}</>;
+}

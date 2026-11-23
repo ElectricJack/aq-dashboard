@@ -21,7 +21,7 @@ const CAPABILITIES: Record<PlaybookKind, string> = {
 export const playbookCapability = (kind: PlaybookKind) => CAPABILITIES[kind];
 export type PlaybookSubject = { type: "playbook_run" | "playbook_binding"; id: string; revision?: string };
 
-export function freezePlaybookAction(kind: PlaybookKind, project: string, subject: PlaybookSubject, payload: Record<string, unknown>, reason?: string): FrozenAction {
+export function freezePlaybookAction(kind: PlaybookKind, project: string, subject: PlaybookSubject, { payload, reason }: { payload: Record<string, unknown>; reason?: string }): FrozenAction {
   const id = crypto.randomUUID(), versioned = subject.revision !== undefined;
   const body = { operation_id: id, kind, subject, expected_versions: versioned ? { [subject.type]: subject.revision } : {}, ...(reason ? { reason } : {}),
     payload: { ...payload, operation_id: id, project_id: project, ...(versioned ? { expected_version: subject.revision } : {}) } };
@@ -39,9 +39,16 @@ export function parseInputs(rows: readonly InputRow[]): Record<string, string | 
     const name = row.name.trim();
     if (!name) throw new Error("Name every input.");
     if (Object.hasOwn(out, name)) throw new Error(`Input ${name} is listed twice.`);
-    if (row.type === "number") { const n = Number(row.value); if (!row.value.trim() || !Number.isFinite(n)) throw new Error(`Input ${name} must be a number.`); out[name] = n; }
-    else if (row.type === "boolean") out[name] = row.value === "true";
-    else out[name] = row.value;
+    out[name] = inputValue(row, name);
   }
   return out;
+}
+
+
+function inputValue(row: InputRow, name: string) {
+  if (row.type === "boolean") return row.value === "true";
+  if (row.type !== "number") return row.value;
+  const number = Number(row.value);
+  if (!row.value.trim() || !Number.isFinite(number)) throw new Error(`Input ${name} must be a number.`);
+  return number;
 }

@@ -51,38 +51,39 @@ async function installFixture(page: Page, options: { document?: boolean; reviews
     let answered = false;
     const requestBodies: string[] = [];
     Object.assign(window, { hostDecisionRequests: requestBodies });
-    const wrap = (inner: typeof fetch): typeof fetch => async (input, init) => {
-      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href);
-      if (url.pathname === "/api/v1/bootstrap") {
-        const response = await inner(input, init);
-        const body = await response.json();
-        principal = body.data.principal.id;
-        if (options.reviews === false) {
-          body.data.capabilities = body.data.capabilities.map((cap: { name: string }) =>
-            cap.name === "decisions.read" ? { ...cap, enabled: false } : cap);
-        }
-        body.data.capabilities.push({ name: "playbooks.decisions", version: "1", enabled: true });
-        return json(body);
+    async function readBootstrap(reply: Promise<Response>) {
+      const response = await reply;
+      const body = await response.json();
+      principal = body.data.principal.id;
+      if (options.reviews === false) {
+        body.data.capabilities = body.data.capabilities.map((cap: { name: string }) =>
+          cap.name === "decisions.read" ? { ...cap, enabled: false } : cap);
       }
-      const row = {
+      body.data.capabilities.push({ name: "playbooks.decisions", version: "1", enabled: true });
+      return json(body);
+    }
+
+    function decisionRow() {
+      return {
         namespace: { namespace_id: "00000000-0000-4000-8000-000000008005", generation: 1, name: "test", workspace_id: task.project.workspace_id, project_id: project, owner_user_id: "00000000-0000-4000-8000-000000008007" },
         handle, subject: { id: task.data.id, revision: 4 }, question, choices: ["approved", "rejected"],
         responders: [`user:${options.responder === false ? "00000000-0000-4000-8000-000000008006" : principal}`],
         expires_at_ms: Date.parse("2099-01-01T00:00:00Z"),
       };
-      if (url.pathname === base) return json({ decisions: answered ? [] : [row] });
-      if (url.pathname === `${base}/${handle}`) return answered ? json({ error: "not_found" }, 404)
-        : json({ ...row, subject_task_id: task.data.id, produced_knowledge_ids: options.document === false ? [] : [document.data.id] });
-      if (url.pathname === `${base}/${handle}/answer`) {
-        if (init?.method !== "POST" || new Headers(init.headers).get("X-AQ-Request") !== "1") return json({ error: "invalid" }, 400);
-        const body = String(init.body);
-        requestBodies.push(body);
-        if (options.expired) return json({ error: "conflict" }, 409);
-        answered = true;
-        if (options.loseResponse && requestBodies.length === 1) throw new TypeError("Fixture: response lost after recording");
-        const { choice } = JSON.parse(requestBodies[0]!);
-        return json({ outcome: choice, output: { reference: `decision:${handle}`, subject: row.subject } });
-      }
+    }
+
+    function answer(init?: RequestInit) {
+      if (init?.method !== "POST" || new Headers(init.headers).get("X-AQ-Request") !== "1") return json({ error: "invalid" }, 400);
+      const body = String(init.body);
+      requestBodies.push(body);
+      if (options.expired) return json({ error: "conflict" }, 409);
+      answered = true;
+      if (options.loseResponse && requestBodies.length === 1) throw new TypeError("Fixture: response lost after recording");
+      const { choice } = JSON.parse(requestBodies[0]!);
+      return json({ outcome: choice, output: { reference: `decision:${handle}`, subject: decisionRow().subject } });
+    }
+
+    function readGraph(url: URL) {
       const taskPath = `/api/human/projects/${project}/tasks/`;
       if (url.pathname === taskPath + task.data.id) return json(task);
       if (url.pathname.startsWith(taskPath) && url.pathname.endsWith("/graph")) {
@@ -92,7 +93,19 @@ async function installFixture(page: Page, options: { document?: boolean; reviews
       if (url.pathname === `/api/human/projects/${project}/knowledge/${document.data.id}`) {
         return json(url.searchParams.get("revision") === "1" ? prior : document);
       }
-      return inner(input, init);
+    }
+
+    function readDecision(url: URL, init?: RequestInit) {
+      if (url.pathname === base) return json({ decisions: answered ? [] : [decisionRow()] });
+      if (url.pathname === `${base}/${handle}`) return answered ? json({ error: "not_found" }, 404)
+        : json({ ...decisionRow(), subject_task_id: task.data.id, produced_knowledge_ids: options.document === false ? [] : [document.data.id] });
+      if (url.pathname === `${base}/${handle}/answer`) return answer(init);
+    }
+
+    const wrap = (inner: typeof fetch): typeof fetch => async (input, init) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href);
+      if (url.pathname === "/api/v1/bootstrap") return readBootstrap(inner(input, init));
+      return readDecision(url, init) ?? readGraph(url) ?? inner(input, init);
     };
     let current = wrap(window.fetch.bind(window));
     Object.defineProperty(window, "fetch", { configurable: true, get: () => current, set: (next: typeof fetch) => { current = wrap(next); } });

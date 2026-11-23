@@ -30,11 +30,6 @@ export type GraphLayout = {
 const byTitle = (a: { title: string; id: string }, b: { title: string; id: string }) =>
   a.title.localeCompare(b.title) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/**
- * Deterministic layered layout: a node's layer is the longest structural
- * (dependency or hierarchy) path reaching it. Informational edges never
- * move nodes. Same input set always gives the same positions.
- */
 /** Hop distance from the root over all edges, ignoring direction. Unreachable nodes are Infinity. */
 function distances(graph: TaskGraphView): Map<string, number> {
   const adj = new Map<string, string[]>();
@@ -56,7 +51,10 @@ function distances(graph: TaskGraphView): Map<string, number> {
   return dist;
 }
 
-export function layoutGraph(graph: TaskGraphView): GraphLayout {
+type GraphNodes = TaskGraphView["nodes"];
+type GraphEdges = TaskGraphView["edges"];
+
+function nearestNodes(graph: TaskGraphView) {
   // The cap keeps the root and the nodes nearest to it, then title order.
   const dist = distances(graph);
   const d = (id: string) => dist.get(id) ?? Number.POSITIVE_INFINITY;
@@ -66,10 +64,12 @@ export function layoutGraph(graph: TaskGraphView): GraphLayout {
     const db = d(b.id);
     return (da === db ? 0 : da < db ? -1 : 1) || byTitle(a, b);
   });
-  const kept = sorted.slice(0, MAX_NODES);
-  const graphIds = new Set(graph.nodes.map((n) => n.id));
+  return sorted.slice(0, MAX_NODES);
+}
+
+function structuralLayers(kept: GraphNodes, edges: GraphEdges) {
   const ids = new Set(kept.map((n) => n.id));
-  const structural = graph.edges.filter((e) => e.category !== "informational" && ids.has(e.from) && ids.has(e.to));
+  const structural = edges.filter((e) => e.category !== "informational" && ids.has(e.from) && ids.has(e.to));
 
   const layer = new Map(kept.map((n) => [n.id, 0]));
   // Bellman-Ford style relaxation; bounded so a cycle cannot loop forever.
@@ -85,6 +85,10 @@ export function layoutGraph(graph: TaskGraphView): GraphLayout {
     if (!changed) break;
   }
 
+  return layer;
+}
+
+function placeNodes(kept: GraphNodes, layer: Map<string, number>) {
   // Compress layer numbers to their rank so cycles can't leave empty columns.
   const ranks = new Map([...new Set(layer.values())].sort((a, b) => a - b).map((l, i) => [l, i]));
   const columns = new Map<number, typeof kept>();
@@ -100,29 +104,49 @@ export function layoutGraph(graph: TaskGraphView): GraphLayout {
     });
     rows = Math.max(rows, col.length);
   }
-  const pos = new Map(nodes.map((n) => [n.id, n]));
-  const edges = graph.edges
-    .filter((e) => pos.has(e.from) && pos.has(e.to))
-    .map((e) => {
-      const a = pos.get(e.from)!;
-      const b = pos.get(e.to)!;
-      const forward = b.x > a.x;
-      const x1 = forward ? a.x + NODE_W : a.x + NODE_W / 2;
-      const y1 = forward ? a.y + NODE_H / 2 : a.y + NODE_H;
-      const x2 = forward ? b.x : b.x + NODE_W / 2;
-      const y2 = forward ? b.y + NODE_H / 2 : b.y;
-      const path = forward
-        ? `M${x1},${y1} C${x1 + COL_GAP / 2},${y1} ${x2 - COL_GAP / 2},${y2} ${x2},${y2}`
-        : `M${x1},${y1} C${x1},${y1 + ROW_GAP} ${x2},${y2 - ROW_GAP} ${x2},${y2}`;
+  return { nodes, rows, layers: columns.size || 1 };
+}
+
+function horizontalPath(source: PlacedNode, target: PlacedNode) {
+  const x1 = source.x + NODE_W, y1 = source.y + NODE_H / 2;
+  const x2 = target.x, y2 = target.y + NODE_H / 2;
+  return `M${x1},${y1} C${x1 + COL_GAP / 2},${y1} ${x2 - COL_GAP / 2},${y2} ${x2},${y2}`;
+}
+
+function verticalPath(source: PlacedNode, target: PlacedNode) {
+  const x1 = source.x + NODE_W / 2, y1 = source.y + NODE_H;
+  const x2 = target.x + NODE_W / 2, y2 = target.y;
+  return `M${x1},${y1} C${x1},${y1 + ROW_GAP} ${x2},${y2 - ROW_GAP} ${x2},${y2}`;
+}
+
+function routeEdges(edges: GraphEdges, pos: Map<string, PlacedNode>) {
+  return edges
+    .filter(e => pos.has(e.from) && pos.has(e.to))
+    .map(e => {
+      const source = pos.get(e.from)!;
+      const target = pos.get(e.to)!;
+      const path = target.x > source.x ? horizontalPath(source, target) : verticalPath(source, target);
       return { from: e.from, to: e.to, type: e.type, category: e.category, path };
     });
-  const layers = columns.size || 1;
+}
+
+/**
+ * Deterministic layered layout: a node's layer is the longest structural
+ * (dependency or hierarchy) path reaching it. Informational edges never
+ * move nodes. Same input set always gives the same positions.
+ */
+export function layoutGraph(graph: TaskGraphView): GraphLayout {
+  const kept = nearestNodes(graph);
+  const layer = structuralLayers(kept, graph.edges);
+  const { nodes, layers, rows } = placeNodes(kept, layer);
+  const pos = new Map(nodes.map(node => [node.id, node]));
+  const graphIds = new Set(graph.nodes.map(node => node.id));
   return {
     nodes,
-    edges,
+    edges: routeEdges(graph.edges, pos),
     width: PAD * 2 + layers * NODE_W + (layers - 1) * COL_GAP,
     height: PAD * 2 + Math.max(rows, 1) * NODE_H + Math.max(rows - 1, 0) * ROW_GAP,
-    clientOmitted: sorted.length - kept.length,
+    clientOmitted: graph.nodes.length - kept.length,
     clientOmittedEdges: graph.edges.filter(
       (e) => graphIds.has(e.from) && graphIds.has(e.to) && !(pos.has(e.from) && pos.has(e.to)),
     ).length,

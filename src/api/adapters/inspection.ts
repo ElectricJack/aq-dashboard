@@ -39,7 +39,7 @@ export type TotalView = { value: number | null; accuracy: Total["accuracy"] };
 const ACCURACIES = ["exact", "estimated", "unknown"] as const;
 export function adaptTotal(total: Total): TotalView {
   const accuracy = known(total.accuracy, ACCURACIES);
-  if (accuracy === "unknown" || total.value === null || !Number.isFinite(total.value)) {
+  if (accuracy === "unknown" || !Number.isFinite(total.value)) {
     return { value: null, accuracy: "unknown" };
   }
   // An accuracy this client doesn't know is never presented as exact.
@@ -270,19 +270,21 @@ const CONTROLLER_STATES = ["none", "held", "unknown"] as const;
 
 const EXECUTION_AUTHORITIES = ["offered", "preparing", "granted", "cancelling", "never_granted", "declined", "finished", "unknown"] as const;
 type ExecutionAuthority = typeof EXECUTION_AUTHORITIES[number];
+function lifecycleTime(row: Record<string, unknown>, key: string): string | null {
+  const value = row[key];
+  if (value === null) return null;
+  const validFormat = typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value);
+  if (validFormat) {
+    const date = new Date(value);
+    if (Number.isFinite(date.valueOf()) && date.toISOString() === value) return value;
+  }
+  throw new ContractError(`session lifecycle ${key} must be a timestamp or null`);
+}
 function lifecycle(value: unknown): { startedAt: string | null; stoppedAt: string | null } | null {
   if (value == null) return null;
   if (!isRecord(value)) throw new ContractError("session lifecycle must be an object");
-  const time = (key: string): string | null => {
-    const v = value[key];
-    if (v === null) return null;
-    if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v) || !Number.isFinite(Date.parse(v)) || new Date(v).toISOString() !== v) {
-      throw new ContractError(`session lifecycle ${key} must be a timestamp or null`);
-    }
-    return v;
-  };
-  const startedAt = time("started_at");
-  const stoppedAt = time("stopped_at");
+  const startedAt = lifecycleTime(value, "started_at");
+  const stoppedAt = lifecycleTime(value, "stopped_at");
   if (stoppedAt && !startedAt) throw new ContractError("stopped lifecycle requires its start report");
   return { startedAt, stoppedAt };
 }
@@ -393,26 +395,51 @@ export type SearchView = {
   }[];
 };
 
+function searchCheck(value: unknown, issue: string): asserts value {
+  if (!value) throw new ContractError(issue);
+}
+
+function searchProject(project: unknown) {
+  if (project == null) return undefined;
+  const message = "Invalid search project";
+  if (!isRecord(project)) throw new ContractError(message);
+  if (typeof project.id !== "string" || typeof project.label !== "string") throw new ContractError(message);
+  return { id: project.id, label: project.label };
+}
+
+function searchHit(hit: unknown, type: string) {
+  const message = "search hit must have a ref and title";
+  searchCheck(isRecord(hit), message);
+  searchCheck(isRecord(hit.ref), message);
+  searchCheck(typeof hit.title === "string", message);
+  const ref = reference({ ...hit.ref, type: hit.ref.kind ?? hit.ref.type });
+  if (hit.ref.kind) {
+    searchCheck(ref.type === type, "Invalid search reference binding");
+    searchCheck(ref.revision, "Invalid search reference binding");
+  }
+  const project = searchProject(hit.project);
+  return { ref, title: hit.title, excerpt: typeof hit.excerpt === "string" ? hit.excerpt : undefined, project };
+}
+
+function searchGroup(group: unknown) {
+  const message = "Invalid search group";
+  searchCheck(isRecord(group), message);
+  searchCheck(Array.isArray(group.hits), message);
+  searchCheck(typeof group.type === "string", message);
+  searchCheck(typeof group.has_more === "boolean", message);
+  if (group.next_cursor != null) {
+    searchCheck(typeof group.next_cursor === "string", message);
+    searchCheck(group.has_more, message);
+  }
+  const type = group.type;
+  return { type: known(type, SEARCH_TYPES), hits: group.hits.map(hit => searchHit(hit, type)), hasMore: group.has_more, nextCursor: group.next_cursor ?? null };
+}
+
 export function adaptSearch(data: unknown): SearchView {
   if (!isRecord(data) || !Array.isArray(data.groups)) throw new ContractError("search groups must be a list");
   return {
-    snapshotId: typeof data.snapshot_id==='string'?data.snapshot_id:null,
+    snapshotId: typeof data.snapshot_id === "string" ? data.snapshot_id : null,
     sources: adaptSources(data.sources),
-    groups: data.groups.map((g) => {
-      if (!isRecord(g) || !Array.isArray(g.hits) || typeof g.type!=='string' || typeof g.has_more!=='boolean' ||
-          (g.next_cursor!=null && typeof g.next_cursor!=='string') || (g.next_cursor!=null && !g.has_more)) throw new ContractError("Invalid search group");
-      const hits = g.hits.map((h:unknown)=>{
-        if (!isRecord(h) || !isRecord(h.ref) || typeof h.title!=="string") throw new ContractError("search hit must have a ref and title");
-        const ref=reference({...h.ref,type:h.ref.kind??h.ref.type});
-        if(h.ref.kind && (ref.type!==g.type || !ref.revision))throw new ContractError('Invalid search reference binding');
-        let project: {id:string;label:string} | undefined;
-        if(h.project!=null){
-          if(!isRecord(h.project)||typeof h.project.id!=='string'||typeof h.project.label!=='string')throw new ContractError('Invalid search project');
-          project={id:h.project.id,label:h.project.label};
-        }
-        return {ref,title:h.title,excerpt:typeof h.excerpt==='string'?h.excerpt:undefined,project};
-      });
-      return { type: known(g.type, SEARCH_TYPES), hits, hasMore: g.has_more, nextCursor: g.next_cursor??null };
-    }),
+    groups: data.groups.map(searchGroup),
   };
 }

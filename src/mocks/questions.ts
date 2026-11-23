@@ -37,36 +37,57 @@ export function withQuestionFixtures(bootstrap: Bootstrap): Bootstrap {
     ...QUESTION_CAPABILITIES.map(name => ({ name, version: "1", enabled: true }))] };
 }
 
+type AnswerRequest = { operation_id: string; decision: string; answer?: string; expected?: string };
+const refuse = (status: number, code: string, message: string) => HttpResponse.json({ request_id: "mock", code, message, retryable: false }, { status });
+const operation = (request: AnswerRequest, q: Fixture) => HttpResponse.json({ ...operationFixture, data: { ...operationFixture.data, operation_id: request.operation_id, disposition: "confirmed",
+    scope: { kind: "project", project_id: q.project_id }, subject_refs: [{ type: "decision", id: q.decision_id, revision: "1" }],
+    receipt_refs: [{ type: "decision_receipt", id: q.decision_id, revision: q.decision_revision }], affected_entities: [{ type: "decision", id: q.decision_id, revision: q.decision_revision }], recovery: "none" } });
+
+type Answer = { decision: string; answer: string };
+function replayAnswer(replay: Answer, q: Fixture, request: AnswerRequest) {
+  return replay.decision === q.decision_id && replay.answer === request.answer ? operation(request, q) : refuse(409, "id_conflict", "This operation already recorded a different answer.");
+}
+
+function questionList(questions: Map<string, Fixture>, request: Request) {
+  const query = new URL(request.url).searchParams;
+  const open = query.get("state") !== "closed", project = query.get("project_id");
+  const items = [...questions.values()].filter(q => (q.state === "pending") === open && (!project || q.project_id === project));
+  return HttpResponse.json({ api_version: "question-inbox-1", server_time_ms: SERVER_TIME_MS, next_cursor: null, items });
+}
+
+function answeredQuestion(q: Fixture, request: AnswerRequest): Fixture {
+  return { ...q, state: "answered", decision_revision: "2", answer: String(request.answer), answered_at_ms: SERVER_TIME_MS + 1_000, delivery: { kind: "wait" } };
+}
+
+async function readAnswer(request: Request): Promise<AnswerRequest | undefined> {
+  const body = (await request.clone().json().catch(() => null)) as { operation_id?: string; kind?: string; subject?: { id?: string; revision?: string }; payload?: { answer?: string; expected_revision?: string } } | null;
+  if (body?.kind !== "question.answer" || !body.operation_id) return undefined;
+  return { operation_id: body.operation_id, decision: String(body.subject?.id), answer: body.payload?.answer, expected: body.payload?.expected_revision };
+}
+
+async function answerQuestion(request: Request, questions: Map<string, Fixture>, answered: Map<string, Answer>) {
+  const body = await readAnswer(request);
+  if (!body) return undefined;
+  const q = questions.get(body.decision);
+  if (!q) return refuse(404, "not_found", "This question does not exist or is not available to you.");
+  const replay = answered.get(body.operation_id);
+  if (replay) return replayAnswer(replay, q, body);
+  if (q.state !== "pending" || body.expected !== q.decision_revision) return refuse(409, "stale_revision", "The question changed before this answer was recorded.");
+  const next = answeredQuestion(q, body);
+  questions.set(q.decision_id, next); answered.set(body.operation_id, { decision: q.decision_id, answer: String(body.answer) });
+  return operation(body, next);
+}
+
 /** List, detail and `question.answer` over the fixtures; answers last for the mock session. */
 export function questionHandlers() {
   const questions = new Map(questionFixtures().map(q => [q.decision_id, q] as const));
-  const answered = new Map<string, { decision: string; answer: string }>();
-  const refuse = (status: number, code: string, message: string) => HttpResponse.json({ request_id: "mock", code, message, retryable: false }, { status });
-  const operation = (id: string, q: Fixture) => HttpResponse.json({ ...operationFixture, data: { ...operationFixture.data, operation_id: id, disposition: "confirmed",
-    scope: { kind: "project", project_id: q.project_id }, subject_refs: [{ type: "decision", id: q.decision_id, revision: "1" }],
-    receipt_refs: [{ type: "decision_receipt", id: q.decision_id, revision: q.decision_revision }], affected_entities: [{ type: "decision", id: q.decision_id, revision: q.decision_revision }], recovery: "none" } });
+  const answered = new Map<string, Answer>();
   return [
-    http.get("/api/questions/decisions", ({ request }) => {
-      const query = new URL(request.url).searchParams;
-      const open = query.get("state") !== "closed", project = query.get("project_id");
-      const items = [...questions.values()].filter(q => (q.state === "pending") === open && (!project || q.project_id === project));
-      return HttpResponse.json({ api_version: "question-inbox-1", server_time_ms: SERVER_TIME_MS, next_cursor: null, items });
-    }),
+    http.get("/api/questions/decisions", ({ request }) => questionList(questions, request)),
     http.get("/api/questions/decisions/:id", ({ params }) => {
       const q = questions.get(String(params.id));
       return q ? HttpResponse.json({ api_version: "question-inbox-1", server_time_ms: SERVER_TIME_MS, item: q }) : refuse(404, "not_found", "This question does not exist or is not available to you.");
     }),
-    http.post("/api/v1/actions", async ({ request }) => {
-      const body = (await request.clone().json().catch(() => null)) as { operation_id?: string; kind?: string; subject?: { id?: string; revision?: string }; payload?: { answer?: string; expected_revision?: string } } | null;
-      if (body?.kind !== "question.answer" || !body.operation_id) return undefined;
-      const q = questions.get(String(body.subject?.id));
-      if (!q) return refuse(404, "not_found", "This question does not exist or is not available to you.");
-      const replay = answered.get(body.operation_id);
-      if (replay) return replay.decision === q.decision_id && replay.answer === body.payload?.answer ? operation(body.operation_id, q) : refuse(409, "id_conflict", "This operation already recorded a different answer.");
-      if (q.state !== "pending" || body.payload?.expected_revision !== q.decision_revision) return refuse(409, "stale_revision", "The question changed before this answer was recorded.");
-      const next: Fixture = { ...q, state: "answered", decision_revision: "2", answer: String(body.payload?.answer), answered_at_ms: SERVER_TIME_MS + 1_000, delivery: { kind: "wait" } };
-      questions.set(q.decision_id, next); answered.set(body.operation_id, { decision: q.decision_id, answer: String(body.payload?.answer) });
-      return operation(body.operation_id, next);
-    }),
+    http.post("/api/v1/actions", ({ request }) => answerQuestion(request, questions, answered)),
   ];
 }

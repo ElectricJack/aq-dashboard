@@ -1,30 +1,55 @@
-import {useRef,useState} from 'react';
-import {useQuery,useQueryClient} from '@tanstack/react-query';
-import {apiGet,apiSend,ApiError} from '../../../api/client';
-import {isRecord,ContractError} from '../../../api/adapters/contract';
+import {useQuery} from '@tanstack/react-query';
 import {useSession,PANEL_READ} from '../../../app/session';
 import {queryKey} from '../../../api/queryKeys';
 import {ActionButton} from '../../../components/layout/Workspace';
-import {hostedWorkerCommand,useWorkerInstaller} from './AddMachine';
+import { WorkerInstallerHelp, useControlsCommand } from "./WorkerInstallerHelp";
+import { useWorkerRequest } from "./workerRequests";
+import { readWorkerDiagnostics, type Job, type Receiver, type Report } from "./workerInspections";
 import styles from './WorkerInspector.module.css';
-type Report={ok:boolean;phase?:string;error?:string;details?:Record<string,unknown>};
-type Job={id:string;node_id:string;kind:'sandbox_startup_v1'|'receiver_update_v1';status:'queued'|'running'|'completed';result:Report|null};
-type Receiver={node_id:string;seen_at_ms:number;version:number};
-function validJob(raw:unknown):raw is Job{return isRecord(raw)&&typeof raw.id==='string'&&typeof raw.node_id==='string'&&['sandbox_startup_v1','receiver_update_v1'].includes(String(raw.kind))&&['queued','running','completed'].includes(String(raw.status))&&(raw.result===null||isRecord(raw.result)&&typeof raw.result.ok==='boolean'&&(raw.result.phase===undefined||typeof raw.result.phase==='string')&&(raw.result.error===undefined||typeof raw.result.error==='string')&&(raw.result.details===undefined||isRecord(raw.result.details)));}
-export function WorkerDiagnostics({nodeId}:{nodeId:string}){
- const {bootstrap,queryContext}=useSession();const client=useQueryClient();const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[pending,setPending]=useState<{operation_id:string;kind:Job['kind'];installer_sha256?:string}|null>(null);const lock=useRef(false);
- const allowed=bootstrap.capability('swarm.worker.control').enabled;
- const query=useQuery({queryKey:queryKey(queryContext,'worker-diagnostics',{}),queryFn:async({signal})=>{const raw=await apiGet<unknown>('/api/worker-diagnostics',signal);if(!isRecord(raw)||!Array.isArray(raw.jobs)||!raw.jobs.every(validJob)||!Array.isArray(raw.receivers)||!raw.receivers.every(r=>isRecord(r)&&typeof r.node_id==='string'&&typeof r.seen_at_ms==='number'&&typeof r.version==='number')||typeof raw.server_time_ms!=='number')throw new ContractError('Invalid worker diagnostics');return raw as {jobs:Job[];receivers:Receiver[];server_time_ms:number};},enabled:allowed,refetchInterval:3000,retry:false,meta:PANEL_READ});
- if(!allowed)return null;
+function reportText(job: Job, report: Report) {
+  if (!report.ok) return `${report.phase ?? "Worker check"}: ${report.error ?? "Check failed."}`;
+  if (job.kind === "receiver_update_v1") return "Worker controls updated remotely.";
+  return report.details?.network_tools_restored ? "Sandbox startup passed. AQ networking tools were restored." : "Sandbox startup and tmux passed.";
+}
+
+function diagnosticsStatus(error: boolean, job: Job | undefined, receiver: Receiver | undefined) {
+  if (error) return "Worker diagnostics are unavailable.";
+  if (job?.status === "running") return "Worker is running the checks.";
+  if (job?.status === "queued") return "Checks queued. Waiting for the worker.";
+  if (job?.result) return reportText(job, job.result);
+  return receiver ? "Run sandbox checks remotely without opening a terminal." : "One worker update enables remote checks and future remote updates.";
+}
+
+function CheckActions({ job, receiver, install, busy, pending, request }: {
+  job: Job | undefined; receiver: Receiver | undefined; install: string | null; busy: boolean; pending: boolean;
+  request(kind: Job["kind"]): Promise<void>;
+}) {
+  const active=job?.status==='queued'||job?.status==='running';
+  const canUpdate = Boolean(install) && !pending;
+  return <div className={styles.actions}><ActionButton disabled={busy||active&&!pending} onClick={()=>void request('sandbox_startup_v1')}>{busy?'Sending…':pending?'Retry request':'Run checks'}</ActionButton>{receiver&&<ActionButton disabled={busy || active || !canUpdate} onClick={()=>void request('receiver_update_v1')}>Update controls</ActionButton>}</div>;
+}
+
+export function WorkerDiagnostics({ nodeId }: { nodeId: string }) {
+  const { bootstrap } = useSession();
+  if (!bootstrap.capability("swarm.worker.control").enabled) return null;
+  return <WorkerDiagnosticsPanel nodeId={nodeId} />;
+}
+
+function WorkerDiagnosticsPanel({ nodeId }: { nodeId: string }) {
+  const { queryContext } = useSession();
+  const { busy, error, pending, setError, send } = useWorkerRequest<{ operation_id: string; kind: Job["kind"]; installer_sha256?: string }>("worker-diagnostics", nodeId);
+ const query=useQuery({queryKey:queryKey(queryContext,'worker-diagnostics',{}),queryFn:({signal})=>readWorkerDiagnostics(signal),refetchInterval:3000,retry:false,meta:PANEL_READ});
  const job=query.data?.jobs.find(j=>j.node_id===nodeId),receiver=query.data?.receivers.find(r=>r.node_id===nodeId);
- const active=job?.status==='queued'||job?.status==='running';
- const installer=useWorkerInstaller();const install=hostedWorkerCommand(installer.origin,installer.digest,true);
- async function request(kind:Job['kind']){if(lock.current)return;lock.current=true;setBusy(true);setError(null);const change=pending??{operation_id:crypto.randomUUID(),kind,...(kind==='receiver_update_v1'?{installer_sha256:import.meta.env.VITE_AQ_WORKER_INSTALL_SHA256}:{})};setPending(change);try{const receipt=await apiSend<unknown>('POST',`/api/worker-diagnostics/${encodeURIComponent(nodeId)}`,change);if(!isRecord(receipt)||receipt.operation_id!==change.operation_id)throw new ContractError('Invalid worker check receipt');setPending(null);await client.invalidateQueries({predicate:q=>q.queryKey.includes('worker-diagnostics')});}catch(e){if(e instanceof ApiError&&(e.status??0)>=400&&(e.status??0)<500)setPending(null);setError(e instanceof ApiError?e.serverMessage??'Worker check could not be requested.':'Confirmation is pending. Retry the same request.');}finally{setBusy(false);lock.current=false;}}
+ const install = useControlsCommand();
+ const request = (kind: Job["kind"]) => send(() => ({
+   operation_id: crypto.randomUUID(), kind,
+   ...(kind === "receiver_update_v1" ? { installer_sha256: import.meta.env.VITE_AQ_WORKER_INSTALL_SHA256 } : {}),
+ }));
  return <section className={styles.group} aria-label="Worker diagnostics">
   <h3>Remote checks</h3>
-  <p role="status" className={styles.note}>{query.isError?'Worker diagnostics are unavailable.':active?job.status==='running'?'Worker is running the checks.':'Checks queued. Waiting for the worker.':job?.result?job.result.ok?job.kind==='receiver_update_v1'?'Worker controls updated remotely.':job.result.details?.network_tools_restored?'Sandbox startup passed. AQ networking tools were restored.':'Sandbox startup and tmux passed.':`${job.result.phase??'Worker check'}: ${job.result.error??'Check failed.'}`:receiver?'Run sandbox checks remotely without opening a terminal.':'One worker update enables remote checks and future remote updates.'}</p>
-  <div className={styles.actions}><ActionButton disabled={busy||active&&!pending} onClick={()=>void request('sandbox_startup_v1')}>{busy?'Sending…':pending?'Retry request':'Run checks'}</ActionButton>{receiver&&<ActionButton disabled={busy||active||!install||!!pending} onClick={()=>void request('receiver_update_v1')}>Update controls</ActionButton>}</div>
-  {!receiver&&install&&<details className={styles.more}><summary>Enable remote controls</summary><p className={styles.note}>Open this dashboard on the worker’s PC and run the copied command once in WSL. Enrollment and logins are kept.</p><code className={styles.command}>{install}</code><ActionButton onClick={()=>{void navigator.clipboard.writeText(install).then(()=>setError('Worker update command copied.'),()=>setError('Copy the command above.'));}}>Copy worker update</ActionButton></details>}
+  <p role="status" className={styles.note}>{diagnosticsStatus(query.isError, job, receiver)}</p>
+  <CheckActions job={job} receiver={receiver} install={install} busy={busy} pending={Boolean(pending)} request={request} />
+  {!receiver && <WorkerInstallerHelp command={install} mode="diagnostics" setError={setError} />}
   {job?.result?.details&&<details className={styles.more}><summary>Check details</summary><pre className={styles.diagnosticDetails}>{JSON.stringify(job.result.details,null,2)}</pre></details>}
   {error&&<p role="status" className={styles.note}>{error}</p>}
  </section>;

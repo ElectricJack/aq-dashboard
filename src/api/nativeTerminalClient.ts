@@ -28,6 +28,14 @@ export async function liveAttempt(terminalId: string, signal: AbortSignal, expec
   }
 }
 
+function viewerStatus(finite: TerminalState, viewer: TerminalState): TerminalState {
+  return {
+    ...finite, connected: viewer.connected, controlling: !!viewer.canRepaint && finite.controlling,
+    outputObservedAtMs: viewer.outputObservedAtMs, grid: viewer.grid, canRepaint: viewer.canRepaint,
+    message: viewer.canRepaint ? finite.message : viewer.message,
+  };
+}
+
 export function connectNativeTerminal(options: Options): TerminalConnection {
   const abort = new AbortController();
   let attempt: NativeAttempt | null = null;
@@ -37,13 +45,7 @@ export function connectNativeTerminal(options: Options): TerminalConnection {
   const emit = () => {
     if (!finiteState) return;
     if (showingViewer && viewerState) {
-      options.state({
-        ...finiteState, connected: viewerState.connected,
-        controlling: !!viewerState.canRepaint && finiteState.controlling,
-        outputObservedAtMs: viewerState.outputObservedAtMs,
-        grid: viewerState.grid, canRepaint: viewerState.canRepaint,
-        message: viewerState.canRepaint ? finiteState.message : viewerState.message,
-      });
+      options.state(viewerStatus(finiteState, viewerState));
       return;
     }
     options.state({ ...finiteState, canRepaint: !!attempt?.finiteInput && finiteState.connected && !viewer });
@@ -63,36 +65,47 @@ export function connectNativeTerminal(options: Options): TerminalConnection {
     });
   });
 
-  function repaint() {
-    if (viewer) { viewer.repaint?.(); return; }
-    if (!attempt?.finiteInput) { input?.repaint?.(); return; }
+  function updateViewer(next: TerminalState) {
+    viewerState = next;
+    if (!showingViewer && next.paused) {
+      viewer?.close();
+      viewer = null;
+      if (finiteState) options.state({ ...finiteState, canRepaint: true, message: 'Repaint unavailable' });
+      return;
+    }
+    emit();
+  }
+
+  async function resetViewer() {
+    showingViewer = true;
+    await finiteWrite;
+    if (!abort.signal.aborted) await options.reset();
+  }
+
+  function startViewer(target: NativeAttempt) {
     if (!finiteState?.connected) return;
     viewer = connectManualTerminal({
       ...options, initiallyPaused: false,
-      reset: async () => {
-        showingViewer = true;
-        await finiteWrite;
-        if (!abort.signal.aborted) await options.reset();
-      },
-      state: next => {
-        viewerState = next;
-        if (!showingViewer && next.paused) {
-          viewer?.close(); viewer = null;
-          if (finiteState) options.state({ ...finiteState, canRepaint: true, message: 'Repaint unavailable' });
-          return;
-        }
-        emit();
-      },
-    }, livePath(attempt), 'attempt-watch');
+      reset: resetViewer,
+      state: updateViewer,
+    }, livePath(target), 'attempt-watch');
     emit();
   }
+
+  function repaint() {
+    if (viewer) { viewer.repaint?.(); return; }
+    if (attempt?.finiteInput) startViewer(attempt);
+    else input?.repaint?.();
+  }
+
+  const acceptsKeyboard = () => !showingViewer || viewerState?.canRepaint;
 
   return {
     takeControl: async () => { await input?.takeControl(); },
     // Start both releases now: their synchronous state must land before the caller's own (Disconnected).
     release: async () => { await Promise.all([viewer?.release(), input?.release()]); },
-    sendInput(bytes) { if (!showingViewer || viewerState?.canRepaint) input?.sendInput(bytes); },
-    sendEscape() { if (!showingViewer || viewerState?.canRepaint) input?.sendEscape(); },
+    sendInput(bytes) { if (acceptsKeyboard()) input?.sendInput(bytes); },
+    sendEscape() { if (acceptsKeyboard()) input?.sendEscape(); },
     repaint,
     // The read-only repaint viewer keeps the geometry it attached with; only the current controller resizes.
     resize(columns, rows) { if (!showingViewer) input?.resize?.(columns, rows); },

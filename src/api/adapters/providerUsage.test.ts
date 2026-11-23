@@ -194,12 +194,21 @@ describe("SO-08: staleness follows the dashboard's poll interval", () => {
   });
 });
 
-test("reset credits preserve zero, details, independent freshness and old-server unknown", () => {
+function providerWithResetCredits() {
   const observation = window().observation;
-  const p = { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 0, grants: [{ label: "Weekly", remaining_count: 1, expires_at: "2026-12-01T00:00:00Z", usable_now: false, clears: ["seven_day"] }], observation } };
+  return { ...provider([window()]), reset_credits: { state: "known" as const, available_count: 0, grants: [{ label: "Weekly", remaining_count: 1, expires_at: "2026-12-01T00:00:00Z", usable_now: false, clears: ["seven_day"] }], observation } };
+}
+
+test("reset credits preserve zero, details and old-server unknown", () => {
+  const p = providerWithResetCredits();
   const result = adaptProviderUsage(envelope([p, provider([window()])]));
   expect(result.providers[0]?.resetCredits).toMatchObject({ state: "known", availableCount: 0, grants: [{ label: "Weekly", usableNow: false }] });
   expect(result.providers[1]?.resetCredits).toMatchObject({ state: "unknown", availableCount: null });
+});
+
+test("reset credits age separately from the quota window", () => {
+  const p = providerWithResetCredits(), observation = p.reset_credits.observation;
+  const result = adaptProviderUsage(envelope([p]));
   const later = atServerTime(result, "2026-10-31T12:05:00Z");
   expect(later.providers[0]?.resetCredits?.freshness).toBe("stale");
   const mixed = adaptProviderUsage(envelope([{ ...p, reset_credits: { ...p.reset_credits, observation: { ...observation, observed_at: "2026-10-31T10:00:00Z", fresh_until: "2026-10-31T10:01:00Z" } } }]));

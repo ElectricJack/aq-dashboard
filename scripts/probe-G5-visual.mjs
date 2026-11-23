@@ -16,6 +16,14 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const digest=`sha256:${sha(manifest)}`;const built=JSON.parse(manifest);
 const browser=await chromium.launch({headless:true});await mkdir(output,{recursive:true});
 const errors=[],writes=[],captures=[];
+const snapshotRoutes = { '/api/v1/overview': 'overview', '/api/v1/provider-usage': 'provider-usage' };
+async function staticResponse(path) {
+  if (path === '/api/v1/bootstrap') return {...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,display_name:'G5 synthetic fixture'},product:{...bootstrap.data.product,dashboard_digest:digest}}};
+  if (path === '/api/v1/projects') return fixture('projects');
+  if (path === '/api/v1/sessions') return fixture('sessions');
+  if (path === '/api/workers') return [];
+}
+
 try{
  const request=await browser.newContext();
  const served=await request.request.get(`${origin}/dashboard-manifest.json`);expect(served.status()).toBe(200);expect(sha(await served.body())).toBe(sha(manifest));
@@ -29,13 +37,9 @@ try{
   await page.route('**/api/**',async route=>{
    const req=route.request(),path=new URL(req.url()).pathname;
    if(req.method()!=='GET'){writes.push(path);return route.fulfill({status:503,json:{}});}
-   let body;
-   if(path==='/api/v1/bootstrap')body={...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,display_name:'G5 synthetic fixture'},product:{...bootstrap.data.product,dashboard_digest:digest}}};
-   else if(path==='/api/v1/overview'){if(caseName==='failed')return route.fulfill({status:503,json:{}});body=await fixture(`overview-${caseName}`);}
-   else if(path==='/api/v1/provider-usage'){if(caseName==='failed')return route.fulfill({status:503,json:{}});body=await fixture(`provider-usage-${caseName==='nonempty'?'nonempty':caseName}`);}
-   else if(path==='/api/v1/projects')body=await fixture('projects');
-   else if(path==='/api/v1/sessions')body=await fixture('sessions');
-   else if(path==='/api/workers')body=[];
+   const dataRoute = snapshotRoutes[path];
+   if (dataRoute && caseName === 'failed') return route.fulfill({status:503,json:{}});
+   const body = dataRoute ? await fixture(`${dataRoute}-${caseName}`) : await staticResponse(path);
    if(body)return route.fulfill({json:body});
    return route.fulfill({status:503,json:{message:'Unavailable in labelled G5 fixture'}});
   });

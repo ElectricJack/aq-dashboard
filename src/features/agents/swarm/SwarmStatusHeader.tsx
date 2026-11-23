@@ -23,7 +23,24 @@ export function SwarmStatusHeader() {
   return <StatusHeader key={queryContext.principalId} configuredProviders={providers} addedProviders={membership.isError ? undefined : membership.data?.providers} />;
 }
 
-function StatusHeader({ configuredProviders, addedProviders }: { configuredProviders?: string[]; addedProviders?: string[] }) {
+type Membership = { configuredProviders?: string[]; addedProviders?: string[] };
+type LimitError = "unknown" | "conflict" | "failed" | "review";
+function latestRevision(config: SwarmSettings, base?: SwarmSettings) {
+  return !base || BigInt(config.revision) >= BigInt(base.revision);
+}
+function limitFailure(cause: unknown): LimitError {
+  if (cause instanceof ContractError) return "unknown";
+  if (!(cause instanceof ApiError)) return "failed";
+  if (cause.effectUnknown || cause.kind === "contract") return "unknown";
+  if ((cause.status ?? 0) >= 500) return "unknown";
+  return cause.status === 409 ? "conflict" : "failed";
+}
+function remainingDrafts(drafts: Drafts, { provider, limit }: NonNullable<UpdateSwarmLimits["provider"]>) {
+  const remaining = { ...drafts };
+  if (remaining[provider] === limit) delete remaining[provider];
+  return remaining;
+}
+function useLimitDrafts() {
   const settings = useSwarmSettings();
   const mutation = useUpdateSwarmLimits();
   const config = settings.isError && isProtectedReadFailure(settings.error) ? undefined : settings.data;
@@ -33,12 +50,15 @@ function StatusHeader({ configuredProviders, addedProviders }: { configuredProvi
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<"unknown" | "conflict" | "failed" | "review" | null>(null);
+  const [error, setError] = useState<LimitError | null>(null);
   const errorRef = useRef<typeof error>(null);
   const uncertain = useRef<UpdateSwarmLimits | null>(null);
-  const updateError = (value: typeof error) => { errorRef.current = value; setError(value); };
-  const updateDrafts = (value: Drafts) => { draftsRef.current = value; setDrafts(value); };
-  useEffect(() => { if (!busy.current && !Object.keys(draftsRef.current).length && !errorRef.current && config && (!base.current || BigInt(config.revision) >= BigInt(base.current.revision))) base.current = config; }, [config]);
+  function updateError(value: typeof error) { errorRef.current = value; setError(value); }
+  function updateDrafts(value: Drafts) { draftsRef.current = value; setDrafts(value); }
+  useEffect(() => {
+    if (busy.current || errorRef.current) return;
+    if (!Object.keys(draftsRef.current).length && config && latestRevision(config, base.current)) base.current = config;
+  }, [config]);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   async function send(request: UpdateSwarmLimits) {
@@ -46,22 +66,19 @@ function StatusHeader({ configuredProviders, addedProviders }: { configuredProvi
     try {
       const result = await mutation.mutateAsync(request);
       base.current = result; uncertain.current = null;
-      const provider = request.provider!.provider;
-      const next = { ...draftsRef.current };
-      if (next[provider] === request.provider!.limit) delete next[provider];
-      updateDrafts(next);
+      updateDrafts(remainingDrafts(draftsRef.current, request.provider!));
     } catch (cause) {
-      if ((cause instanceof ApiError && (cause.effectUnknown || cause.kind === "contract" || (cause.status !== undefined && cause.status >= 500))) || cause instanceof ContractError) {
-        uncertain.current = request; updateError("unknown");
-      } else if (cause instanceof ApiError && cause.status === 409) updateError("conflict");
-      else updateError("failed");
+      const failure = limitFailure(cause);
+      if (failure === "unknown") uncertain.current = request;
+      updateError(failure);
     } finally {
       busy.current = false; setPending(false);
       if (!errorRef.current && Object.keys(draftsRef.current).length) timer.current = setTimeout(flush, 350);
     }
   }
   function flush() {
-    if (busy.current || errorRef.current || !base.current || settings.isError) return;
+    if (busy.current || errorRef.current) return;
+    if (!base.current || settings.isError) return;
     const entry = Object.entries(draftsRef.current)[0];
     if (!entry) return;
     void send({ operation_id: crypto.randomUUID(), expected_revision: base.current.revision, provider: { provider: entry[0], limit: entry[1] } });
@@ -77,36 +94,93 @@ function StatusHeader({ configuredProviders, addedProviders }: { configuredProvi
       base.current = result.data; updateError("review");
     } catch { updateError("conflict"); }
   }
-  const cells = config?.cells ?? [], unclassified = config?.unclassified ?? [];
-  const providers = [...new Set([...(config?.provider_limits ?? []).map(item => item.provider), ...cells.map(cell => cell.provider), ...unclassified.map(item => item.provider), ...(configuredProviders ?? [])])].filter(provider =>
-    configuredProviders === undefined || configuredProviders.includes(provider) || config?.provider_limits?.some(item => item.provider === provider && item.limit !== null) ||
-    cells.some(cell => cell.provider === provider && ((cell.running ?? 0) > 0 || (cell.waiting ?? 0) > 0)) || unclassified.some(item => item.provider === provider && (item.running > 0 || item.waiting > 0))
-  ).filter(provider => addedProviders === undefined || addedProviders.includes(provider) || cells.some(cell => cell.provider === provider && (cell.running ?? 0) > 0) || unclassified.some(item => item.provider === provider && item.running > 0));
-  return <section className={styles.status} aria-label="Swarm status">
+  function finishChange() { clearTimeout(timer.current); flush(); }
+  function repeat() { if (uncertain.current) void send(uncertain.current); }
+  function retry() { updateError(null); flush(); }
+  return { config, settings, drafts, pending, error, change, finishChange, repeat, retry, reload };
+}
+
+function providerNames(config: SwarmSettings, membership: Membership) {
+  const limits = config.provider_limits ?? [];
+  const cells = [...config.cells, ...config.unclassified];
+  const known = [...limits, ...cells].map(item => item.provider);
+  const names = new Set([...known, ...(membership.configuredProviders ?? [])]);
+  function offered(provider: string) {
+    if (!membership.configuredProviders || membership.configuredProviders.includes(provider)) return true;
+    if (limits.some(item => item.provider === provider && item.limit !== null)) return true;
+    return cells.some(cell => cell.provider === provider && hasActivity(cell));
+  }
+  function added(provider: string) {
+    if (!membership.addedProviders || membership.addedProviders.includes(provider)) return true;
+    return cells.some(cell => cell.provider === provider && (cell.running ?? 0) > 0);
+  }
+  return [...names].filter(offered).filter(added);
+}
+function hasActivity(cell: { running: number | null; waiting: number | null }) {
+  return (cell.running ?? 0) > 0 || (cell.waiting ?? 0) > 0;
+}
+function activeCount(provider: string, config: SwarmSettings, failed: boolean) {
+  const cells = config.cells.filter(cell => cell.provider === provider);
+  if (failed || !cells.length) return null;
+  if (cells.some(cell => cell.running === null)) return null;
+  const unclassified = config.unclassified.filter(item => item.provider === provider);
+  return [...cells, ...unclassified].reduce((sum, cell) => sum + cell.running!, 0);
+}
+function limitLabel(limit: number | null) {
+  if (limit === null) return "No limit";
+  return `${limit} concurrent${limit === 0 ? " · paused" : ""}`;
+}
+type DraftState = ReturnType<typeof useLimitDrafts>;
+function providerLimit(provider: string, config: SwarmSettings, drafts: Drafts) {
+  const saved = config.provider_limits?.find(item => item.provider === provider)?.limit ?? null;
+  const limit = Object.hasOwn(drafts, provider) ? drafts[provider]! : saved;
+  const sliderMax = Math.max(32, saved ?? 0, limit ?? 0) + 1;
+  return { limit, sliderMax };
+}
+function ProviderSlider({ provider, config, membership, draft }: { provider: string; config: SwarmSettings; membership: Membership; draft: DraftState }) {
+  const { settings, drafts, finishChange, change } = draft;
+  const removed = membership.addedProviders !== undefined && !membership.addedProviders.includes(provider);
+  const { limit, sliderMax } = providerLimit(provider, config, drafts);
+  const reported = config.cells.some(cell => cell.provider === provider);
+  const active = activeCount(provider, config, settings.isError);
+  return <div className={styles.provider}>
+    <div className={styles.heading}><strong>{provider}{removed ? " · removed" : ""}</strong><span>{limitLabel(limit)}</span></div>
+    <input type="range" aria-label={`${provider} concurrent agents`} aria-valuetext={limit === null ? "No limit" : undefined} min="0" max={sliderMax} step="1" value={limit ?? sliderMax} disabled={removed || settings.isError || !reported} onChange={event => { const value = Number(event.currentTarget.value); change(provider, value === sliderMax ? null : value); }} onPointerUp={finishChange} onKeyUp={finishChange} />
+    <div className={styles.burn}><ProviderBurn provider={provider} proposedLimit={limit} active={active} /></div>
+  </div>;
+}
+const ERROR_TEXT: Record<LimitError, string> = {
+  unknown: "Update outcome unknown.", conflict: "Limits changed elsewhere. Reload to review your changes.",
+  review: "Current limits reloaded. Review your slider values before retrying.", failed: "Update failed. Your changes are retained.",
+};
+function UpdateNotice({ draft }: { draft: DraftState }) {
+  const { error, repeat, retry, reload } = draft;
+  if (!error) return null;
+    return <div className={styles.notice} role="alert">{ERROR_TEXT[error]}{" "}
+      {error === "unknown" && <button type="button" onClick={repeat}>Retry same update</button>}
+      {error === "conflict" && <button type="button" onClick={() => void reload()}>Reload limits</button>}
+      {(error === "failed" || error === "review") && <button type="button" onClick={retry}>Retry changes</button>}
+    </div>;
+}
+function ReadNotice({ draft }: { draft: DraftState }) {
+  const { config, settings } = draft;
+  return <>
     {!config && settings.isPending && <span role="status">Loading provider limits…</span>}
     {settings.isError && <span role="alert">Provider limits unavailable.</span>}
     {config && config.provider_limits === undefined && <span role="alert">Provider limits are unavailable on this server.</span>}
+  </>;
+}
+function StatusHeader(membership: Membership) {
+  const draft = useLimitDrafts();
+  const { config, pending } = draft;
+  const { addedProviders } = membership;
+  return <section className={styles.status} aria-label="Swarm status">
+    <ReadNotice draft={draft} />
     {config?.provider_limits && <div className={styles.providerGrid}>
-      {providers.map(provider => {
-        const removed = addedProviders !== undefined && !addedProviders.includes(provider);
-        const saved = config.provider_limits?.find(item => item.provider === provider)?.limit ?? null;
-        const limit = Object.hasOwn(drafts, provider) ? drafts[provider]! : saved;
-        const sliderMax = Math.max(32, saved ?? 0, limit ?? 0) + 1;
-        const matches = cells.filter(cell => cell.provider === provider);
-        const active = !settings.isError && matches.length && matches.every(cell => cell.running !== null) ? matches.reduce((sum, cell) => sum + cell.running!, 0) + unclassified.filter(item => item.provider === provider).reduce((sum, item) => sum + item.running, 0) : null;
-        return <div className={styles.provider} key={provider}>
-          <div className={styles.heading}><strong>{provider}{removed ? " · removed" : ""}</strong><span>{limit === null ? "No limit" : `${limit} concurrent${limit === 0 ? " · paused" : ""}`}</span></div>
-          <input type="range" aria-label={`${provider} concurrent agents`} aria-valuetext={limit === null ? "No limit" : undefined} min="0" max={sliderMax} step="1" value={limit ?? sliderMax} disabled={removed || settings.isError || !matches.length} onChange={event => { const value = Number(event.currentTarget.value); change(provider, value === sliderMax ? null : value); }} onPointerUp={() => { clearTimeout(timer.current); flush(); }} onKeyUp={() => { clearTimeout(timer.current); flush(); }} />
-          <div className={styles.burn}><ProviderBurn provider={provider} proposedLimit={limit} active={active} /></div>
-        </div>;
-      })}
+      {providerNames(config, membership).map(provider => <ProviderSlider key={provider} provider={provider} config={config} membership={membership} draft={draft} />)}
     </div>}
     {addedProviders?.length === 0 && <span>No providers added. Add a provider in Settings to allow new agents.</span>}
     {pending && <span className={styles.notice} role="status">Updating limits…</span>}
-    {error && <div className={styles.notice} role="alert">{error === "unknown" ? "Update outcome unknown." : error === "conflict" ? "Limits changed elsewhere. Reload to review your changes." : error === "review" ? "Current limits reloaded. Review your slider values before retrying." : "Update failed. Your changes are retained."}{" "}
-      {error === "unknown" && <button type="button" onClick={() => { if (uncertain.current) void send(uncertain.current); }}>Retry same update</button>}
-      {error === "conflict" && <button type="button" onClick={() => void reload()}>Reload limits</button>}
-      {(error === "failed" || error === "review") && <button type="button" onClick={() => { updateError(null); flush(); }}>Retry changes</button>}
-    </div>}
+    <UpdateNotice draft={draft} />
   </section>;
 }

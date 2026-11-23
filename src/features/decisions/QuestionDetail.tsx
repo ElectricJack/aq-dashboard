@@ -1,17 +1,16 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { MessageCircleQuestion, MessageSquare } from "lucide-react";
-import { ContractError } from "../../api/adapters/contract";
+import { answerResult, questionFailure, type Outcome } from "./questionAnswerState";
 import { ApiError } from "../../api/client";
 import { isQuestionExpired, MAX_ANSWER_BYTES, QUESTIONS_ANSWER, type QuestionSummary } from "../../api/adapters/questions";
 import type { CapabilityState } from "../../api/adapters/bootstrap";
-import { useGraphDetail } from "../../api/humanGraphReads";
+import { useDecisionClock, useDecisionTask, expiresLabel, useRefusedRefresh } from "./decisionHooks";
 import { useSession } from "../../app/session";
 import { useProjects } from "../../app/useProjects";
 import { Icon } from "../../components/icons";
 import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { formatAge, formatUntil } from "../../components/time/relative";
-import { useServerNow } from "../../components/time/useServerNow";
 import { actionRequest, type FrozenAction } from "../actions/actionClient";
 import { CopyValue, ShortId, shortId } from "./DecisionContext";
 import { freezeQuestionAnswer } from "./questionAnswer";
@@ -32,9 +31,8 @@ export function useAnswerCapability(): CapabilityState {
 }
 
 function useTask(q: QuestionSummary) {
-  const { bootstrap } = useSession();
   const projects = useProjects();
-  const task = useGraphDetail(bootstrap.capability("human.graph.read").enabled ? q.projectId : "", "task", q.taskId);
+  const task = useDecisionTask(q);
   return {
     title: q.taskTitle ?? task.data?.data.title,
     project: projects.data?.view.find(p => p.id === q.projectId)?.label ?? task.data?.project.name,
@@ -42,24 +40,25 @@ function useTask(q: QuestionSummary) {
   };
 }
 
-function useNow(serverTime: number, updatedAt: number) {
-  const receivedAt = useMemo(() => performance.now(), [updatedAt]);
-  return useServerNow({ serverTime: new Date(serverTime).toISOString(), receivedAt }, { tickMs: 15_000 });
+function questionStatus(q: QuestionSummary, now: string | null) {
+  const expired = now !== null && isQuestionExpired(q, Date.parse(now));
+  const until = now && q.state === "pending" && !expired ? expiresLabel(now, q.expires) : null;
+  const stateLabel = q.state !== "pending" ? "Answered" : expired ? "Expired" : "Awaiting your answer";
+  return { expired, until, stateLabel };
 }
 
 /** Middle column for an agent question: the exact question, its task and expiry, any recorded answer and (as children) the answer form. */
 export function QuestionPanel({ question: q, serverTime, updatedAt, children }: { question: QuestionSummary; serverTime: number; updatedAt: number; children?: ReactNode }) {
   const headingId = useId();
   const task = useTask(q);
-  const now = useNow(serverTime, updatedAt);
-  const expired = now !== null && isQuestionExpired(q, Date.parse(now));
-  const until = now && q.state === "pending" && !expired ? formatUntil(now, new Date(q.expires).toISOString()) : null;
+  const now = useDecisionClock(serverTime, updatedAt);
+  const { expired, until, stateLabel } = questionStatus(q, now);
   return <section className={styles.panel} aria-labelledby={headingId} data-question="">
     <header className={styles.header}>
       <p className={styles.kicker}><Icon icon={MessageCircleQuestion} size={18} />Agent question</p>
       <h2 id={headingId} className={styles.title}>{task.title ?? `Task ${shortId(q.taskId)}`}</h2>
-      <p className={styles.meta}>{task.project ?? `Project ${shortId(q.projectId)}`}{until && ` · ${until === "due now" ? "Expiry due now" : `Expires ${until}`}`}</p>
-      <span className={q.state === "pending" && !expired ? styles.chipAttention : styles.chipNeutral} data-question-expired={expired || undefined}>{q.state !== "pending" ? "Answered" : expired ? "Expired" : "Awaiting your answer"}</span>
+      <p className={styles.meta}>{task.project ?? `Project ${shortId(q.projectId)}`}{until && ` · ${until}`}</p>
+      <span className={stateLabel === "Awaiting your answer" ? styles.chipAttention : styles.chipNeutral} data-question-expired={expired || undefined}>{stateLabel}</span>
     </header>
     <h3 className={styles.section}>Question</h3>
     <blockquote className={styles.question} data-question-text="">{q.question}</blockquote>
@@ -73,17 +72,25 @@ export function QuestionPanel({ question: q, serverTime, updatedAt, children }: 
   </section>;
 }
 
+const iso = (ms: number) => new Date(ms).toISOString();
+
+function questionTime(now: string | null, q: QuestionSummary) {
+  if (!now) return "—";
+  if (q.state !== "pending") return formatAge(now, iso(q.answeredAt!));
+  return isQuestionExpired(q, Date.parse(now)) ? "Expired" : formatUntil(now, iso(q.expires));
+}
+
 /** Right column for an agent question: project, task, timing and the decision it answers. */
 export function QuestionContext({ question: q, serverTime, updatedAt, className }: { question: QuestionSummary; serverTime: number; updatedAt: number; className?: string }) {
   const task = useTask(q);
-  const now = useNow(serverTime, updatedAt);
-  const iso = (ms: number) => new Date(ms).toISOString();
+  const now = useDecisionClock(serverTime, updatedAt);
+
   return <Panel title="Question context" className={[contextStyles.context, className].filter(Boolean).join(" ")} data-question-context="">
     <dl className={contextStyles.facts}>
       <div><dt>Project</dt><dd>{task.project ? <span className={contextStyles.name}>{task.project}</span> : <ShortId id={q.projectId} label="project id" />}</dd></div>
       <div><dt>Task</dt><dd><Link className={contextStyles.link} to={task.work} title={q.taskId}>{task.title ?? <code>{shortId(q.taskId)}</code>}</Link>{!task.title && <CopyValue value={q.taskId} label="task id" />}</dd></div>
       <div><dt>Asked</dt><dd>{now ? formatAge(now, iso(q.askedAt)) : "—"}</dd></div>
-      <div><dt>{q.state === "pending" ? "Expires" : "Answered"}</dt><dd>{!now ? "—" : q.state === "pending" ? (isQuestionExpired(q, Date.parse(now)) ? "Expired" : formatUntil(now, iso(q.expires))) : formatAge(now, iso(q.answeredAt!))}</dd></div>
+      <div><dt>{q.state === "pending" ? "Expires" : "Answered"}</dt><dd>{questionTime(now, q)}</dd></div>
       <div><dt>Decision</dt><dd><ShortId id={q.decisionId} label="decision id" /> · revision {q.revision}</dd></div>
     </dl>
     <h3 className={contextStyles.section}>What happens next</h3>
@@ -91,7 +98,6 @@ export function QuestionContext({ question: q, serverTime, updatedAt, className 
   </Panel>;
 }
 
-type Outcome = "unknown" | "refused" | null;
 
 /**
  * Answer bar for one pending question. The answer binds the shown decision revision; a
@@ -109,40 +115,44 @@ export function QuestionAnswer({ question: q, serverTime, updatedAt, refreshes, 
   const [outcome, setOutcome] = useState<Outcome>(null);
   const frozen = useRef<FrozenAction | null>(null);
   const fieldId = useId(), metaId = useId();
-  const now = useNow(serverTime, updatedAt);
+  const now = useDecisionClock(serverTime, updatedAt);
   const expired = now !== null && isQuestionExpired(q, Date.parse(now));
   const reason = !capability.enabled ? capability.reason : expired ? EXPIRED_REASON : null;
 
-  const seen = useRef(refreshes);
-  useEffect(() => {
-    if (refreshes === seen.current) return;
-    seen.current = refreshes;
-    if (outcome !== "refused") return;
+  useRefusedRefresh(refreshes, outcome === "refused", () => {
     frozen.current = null; setOutcome(null); setStatus("Question refreshed. Review it, then answer again. Your answer is preserved.");
-  }, [refreshes, outcome]);
+  });
+
+  function showResult(result: ReturnType<typeof answerResult>) {
+    setOutcome(result.outcome);
+    setStatus(result.message);
+  }
+
+  function frozenAnswer() {
+    if (frozen.current) return frozen.current;
+    try { frozen.current = freezeQuestionAnswer(q, text); }
+    catch (error) { setStatus(error instanceof Error ? error.message : "Review the answer."); }
+    return frozen.current;
+  }
+
+  function showFailure(error: unknown, lookup: boolean) {
+    const result = questionFailure(error, lookup);
+    if (error instanceof ApiError && result.accessDenied) reportAccessDenied(error);
+    if (result.incompatible) reportIncompatible(QUESTIONS_ANSWER);
+    showResult(result);
+  }
 
   async function send(lookup = false) {
     if (busy || reason) return;
-    let intent = frozen.current;
-    if (!intent) {
-      try { intent = freezeQuestionAnswer(q, text); } catch (error) { setStatus(error instanceof Error ? error.message : "Review the answer."); return; }
-      frozen.current = intent;
-    }
+    const intent = frozenAnswer();
+    if (!intent) return;
     setBusy(true); setStatus(lookup ? "Checking the answer…" : "Sending answer…");
     try {
       const op = await actionRequest(intent, lookup);
-      if (op.disposition === "confirmed") { setOutcome(null); setStatus("Answer recorded."); onRecorded(); }
-      else if (op.disposition === "conflict") { setOutcome("refused"); setStatus("The question changed or was already answered. Your answer is preserved; refresh the question before answering again."); }
-      else if (op.disposition === "rejected") { setOutcome("refused"); setStatus("The server refused this answer. Your answer is preserved; refresh the question before answering again."); }
-      else { setOutcome("unknown"); setStatus("The answer is not confirmed yet. Check its status or retry the same answer; no second answer is created."); }
+      showResult(answerResult(op.disposition));
+      if (op.disposition === "confirmed") onRecorded();
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) { reportAccessDenied(error); setOutcome("refused"); setStatus("Your sign-in has expired. Your answer is preserved; sign in through AQ, then reload."); }
-      // A 403 refuses this one answer (the app keeps working); say so with AQ's own reason when it gives one.
-      else if (error instanceof ApiError && error.status === 403) { reportAccessDenied(error); setOutcome("refused"); setStatus(`AQ refused this answer.${error.serverMessage ? ` ${error.serverMessage}.` : ""} Your answer is preserved.`); }
-      else if (error instanceof ApiError && error.status === 426) { reportIncompatible(QUESTIONS_ANSWER); setOutcome(null); setStatus("Answering requires a compatible AQ API. Your answer is preserved."); }
-      else if (!lookup && error instanceof ApiError && error.status === 409) { setOutcome("refused"); setStatus("The question changed or was already answered. Your answer is preserved; refresh the question before answering again."); }
-      else if (!lookup && error instanceof ApiError && !error.effectUnknown && [400, 404, 413, 422].includes(error.status ?? 0)) { setOutcome("refused"); setStatus("The server refused this answer. Your answer is preserved; refresh the question before answering again."); }
-      else { setOutcome("unknown"); setStatus(error instanceof ContractError ? "The answer response could not be verified. Check its status before retrying." : "Delivery is unknown. Check its status or retry the same answer; no second answer is created."); }
+      showFailure(error, lookup);
     } finally { setBusy(false); }
   }
 

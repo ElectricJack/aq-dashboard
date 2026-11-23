@@ -7,7 +7,8 @@ import styles from "./RouteError.module.css";
 function messageOf(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "statusText" in error) return String((error as { statusText: unknown }).statusText);
+  if (typeof error !== "object" || error === null) return "Unknown error";
+  if ("statusText" in error) return String(error.statusText);
   return "Unknown error";
 }
 

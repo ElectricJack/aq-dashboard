@@ -14,6 +14,28 @@ if (!selected || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(selected)) 
 const directory = process.env.AQ_LIVE_OUTPUT_DIR ?? await mkdtemp(join(tmpdir(), "aq-review-actions-"));
 await mkdir(directory, { recursive: true });
 const browser = await chromium.launch({ headless: true });
+async function readBoundedBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 65536) throw new Error("bounded fixture request");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+function upstreamHeaders(request) {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(request.headers)) {
+    if (!value || ["host", "connection", "content-length", "origin", "referer"].includes(key)) continue;
+    headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+  }
+  // Explicit local test proxy preserves the source router's configured CSRF origin.
+  if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", origin.origin);
+  return headers;
+}
+
 let proxy;
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
@@ -26,6 +48,7 @@ try {
   const ids = [selected, ...list.items.map(i => i.decision_id).filter(id => id !== selected)];
   const before = new Map();
   for (const id of ids) { const detail = await get(`/api/reviews/decisions/${id}`); assert.equal(detail.state, "pending"); assert.equal(detail.decision_revision, 1); assert(detail.request.eligible_owners.includes(actor)); before.set(id, detail); }
+  const approveLabel = id => `Approve task version ${before.get(id).subject.task.version}`;
   const page = await context.newPage(), requests = [], pageErrors = [];
   page.on("pageerror", e => pageErrors.push(e.message));
   page.on("request", r => { if (r.method() === "POST" && /\/resolve$/.test(new URL(r.url()).pathname)) requests.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() }); });
@@ -39,7 +62,7 @@ try {
   }
   async function open(id, base = origin) {
     await page.goto(new URL(`/decisions/${id}`, base).href, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("button", { name: "Approve revision 1" })).toBeVisible();
+    await expect(page.getByRole("button", { name: approveLabel(id) })).toBeVisible();
     await page.getByRole("textbox", { name: "Decision note" }).fill("Local disposable review browser fixture");
   }
   async function confirmRecorded(id, choice, receipt, request) {
@@ -52,7 +75,7 @@ try {
     assert.deepEqual(after.subject, before.get(id).subject); assert.equal(after.state, "answered");
     assert.deepEqual(after.receipt, receipt); assert.equal(after.current_report_head, true);
   }
-  for (const [index, choice, label] of [[0, "approve", "Approve revision 1"], [1, "reject", "Request changes"]]) {
+  for (const [index, choice, label] of [[0, "approve", approveLabel(ids[0])], [1, "reject", "Request changes"]]) {
     const id = ids[index]; await open(id);
     const responseJob = page.waitForResponse(r => new URL(r.url()).pathname === `/api/reviews/decisions/${id}/resolve` && r.request().method() === "POST");
     // Both clicks hit the actual UI. The owner must receive one logical answer.
@@ -65,12 +88,8 @@ try {
   proxy = createServer(async (request, response) => {
     try {
       if (!request.url?.startsWith("/") || request.url.startsWith("//")) { response.writeHead(400).end(); return; }
-      const chunks = []; let size = 0;
-      for await (const chunk of request) { size += chunk.length; if (size > 65536) throw new Error("bounded fixture request"); chunks.push(chunk); }
-      const body = Buffer.concat(chunks), headers = new Headers();
-      for (const [key, value] of Object.entries(request.headers)) if (value && !["host", "connection", "content-length", "origin", "referer"].includes(key)) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
-      // Explicit local test proxy preserves the source router's configured CSRF origin.
-      if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", origin.origin);
+      const body = await readBoundedBody(request);
+      const headers = upstreamHeaders(request);
       const upstream = await fetch(new URL(request.url, origin), { method: request.method, headers, ...(body.length ? { body } : {}), redirect: "error" });
       const bytes = Buffer.from(await upstream.arrayBuffer());
       if (request.method === "POST" && request.url === `/api/reviews/decisions/${lostId}/resolve`) {
@@ -90,7 +109,7 @@ try {
   await new Promise(resolve => proxy.listen(0, "127.0.0.1", resolve));
   const proxied = new URL(`http://127.0.0.1:${proxy.address().port}/`);
   await open(lostId, proxied);
-  await page.getByRole("button", { name: "Approve revision 1" }).click();
+  await page.getByRole("button", { name: approveLabel(lostId) }).click();
   await expect(page.getByText(/Delivery is unknown/)).toBeVisible(); assert(dropped); assert.equal(received.length, 1);
   const responseJob = page.waitForResponse(r => new URL(r.url()).pathname === `/api/reviews/decisions/${lostId}/resolve` && r.request().method() === "POST");
   await page.getByRole("button", { name: "Retry same answer" }).click();

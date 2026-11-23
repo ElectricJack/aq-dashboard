@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
@@ -88,6 +88,30 @@ test("command never contains the code", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Copy code" }));
   await waitFor(() => expect(copied).toEqual([CODE]));
   await userEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.queryByDisplayValue(CODE)).toBeNull();
+});
+
+test("revoking enrollment discards a displayed code before access is granted again", async () => {
+  const { default: bootstrap } = await import("../../../../contracts/proposed/bootstrap.json");
+  let enabled = true;
+  const capabilities = bootstrap.data.capabilities.filter(c => !["swarm.read", "swarm.worker.enroll"].includes(c.name));
+  server.use(http.get("/api/v1/bootstrap", () => HttpResponse.json({
+    ...bootstrap, data: { ...bootstrap.data, capabilities: [
+      ...capabilities, { name: "swarm.read", version: "1", enabled: true }, { name: "swarm.worker.enroll", version: "1", enabled },
+    ] },
+  })));
+  enroll();
+  const { queryClient } = renderApp("/agents/swarm?select=server");
+  await userEvent.click(await screen.findByRole("button", { name: "Add or update machine" }));
+  expect(await screen.findByDisplayValue(CODE)).toBeVisible();
+  async function refresh(allowed: boolean) {
+    enabled = allowed;
+    await act(() => queryClient.refetchQueries({ queryKey: ["bootstrap"], exact: true }));
+  }
+  await refresh(false);
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Add or update machine" })).toBeNull());
+  await refresh(true);
+  expect(await screen.findByRole("button", { name: "Add or update machine" })).toBeEnabled();
   expect(screen.queryByDisplayValue(CODE)).toBeNull();
 });
 

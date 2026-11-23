@@ -1,4 +1,4 @@
-import { ContractError, isRecord } from "./contract";
+import { ContractError, isRecord, nullable, optional, timestampMs } from "./contract";
 /** human-supervisor-conversation-1, pinned to aq-server schema digest sha256:eda588e205779a11b74a319628f603a55e311358b3de345200d87fe6031f3ed3 (commit 7206f5a1). */
 export const SUPERVISOR_CONTRACT = "human-supervisor-conversation-1";
 export type Conversation = { id: string; revision: string; label: string };
@@ -47,7 +47,6 @@ function decimal(v: unknown, zero = false): v is string { return typeof v === "s
 function digest(v: unknown): v is string { return typeof v === "string" && /^sha256:[0-9a-f]{64}$/.test(v); }
 function integer(v: unknown, min: number, max = Number.MAX_SAFE_INTEGER): v is number { return typeof v === "number" && Number.isSafeInteger(v) && v >= min && v <= max; }
 function text(v: unknown, min: number, max: number): v is string { return typeof v === "string" && v.length >= min && v.length <= max; }
-function nullable<T>(v: unknown, ok: (v: unknown) => v is T): boolean { return v === null || ok(v); }
 function list(v: unknown, min: number, max: number): v is unknown[] { return Array.isArray(v) && v.length >= min && v.length <= max; }
 function unique(values: unknown[]): boolean { return new Set(values).size === values.length; }
 function utf8Bytes(v: string): number { return new TextEncoder().encode(v).length; }
@@ -67,14 +66,17 @@ export function canonicalSupervisorJson(value: unknown): string {
   if (isRecord(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalSupervisorJson(value[key])}`).join(",")}}`;
   return JSON.stringify(value);
 }
-function validRuntime(v: unknown, liveAllowed: boolean): boolean {
-  if (!isRecord(v)) return false;
+function checkRuntime(v: unknown, liveAllowed: boolean) {
   shape(v, "state binding reason");
-  if (v.state === "unavailable") return v.binding === null && v.reason === "central_runtime_not_connected";
-  if (liveAllowed && v.state === "idle") return v.binding === null && v.reason === "central_service_ready";
-  if (!liveAllowed || v.state !== "available" || v.reason !== "central_session_active") return false;
+  if (v.state === "unavailable") { check(v.binding === null); check(v.reason === "central_runtime_not_connected"); return; }
+  check(liveAllowed);
+  if (v.state === "idle") { check(v.binding === null); check(v.reason === "central_service_ready"); return; }
+  check(v.state === "available");
+  check(v.reason === "central_session_active");
   shape(v.binding, "actor_id generation session_id");
-  return supervisorId(v.binding.actor_id) && integer(v.binding.generation, 1) && supervisorId(v.binding.session_id);
+  check(supervisorId(v.binding.actor_id));
+  check(integer(v.binding.generation, 1));
+  check(supervisorId(v.binding.session_id));
 }
 function common(v: Record<string, unknown>, expected?: Conversation | string, liveRuntime = true) {
   check(v.contract === SUPERVISOR_CONTRACT);
@@ -83,18 +85,25 @@ function common(v: Record<string, unknown>, expected?: Conversation | string, li
   check(supervisorId(c.id) && decimal(c.revision) && text(c.label,1,256));
   if (expected) check(c.id === (typeof expected === "string" ? expected : expected.id));
   if (expected && typeof expected !== "string") check(c.revision === expected.revision);
-  check(validRuntime(v.runtime, liveRuntime));
+  checkRuntime(v.runtime, liveRuntime);
+}
+function checkAttachmentCapability(a: unknown) {
+  if (a === undefined) return;
+  shape(a, "media_types max_file_bytes max_files_per_message max_staged_files max_staged_bytes staged_ttl_ms max_name_bytes");
+  check(list(a.media_types, 1, ATTACHMENT_MEDIA_TYPES.length) && unique(a.media_types) && a.media_types.every(t => (ATTACHMENT_MEDIA_TYPES as readonly unknown[]).includes(t)));
+  check(integer(a.max_file_bytes, 1, 1048576));
+  check(integer(a.max_files_per_message, 1, 4));
+  check(integer(a.max_staged_files, 1));
+  check(integer(a.max_staged_bytes, 1));
+  check(integer(a.staged_ttl_ms, 1));
+  check(integer(a.max_name_bytes, 1, 255));
 }
 export function adaptSupervisorDiscovery(v: unknown): Discovery {
   shape(v, "contract conversation runtime limits", "attachments"); common(v);
   shape(v.limits, "body_bytes context_refs attachments history_page");
   const limits = v.limits;
   check((Object.keys(SCHEMA_LIMITS) as (keyof SupervisorLimits)[]).every(key => integer(limits[key], LIMIT_FLOORS[key], SCHEMA_LIMITS[key])));
-  if (v.attachments !== undefined) {
-    const a = v.attachments; shape(a, "media_types max_file_bytes max_files_per_message max_staged_files max_staged_bytes staged_ttl_ms max_name_bytes");
-    check(list(a.media_types, 1, ATTACHMENT_MEDIA_TYPES.length) && unique(a.media_types) && a.media_types.every(t => (ATTACHMENT_MEDIA_TYPES as readonly unknown[]).includes(t)) &&
-      integer(a.max_file_bytes, 1, 1048576) && integer(a.max_files_per_message, 1, 4) && integer(a.max_staged_files, 1) && integer(a.max_staged_bytes, 1) && integer(a.staged_ttl_ms, 1) && integer(a.max_name_bytes, 1, 255));
-  }
+  checkAttachmentCapability(v.attachments);
   return v as unknown as Discovery;
 }
 /** Cursors stay unchanged on the wire; comparison only follows the published N / A.R ordering. */
@@ -115,79 +124,179 @@ function validDescriptor(v: Record<string, unknown>): boolean {
 }
 function validAttachmentDescriptor(v: unknown): v is AttachmentDescriptor { shape(v, "id name media_type size_bytes digest"); return validDescriptor(v); }
 const DRAFT_TASK_OPTIONAL = "body acceptance_criteria labels task_state parent_id priority role intelligence_hint task_type";
-function validDraftTask(v: unknown): boolean {
+function checkDraftTask(v: unknown) {
   shape(v, "id title", DRAFT_TASK_OPTIONAL);
-  const hint = (h: unknown) => h === undefined || h === null || text(h, 1, 128);
-  return supervisorId(v.id) && text(v.title, 1, 512) && (v.body === undefined || text(v.body, 0, 32768)) && (v.acceptance_criteria === undefined || text(v.acceptance_criteria, 0, 8192)) &&
-    (v.labels === undefined || (list(v.labels, 0, 16) && v.labels.every(label => text(label, 1, 128)))) && (v.task_state === undefined || v.task_state === "draft" || v.task_state === "active") &&
-    (v.parent_id === undefined || nullable(v.parent_id, supervisorId)) && (v.priority === undefined || v.priority === null || integer(v.priority, 1, 300)) &&
-    hint(v.role) && hint(v.intelligence_hint) && hint(v.task_type);
+  const hint = (h: unknown) => h == null || text(h, 1, 128);
+  check(supervisorId(v.id));
+  check(text(v.title, 1, 512));
+  check(optional(v.body, body => text(body, 0, 32768)));
+  check(optional(v.acceptance_criteria, criteria => text(criteria, 0, 8192)));
+  check(optional(v.labels, labels => list(labels, 0, 16) && labels.every(label => text(label, 1, 128))));
+  check(optional(v.task_state, state => state === "draft" || state === "active"));
+  check(v.parent_id == null || supervisorId(v.parent_id));
+  check(v.priority == null || integer(v.priority, 1, 300));
+  check([v.role, v.intelligence_hint, v.task_type].every(hint));
 }
-function validTaskGraphCreate(v: unknown): v is TaskGraphCreate {
+function checkTaskGraphCreate(v: unknown): asserts v is TaskGraphCreate {
   shape(v, "operation_id project_id expected_version tasks", "edges");
-  if (!(supervisorId(v.operation_id) && supervisorId(v.project_id) && decimal(v.expected_version) && list(v.tasks, 1, 100) && v.tasks.every(validDraftTask))) return false;
-  if (v.edges === undefined) return true;
-  return list(v.edges, 0, 99) && v.edges.every(edge => { shape(edge, "id source target"); return supervisorId(edge.id) && supervisorId(edge.source) && supervisorId(edge.target); });
+  check(supervisorId(v.operation_id));
+  check(supervisorId(v.project_id));
+  check(decimal(v.expected_version));
+  check(list(v.tasks, 1, 100));
+  v.tasks.forEach(checkDraftTask);
+  if (v.edges === undefined) return;
+  check(list(v.edges, 0, 99));
+  v.edges.forEach(edge => {
+    shape(edge, "id source target");
+    check(supervisorId(edge.id));
+    check(supervisorId(edge.source));
+    check(supervisorId(edge.target));
+  });
 }
-async function validSupervisorAttachment(v: unknown, message: string): Promise<boolean> {
+async function checkSupervisorAttachment(v: unknown, message: string) {
   check(isRecord(v));
   if (v.type === "proposed_task_draft") {
     shape(v, "type message_id draft_id project_id revision payload_digest payload");
-    if (!(v.message_id === message && supervisorId(v.draft_id) && supervisorId(v.project_id) && decimal(v.revision) && digest(v.payload_digest) && validTaskGraphCreate(v.payload))) return false;
-    return v.project_id === v.payload.project_id && v.revision === v.payload.expected_version && await supervisorDigest(canonicalSupervisorJson(v.payload)) === v.payload_digest;
+    check(v.message_id === message);
+    check(supervisorId(v.draft_id));
+    check(supervisorId(v.project_id));
+    check(decimal(v.revision));
+    check(digest(v.payload_digest));
+    checkTaskGraphCreate(v.payload);
+    check(v.project_id === v.payload.project_id);
+    check(v.revision === v.payload.expected_version);
+    check(await supervisorDigest(canonicalSupervisorJson(v.payload)) === v.payload_digest);
+    return;
   }
-  if (v.type !== "action_receipt") return false;
+  check(v.type === "action_receipt");
   shape(v, "type message_id operation_id kind project_id project_revision created_task_ids created_edge_ids receipt_refs request_digest");
-  return v.message_id === message && supervisorId(v.operation_id) && (v.kind === "task.create" || v.kind === "task.graph.create") && supervisorId(v.project_id) && nullable(v.project_revision, decimal) &&
-    list(v.created_task_ids, 1, 100) && v.created_task_ids.every(supervisorId) && list(v.created_edge_ids, 0, 100) && v.created_edge_ids.every(supervisorId) &&
-    list(v.receipt_refs, 1, 100) && v.receipt_refs.every(ref => { shape(ref, "type id"); return text(ref.type, 1, 64) && text(ref.id, 1, 128); }) && digest(v.request_digest);
+  check(v.message_id === message);
+  check(supervisorId(v.operation_id));
+  check(v.kind === "task.create" || v.kind === "task.graph.create");
+  check(supervisorId(v.project_id));
+  check(nullable(v.project_revision, decimal));
+  check(list(v.created_task_ids, 1, 100) && v.created_task_ids.every(supervisorId));
+  check(list(v.created_edge_ids, 0, 100) && v.created_edge_ids.every(supervisorId));
+  check(list(v.receipt_refs, 1, 100));
+  v.receipt_refs.forEach(ref => {
+    shape(ref, "type id"); check(text(ref.type, 1, 64)); check(text(ref.id, 1, 128));
+  });
+  check(digest(v.request_digest));
 }
 const ITEM_FIELDS = "message_id thread_id conversation_id cursor author body body_digest created_at_ms logical_admission host_delivery agent_receipt";
-export async function adaptSupervisorHistory(v: unknown, expected: Conversation, page: { before?: string; after?: string } = {}): Promise<History> {
+type IdentifiedMessage = Record<string, unknown> & Pick<SupervisorMessage, "cursor" | "message_id">;
+
+function checkHistoryIdentity(item: Record<string, unknown>, expected: Conversation, ids: Set<string>): asserts item is IdentifiedMessage {
+  check(supervisorId(item.message_id));
+  check(!ids.has(item.message_id));
+  check(item.thread_id === expected.id);
+  check(item.conversation_id === expected.id);
+  check(validCursor(item.cursor));
+}
+
+async function checkSupervisorReply(item: IdentifiedMessage) {
+  shape(item.author, "kind actor_id generation session_id");
+  check(item.cursor.includes("."));
+  check(supervisorId(item.author.actor_id));
+  check(supervisorId(item.author.session_id));
+  check(integer(item.author.generation, 1, 1024));
+  shape(item.dispatch, "dispatch_id host_operation_id batch_digest");
+  check(supervisorId(item.dispatch.dispatch_id));
+  check(supervisorId(item.dispatch.host_operation_id));
+  check(typeof item.dispatch.batch_digest === "string" && /^[0-9a-f]{64}$/.test(item.dispatch.batch_digest));
+  check(item.host_delivery === "not_attempted");
+  if (item.attachments !== undefined) {
+    check(list(item.attachments, 0, SCHEMA_LIMITS.attachments));
+    for (const attachment of item.attachments) await checkSupervisorAttachment(attachment, item.message_id);
+    check(unique(item.attachments.map(a => { const r = a as Record<string, unknown>; return `${String(r.type)}:${String(r.type === "proposed_task_draft" ? r.draft_id : r.operation_id)}`; })));
+  }
+}
+
+function checkHumanMessage(item: IdentifiedMessage) {
+  shape(item.author, "kind user_id");
+  check(item.author.kind === "human");
+  check(supervisorId(item.author.user_id));
+  check(decimal(item.cursor));
+  if (item.context !== undefined) {
+    check(list(item.context, 1, SCHEMA_LIMITS.context_refs));
+    check(item.context.every(validContextRef));
+    check(unique(item.context.map(ref => `${ref.type}:${ref.id}`)));
+  }
+  if (item.attachments !== undefined) {
+    check(list(item.attachments, 1, SCHEMA_LIMITS.attachments));
+    check(item.attachments.every(validAttachmentDescriptor));
+    check(unique(item.attachments.map(file => file.id)));
+  }
+}
+
+async function checkMessageBody(item: Record<string, unknown>) {
+  check(typeof item.body === "string" && !validateSupervisorText(item.body));
+  check(digest(item.body_digest));
+  check(await supervisorDigest(item.body) === item.body_digest);
+  check(timestampMs(item.created_at_ms));
+  check(item.logical_admission === "queued");
+  check(["not_attempted", "pending", "delivery_unknown", "delivered", "not_delivered"].includes(String(item.host_delivery)));
+  check(item.agent_receipt === null);
+}
+
+type HistoryWindow = { before?: string; after?: string };
+function checkCursorRange(message: IdentifiedMessage, range: HistoryWindow & { previous: string; through: string }) {
+  const { cursor } = message, { previous, through } = range;
+  check(compareSupervisorCursors(cursor, previous) > 0);
+  check(BigInt(cursor.split(".")[0]!) <= BigInt(through));
+  if (range.before !== undefined) check(compareSupervisorCursors(cursor, range.before) < 0);
+  if (range.after !== undefined) check(compareSupervisorCursors(cursor, range.after) > 0);
+}
+
+export async function adaptSupervisorHistory(v: unknown, expected: Conversation, page: HistoryWindow = {}): Promise<History> {
   shape(v, "contract conversation runtime direction through_cursor items next_cursor has_more"); common(v, expected);
-  check(v.direction === (page.after !== undefined ? "forward" : "backward") && decimal(v.through_cursor, true) && typeof v.has_more === "boolean");
-  check(list(v.items, 0, SCHEMA_LIMITS.history_page) && (v.next_cursor === null || validCursor(v.next_cursor)));
-  let previous = "0"; const ids = new Set();
+  check(v.direction === (page.after !== undefined ? "forward" : "backward"));
+  check(decimal(v.through_cursor, true));
+  check(typeof v.has_more === "boolean");
+  check(list(v.items, 0, SCHEMA_LIMITS.history_page));
+  check(nullable(v.next_cursor, validCursor));
+  let previous = "0"; const ids = new Set<string>();
   for (const item of v.items) {
-    check(isRecord(item) && isRecord(item.author));
+    check(isRecord(item));
+    check(isRecord(item.author));
     const reply = item.author.kind === "supervisor";
     if (reply) shape(item, `${ITEM_FIELDS} dispatch`, "attachments"); else shape(item, ITEM_FIELDS, "context attachments");
-    check(supervisorId(item.message_id) && !ids.has(item.message_id) && item.thread_id === expected.id && item.conversation_id === expected.id && validCursor(item.cursor));
-    const cursor = item.cursor; check(compareSupervisorCursors(cursor, previous) > 0 && BigInt(cursor.split(".")[0]!) <= BigInt(v.through_cursor));
-    if (page.before !== undefined) check(compareSupervisorCursors(cursor, page.before) < 0);
-    if (page.after !== undefined) check(compareSupervisorCursors(cursor, page.after) > 0);
-    previous = cursor; ids.add(item.message_id);
-    if (reply) {
-      shape(item.author, "kind actor_id generation session_id");
-      check(cursor.includes(".") && supervisorId(item.author.actor_id) && supervisorId(item.author.session_id) && integer(item.author.generation, 1, 1024));
-      shape(item.dispatch, "dispatch_id host_operation_id batch_digest");
-      check(supervisorId(item.dispatch.dispatch_id) && supervisorId(item.dispatch.host_operation_id) && typeof item.dispatch.batch_digest === "string" && /^[0-9a-f]{64}$/.test(item.dispatch.batch_digest) && item.host_delivery === "not_attempted");
-      if (item.attachments !== undefined) {
-        check(list(item.attachments, 0, SCHEMA_LIMITS.attachments));
-        for (const attachment of item.attachments) check(await validSupervisorAttachment(attachment, item.message_id));
-        check(unique(item.attachments.map(a => { const r = a as Record<string, unknown>; return `${String(r.type)}:${String(r.type === "proposed_task_draft" ? r.draft_id : r.operation_id)}`; })));
-      }
-    } else {
-      shape(item.author, "kind user_id"); check(item.author.kind === "human" && supervisorId(item.author.user_id) && decimal(cursor));
-      if (item.context !== undefined) check(list(item.context, 1, SCHEMA_LIMITS.context_refs) && item.context.every(validContextRef) && unique(item.context.map(ref => `${ref.type}:${ref.id}`)));
-      if (item.attachments !== undefined) check(list(item.attachments, 1, SCHEMA_LIMITS.attachments) && item.attachments.every(validAttachmentDescriptor) && unique(item.attachments.map(file => file.id)));
-    }
-    check(typeof item.body === "string" && !validateSupervisorText(item.body) && digest(item.body_digest) && await supervisorDigest(item.body) === item.body_digest);
-    check(typeof item.created_at_ms === "number" && Number.isSafeInteger(item.created_at_ms) && item.created_at_ms > 0 && item.created_at_ms <= 8640000000000000);
-    check(item.logical_admission === "queued" && ["not_attempted", "pending", "delivery_unknown", "delivered", "not_delivered"].includes(String(item.host_delivery)) && item.agent_receipt === null);
+    checkHistoryIdentity(item, expected, ids);
+    checkCursorRange(item, { ...page, previous, through: v.through_cursor });
+    previous = item.cursor; ids.add(item.message_id);
+    if (reply) await checkSupervisorReply(item);
+    else checkHumanMessage(item);
+    await checkMessageBody(item);
   }
-  if (v.has_more) check(v.items.length > 0 && v.next_cursor === (v.direction === "backward" ? (v.items[0] as SupervisorMessage).cursor : (v.items.at(-1) as SupervisorMessage).cursor));
+  if (v.has_more) {
+    check(v.items.length > 0);
+    const boundary = v.direction === "backward" ? v.items[0] : v.items.at(-1);
+    check(v.next_cursor === (boundary as SupervisorMessage).cursor);
+  }
   else check(v.next_cursor === null);
   return v as unknown as History;
 }
 /** Optional pinned context refs and staged uploads, bounded by the adapted discovery limits. */
 export type SupervisorMessageRefs = { limits: SupervisorLimits; context?: readonly ContextRef[]; attachments?: readonly AttachmentRef[] };
-export async function freezeSupervisorMessage(c: Conversation, actor: string, body: string, refs?: SupervisorMessageRefs): Promise<FrozenSupervisorMessage> {
+function messageRefs(refs?: SupervisorMessageRefs) {
   const context = refs?.context ?? [], attachments = refs?.attachments ?? [];
-  check(supervisorId(c.id) && decimal(c.revision) && supervisorId(actor) && !validateSupervisorText(body, refs?.limits.body_bytes));
-  if (context.length || attachments.length) check(refs && context.length <= refs.limits.context_refs && attachments.length <= refs.limits.attachments);
-  check(context.every(ref => isRecord(ref) && validContextRef(ref)) && unique(context.map(ref => `${ref.type}:${ref.id}`)));
-  check(attachments.every(ref => { shape(ref, "id digest"); return supervisorId(ref.id) && digest(ref.digest); }) && unique(attachments.map(ref => ref.id)));
+  if (context.length || attachments.length) {
+    check(refs);
+    check(context.length <= refs.limits.context_refs);
+    check(attachments.length <= refs.limits.attachments);
+  }
+  check(context.every(validContextRef));
+  check(unique(context.map(ref => `${ref.type}:${ref.id}`)));
+  attachments.forEach(ref => { shape(ref, "id digest"); check(supervisorId(ref.id)); check(digest(ref.digest)); });
+  check(unique(attachments.map(ref => ref.id)));
+  return { context, attachments };
+}
+export async function freezeSupervisorMessage(c: Conversation, actor: string, body: string, refs?: SupervisorMessageRefs): Promise<FrozenSupervisorMessage> {
+  check(supervisorId(c.id));
+  check(decimal(c.revision));
+  check(supervisorId(actor));
+  check(!validateSupervisorText(body, refs?.limits.body_bytes));
+  const { context, attachments } = messageRefs(refs);
   const operation = crypto.randomUUID(), message = crypto.randomUUID(); check(operation !== message);
   const bytes = canonicalSupervisorJson({ attachments: attachments.map(({ id, digest }) => ({ id, digest })), body, context: context.map(({ type, id, revision }) => ({ type, id, revision })), expected_conversation_revision: c.revision, message_id: message, operation_id: operation });
   check(utf8Bytes(bytes) <= 131072);
@@ -195,17 +304,28 @@ export async function freezeSupervisorMessage(c: Conversation, actor: string, bo
 }
 export function adaptSupervisorReceipt(v: unknown, expected: { conversation: string; actor: string; operation: string; message: string; frozen?: FrozenSupervisorMessage }): Receipt {
   shape(v, "contract conversation runtime operation_id message_id actor_id request_digest body_digest state cursor reason host_delivery agent_receipt"); common(v, expected.conversation, false);
-  check(v.operation_id === expected.operation && supervisorId(v.operation_id) && v.message_id === expected.message && supervisorId(v.message_id) && v.actor_id === expected.actor && supervisorId(v.actor_id));
-  check(digest(v.request_digest) && digest(v.body_digest) && v.host_delivery === "not_attempted" && v.agent_receipt === null);
-  if (expected.frozen) check(v.request_digest === expected.frozen.requestDigest && v.body_digest === expected.frozen.bodyDigest);
+  check(v.operation_id === expected.operation);
+  check(supervisorId(v.operation_id));
+  check(v.message_id === expected.message);
+  check(supervisorId(v.message_id));
+  check(v.actor_id === expected.actor);
+  check(supervisorId(v.actor_id));
+  check(digest(v.request_digest));
+  check(digest(v.body_digest));
+  check(v.host_delivery === "not_attempted");
+  check(v.agent_receipt === null);
+  if (expected.frozen) { check(v.request_digest === expected.frozen.requestDigest); check(v.body_digest === expected.frozen.bodyDigest); }
   if (v.state === "queued") { check(decimal(v.cursor) && v.reason === null); if (expected.frozen) check((v.conversation as Conversation).revision === expected.frozen.revision); }
-  else check(v.state === "not_queued" && v.cursor === null && RECEIPT_REASONS.includes(String(v.reason)));
+  else { check(v.state === "not_queued"); check(v.cursor === null); check(RECEIPT_REASONS.includes(String(v.reason))); }
   return v as unknown as Receipt;
 }
 /** Response to PUT /api/human/conversations/{id}/attachments/{attachment}. */
 export function adaptSupervisorAttachmentUpload(v: unknown, expected: { conversation: string; attachment: string }): AttachmentUpload {
   shape(v, "id name media_type size_bytes digest conversation_id created_at_ms state message_id expires_at_ms");
-  check(validDescriptor(v) && v.id === expected.attachment && v.conversation_id === expected.conversation && supervisorId(v.conversation_id) && integer(v.created_at_ms, 1));
+  check(validDescriptor(v));
+  check(v.id === expected.attachment);
+  check(v.conversation_id === expected.conversation && supervisorId(v.conversation_id));
+  check(integer(v.created_at_ms, 1));
   if (v.state === "staged") check(v.message_id === null && integer(v.expires_at_ms, 1));
   else check(v.state === "attached" && supervisorId(v.message_id) && v.expires_at_ms === null);
   return v as unknown as AttachmentUpload;
@@ -215,7 +335,9 @@ export type AttachmentErrorCode = typeof ATTACHMENT_ERRORS[number];
 export type AttachmentError = { error: AttachmentErrorCode; message: string };
 /** Structured refusal of an owner attachment route; null when the body is not one (generic AQ errors keep their own handling). */
 export function adaptSupervisorAttachmentError(v: unknown): AttachmentError | null {
-  if (!isRecord(v) || Object.keys(v).length !== 2 || typeof v.message !== "string" || v.message.length === 0 || !(ATTACHMENT_ERRORS as readonly unknown[]).includes(v.error)) return null;
+  if (!isRecord(v) || Object.keys(v).length !== 2) return null;
+  if (typeof v.message !== "string" || !v.message.length) return null;
+  if (!(ATTACHMENT_ERRORS as readonly unknown[]).includes(v.error)) return null;
   return { error: v.error as AttachmentErrorCode, message: v.message };
 }
 /** Duplicate identities or cursors must never replace already inspected history. */

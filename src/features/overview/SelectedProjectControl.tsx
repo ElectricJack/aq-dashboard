@@ -22,6 +22,13 @@ async function selectedProject(project:string,signal:AbortSignal){
   }
   throw Error("Project controls unavailable");
 }
+function unavailableControl(failed: boolean, retry: () => void) {
+  return <section className={styles.projectControls} aria-label="Selected project controls">
+    <p>{failed?"Project controls are unavailable.":"Loading project controls…"}</p>
+    {failed&&<><ActionButton onClick={retry}>Retry project controls</ActionButton><Link to="/settings?tab=projects">Project settings</Link></>}
+  </section>;
+}
+
 export function SelectedProjectControl(){
   const [scope]=useScope();const {bootstrap,queryContext}=useSession();
   const project=scope.kind==="project"?scope.project_id:null;
@@ -29,10 +36,7 @@ export function SelectedProjectControl(){
   const query=useQuery({queryKey:queryKey(queryContext,"selected-project-control",{project}),enabled,retry:false,
     queryFn:({signal})=>selectedProject(project!,signal),staleTime:0});
   if(!enabled)return null;
-  if(!query.data||query.isError)return <section className={styles.projectControls} aria-label="Selected project controls">
-    <p>{query.isError?"Project controls are unavailable.":"Loading project controls…"}</p>
-    {query.isError&&<><ActionButton onClick={()=>void query.refetch()}>Retry project controls</ActionButton><Link to="/settings?tab=projects">Project settings</Link></>}
-  </section>;
+  if(!query.data||query.isError)return unavailableControl(query.isError, () => void query.refetch());
   const p=query.data;
   return <section className={styles.projectControls} aria-label="Selected project controls">
     <div><h2>{p.name} <span data-started={p.enabled&&p.workerPolicy==="enabled"||undefined}>{projectState(p)}</span></h2>

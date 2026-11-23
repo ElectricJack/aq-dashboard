@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { adaptOverview, type AttentionView, type OverviewView, type TotalView } from "../../api/adapters/inspection";
 import { ATTENTION_SOURCE_LABEL } from "../../api/adapters/overview";
+import type { Scope } from "../../api/wire/proposed";
 import type { Overview as OverviewWire } from "../../api/wire/overview";
 import { ArrowRight, CircleAlert, CircleCheck, CircleHelp, TriangleAlert, type LucideIcon } from "lucide-react";
 import { ATTENTION_ICON, COUNT_ICON, Icon } from "../../components/icons";
@@ -11,7 +12,7 @@ import { formatAge, formatElapsed } from "../../components/time/relative";
 import { ApiError } from "../../api/client";
 import { scopeSearch, useScope } from "../../app/scope";
 import { FACT_LABEL, subjectPath } from "../../app/subjects";
-import { useRead } from "../../app/useRead";
+import { useRead, type Read } from "../../app/useRead";
 import { RetainedNotice } from "../../components/QueryStatus/RetainedNotice";
 import styles from "./Overview.module.css";
 import { SelectedProjectControl } from "./SelectedProjectControl";
@@ -133,14 +134,18 @@ function ConstraintStatus({ constraint }: { constraint: OverviewView["inMotion"]
   );
 }
 
-function AttentionRow({ item, serverTime, search }: { item: AttentionView; serverTime: string; search: string }) {
-  const [inspect, setInspect] = useState(false);
-  const path = item.kind === "unsupported" ? null : subjectPath(item.subject);
+function attentionDestination(item: AttentionView, search: string) {
+  if (item.kind === "unsupported") return null;
+  const path = subjectPath(item.subject);
+  if (!path) return null;
   // A path may carry its own query (History's Internal filter); keep the scope too.
-  const [pathname, query] = (path ?? "").split("?");
+  const [pathname, query] = path.split("?");
   const linkSearch = new URLSearchParams(search);
   new URLSearchParams(query).forEach((value, key) => linkSearch.set(key, value));
-  const label = ACTION_LABEL[item.kind];
+  return { pathname, search: linkSearch.size ? `?${linkSearch}` : "" };
+}
+
+function attentionDescription(item: AttentionView, serverTime: string) {
   const age = item.since ? `waiting ${formatElapsed(serverTime, item.since)}` : "waiting age unknown";
   const worker = item.kind === "worker_offline";
   // Workers are installation-wide; a project association is not ownership.
@@ -154,7 +159,26 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
     item.reason,
     item.action && !item.action.allowed ? item.action.explanation : null,
   ].filter(Boolean).join(" · ");
+  return { secondary, name };
+}
+
+type AttentionRowProps = { item: AttentionView; serverTime: string; search: string };
+function AttentionAction({ item, name, search, inspect, toggle }: {
+  item: AttentionView; name: string; search: string; inspect: boolean; toggle: () => void;
+}) {
+  const label = ACTION_LABEL[item.kind];
   const actionContent = <>{label}<Icon icon={ArrowRight} size={16} className={styles.actionArrow} /></>;
+  const to = attentionDestination(item, search);
+  if (to) return <Link className={styles.action} to={to} aria-label={`${label}: ${name}`}>{actionContent}</Link>;
+  if (item.kind === "worker_offline" || item.kind === "uncertain_operation") {
+    return <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${name}`} onClick={toggle}>{actionContent}</button>;
+  }
+  return <span className={styles.meta}>{item.kind === "unsupported" ? "Unsupported item type" : "Inspection unavailable"}</span>;
+}
+
+function AttentionRow({ item, serverTime, search }: AttentionRowProps) {
+  const [inspect, setInspect] = useState(false);
+  const { secondary, name } = attentionDescription(item, serverTime);
   return (
     <li className={styles.attentionRow} data-attention-row="" data-kind={item.kind}>
       <Icon icon={ATTENTION_ICON[item.kind]} size={28} className={styles.kindIcon} />
@@ -163,15 +187,7 @@ function AttentionRow({ item, serverTime, search }: { item: AttentionView; serve
         <span className={styles.rowSecondary} title={secondary}>{secondary}</span>
       </div>
       <span className={styles.impact}>{item.impact}</span>
-      {path ? (
-        <Link className={styles.action} to={{ pathname, search: linkSearch.size ? `?${linkSearch}` : "" }} aria-label={`${label}: ${name}`}>
-          {actionContent}
-        </Link>
-      ) : item.kind === "worker_offline" || item.kind === "uncertain_operation" ? (
-        <button className={styles.action} type="button" aria-expanded={inspect} aria-label={`${label}: ${name}`} onClick={() => setInspect(!inspect)}>{actionContent}</button>
-      ) : (
-        <span className={styles.meta}>{item.kind === "unsupported" ? "Unsupported item type" : "Inspection unavailable"}</span>
-      )}
+      <AttentionAction item={item} name={name} search={search} inspect={inspect} toggle={() => setInspect(!inspect)} />
       {inspect && <dl className={styles.referenceDetails}><dt>Subject</dt><dd>{item.subject.type} · {item.subject.id}</dd><dt>Revision</dt><dd>{item.subject.revision ?? "Unknown"}</dd><dt>Observation</dt><dd>{item.reason}</dd></dl>}
     </li>
   );
@@ -184,7 +200,8 @@ type NeedsYou = TotalView & { atLeast?: boolean };
  * When the server total is lower or unknown, the shown rows are a lower bound.
  */
 export function reconcileNeedsYou(total: TotalView, shown: number): NeedsYou {
-  if (shown > 0 && (total.value === null || shown > total.value)) return { value: shown, accuracy: "estimated", atLeast: true };
+  if (!(shown > 0)) return total;
+  if (total.value === null || shown > total.value) return { value: shown, accuracy: "estimated", atLeast: true };
   return total;
 }
 
@@ -316,126 +333,164 @@ function ProjectActivitySummary({ rows, serverTime, complete, canOpenWork }: {
   </>;
 }
 
-export function Overview() {
-  const [scope] = useScope();
-  const { bootstrap } = useSession();
-  const taskContributions = bootstrap.capability("human.overview.tasks.read").enabled;
-  const search = scopeSearch(scope);
-  const canShowGantt = bootstrap.capability("human.graph.read").enabled && bootstrap.capability("tasks.read").enabled
-    && (scope.kind !== "project" || validGraphId(scope.project_id));
-  const query = useRead<OverviewWire, OverviewView>({
+function useOverviewRead(scope: Scope) {
+  return useRead<OverviewWire, OverviewView>({
     resource: "overview",
     path: "/api/v1/overview",
     scope,
     adapt: adaptOverview,
     pollMs: OVERVIEW_POLL_MS,
   });
+}
 
+type OverviewQuery = ReturnType<typeof useOverviewRead>;
+type OverviewDisplay = { query: OverviewQuery; gantt: ReactNode; search: string };
+
+function overviewGantt(scope: Scope, bootstrap: ReturnType<typeof useSession>["bootstrap"], query: OverviewQuery) {
+  const canShowGantt = bootstrap.capability("human.graph.read").enabled && bootstrap.capability("tasks.read").enabled
+    && (scope.kind !== "project" || validGraphId(scope.project_id));
+  if (!canShowGantt) return false;
   const runningProjects = query.data?.view.inMotion.filter(item => (item.running.value ?? 0) > 0).map(item => item.project.id);
-  const gantt = canShowGantt && <DependencyGantt compact project={scope.kind === "project" ? scope.project_id : undefined}
+  return <DependencyGantt compact project={scope.kind === "project" ? scope.project_id : undefined}
     runningProjects={runningProjects} showOffline={!query.data} />;
+}
 
-  if (!query.data && unavailableProject(scope.kind, query.error)) return <ProjectUnavailable />;
-  if (!query.data && !query.isError) return (
+function renderPendingOverview({ query, search, gantt }: OverviewDisplay) {
+  if (!query.isError) return (
     <div className={styles.layout}>
       <OverviewHeader>Checking what needs you…</OverviewHeader>
-      <QueryStatus status="pending" label="the overview" error={null} onRetry={()=>void query.refetch()} />
+      <QueryStatus status="pending" label="the overview" error={null} onRetry={() => void query.refetch()} />
     </div>
   );
-  if (!query.data) {
-    return (
-      <div className={styles.layout}>
+  return (
+    <div className={styles.layout}>
       <OverviewHeader>The overview summary is unavailable.</OverviewHeader>
       <div className={styles.columns}>
         <div className={styles.primary}>
           <section className={styles.panel} aria-labelledby="attention-heading">
           <h2 id="attention-heading">Needs your attention</h2>
-          <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="the overview" onRetry={() => void query.refetch()} />
+          <QueryStatus status="error" error={query.error} label="the overview" onRetry={() => void query.refetch()} />
           </section>
           <section className={styles.panel} aria-labelledby="motion-heading">
           <h2 id="motion-heading">Work in motion</h2>
           {gantt || <p className={styles.meta}>Project movement unavailable</p>}
-          {query.isError && <RecordedTasks />}
-          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>{query.isError ? "Outcomes unavailable" : "Loading outcomes…"}</p><Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link></section>
+          <RecordedTasks />
+          <section className={styles.outcomeSection} aria-labelledby="outcomes-heading"><h2 id="outcomes-heading">Recent outcomes</h2><p className={styles.meta}>Outcomes unavailable</p><Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link></section>
           </section>
         </div>
         <Infrastructure />
       </div>
-      </div>
-    );
-  }
+    </div>
+  );
+}
 
-  const { view, serverTime, coverage } = query.data;
+export function Overview() {
+  const [scope] = useScope();
+  const { bootstrap } = useSession();
+  const taskContributions = bootstrap.capability("human.overview.tasks.read").enabled;
+  const search = scopeSearch(scope);
+  const query = useOverviewRead(scope);
+  if (!query.data && unavailableProject(scope.kind, query.error)) return <ProjectUnavailable />;
+  const gantt = overviewGantt(scope, bootstrap, query);
+  // Keep the mounted page header, including its active supervisor and task buttons, across the first read.
+  const display = { query, search, gantt };
+  if (!query.data) return renderPendingOverview(display);
+  return renderOverviewData({ ...display, data: query.data, taskContributions, canOpenWork: bootstrap.capability("tasks.read").enabled });
+}
+
+function WorkCounts({ counts, needsYou }: { counts: OverviewView["counts"]; needsYou: NeedsYou }) {
+  return (
+    <ul className={styles.counts} aria-label="Work counts">
+      {(
+        [
+          ["running", "running"],
+          ["ready", "ready"],
+          ["needs_you", "need you"],
+          ["recovering", "recovering"],
+        ] as const
+      ).map(([key, label]) => (
+        <li key={key} data-count={key}>
+          <Icon icon={COUNT_ICON[key]} size={24} className={styles.countIcon} />
+          <strong>
+            {key === "needs_you" ? <NeedsYouCount total={needsYou} /> : <CountLabel total={counts[key]} />}
+          </strong>{" "}
+          <span>{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RecentOutcomes({ outcomes, complete, serverTime, search }: {
+  outcomes: OverviewView["recentOutcomes"]; complete: boolean; serverTime: string; search: string;
+}) {
+  return (
+    <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
+      <h2 id="outcomes-heading">Recent outcomes</h2>
+      {outcomes.length === 0 ? (
+        <p className={styles.meta}>{complete ? "No recent outcomes" : "Outcomes may be incomplete"}</p>
+      ) : (
+        <ul className={styles.outcomes}>
+          {outcomes.map((r) => {
+            const path = subjectPath(r.subject);
+            const tone = OUTCOME_TONE[r.outcome] ?? "neutral";
+            const label = outcomeLabel(r.outcome);
+            const age = formatAge(serverTime, r.at);
+            return (
+              <li key={`${r.subject.id}:${r.outcome}`} data-outcome-tone={tone}>
+                <Icon icon={OUTCOME_ICON[tone]} size={20} className={styles.outcomeIcon} />
+                {path ? (
+                  <Link to={{ pathname: path, search }} aria-label={`${r.subject.title} ${shortRef(r.subject)}, ${label}, ${age}`}>
+                    {r.subject.title} <span className={styles.meta}>{shortRef(r.subject)}</span>
+                  </Link>
+                ) : <span>{r.subject.title}</span>}
+                <span className={styles.meta}>
+                  {label} · {r.project.label} · {age}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link>
+    </section>
+  );
+}
+
+function renderOverviewData({ query, data, search, gantt, taskContributions, canOpenWork }: OverviewDisplay & {
+  data: Read<OverviewView>; taskContributions: boolean; canOpenWork: boolean;
+}) {
+  const { view, serverTime, coverage } = data;
   const complete = coverage.state === "complete" && !query.isError && view.sources.every(source => source.coverage.state === "complete");
   const attention = dedupeAttention(view.attention);
   const needsYou = reconcileNeedsYou(view.counts.needs_you, attention.length);
-  const canOpenWork = bootstrap.capability("tasks.read").enabled;
   return (
     <div className={styles.layout}>
       <OverviewHeader>{attentionSentence(needsYou)} {motionSentence(view.inMotion, complete)}</OverviewHeader>
       {/* SO-13: a failed refresh or an offline browser marks the kept read with its age. */}
       <RetainedNotice query={query} className={styles.warning} />
-      <ul className={styles.counts} aria-label="Work counts">
-        {(
-          [
-            ["running", "running"],
-            ["ready", "ready"],
-            ["needs_you", "need you"],
-            ["recovering", "recovering"],
-          ] as const
-        ).map(([key, label]) => (
-          <li key={key} data-count={key}>
-            <Icon icon={COUNT_ICON[key]} size={24} className={styles.countIcon} />
-            <strong>
-              {key === "needs_you" ? <NeedsYouCount total={needsYou} /> : <CountLabel total={view.counts[key]} />}
-            </strong>{" "}
-            <span>{label}</span>
-          </li>
-        ))}
-      </ul>
+      <WorkCounts counts={view.counts} needsYou={needsYou} />
       {(coverage.state !== "complete" || view.sources.some(source => source.coverage.state !== "complete")) && (
         <p className={styles.warning} role="status">
           Some overview information is unavailable or incomplete. Counts and lists may be incomplete.{" "}
           <Link to={{ pathname: "/settings", search, hash: "#overview-diagnostics" }}>View diagnostics</Link>
         </p>
       )}
-      <div className={styles.columns}><div className={styles.primary}>
-      <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
-      <section className={styles.panel} aria-labelledby="motion-heading">
-        <h2 id="motion-heading">Work in motion</h2>
-        {gantt || <ProjectActivitySummary rows={view.inMotion} serverTime={serverTime} complete={complete} canOpenWork={canOpenWork} />}
-        {taskContributions && <details className={styles.observationDetails}><summary>Recorded task details</summary><RecordedTasks embedded serverTime={serverTime} /></details>}
-      <section className={styles.outcomeSection} aria-labelledby="outcomes-heading">
-        <h2 id="outcomes-heading">Recent outcomes</h2>
-        {view.recentOutcomes.length === 0 ? (
-          <p className={styles.meta}>{complete ? "No recent outcomes" : "Outcomes may be incomplete"}</p>
-        ) : (
-          <ul className={styles.outcomes}>
-            {view.recentOutcomes.map((r) => {
-              const path = subjectPath(r.subject);
-              const tone = OUTCOME_TONE[r.outcome] ?? "neutral";
-              const label = outcomeLabel(r.outcome);
-              const age = formatAge(serverTime, r.at);
-              return (
-                <li key={`${r.subject.id}:${r.outcome}`} data-outcome-tone={tone}>
-                  <Icon icon={OUTCOME_ICON[tone]} size={20} className={styles.outcomeIcon} />
-                  {path ? (
-                    <Link to={{ pathname: path, search }} aria-label={`${r.subject.title} ${shortRef(r.subject)}, ${label}, ${age}`}>
-                      {r.subject.title} <span className={styles.meta}>{shortRef(r.subject)}</span>
-                    </Link>
-                  ) : <span>{r.subject.title}</span>}
-                  <span className={styles.meta}>
-                    {label} · {r.project.label} · {age}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <Link className={styles.footerLink} to={{ pathname: "/results", search }}>Activity →</Link>
-      </section>
-      </section>
-      </div><Infrastructure /></div>
+      <div className={styles.columns}>
+        <div className={styles.primary}>
+          <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
+          <section className={styles.panel} aria-labelledby="motion-heading">
+            <h2 id="motion-heading">Work in motion</h2>
+            {gantt || <ProjectActivitySummary rows={view.inMotion} serverTime={serverTime} complete={complete} canOpenWork={canOpenWork} />}
+            {taskContributions && <details className={styles.observationDetails}>
+              <summary>Recorded task details</summary>
+              <RecordedTasks embedded serverTime={serverTime} />
+            </details>}
+            <RecentOutcomes outcomes={view.recentOutcomes} complete={complete} search={search} serverTime={serverTime} />
+          </section>
+        </div>
+        <Infrastructure />
+      </div>
     </div>
   );
 }

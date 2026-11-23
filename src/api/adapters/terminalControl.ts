@@ -6,15 +6,19 @@ export interface Control { generation: number; lease: Lease | null; fence_acknow
 export interface TerminalInfo { terminal: TerminalIdentity; session_revision: number; input_enabled: boolean; maxInputBytes: number; maxPendingInputBytes: number; disconnected: boolean; control: Control }
 function check(v: unknown): asserts v { if (!v) throw new ContractError('Invalid terminal control'); }
 function integer(v: unknown, min = 0): v is number { return Number.isSafeInteger(v) && (v as number) >= min; }
+function adaptLease(raw: unknown, terminal: TerminalIdentity, generation: number): Lease | null {
+  if (raw === null) return null;
+  check(isRecord(raw) && sameTerminal(terminalIdentity(raw.terminal), terminal));
+  check(typeof raw.lease_id === 'string' && /^[0-9a-f-]{36}$/i.test(raw.lease_id) && raw.generation === generation);
+  check(integer(raw.issued_at_ms) && integer(raw.expires_at_ms, raw.issued_at_ms + 1));
+  check(raw.expires_at_ms - raw.issued_at_ms <= 15000 && integer(raw.execution_expires_at_ms, raw.expires_at_ms));
+  return { lease_id: raw.lease_id, generation, expires_at_ms: raw.expires_at_ms };
+}
+
 export function adaptControl(v: unknown, terminal: TerminalIdentity, revision: number): Control {
-  check(isRecord(v) && sameTerminal(terminalIdentity(v.terminal), terminal) && v.session_revision === revision && integer(v.generation) && typeof v.fence_acknowledged === 'boolean' && typeof v.input_paused === 'boolean');
-  let lease: Lease | null = null;
-  if (v.lease !== null) {
-    const l = v.lease;
-    check(isRecord(l) && sameTerminal(terminalIdentity(l.terminal), terminal) && typeof l.lease_id === 'string' && /^[0-9a-f-]{36}$/i.test(l.lease_id) && l.generation === v.generation && integer(l.issued_at_ms) && integer(l.expires_at_ms, l.issued_at_ms + 1) && l.expires_at_ms - l.issued_at_ms <= 15000 && integer(l.execution_expires_at_ms, l.expires_at_ms));
-    lease = { lease_id: l.lease_id, generation: v.generation, expires_at_ms: l.expires_at_ms };
-  }
-  return { generation: v.generation, lease, fence_acknowledged: v.fence_acknowledged, input_paused: v.input_paused };
+  check(isRecord(v) && sameTerminal(terminalIdentity(v.terminal), terminal) && v.session_revision === revision);
+  check(integer(v.generation) && typeof v.fence_acknowledged === 'boolean' && typeof v.input_paused === 'boolean');
+  return { generation: v.generation, lease: adaptLease(v.lease, terminal, v.generation), fence_acknowledged: v.fence_acknowledged, input_paused: v.input_paused };
 }
 export function adaptInteractiveInfo(v: unknown, id: string): TerminalInfo {
   const base = adaptTerminalInfo(v, id);

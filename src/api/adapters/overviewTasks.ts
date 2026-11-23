@@ -1,4 +1,4 @@
-import { ContractError, isRecord } from "./contract";
+import { ContractError, isRecord, nullable } from "./contract";
 import { validGraphId } from "./humanGraph";
 export type OverviewTask = { id: string; title: string; version: string; content_revision: string; task_state: string | null; updated_at: string };
 export type OverviewTaskProject = {
@@ -14,30 +14,89 @@ function check(v: unknown): asserts v { if (!v) throw new ContractError("Invalid
 function time(v: unknown): v is string { return typeof v === "string" && v.length <= 40 && Number.isFinite(Date.parse(v)); }
 function text(v: unknown, max: number): v is string { return typeof v === "string" && v.length <= max; }
 function revision(v: unknown): v is string { return typeof v === "string" && /^[1-9][0-9]{0,19}$/.test(v); }
+function checkTasks(tasks: unknown[]): void {
+  const ids = new Set<string>();
+  for (const task of tasks) {
+    check(isRecord(task));
+    check(validGraphId(task.id));
+    check(!ids.has(task.id));
+    check(text(task.title, 512) && task.title.trim().length > 0);
+    check(revision(task.version));
+    check(revision(task.content_revision));
+    check(nullable(task.task_state, value => text(value, 64)));
+    check(time(task.updated_at));
+    ids.add(task.id);
+  }
+}
+
+function validTaskCount(count: unknown): boolean {
+  return typeof count === "number" && Number.isSafeInteger(count) && count >= 0 && count <= 32;
+}
+
+function validateCounts(row: Record<string, unknown>, size: number) {
+  if (row.source_status === "unavailable") {
+    check(row.coverage === "unavailable");
+    check(row.count_accuracy === "unknown");
+    check(row.task_counts === null);
+    check(row.observed_at === null);
+    check(size === 0);
+    check(row.more_tasks === null);
+    return;
+  }
+  check(row.observed_at !== null);
+  check(row.coverage !== "unavailable");
+  check(isRecord(row.task_counts));
+  for (const key of ["draft", "active", "completed", "canceled"]) {
+    const count = row.task_counts[key];
+    check(validTaskCount(count));
+  }
+  check(row.count_accuracy !== "unknown");
+  check(row.more_tasks !== null);
+  if (row.count_accuracy === "complete_observation") check(row.coverage === "complete" && row.more_tasks === false);
+  if (row.more_tasks === true) check(row.count_accuracy === "lower_bound" && row.coverage === "partial");
+}
+
+function checkProject(row: unknown): string {
+  check(isRecord(row));
+  check(isRecord(row.project));
+  const project = row.project;
+  check(validGraphId(project.id));
+  check(validGraphId(project.workspace_id));
+  check(revision(project.revision));
+  check(text(project.name, 128) && project.name.trim().length > 0);
+  check(["available","unavailable"].includes(String(row.source_status)));
+  check(["complete","partial","unavailable"].includes(String(row.coverage)));
+  check(["complete_observation","lower_bound","unknown"].includes(String(row.count_accuracy)));
+  check(nullable(row.observed_at, time));
+  check(nullable(row.reason, value => text(value, 512)));
+  check(nullable(row.more_tasks, value => typeof value === "boolean"));
+  check(Array.isArray(row.tasks));
+  check(row.tasks.length <= 32);
+  checkTasks(row.tasks);
+  validateCounts(row, row.tasks.length);
+  return project.id;
+}
+
 export function adaptOverviewTasks(raw: unknown, project?: string): OverviewTasks {
- check(isRecord(raw) && raw.contract === "human-overview-tasks-1" && time(raw.observed_at) && isRecord(raw.scope) && raw.scope.project_id === (project ?? null));
- check(Array.isArray(raw.projects) && raw.projects.length <= 8 && (raw.next_after === null || validGraphId(raw.next_after)) && ["complete","partial"].includes(String(raw.coverage)));
- const projectIds = new Set<string>();
- for (const row of raw.projects) {
-  check(isRecord(row) && isRecord(row.project) && validGraphId(row.project.id) && validGraphId(row.project.workspace_id) && revision(row.project.revision) && text(row.project.name,128) && row.project.name.trim().length > 0);
-  check(!projectIds.has(row.project.id) && (!project || row.project.id === project)); projectIds.add(row.project.id);
-  check(["available","unavailable"].includes(String(row.source_status)) && ["complete","partial","unavailable"].includes(String(row.coverage)) && ["complete_observation","lower_bound","unknown"].includes(String(row.count_accuracy)));
-  check((row.observed_at === null || time(row.observed_at)) && (row.reason === null || text(row.reason,512)) && (row.more_tasks === null || typeof row.more_tasks === "boolean"));
-  check(Array.isArray(row.tasks) && row.tasks.length <= 32);
-  const taskIds = new Set<string>();
-  for (const task of row.tasks) {
-   check(isRecord(task) && validGraphId(task.id) && text(task.title,512) && task.title.trim().length > 0 && revision(task.version) && revision(task.content_revision) && (task.task_state === null || text(task.task_state,64)) && time(task.updated_at));
-   check(!taskIds.has(task.id)); taskIds.add(task.id);
+  check(isRecord(raw));
+  check(raw.contract === "human-overview-tasks-1");
+  check(time(raw.observed_at));
+  check(isRecord(raw.scope));
+  check(raw.scope.project_id === (project ?? null));
+  check(Array.isArray(raw.projects));
+  check(raw.projects.length <= 8);
+  check(nullable(raw.next_after, validGraphId));
+  check(["complete","partial"].includes(String(raw.coverage)));
+  const ids = new Set<string>();
+  for (const row of raw.projects) {
+    const id = checkProject(row);
+    check(!ids.has(id));
+    if (project) check(id === project);
+    ids.add(id);
   }
-  if (row.source_status === "unavailable") check(row.coverage === "unavailable" && row.count_accuracy === "unknown" && row.task_counts === null && row.observed_at === null && row.tasks.length === 0 && row.more_tasks === null);
-  else {
-   check(row.observed_at !== null && row.coverage !== "unavailable" && isRecord(row.task_counts));
-   for (const key of ["draft","active","completed","canceled"]) check(Number.isSafeInteger(row.task_counts[key]) && (row.task_counts[key] as number) >= 0 && (row.task_counts[key] as number) <= 32);
-   check(row.count_accuracy !== "unknown" && row.more_tasks !== null);
-   check(row.count_accuracy !== "complete_observation" || (row.coverage === "complete" && row.more_tasks === false));
-   check(row.more_tasks !== true || (row.count_accuracy === "lower_bound" && row.coverage === "partial"));
+  if (raw.coverage === "complete") {
+    check(raw.next_after === null);
+    check(raw.projects.every(row => isRecord(row) && row.coverage === "complete"));
   }
- }
- check(raw.coverage !== "complete" || (raw.next_after === null && raw.projects.every(row=>isRecord(row) && row.coverage === "complete")));
- return raw as unknown as OverviewTasks;
+  return raw as unknown as OverviewTasks;
 }
