@@ -16,6 +16,51 @@ const PAN = 58;
 
 type Drag = { id: number; x: number; y: number; left: number; top: number; moved: boolean };
 const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+function highlightedEdges(layout: GanttLayout, highlighted?: string) {
+  const emphasizedEdges = new Set<string>();
+  const connected = new Set<string>();
+  for (const edge of layout.edges) {
+    if (edge.source.key !== highlighted && edge.target.key !== highlighted) continue;
+    emphasizedEdges.add(edge.id);
+    connected.add(edge.source.key);
+    connected.add(edge.target.key);
+  }
+  return { connected, emphasizedEdges };
+}
+
+function connectionTitles(layout: GanttLayout) {
+  const connections = new Map<string, { prerequisites: string[]; dependents: string[] }>();
+  for (const task of layout.tasks) connections.set(task.key, { prerequisites: [], dependents: [] });
+  for (const edge of layout.edges) {
+    connections.get(edge.target.key)!.prerequisites.push(edge.source.title);
+    connections.get(edge.source.key)!.dependents.push(edge.target.title);
+  }
+  return connections;
+}
+
+function panWheel(event: WheelEvent, target: HTMLElement, overLabels: boolean) {
+  if (event.deltaX) return;
+  if (overLabels && !event.shiftKey) return;
+  const scale = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? target.clientWidth : 1;
+  const before = target.scrollLeft;
+  target.scrollLeft += event.deltaY * scale;
+  if (before !== target.scrollLeft) event.preventDefault();
+}
+
+function chartKeys(viewport: HTMLElement, zoom: number, zoomTo: (zoom: number) => void): Partial<Record<string, () => void>> {
+  const zoomIn = () => zoomTo(zoom + ZOOM_STEP);
+  return {
+    ArrowLeft: () => { viewport.scrollLeft -= PAN; },
+    ArrowRight: () => { viewport.scrollLeft += PAN; },
+    ArrowUp: () => { viewport.scrollTop -= PAN; },
+    ArrowDown: () => { viewport.scrollTop += PAN; },
+    "+": zoomIn,
+    "=": zoomIn,
+    "-": () => zoomTo(zoom - ZOOM_STEP),
+    "0": () => zoomTo(1),
+  };
+}
+
 export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
   layout: GanttLayout; compact: boolean; fullView?: ReactNode; selected?: string; linkTo: (task: PositionedTask) => To;
 }) {
@@ -43,20 +88,8 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
   const paths = useMemo(() => dependencyPaths(layout.edges, rowHeight, zoom), [layout.edges, rowHeight, zoom]);
   const selection = layout.tasks.find(task => task.id === selected);
   const highlighted = active ?? selection?.key;
-  const emphasizedEdges = new Set<string>();
-  const connected = new Set<string>();
-  for (const edge of layout.edges) {
-    if (edge.source.key !== highlighted && edge.target.key !== highlighted) continue;
-    emphasizedEdges.add(edge.id);
-    connected.add(edge.source.key);
-    connected.add(edge.target.key);
-  }
-  const connections = new Map<string, { prerequisites: string[]; dependents: string[] }>();
-  for (const task of layout.tasks) connections.set(task.key, { prerequisites: [], dependents: [] });
-  for (const edge of layout.edges) {
-    connections.get(edge.target.key)!.prerequisites.push(edge.source.title);
-    connections.get(edge.source.key)!.dependents.push(edge.target.title);
-  }
+  const { connected, emphasizedEdges } = highlightedEdges(layout, highlighted);
+  const connections = connectionTitles(layout);
 
   function measureViewport() {
     const el = viewport.current;
@@ -98,11 +131,7 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
         return;
       }
       // Preserve native two-axis trackpad movement and vertical scrolling over task names.
-      if (event.deltaX || (!event.shiftKey && x < (axis.current?.offsetWidth ?? 0))) return;
-      const scale = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? target.clientWidth : 1;
-      const before = target.scrollLeft;
-      target.scrollLeft += event.deltaY * scale;
-      if (before !== target.scrollLeft) event.preventDefault();
+      panWheel(event, target, x < (axis.current?.offsetWidth ?? 0));
     }
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
@@ -170,18 +199,11 @@ export function GanttCanvas({ layout, compact, fullView, selected, linkTo }: {
   }
 
   function handleKey(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
-    const el = event.currentTarget;
-    switch (event.key) {
-      case "ArrowLeft": el.scrollLeft -= PAN; break;
-      case "ArrowRight": el.scrollLeft += PAN; break;
-      case "ArrowUp": el.scrollTop -= PAN; break;
-      case "ArrowDown": el.scrollTop += PAN; break;
-      case "+": case "=": zoomTo(zoom + ZOOM_STEP); break;
-      case "-": zoomTo(zoom - ZOOM_STEP); break;
-      case "0": zoomTo(1); break;
-      default: return;
-    }
+    if (event.altKey) return;
+    if (event.ctrlKey || event.metaKey) return;
+    const actions = chartKeys(event.currentTarget, zoom, zoomTo);
+    if (!Object.hasOwn(actions, event.key)) return;
+    actions[event.key]!();
     event.preventDefault();
   }
 

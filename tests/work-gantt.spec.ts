@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Locator, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { GraphEnvelope, GraphNode } from "../src/api/adapters/humanGraph";
 
@@ -87,10 +87,10 @@ test.describe("phone Gantt", () => {
   });
 });
 
-test("story points set bar lengths and a shared dependent waits for the latest finish", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+const id = (suffix: string) => `00000000-0000-0000-0000-000000000${suffix}`;
+
+function branchingFixture() {
   const fixture = JSON.parse(readFileSync("contracts/live/human-graph/examples/task.json", "utf8")) as GraphEnvelope<GraphNode>;
-  const id = (suffix: string) => `00000000-0000-0000-0000-000000000${suffix}`;
   const items = [
     { ...fixture.data, id: replay, title: "Fixture: Replay reconciliation", task_state: "active", story_points: 5 },
     { ...fixture.data, id: id("104"), title: "Fixture: Approve recovery plan", task_state: "active", story_points: 3 },
@@ -101,6 +101,10 @@ test("story points set bar lengths and a shared dependent waits for the latest f
     .map(([source, target], index) => ({ id: id(`20${index}`), source, target, edge_type: "blocks", version: "1", description: null,
       source_revision: null, target_revision: null }));
   const attempt = { attempt_id: id("301"), session_id: id("302"), status: "running" };
+  return { project: fixture.project, items, dependencies, replay, attempt };
+}
+
+async function installBranchingFixture(page: Page) {
   await page.clock.install();
   await page.context().addInitScript(({ project, items, dependencies, replay, attempt }) => {
     const fetch = window.fetch.bind(window);
@@ -117,30 +121,30 @@ test("story points set bar lengths and a shared dependent waits for the latest f
       });
       if (url.pathname.startsWith(path + "/") && url.pathname.endsWith("/graph")) {
         const id = url.pathname.split("/").at(-2);
-        const edges = dependencies.filter(edge => edge.source === id || edge.target === id);
-        const linked = new Set(edges.flatMap(edge => [edge.source, edge.target]));
-        return wrap({ root_id: id, nodes: tasks.filter(task => task.id === id || linked.has(task.id)), edges, truncated: false });
+        const edges = dependencies.filter(edge => [edge.source, edge.target].includes(id));
+        const linked = new Set([id, ...edges.flatMap(edge => [edge.source, edge.target])]);
+        return wrap({ root_id: id, nodes: tasks.filter(task => linked.has(task.id)), edges, truncated: false });
       }
       return fetch(input, init);
     };
-  }, { project: fixture.project, items, dependencies, replay, attempt });
-  await page.goto(`/work?${scope}&view=gantt`);
+  }, branchingFixture());
+}
+
+function branchingTracks(page: Page) {
   const tracks = page.getByRole("region", { name: chartName });
   const running = tracks.getByRole("link", { name: /Replay reconciliation Running/ });
   const approval = tracks.getByRole("link", { name: /Approve recovery plan Waiting/ });
   const implementation = tracks.getByRole("link", { name: /Implement safe recovery/ });
   const join = tracks.getByRole("link", { name: /Validate crash recovery/ });
-  const bar = (link: typeof running) => link.locator("[data-gantt-bar]");
-  const offset = (link: typeof running) => bar(link).evaluate(el => (el as HTMLElement).offsetLeft);
   const connector = (index: number) => tracks.locator(`[data-gantt-dependency$="/${id(`20${index}`)}"]`);
   const path = (index: number) => connector(index).getAttribute("d");
-  await expect(running).toBeVisible();
-  await expect(running).toHaveAccessibleName(/2 dependents/);
-  await expect(running).toHaveAccessibleDescription(/Blocks Fixture: Approve recovery plan, Fixture: Implement safe recovery/);
-  await expect(join).toHaveAccessibleDescription(/Waits for Fixture: Approve recovery plan, Fixture: Implement safe recovery/);
-  await expect(page.getByText(/^Dependencies \(\d+\)$/)).toHaveCount(0);
-  await expect(join).toHaveCount(1);
-  await expect(join).toHaveAccessibleName(/2 prerequisites/);
+  return { tracks, running, approval, implementation, join, connector, path };
+}
+
+const bar = (link: Locator) => link.locator("[data-gantt-bar]");
+const offset = (link: Locator) => bar(link).evaluate(el => (el as HTMLElement).offsetLeft);
+
+async function checkBarGeometry({ running, approval, implementation, join }: ReturnType<typeof branchingTracks>) {
   const firstColumn = await offset(running);
   const secondColumn = await offset(approval);
   expect(secondColumn).toBeGreaterThan(firstColumn);
@@ -155,6 +159,37 @@ test("story points set bar lengths and a shared dependent waits for the latest f
   const approvalWidth = (await bar(approval).boundingBox())!.width;
   const implementationWidth = (await bar(implementation).boundingBox())!.width;
   expect(implementationWidth - approvalWidth).toBe(5 * unit);
+  return { firstColumn, joinStart, unit };
+}
+
+async function captureGantt(page: Page, testInfo: TestInfo) {
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-branching-desktop.png") });
+  const overview = await page.context().newPage();
+  await overview.setViewportSize({ width: 1440, height: 900 });
+  await overview.goto("/overview");
+  const motion = overview.getByRole("region", { name: "Work in motion", exact: true });
+  await expect(motion.locator("[data-gantt-dependency]")).toHaveCount(4);
+  await motion.getByRole("button", { name: "Zoom out" }).click();
+  await motion.getByRole("button", { name: "Zoom out" }).click();
+  await motion.evaluate(el => el.scrollIntoView({ block: "center" }));
+  await overview.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-branching-overview.png") });
+  await overview.close();
+}
+
+test("story points set bar lengths and a shared dependent waits for the latest finish", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installBranchingFixture(page);
+  await page.goto(`/work?${scope}&view=gantt`);
+  const branch = branchingTracks(page);
+  const { tracks, running, join, path, connector } = branch;
+  await expect(running).toBeVisible();
+  await expect(running).toHaveAccessibleName(/2 dependents/);
+  await expect(running).toHaveAccessibleDescription(/Blocks Fixture: Approve recovery plan, Fixture: Implement safe recovery/);
+  await expect(join).toHaveAccessibleDescription(/Waits for Fixture: Approve recovery plan, Fixture: Implement safe recovery/);
+  await expect(page.getByText(/^Dependencies \(\d+\)$/)).toHaveCount(0);
+  await expect(join).toHaveCount(1);
+  await expect(join).toHaveAccessibleName(/2 prerequisites/);
+  const { firstColumn, joinStart, unit } = await checkBarGeometry(branch);
   await expect(join).toHaveAccessibleName(/Unestimated/);
   await expect(join).toHaveAttribute("data-unestimated", "true");
   const ruler = tracks.getByRole("group", { name: "Story points" });
@@ -168,19 +203,7 @@ test("story points set bar lengths and a shared dependent waits for the latest f
   await running.locator("[data-gantt-label]").hover();
   await expect(connector(0)).toHaveAttribute("data-highlight", "true");
   await expect(connector(1)).toHaveAttribute("data-highlight", "true");
-  if (process.env.GANTT_EVIDENCE) {
-    await page.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-branching-desktop.png") });
-    const overview = await page.context().newPage();
-    await overview.setViewportSize({ width: 1440, height: 900 });
-    await overview.goto("/overview");
-    const motion = overview.getByRole("region", { name: "Work in motion", exact: true });
-    await expect(motion.locator("[data-gantt-dependency]")).toHaveCount(4);
-    await motion.getByRole("button", { name: "Zoom out" }).click();
-    await motion.getByRole("button", { name: "Zoom out" }).click();
-    await motion.evaluate(el => el.scrollIntoView({ block: "center" }));
-    await overview.screenshot({ animations: "disabled", path: testInfo.outputPath("gantt-branching-overview.png") });
-    await overview.close();
-  }
+  if (process.env.GANTT_EVIDENCE) await captureGantt(page, testInfo);
   await bar(running).click();
   await expect(page.getByRole("heading", { name: "Fixture: Replay reconciliation", exact: true })).toBeVisible();
 
