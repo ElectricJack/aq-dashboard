@@ -14,68 +14,101 @@ export type MachineCapacity = {
   loadLabel?: string;
 };
 
+function emptySlots(incomplete = false): SlotCounts {
+  return { open: 0, inUse: 0, held: 0, incomplete };
+}
+
 export function machineCapacity(machine: MachineView, paused: boolean): MachineCapacity | null {
   const online = machine.nodes.filter(node => node.health === "online");
-  if (online.length === 0 || machine.state === "offline" || machine.state === "booting") return null;
+  if (!online.length || ["offline", "booting"].includes(machine.state)) return null;
 
-  const slots = { open: 0, inUse: 0, held: 0, incomplete: false };
-  const holds = new Set<string>();
-  const stopped = machine.control?.desired === "stopped" || machine.state === "stopped";
-  const draining = machine.control?.desired === "draining";
-  if (paused) holds.add("Owner availability is off");
-  if (stopped) holds.add("Machine is stopped");
-  if (draining) holds.add("Machine is draining");
-
+  const holds = machineHolds(machine, paused);
+  const slots = emptySlots();
+  const machineBlocked = holds.size > 0;
   for (const node of online) {
-    const { total, idle, occupied } = node.slots;
-    slots.inUse += occupied;
-    if (total === null || idle === null) {
-      slots.incomplete = true;
-      continue;
-    }
-    const remaining = Math.max(0, total - occupied);
-    const open = Math.min(remaining, idle);
-    const blocked = paused || stopped || draining || node.service === "stopped" ||
-      node.service === "draining" || node.holding.length > 0;
-    if (blocked && remaining > 0) {
-      if (node.service === "stopped") holds.add("Worker is stopped");
-      if (node.service === "draining") holds.add("Worker is draining");
-      for (const hold of node.holding) if (hold.message) holds.add(hold.message);
-    }
-    slots.open += blocked ? 0 : open;
-    slots.held += remaining - (blocked ? 0 : open);
+    countSlots(node, { slots, holds, machineBlocked });
   }
+  applyMachineLimit(machine, slots, holds);
+  return {
+    id: machine.id, name: machine.label, slots, holds: [...holds],
+    headroom: resourceHeadroom(machine), loadLabel: loadLabel(machine.load),
+  };
+}
 
+function machineHolds(machine: MachineView, paused: boolean) {
+  const holds = new Set<string>();
+  const desired = machine.control?.desired;
+  if (paused) holds.add("Owner availability is off");
+  if (desired === "stopped" || machine.state === "stopped") holds.add("Machine is stopped");
+  if (desired === "draining") holds.add("Machine is draining");
+  return holds;
+}
+
+type Node = MachineView["nodes"][number];
+const SERVICE_HOLDS: Partial<Record<Node["service"], string>> = {
+  stopped: "Worker is stopped", draining: "Worker is draining",
+};
+function workerHolds(node: Node) {
+  const reasons = node.holding.map(hold => hold.message).filter(Boolean);
+  const service = SERVICE_HOLDS[node.service];
+  if (service) reasons.unshift(service);
+  return reasons;
+}
+
+function countSlots(node: Node, capacity: { slots: SlotCounts; holds: Set<string>; machineBlocked: boolean }) {
+  const { slots, holds, machineBlocked } = capacity;
+  const { total, idle, occupied } = node.slots;
+  slots.inUse += occupied;
+  if (total === null || idle === null) {
+    slots.incomplete = true;
+    return;
+  }
+  const remaining = Math.max(0, total - occupied);
+  const blocked = machineBlocked || Boolean(SERVICE_HOLDS[node.service]) || node.holding.length > 0;
+  if (blocked && remaining > 0) workerHolds(node).forEach(reason => holds.add(reason));
+  const open = blocked ? 0 : Math.min(remaining, idle);
+  slots.open += open;
+  slots.held += remaining - open;
+}
+
+function applyMachineLimit(machine: MachineView, slots: SlotCounts, holds: Set<string>) {
   // A machine maximum is shared by its workers, including charges for any
   // still-held slots on a disconnected worker.
-  if (machine.agentMax !== null) {
-    const occupied = machine.nodes.reduce((sum, node) => sum + (node.health === "revoked" ? 0 : node.slots.occupied), 0);
-    const open = Math.min(slots.open, Math.max(0, machine.agentMax - occupied));
-    if (open < slots.open) holds.add("Machine agent limit");
-    slots.held += slots.open - open;
-    slots.open = open;
-  }
+  if (machine.agentMax === null) return;
+  const occupied = machine.nodes.filter(node => node.health !== "revoked").reduce((sum, node) => sum + node.slots.occupied, 0);
+  const open = Math.min(slots.open, Math.max(0, machine.agentMax - occupied));
+  if (open < slots.open) holds.add("Machine agent limit");
+  slots.held += slots.open - open;
+  slots.open = open;
+}
 
-  const headroom: MachineCapacity["headroom"] = {};
-  const { load, hardware } = machine;
-  if (load?.fresh) {
-    headroom.CPU = { percent: 100 - load.cpuPercent };
-    const memory = 100 - load.memoryPercent;
-    headroom.Memory = { percent: memory };
-    if (hardware && hardware.memoryTotalBytes > 0) {
-      headroom.Memory.freeBytes = Math.round(hardware.memoryTotalBytes * memory / 100);
-    }
-    const total = hardware?.diskTotalBytes;
-    const free = hardware?.diskFreeBytes;
-    if (total != null && free != null && total > 0 && free >= 0 && free <= total) {
-      headroom.Disk = { percent: (free / total) * 100, freeBytes: free };
-    }
-  }
+function diskHeadroom(hardware: MachineView["hardware"]): Headroom | undefined {
+  const total = hardware?.diskTotalBytes;
+  const free = hardware?.diskFreeBytes;
+  if (total == null || free == null) return undefined;
+  if (total > 0 && free >= 0 && free <= total) return { percent: (free / total) * 100, freeBytes: free };
+}
 
-  return {
-    id: machine.id, name: machine.label, slots, holds: [...holds], headroom,
-    loadLabel: load?.fresh && load.source === "linux" && (load.hostProbe === "stale" || load.hostProbe === "missing") ? "WSL VM readings" : undefined,
-  };
+function memoryHeadroom(usedPercent: number, hardware: MachineView["hardware"]): Headroom {
+  const memory = 100 - usedPercent;
+  const memoryReading: Headroom = { percent: memory };
+  if (hardware && hardware.memoryTotalBytes > 0) {
+    memoryReading.freeBytes = Math.round(hardware.memoryTotalBytes * memory / 100);
+  }
+  return memoryReading;
+}
+
+function resourceHeadroom({ load, hardware }: MachineView): MachineCapacity["headroom"] {
+  if (!load?.fresh) return {};
+  const headroom: MachineCapacity["headroom"] = { CPU: { percent: 100 - load.cpuPercent }, Memory: memoryHeadroom(load.memoryPercent, hardware) };
+  const disk = diskHeadroom(hardware);
+  if (disk) headroom.Disk = disk;
+  return headroom;
+}
+
+function loadLabel(load: MachineView["load"]) {
+  if (!load?.fresh || load.source !== "linux") return undefined;
+  return ["stale", "missing"].includes(load.hostProbe) ? "WSL VM readings" : undefined;
 }
 
 export function fleetSlots(machines: MachineCapacity[], incomplete: boolean): SlotCounts {
@@ -84,14 +117,15 @@ export function fleetSlots(machines: MachineCapacity[], incomplete: boolean): Sl
     inUse: fleet.inUse + slots.inUse,
     held: fleet.held + slots.held,
     incomplete: fleet.incomplete || slots.incomplete,
-  }), { open: 0, inUse: 0, held: 0, incomplete });
+  }), emptySlots(incomplete));
 }
 
 export function tightestHeadroom(machines: MachineCapacity[], resource: Resource) {
   let lowest: { machine: string; reading: Headroom } | undefined;
   for (const machine of machines) {
     const reading = machine.headroom[resource];
-    if (reading && (!lowest || reading.percent < lowest.reading.percent)) {
+    if (!reading) continue;
+    if (!lowest || reading.percent < lowest.reading.percent) {
       lowest = { machine: machine.name, reading };
     }
   }
