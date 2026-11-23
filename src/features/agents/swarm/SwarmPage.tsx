@@ -1,10 +1,11 @@
+import { SwarmDivider, useSwarmSplit } from "./SwarmDivider";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { adaptOverview, type OverviewView } from "../../../api/adapters/inspection";
 import { adaptSwarm, SWARM_POLL_MS, type SwarmView } from "../../../api/adapters/swarm";
 import type { Overview as OverviewWire } from "../../../api/wire/proposed";
 import type { Swarm } from "../../../api/wire/swarm";
-import {useMediaQuery} from "../../../components/useMediaQuery";
+import { useMediaQuery } from "../../../components/useMediaQuery";
 import { QueryStatus } from "../../../components/QueryStatus/QueryStatus";
 import { formatAge } from "../../../components/time/relative";
 import { useServerNow } from "../../../components/time/useServerNow";
@@ -12,7 +13,7 @@ import { PANEL_READ, useSession } from "../../../app/session";
 import { useRead } from "../../../app/useRead";
 import { AgentsTabs } from "../AgentsTabs";
 import { buildSwarmGraph, selectionId, type Selection } from "./graph";
-import {ManualAgentsProvider,useManualAgents,mergeManual} from "./manualAgents";
+import { ManualAgentsProvider, useManualAgents, mergeManual } from "./manualAgents";
 import { SwarmPane } from "./SwarmPane";
 import { SwarmTree } from "./SwarmTree";
 import { SwarmStatusHeader } from "./SwarmStatusHeader";
@@ -25,169 +26,192 @@ import styles from "./Swarm.module.css";
 export const HOLD_POLLS = Math.round(30_000 / SWARM_POLL_MS);
 
 export function SwarmPage() { return <ManualAgentsProvider><SwarmPageBody /></ManualAgentsProvider>; }
-function SwarmPageBody() {
+function useSwarmView(source: SwarmView | undefined, selectParam: string | null) {
+  const manual = useManualAgents();
+  const fleet = manual?.fleet, project = manual?.project ?? null;
+  const settings = useWorkerSettings();
+  const merged = useMemo(() => source ? applyWorkerSettings(mergeManual(source, fleet, project, selectParam), settings.data) : undefined,
+    [source, fleet, project, selectParam, settings.data]);
+  // Task titles and role, level, model and effort the swarm read does not carry yet, from each task's own reads.
+  return useAgentFacts(merged);
+}
+function useReadyCount(enabled: boolean) {
+  const overview = useRead<OverviewWire, OverviewView>({
+    resource: "overview", path: "/api/v1/overview", scope: { kind: "all_authorized" }, adapt: adaptOverview, pollMs: 10_000, enabled,
+  });
+  return overview.data?.view.counts.ready.value ?? null;
+}
+function useGraphData(selectParam: string | null) {
   const { bootstrap, queryContext } = useSession();
   const cap = bootstrap.capability("swarm.read");
-  const desktop=useMediaQuery("(min-width: 1024px)");
-  const { search } = useLocation();
-  const [params, setParams] = useSearchParams();
   // A malformed swarm response stays in this view (PANEL_READ), never the global update screen.
   const swarm = useRead<Swarm, SwarmView>({ resource: "swarm", path: "/api/v1/swarm", adapt: adaptSwarm, pollMs: SWARM_POLL_MS, enabled: cap.enabled, meta: PANEL_READ });
-  const overviewCap = bootstrap.capability("dashboard.overview");
-  const overview = useRead<OverviewWire, OverviewView>({ resource: "overview", path: "/api/v1/overview", scope: { kind: "all_authorized" }, adapt: adaptOverview, pollMs: 10_000, enabled: overviewCap.enabled });
-  const manual=useManualAgents();
-  const settings = useWorkerSettings();
-  const selectParam = params.get("select");
-  const merged = useMemo(() => swarm.data?.view ? applyWorkerSettings(mergeManual(swarm.data.view, manual?.fleet, manual?.project ?? null, selectParam), settings.data) : undefined,
-    [swarm.data?.view, manual?.fleet, manual?.project, selectParam, settings.data]);
-  // Task titles and role, level, model and effort the swarm read does not carry yet, from each task's own reads.
-  const view = useAgentFacts(merged);
-  const ready = overview.data?.view.counts.ready.value ?? null;
-  // Sessions whose terminal already took control on this page; a remount after a data flap must not retake it.
+  const ready = useReadyCount(bootstrap.capability("dashboard.overview").enabled);
+  const view = useSwarmView(swarm.data?.view, selectParam);
+  const stale = swarm.isError && !!view;
+  const anchor = swarm.data && { serverTime: swarm.data.serverTime, receivedAt: performance.now() - (Date.now() - swarm.dataUpdatedAt) };
+  const now = useServerNow(anchor);
+  return { cap, principal: queryContext.principalId, swarm, view, ready, stale, anchor, now };
+}
+type GraphData = ReturnType<typeof useGraphData>;
+type Held = { param: string; view: SwarmView; selection: Selection; misses: number; seenAt: number };
+function retained(held: Held, seenAt: number) {
+  // Each completed poll counts once, even when its content equals the previous one.
+  if (held.seenAt !== seenAt) { held.misses++; held.seenAt = seenAt; }
+  if (held.misses > HOLD_POLLS) return null;
+  return { selection: held.selection, view: held.view, note: "This object is not in the latest update. Showing its last known state." };
+}
+function matchSelection(view: SwarmView | undefined, ready: number | null, param: string | null) {
+  if (!view || !param) return null;
+  const { nodes } = buildSwarmGraph(view, { host: "", ready, now: view.serverTime });
+  const selected = nodes.find(n => n.id === param);
+  return selected ? { selection: selected.data.selection, view, param } : null;
+}
+function useSelectedObject(data: GraphData, selectParam: string | null) {
+  const { view, ready, swarm } = data;
+  const held = useRef<Held | null>(null);
+  // A selection id that no longer exists in the tree shows the empty pane, after holding the last known object for a few polls.
+  const match = useMemo(() => matchSelection(view, ready, selectParam), [view, ready, selectParam]);
+  const current = { selection: match?.selection ?? null, view, note: null };
+  if (match) {
+    held.current = { ...match, misses: 0, seenAt: swarm.dataUpdatedAt };
+    return current;
+  }
+  if (!selectParam) {
+    held.current = null;
+    return current;
+  }
+  if (!view || held.current?.param !== selectParam) return current;
+  return retained(held.current, swarm.dataUpdatedAt) ?? current;
+}
+type SetParams = ReturnType<typeof useSearchParams>[1];
+function replaceSearch(setParams: SetParams, edit: (params: URLSearchParams) => void) {
+  setParams(previous => {
+    const next = new URLSearchParams(previous);
+    edit(next);
+    return next;
+  }, { replace: true });
+}
+type Shown = ReturnType<typeof useSelectedObject>;
+function restoreFocus(stage: HTMLDivElement | null, trigger: HTMLElement | null) {
+  if (trigger && stage?.firstElementChild?.contains(trigger)) trigger.focus();
+  else stage?.focus();
+}
+function focusNarrowPane(pane: HTMLElement | null) {
+  if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1023px)").matches) {
+    pane?.scrollIntoView?.({ block: "start" });
+    pane?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
+  }
+}
+function useNavigation(shown: Shown, setParams: SetParams) {
   const pane = useRef<HTMLElement>(null);
   const focusPane = useRef(false);
   const stage = useRef<HTMLDivElement>(null);
   const workerTrigger = useRef<HTMLElement | null>(null);
   const restoreWorkerFocus = useRef(false);
-  const held = useRef<{ param: string; view: SwarmView; selection: Selection; misses: number; seenAt: number } | null>(null);
-
-  // A selection id that no longer exists in the tree shows the empty pane, after holding the last known object for a few polls.
-  const resolved = useMemo<Selection | null>(() => {
-    if (!view || !selectParam) return null;
-    return buildSwarmGraph(view, { host: "", ready, now: view.serverTime }).nodes.find(n => n.id === selectParam)?.data.selection ?? null;
-  }, [view, ready, selectParam]);
-  let shown: { selection: Selection | null; view: SwarmView | undefined; note: string | null } = { selection: resolved, view, note: null };
-  if (resolved && view && selectParam) held.current = { param: selectParam, view, selection: resolved, misses: 0, seenAt: swarm.dataUpdatedAt };
-  else if (held.current && held.current.param === selectParam && view) {
-    // Each completed poll counts once, even when its content equals the previous one.
-    if (held.current.seenAt !== swarm.dataUpdatedAt) { held.current.misses += 1; held.current.seenAt = swarm.dataUpdatedAt; }
-    if (held.current.misses <= HOLD_POLLS) shown = { selection: held.current.selection, view: held.current.view, note: "This object is not in the latest update. Showing its last known state." };
-  } else if (!selectParam) held.current = null;
-
   const select = (s: Selection) => {
     if (s.kind === "node") workerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     focusPane.current = true;
-    setParams(prev => { const next = new URLSearchParams(prev); next.set("select", selectionId(s)); return next; }, { replace: true });
+    replaceSearch(setParams, params => params.set("select", selectionId(s)));
   };
   // On a narrow viewport the pane is below the tree: bring it into view and move focus to its heading.
   useEffect(() => {
     if (restoreWorkerFocus.current && !shown.selection) {
       restoreWorkerFocus.current = false;
-      const trigger = workerTrigger.current;
-      if (trigger && stage.current?.firstElementChild?.contains(trigger)) trigger.focus();
-      else stage.current?.focus();
+      restoreFocus(stage.current, workerTrigger.current);
       workerTrigger.current = null;
     }
     if (!focusPane.current || !shown.selection) return;
     focusPane.current = false;
-    if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1023px)").matches) {
-      pane.current?.scrollIntoView?.({ block: "start" });
-      pane.current?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
-    }
+    focusNarrowPane(pane.current);
   });
-  const [stageWidth, setStageWidth] = useState(1000);
-  const storageKey = `aq.swarm.tree-width:${queryContext.principalId}`;
-  const [preference, setPreference] = useState<{ key: string; percent: number } | null>(null);
-  const drag = useRef<number | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const focused = shown.selection?.kind === "agent" && params.get("focus") === "terminal";
-  // Tree (the default) or board. The address wins, so a link opens the view it names; otherwise the viewer's last choice.
-  const modeKey = `aq.swarm.view:${queryContext.principalId}`;
-  const [storedMode, setStoredMode] = useState<SwarmViewMode | null>(null);
-  useEffect(() => { try { const v = localStorage.getItem(modeKey); setStoredMode(v === "board" || v === "tree" ? v : null); } catch { setStoredMode(null); } }, [modeKey]);
-  const viewParam = params.get("view");
-  const mode: SwarmViewMode = viewParam === "board" || viewParam === "tree" ? viewParam : storedMode ?? "tree";
-  // With nothing selected the properties pane is closed and the tree or the board takes the width; selecting opens it.
-  const paneClosed = !shown.selection && !!view;
-  const clear = () => setParams(prev => { const next = new URLSearchParams(prev); next.delete("select"); next.delete("focus"); return next; }, { replace: true });
+  const clear = () => replaceSearch(setParams, params => { params.delete("select"); params.delete("focus"); });
   const closeWorker = () => { restoreWorkerFocus.current = true; clear(); };
+  return { pane, stage, select, clear, closeWorker };
+}
+function viewMode(value: string | null) { return value === "tree" || value === "board" ? value : null; }
+function readMode(key: string) {
+  try { return viewMode(localStorage.getItem(key)); } catch { return null; }
+}
+function rememberMode(key: string, mode: SwarmViewMode) {
+  try { localStorage.setItem(key, mode); } catch { /* Links and in-memory selection still work. */ }
+}
+function useViewMode(principal: string, params: URLSearchParams, setParams: SetParams) {
+  const modeKey = `aq.swarm.view:${principal}`;
+  const [storedMode, setStoredMode] = useState<SwarmViewMode | null>(null);
+  useEffect(() => { setStoredMode(readMode(modeKey)); }, [modeKey]);
+  const mode: SwarmViewMode = viewMode(params.get("view")) ?? storedMode ?? "tree";
   const setMode = (next: SwarmViewMode) => {
     setStoredMode(next);
-    try { localStorage.setItem(modeKey, next); } catch { /* The view still switches when storage is unavailable. */ }
-    setParams(prev => { const p = new URLSearchParams(prev); p.set("view", next); return p; }, { replace: true });
+    rememberMode(modeKey, next);
+    replaceSearch(setParams, params => params.set("view", next));
   };
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      const percent = stored === null ? NaN : Number(stored);
-      setPreference(Number.isFinite(percent) && percent >= 0 && percent <= 100 ? { key: storageKey, percent } : null);
-    } catch { setPreference(null); }
-  }, [storageKey]);
-  useEffect(() => {
-    const element = stage.current;
-    if (!element) return;
-    const measure = () => { const width = element.getBoundingClientRect().width; if (width > 0) setStageWidth(width); };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [cap.enabled]);
-  useEffect(() => {
-    if (!dragging) return;
-    const previous = document.body.style.userSelect;
-    const cursor = document.body.style.cursor;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-    return () => { document.body.style.userSelect = previous; document.body.style.cursor = cursor; };
-  }, [dragging]);
-  useEffect(() => { if (!desktop || focused) { drag.current = null; setDragging(false); } }, [desktop, focused]);
-  const available = Math.max(1, stageWidth - 10);
-  const minimum = Math.min(320, available / 2);
-  const minPercent = minimum / available * 100;
-  const maxPercent = 100 - minPercent;
-  const defaultPercent = (available - (shown.selection?.kind === "agent" ? Math.min(720, available * .55) : 360)) / available * 100;
-  const treePercent = Math.max(minPercent, Math.min(maxPercent, preference?.key === storageKey ? preference.percent : defaultPercent));
-  const resize = (percent: number) => {
-    const next = Math.max(minPercent, Math.min(maxPercent, percent));
-    setPreference({ key: storageKey, percent: next });
-    try { localStorage.setItem(storageKey, String(next)); } catch { /* The split still works when storage is unavailable. */ }
+  return { mode, setMode };
+}
+type CoverageReport = NonNullable<GraphData["swarm"]["data"]>["coverage"];
+function coverageReason(coverage: CoverageReport | undefined, view: SwarmView | undefined) {
+  if (coverage?.state !== "partial" || !coverage.reason) return null;
+  if (coverage.reason !== "Some online workers advertise no slot total") return coverage.reason;
+  const complete = view?.machines.every(machine => machine.nodes.every(node => node.health !== "online" || node.slots.total !== null));
+  return complete ? null : coverage.reason;
+}
+function Coverage({ data }: { data: GraphData }) {
+  const { view, swarm, now, stale } = data;
+  const reason = coverageReason(swarm.data?.coverage, view);
+  return <>
+    {reason && <p className={styles.coverage}>{reason}</p>}
+    {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
+  </>;
+}
+type Navigation = ReturnType<typeof useNavigation>;
+function Summary({ data, mode, onMode }: { data: GraphData; mode: SwarmViewMode; onMode: (mode: SwarmViewMode) => void }) {
+  if (!data.view) return null;
+  return <SwarmSummary view={data.view} anchor={data.anchor} mode={mode} onMode={onMode} stale={data.stale} />;
+}
+function SwarmCanvas({ data, mode, shown, navigation }: { data: GraphData; mode: SwarmViewMode; shown: Shown; navigation: Navigation }) {
+  const { swarm, view, ready, anchor, stale } = data;
+  const { clear, select } = navigation;
+  if (!view) return <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>;
+  return mode === "board" ? <SlotBoard view={view} anchor={anchor} selected={shown.selection} onSelect={select} /> :
+    <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} onClear={clear} anchor={anchor} />;
+}
+function present(value: boolean) { return value || undefined; }
+type StageLayout = { split: ReturnType<typeof useSwarmSplit>; mode: SwarmViewMode; paneClosed: boolean; desktop: boolean; focused: boolean; agent: boolean };
+function stageLayout({ split, mode, paneClosed, desktop, focused, agent }: StageLayout) {
+  const style = split.interactive && !paneClosed ? { "--swarm-tree-width": split.treePercent / 100 } as CSSProperties : undefined;
+  return {
+    style, "data-view": mode, "data-pane-closed": present(paneClosed), "data-resizing": present(split.dragging),
+    "data-viewport-fit": present(desktop || focused), "data-wide": present(agent), "data-focus": present(focused),
   };
-  const finishDrag = () => { drag.current = null; setDragging(false); };
-  const coverage = swarm.data?.coverage;
-  const resolvedCapacity=coverage?.reason==='Some online workers advertise no slot total'&&view?.machines.every(m=>m.nodes.every(n=>n.health!=='online'||n.slots.total!==null));
-  const stale = swarm.isError && !!view;
-  const anchor = swarm.data && { serverTime: swarm.data.serverTime, receivedAt: performance.now() - (Date.now() - swarm.dataUpdatedAt) };
-  const now = useServerNow(anchor);
-
-  if (!cap.enabled) {
-    return <>
-      <AgentsTabs current="swarm" />
-      <p role="note">Swarm is not available on this server. <Link to={{ pathname: "/agents/history", search }}>Open History</Link></p>
-    </>;
-  }
+}
+function paneState(selection: Selection | null, view: SwarmView | undefined, params: URLSearchParams) {
+  const agent = selection?.kind === "agent";
+  const focused = agent && params.get("focus") === "terminal";
+  return { agent, focused, paneClosed: !selection && !!view };
+}
+function SwarmPageBody() {
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  const { search } = useLocation();
+  const [params, setParams] = useSearchParams();
+  const selectParam = params.get("select");
+  const data = useGraphData(selectParam);
+  const { cap, principal, view, ready } = data;
+  const shown = useSelectedObject(data, selectParam);
+  const navigation = useNavigation(shown, setParams);
+  const { pane, stage, closeWorker } = navigation;
+  const { mode, setMode } = useViewMode(principal, params, setParams);
+  const { agent, focused, paneClosed } = paneState(shown.selection, view, params);
+  const split = useSwarmSplit({ stage, principal, enabled: cap.enabled, desktop, focused, agent });
+  if (!cap.enabled) return <><AgentsTabs current="swarm" /><p role="note">Swarm is not available on this server. <Link to={{ pathname: "/agents/history", search }}>Open History</Link></p></>;
   return <>
     <AgentsTabs current="swarm" />
-    {coverage?.state === "partial" && coverage.reason && !resolvedCapacity && <p className={styles.coverage}>{coverage.reason}</p>}
-    {stale && swarm.data && <p role="status" className={styles.coverage}>Stale: the latest refresh failed. Last updated {now ? formatAge(now, swarm.data.serverTime) : "earlier"}.</p>}
+    <Coverage data={data} />
     <SwarmStatusHeader />
-    {view && <SwarmSummary view={view} anchor={anchor} mode={mode} onMode={setMode} stale={stale} />}
-    <div ref={stage} tabIndex={-1} className={styles.stage} style={desktop && !focused && !paneClosed ? { "--swarm-tree-width": treePercent / 100 } as CSSProperties : undefined} data-view={mode} data-pane-closed={paneClosed || undefined} data-resizing={dragging || undefined} data-viewport-fit={desktop || (shown.selection?.kind==="agent" && params.get("focus")==="terminal") || undefined} data-wide={shown.selection?.kind === "agent" || undefined} data-focus={shown.selection?.kind==="agent"&&params.get("focus")==="terminal"||undefined}>
-      {view
-        ? mode === "board"
-          ? <SlotBoard view={view} anchor={anchor} selected={shown.selection} onSelect={select} />
-          : <SwarmTree view={view} ready={ready} selected={shown.selection} stale={stale} onSelect={select} onClear={clear} anchor={anchor} />
-        : <div className={styles.flow}><QueryStatus status={swarm.isError ? "error" : "pending"} error={swarm.error} label="the swarm" onRetry={() => void swarm.refetch()} /></div>}
-      <div className={styles.divider} role="separator" aria-label="Resize swarm tree and properties" aria-orientation="vertical"
-        aria-valuemin={Math.round(minPercent)} aria-valuemax={Math.round(maxPercent)} aria-valuenow={Math.round(treePercent)} aria-valuetext={`${Math.round(treePercent)}% tree width`}
-        tabIndex={desktop && !focused ? 0 : -1} aria-hidden={!desktop || focused || undefined}
-        onPointerDown={event => {
-          if (!desktop || focused || event.button !== 0) return;
-          event.preventDefault(); event.currentTarget.focus();
-          event.currentTarget.setPointerCapture(event.pointerId);
-          drag.current = event.pointerId; setDragging(true);
-        }}
-        onPointerMove={event => {
-          if (drag.current !== event.pointerId) return;
-          const bounds = stage.current?.getBoundingClientRect();
-          if (bounds && bounds.width > 10) resize((event.clientX - bounds.left - 5) / (bounds.width - 10) * 100);
-        }}
-        onPointerUp={event => { if (drag.current === event.pointerId) { finishDrag(); event.currentTarget.releasePointerCapture(event.pointerId); } }}
-        onPointerCancel={finishDrag} onLostPointerCapture={finishDrag}
-        onKeyDown={event => {
-          const next = event.key === "Home" ? minPercent : event.key === "End" ? maxPercent : event.key === "ArrowLeft" ? treePercent - (event.shiftKey ? 10 : 2) : event.key === "ArrowRight" ? treePercent + (event.shiftKey ? 10 : 2) : null;
-          if (next !== null) { event.preventDefault(); resize(next); }
-        }} />
-      <aside ref={pane} className={styles.pane} data-worker={shown.selection?.kind === "node" || undefined} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} onCloseWorker={closeWorker} />}</aside>
+    <Summary data={data} mode={mode} onMode={setMode} />
+    <div ref={stage} tabIndex={-1} className={styles.stage} {...stageLayout({ split, mode, paneClosed, desktop, focused, agent })}>
+      <SwarmCanvas data={data} mode={mode} shown={shown} navigation={navigation} />
+      <SwarmDivider split={split} />
+      <aside ref={pane} className={styles.pane} data-worker={present(shown.selection?.kind === "node")} aria-label="Properties">{shown.view && <SwarmPane view={shown.view} selection={shown.selection} ready={ready} note={shown.note} onCloseWorker={closeWorker} />}</aside>
     </div>
   </>;
 }
