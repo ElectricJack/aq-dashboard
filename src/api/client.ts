@@ -59,12 +59,16 @@ export function retryAfterMs(response: Pick<Response, "headers">, now = Date.now
   return Number.isFinite(ms) ? Math.min(MAX_RETRY_AFTER_MS, Math.max(0, ms)) : undefined;
 }
 
+function failureMessage(payload: unknown): string | undefined {
+  if (!isRecord(payload) || typeof payload.error !== "string") return undefined;
+  return typeof payload.message === "string" && payload.message.length <= 2000 ? payload.message : undefined;
+}
+
 /** HTTP failure with the parsed envelope (when the body is one) and any retry hint. */
 export function httpError(response: Pick<Response, "status" | "headers">, payload?: unknown, message = `AQ responded ${response.status}`): ApiError {
   const envelope = isErrorEnvelope(payload) ? payload : undefined;
   const after = retryAfterMs(response);
-  const serverMessage = isRecord(payload) && typeof payload.error === "string" &&
-    typeof payload.message === "string" && payload.message.length <= 2000 ? payload.message : undefined;
+  const serverMessage = failureMessage(payload);
   return new ApiError("http", message, {
     status: response.status,
     ...(envelope && { envelope }),
@@ -84,14 +88,18 @@ export function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   );
 }
 
-async function request<T>(method: Method, path: string, body?: unknown, signal?: AbortSignal) {
+function requestHeaders(method: Method, body: unknown): Headers {
   const headers = new Headers({ Accept: "application/json" });
   if (method !== "GET") headers.set("X-AQ-Request", "1");
   if (body !== undefined) headers.set("Content-Type", "application/json");
 
-  let response: Response;
+  return headers;
+}
+
+async function fetchApi(method: Method, path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+  const headers = requestHeaders(method, body);
   try {
-    response = await fetch(path, {
+    return await fetch(path, {
       method,
       headers,
       credentials: "same-origin",
@@ -102,12 +110,18 @@ async function request<T>(method: Method, path: string, body?: unknown, signal?:
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
     throw new ApiError("transport", "Could not reach AQ", { effectUnknown: method !== "GET" });
   }
+}
 
-  const isJson = response.headers.get("Content-Type")?.includes("application/json") ?? false;
-  const payload: unknown = isJson ? await response.json().catch(() => undefined) : undefined;
+async function jsonBody(response: Response): Promise<unknown> {
+  if (!response.headers.get("Content-Type")?.includes("application/json")) return undefined;
+  return response.json().catch(() => undefined);
+}
 
+async function request<T>(method: Method, path: string, body?: unknown, signal?: AbortSignal) {
+  const response = await fetchApi(method, path, body, signal);
+  const payload = await jsonBody(response);
   if (!response.ok) throw httpError(response, payload);
-  if (!isJson || payload === undefined) {
+  if (payload === undefined) {
     throw new ApiError("contract", "AQ returned a non-JSON response", { status: response.status });
   }
   return payload as T;
