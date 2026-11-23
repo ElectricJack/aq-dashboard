@@ -372,6 +372,31 @@ test("WDR-01: a field both tabs changed keeps the user's edit and shows AQ's val
  expect(posts[1]!.payload).toMatchObject({title:"Retitled in tab 2",body:"Tab 2 description.",acceptance_criteria:node.acceptance_criteria});
 });
 
+test.each([
+  { edited: " architecture, architecture, ", current: ["server"], displayed: "server", overlap: false, submitted: undefined },
+  { edited: "local", current: ["server"], displayed: "local", overlap: true, submitted: ["local"] },
+  { edited: " shared, shared, ", current: ["shared"], displayed: " shared, shared, ", overlap: false, submitted: ["shared"] },
+])("WDR-01: label rebase preserves omission and conflicts for '$edited'", async ({ edited, current, displayed, overlap, submitted }) => {
+  const { dialog, posts, tab2 } = await editConflict();
+  const labels = within(dialog).getByLabelText("Labels (comma separated)");
+  await userEvent.clear(labels);
+  await userEvent.type(labels, edited);
+  tab2({ labels: current });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  await within(dialog).findByText(/Conflict/);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Reload current versions" }));
+  const notice = await within(dialog).findByRole("region", { name: "Reloaded record" });
+  expect(labels).toHaveValue(displayed);
+  const useCurrent = within(notice).queryByRole("button", { name: "Use AQ's labels" });
+  if (overlap) expect(useCurrent).toBeVisible();
+  else expect(useCurrent).not.toBeInTheDocument();
+  if (submitted === undefined) expect(notice).toHaveTextContent("Updated from AQ: Labels.");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  await within(dialog).findByText("Action confirmed", { exact: true });
+  if (submitted === undefined) expect(posts[1]!.payload).not.toHaveProperty("labels");
+  else expect(posts[1]!.payload.labels).toEqual(submitted);
+});
+
 // WDR-05: the dependency refusal copy names the cause that applies.
 test("WDR-05: a nonexistent blocker says it doesn't exist, without the cycle precondition",async()=>{
  server.use(http.post("/api/v1/actions",()=>HttpResponse.json({request_id:"r",code:"not_found",message:"Resource not found",retryable:false},{status:404})));

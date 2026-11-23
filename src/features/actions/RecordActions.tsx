@@ -30,9 +30,21 @@ function draftFor(record:ActionContext,author:boolean):Draft {const n=author?und
 /** Fields the edit dialogs submit; compared field by field after a conflict reload (WDR-01). */
 type EditField="title"|"body"|"acceptance"|"storyPoints"|"labels"|"category";
 const EDIT_FIELD_LABEL:Record<EditField,string>={title:"Title",body:"Description",acceptance:"Acceptance criteria",storyPoints:"Story points",labels:"Labels",category:"Category"};
-const editFields=(k:ActionKind):EditField[]=>k==="task.edit"?["title","body","acceptance","storyPoints","labels"]:k==="knowledge.correct"?["title","body","labels","category"]:[];
+function editFields(kind: ActionKind): EditField[] {
+  switch (kind) {
+    case "task.edit": return ["title", "body", "acceptance", "storyPoints", "labels"];
+    case "knowledge.correct": return ["title", "body", "labels", "category"];
+    default: return [];
+  }
+}
 const labelSet=(v:string)=>[...new Set(v.split(",").map(x=>x.trim()).filter(Boolean))].join(", ");
-const fieldValue=(d:Draft,f:EditField)=>f==="labels"?labelSet(d.labels):f==="storyPoints"?d.storyPoints.trim():d[f];
+function fieldValue(draft: Draft, field: EditField): string {
+  switch (field) {
+    case "labels": return labelSet(draft.labels);
+    case "storyPoints": return draft.storyPoints.trim();
+    default: return draft[field];
+  }
+}
 /** What "Reload current versions" did to the draft: fields refreshed from AQ, and fields both sides changed. */
 type Rebased={version:string;refreshed:EditField[];overlapping:{field:EditField;current:string}[]};
 /**
@@ -44,15 +56,88 @@ type Rebased={version:string;refreshed:EditField[];overlapping:{field:EditField;
  *   with "Use AQ's value", so the user decides with both values in view before resubmitting.
  * Labels edited back to the original set count as unchanged (and are again left out of the request).
  */
-function rebase(draft:Draft,before:Draft,after:Draft,fields:EditField[]):{draft:Draft;refreshed:EditField[];overlapping:Rebased["overlapping"]}{
-  const next={...draft},refreshed:EditField[]=[],overlapping:Rebased["overlapping"]=[];
-  for(const f of fields){
-    const mine=fieldValue(draft,f),was=fieldValue(before,f),now=fieldValue(after,f);
-    if(mine===was||(f==="labels"&&!draft.labelsEdited)){if(now!==was)refreshed.push(f);next[f]=after[f];if(f==="labels")next.labelsEdited=false;}
-    else if(now!==was&&now!==mine)overlapping.push({field:f,current:after[f]});
+function rebase(draft: Draft, before: Draft, after: Draft, fields: EditField[]): { draft: Draft; refreshed: EditField[]; overlapping: Rebased["overlapping"] } {
+  const next = { ...draft };
+  const refreshed: EditField[] = [];
+  const overlapping: Rebased["overlapping"] = [];
+  for (const field of fields) {
+    const mine = fieldValue(draft, field);
+    const original = fieldValue(before, field);
+    const current = fieldValue(after, field);
+    const unchangedInDraft = mine === original || (field === "labels" && !draft.labelsEdited);
+    if (unchangedInDraft) {
+      if (current !== original) refreshed.push(field);
+      next[field] = after[field];
+      if (field === "labels") next.labelsEdited = false;
+      continue;
+    }
+    if (current !== original && current !== mine) {
+      overlapping.push({ field, current: after[field] });
+    }
   }
-  return {draft:next,refreshed,overlapping};
+  return { draft: next, refreshed, overlapping };
 }
+type ActionFields = { payload: Record<string, unknown>; reason?: string };
+
+/** Preserve omission of unchanged labels and story points in edit requests. */
+function editActionFields(kind: ActionKind, draft: Draft, baseline: ActionContext, canSetStoryPoints: boolean): ActionFields {
+  const labels = kind === "knowledge.author" || draft.labelsEdited
+    ? [...new Set(draft.labels.split(",").map(label => label.trim()).filter(Boolean))]
+    : undefined;
+  if (labels && (labels.length > 16 || labels.some(label => new TextEncoder().encode(label).length > 128))) {
+    throw new Error("Use at most 16 labels, each up to 128 bytes.");
+  }
+  const titleProblem = validateTitle(draft.title, "bytes");
+  if (titleProblem) throw new Error(titleProblem);
+  if (new TextEncoder().encode(draft.body).length > 32768 || new TextEncoder().encode(draft.acceptance).length > 8192) {
+    throw new Error("Shorten the description or acceptance criteria.");
+  }
+  const points = draft.storyPoints.trim();
+  const pointsChanged = kind === "task.edit" && canSetStoryPoints && points !== (baseline.data?.story_points?.toString() ?? "");
+  const pointsProblem = pointsChanged ? storyPointsProblem(points) : null;
+  if (pointsProblem) throw new Error(pointsProblem);
+  return {
+    payload: {
+      title: draft.title,
+      body: draft.body,
+      ...(labels ? { labels } : {}),
+      ...(pointsChanged ? { story_points: points ? Number(points) : null } : {}),
+      ...(kind === "task.edit" ? { acceptance_criteria: draft.acceptance } : { content_type: draft.category }),
+    },
+  };
+}
+
+function requireConfirmation(draft: Draft) {
+  if (!draft.confirm) throw new Error("Confirm this action before submitting.");
+}
+
+function restoreActionFields(draft: Draft, baseline: ActionContext, restoreValid: boolean, target: ActionContext["data"]): ActionFields {
+  const revision = draft.restoreRevision.trim();
+  if (!restoreValid) throw new Error("Enter the content revision to restore.");
+  const current = baseline.data?.content_revision;
+  if (current && BigInt(revision) >= BigInt(current)) throw new Error(`Choose a revision earlier than the current revision ${current}.`);
+  if (target && (target.retired || target.deleted)) throw new Error(`Revision ${revision} is also ${target.deleted ? "deleted" : "retired"}. Choose an earlier active revision.`);
+  if (new TextEncoder().encode(draft.reason).length > 1024) throw new Error("Enter a reason of at most 1024 bytes.");
+  requireConfirmation(draft);
+  return { ...(draft.reason.trim() ? { reason: draft.reason } : {}), payload: { revision: Number(revision), include_lifecycle: true } };
+}
+
+function knowledgeActionFields(kind: ActionKind, draft: Draft): ActionFields {
+  if (!draft.reason.trim() || new TextEncoder().encode(draft.reason).length > 1024) throw new Error("Enter a reason of at most 1024 bytes.");
+  if (kind === "knowledge.verify") {
+    let url: URL;
+    try { url = new URL(draft.url); } catch { throw new Error("Enter the evidence URL."); }
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Use an HTTP or HTTPS evidence URL without credentials.");
+    return { reason: draft.reason, payload: { verification: draft.verdict, evidence: [{ source_id: crypto.randomUUID(), kind: "url", url: draft.url, observed_at: new Date().toISOString(), retained: false }] } };
+  }
+  requireConfirmation(draft);
+  if (kind === "knowledge.retire") {
+    if (draft.successor && !validGraphId(draft.successor)) throw new Error("Enter a valid successor ID or leave it empty.");
+    return { payload: { retirement_reason: draft.reason, ...(draft.successor ? { successor_id: draft.successor } : {}) } };
+  }
+  return { reason: draft.reason, payload: {} };
+}
+
 /** `menu`: every action in one icon menu, for a narrow sticky header (the Work inspector on a phone, P1-02). */
 type Variant="default"|"compact"|"menu";
 /** What the task's reads say about execution; absent while unknown. `blockerIds` are the recorded blockers (work read);
@@ -90,7 +175,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
   const [retired,setRetired]=useState(false),[unknown,setUnknown]=useState(false),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[accessLost,setAccessLost]=useState(false);
-  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<{status:number;reasoned:boolean}|null>(null),[route,setRoute]=useState<RouteChoice>(NO_ROUTE),[role,setRole]=useState("");
+  const [rebased,setRebased]=useState<Rebased|null>(null),[refusal,setRefusal]=useState<Refusal|null>(null),[route,setRoute]=useState<RouteChoice>(NO_ROUTE),[role,setRole]=useState("");
   const roles=useTaskRoles(kind==="task.role.set"&&open);
   const dialog=useRef<HTMLDialogElement>(null),root=useRef<HTMLDivElement>(null),opener=useRef<HTMLElement|null>(null),titleId=useId(),lock=useRef(false),current=useRef(true),controller=useRef<AbortController|null>(null),frozen=useRef<FrozenAction|null>(null);
   const blockerIds=new Set((execution?.blockerIds??[]).map(id=>id.toLowerCase()));
@@ -148,47 +233,49 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
     if(unsettled){if(k===kind)setOpen(true);return;}
     frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRebased(null);setRefusal(null);setBaseline(record);setDraft(draftFor(record,author));setRoute(k==="task.route.set"&&execution?.routing?.route?{class:execution.routing.route.class,harnesses:[],providers:[]}:NO_ROUTE);setRole(execution?.role?.source==="task"?execution.role.id:"");setKind(k);setOpen(true);
   }
-  function fields(k:ActionKind):{payload:Record<string,unknown>;reason?:string}{
-    if(["task.edit","knowledge.author","knowledge.correct"].includes(k)){
-      const labels=k==="knowledge.author"||draft.labelsEdited?[...new Set(draft.labels.split(",").map(x=>x.trim()).filter(Boolean))]:undefined;
-      if(labels&&(labels.length>16||labels.some(v=>new TextEncoder().encode(v).length>128)))throw new Error("Use at most 16 labels, each up to 128 bytes.");
-      const titleProblem=validateTitle(draft.title,"bytes");if(titleProblem)throw new Error(titleProblem);
-      if(new TextEncoder().encode(draft.body).length>32768||new TextEncoder().encode(draft.acceptance).length>8192)throw new Error("Shorten the description or acceptance criteria.");
-      const points = draft.storyPoints.trim();
-      const pointsChanged = k==="task.edit" && canSetStoryPoints && points !== (baseline.data?.story_points?.toString() ?? "");
-      const pointsProblem = pointsChanged ? storyPointsProblem(points) : null;
-      if (pointsProblem) throw new Error(pointsProblem);
-      return {payload:{title:draft.title,body:draft.body,...(labels?{labels}:{}),
-        ...(pointsChanged?{story_points:points ? Number(points) : null}:{}),
-        ...(k==="task.edit"?{acceptance_criteria:draft.acceptance}:{content_type:draft.category})}};
+  function fields(k: ActionKind): ActionFields {
+    switch (k) {
+      case "task.edit":
+      case "knowledge.author":
+      case "knowledge.correct":
+        return editActionFields(k, draft, baseline, canSetStoryPoints);
+      case "task.dependency.add":
+        if (!validGraphId(draft.blocker)) throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");
+        if (draft.blocker.toLowerCase() === record.data?.id.toLowerCase()) throw new Error("A task can't block itself. Choose another task.");
+        if (blockerIds.has(draft.blocker.toLowerCase())) throw new Error("That task already blocks this one. Choose another task.");
+        return { payload: { blocker_id: draft.blocker } };
+      case "task.dependency.remove": {
+        const edge = dependency.data?.data.edges.find(e => e.id === draft.edge && e.target === record.data?.id && e.edge_type === "blocks");
+        if (!edge) throw new Error("Choose a recorded dependency.");
+        return { payload: { edge_id: edge.id, edge_version: edge.version } };
+      }
+      case "task.activate": {
+        const state = baseline.data?.task_state;
+        if (state !== "draft") throw new Error(`This task is ${state ? stateName(state) : "no longer a draft"} now; AQ activates only a draft task. Nothing was submitted.`);
+        return { payload: {} };
+      }
+      case "task.retry":
+      case "task.cancel":
+      case "task.delete":
+      case "task.route.clear":
+      case "task.activate.subtree":
+        return { payload: {} };
+      case "task.role.set":
+        // No role clears the one the task names, so the project's default applies.
+        return { payload: role ? { role } : {} };
+      case "task.route.set":
+        if (!route.class) throw new Error("Choose a level.");
+        return { payload: { class: route.class, ...(route.harnesses.length ? { harnesses: route.harnesses } : {}), ...(route.providers.length ? { providers: route.providers } : {}) } };
+      case "task.reprioritize": {
+        const priority = draft.priority.trim();
+        if (!PRIORITY.test(priority) || Math.abs(Number(priority)) > PRIORITY_MAX) throw new Error("Enter a whole-number priority from -1000000 to 1000000.");
+        return { payload: { priority: Number(priority) } };
+      }
+      case "knowledge.restore":
+        return restoreActionFields(draft, baseline, restoreValid, restoreTarget.data?.data);
+      default:
+        return knowledgeActionFields(k, draft);
     }
-    if(k==="task.dependency.add"){if(!validGraphId(draft.blocker))throw new Error("Choose the blocker from the matching tasks, or paste its task ID.");if(draft.blocker.toLowerCase()===record.data?.id.toLowerCase())throw new Error("A task can't block itself. Choose another task.");if(blockerIds.has(draft.blocker.toLowerCase()))throw new Error("That task already blocks this one. Choose another task.");return {payload:{blocker_id:draft.blocker}};}
-    if(k==="task.dependency.remove"){const edge=dependency.data?.data.edges.find(e=>e.id===draft.edge&&e.target===record.data?.id&&e.edge_type==="blocks");if(!edge)throw new Error("Choose a recorded dependency.");return {payload:{edge_id:edge.id,edge_version:edge.version}};}
-    if(k==="task.activate"){const state=baseline.data?.task_state;if(state!=="draft")throw new Error(`This task is ${state?stateName(state):"no longer a draft"} now; AQ activates only a draft task. Nothing was submitted.`);return {payload:{}};}
-    if(["task.retry","task.cancel","task.delete","task.route.clear","task.activate.subtree"].includes(k))return {payload:{}};
-    // No role clears the one the task names, so the project's default applies.
-    if(k==="task.role.set")return {payload:role?{role}:{}};
-    if(k==="task.route.set"){if(!route.class)throw new Error("Choose a level.");return {payload:{class:route.class,...(route.harnesses.length?{harnesses:route.harnesses}:{}),...(route.providers.length?{providers:route.providers}:{})}};}
-    if(k==="task.reprioritize"){const v=draft.priority.trim();if(!PRIORITY.test(v)||Math.abs(Number(v))>PRIORITY_MAX)throw new Error("Enter a whole-number priority from -1000000 to 1000000.");return {payload:{priority:Number(v)}};}
-    if(k==="knowledge.restore"){
-      if(!restoreValid)throw new Error("Enter the content revision to restore.");
-      const current=baseline.data?.content_revision;
-      if(current&&BigInt(restoreRevision)>=BigInt(current))throw new Error(`Choose a revision earlier than the current revision ${current}.`);
-      const target=restoreTarget.data?.data;
-      if(target&&(target.retired||target.deleted))throw new Error(`Revision ${restoreRevision} is also ${target.deleted?"deleted":"retired"}. Choose an earlier active revision.`);
-      if(new TextEncoder().encode(draft.reason).length>1024)throw new Error("Enter a reason of at most 1024 bytes.");
-      if(!draft.confirm)throw new Error("Confirm this action before submitting.");
-      return {...(draft.reason.trim()?{reason:draft.reason}:{}),payload:{revision:Number(restoreRevision),include_lifecycle:true}};
-    }
-    if(!draft.reason.trim()||new TextEncoder().encode(draft.reason).length>1024)throw new Error("Enter a reason of at most 1024 bytes.");
-    if(k==="knowledge.verify"){
-      let url:URL;try{url=new URL(draft.url);}catch{throw new Error("Enter the evidence URL.");}
-      if(!["https:","http:"].includes(url.protocol)||url.username||url.password)throw new Error("Use an HTTP or HTTPS evidence URL without credentials.");
-      return {reason:draft.reason,payload:{verification:draft.verdict,evidence:[{source_id:crypto.randomUUID(),kind:"url",url:draft.url,observed_at:new Date().toISOString(),retained:false}]}};
-    }
-    if(!draft.confirm)throw new Error("Confirm this action before submitting.");
-    if(k==="knowledge.retire"){if(draft.successor&&!validGraphId(draft.successor))throw new Error("Enter a valid successor ID or leave it empty.");return {payload:{retirement_reason:draft.reason,...(draft.successor?{successor_id:draft.successor}:{})}};}
-    return {reason:draft.reason,payload:{}};
   }
   async function submit(event:React.FormEvent){event.preventDefault();if(!kind||lock.current||frozen.current||!capability(kind).enabled)return;
     try{const {payload,reason}=fields(kind),value=freezeAction(kind,baseline,payload,reason);frozen.current=value;setIntent(value);setError(null);setRebased(null);setRefusal(null);await run(value);}catch(reason){setError(reason instanceof Error?reason.message:"Review the form.");}
@@ -244,7 +331,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
           <p className={styles.meta}>AQ can schedule this task once its dependencies are complete and capacity is available. Configured human review gates still apply.</p></>}
         {kind==="task.retry"&&<p>Ask AQ to start a replacement for this task's last agent attempt. AQ decides whether a replacement is admissible; the task's lifecycle doesn't change.</p>}
       </fieldset>{!intent&&<ActionButton type="submit" disabled={busy||accessLost||!capability(kind).enabled}>{kind==="task.delete"?"Delete":kind==="task.cancel"?"Cancel task":kind==="task.activate"?"Activate":kind==="task.activate.subtree"?"Activate subtree":"Submit"}</ActionButton>}</form>}
-      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{status==="retired"?"Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.":status==="confirmed"?kind==="task.activate.subtree"&&operation?.activation?`${operation.activation.activated} activated, ${operation.activation.skipped} skipped`:kind==="task.activate"?"Task activated.":kind==="task.cancel"?"Task canceled":kind==="task.route.set"&&intent?`Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`:kind==="task.route.clear"?"Route cleared":kind==="task.role.set"&&intent?roleConfirmed(JSON.parse(intent.bytes).payload.role,roles.name):kind==="task.reprioritize"&&intent?`Priority set to ${JSON.parse(intent.bytes).payload.priority}`:"Action confirmed":status==="conflict"?kind==="task.activate"?"Conflict — the task changed since you opened it. Nothing was activated. Reload current versions, then review it.":"Conflict — your draft is preserved.":status==="rejected"?operation?.reason?`Rejected — AQ refused this action: ${refusalReason(operation.reason)}.`:`Rejected — AQ refused this action.${kind&&REFUSAL_HINT[kind]&&!refusal?.reasoned&&!(kind==="task.dependency.add"&&refusal?.status===404)?` ${REFUSAL_HINT[kind]}`:""}`:status==="pending"?"Action pending — awaiting confirmation.":"Outcome unknown — keep this operation and check its status."}</p>
+      {intent&&<section className={styles.operation} aria-label="Action status"><p role="status">{operationStatusMessage(status, kind, intent, operation, refusal, roles.name)}</p>
         {operation?.current_versions&&Object.keys(operation.current_versions).length>0&&<p>Current versions: {Object.entries(operation.current_versions).map(([key,value])=>`${key}: ${value}`).join(", ")}</p>}
         {status==="confirmed"&&<ul aria-label="Confirmed effects">{operation?.affected_entities.map((r,i)=><li key={i}>{r.type} · {r.id}{r.revision?` · version ${r.revision}`:""}</li>)}</ul>}
         {created&&<p><Link to={{pathname:`/knowledge/${encodeURIComponent(created)}`,search:scopeSearch({kind:"project",project_id:record.project.id})}} onClick={()=>setOpen(false)}>Open new record</Link></p>}
@@ -278,6 +365,45 @@ const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
   // AQ accepts a repeated dependency as a no-op; a cycle (or another Graph rule) is what it refuses (WDR-05).
   "task.dependency.add":"AQ refuses a dependency that would create a cycle, for example when this task already blocks the chosen one.",
 };
+
+type Refusal = { status: number; reasoned: boolean };
+type OperationStatus = ActionOperation["disposition"] | "retired" | undefined;
+
+function confirmedMessage(kind: ActionKind | null, intent: FrozenAction, operation: ActionOperation | null, roleName: (id: string) => string): string {
+  switch (kind) {
+    case "task.activate.subtree":
+      return operation?.activation ? `${operation.activation.activated} activated, ${operation.activation.skipped} skipped` : "Action confirmed";
+    case "task.activate": return "Task activated.";
+    case "task.cancel": return "Task canceled";
+    case "task.route.set": return `Route set to ${classLabel(JSON.parse(intent.bytes).payload.class)}`;
+    case "task.route.clear": return "Route cleared";
+    case "task.role.set": return roleConfirmed(JSON.parse(intent.bytes).payload.role, roleName);
+    case "task.reprioritize": return `Priority set to ${JSON.parse(intent.bytes).payload.priority}`;
+    default: return "Action confirmed";
+  }
+}
+
+function rejectedMessage(kind: ActionKind | null, operation: ActionOperation | null, refusal: Refusal | null): string {
+  if (operation?.reason) return `Rejected — AQ refused this action: ${refusalReason(operation.reason)}.`;
+  // A missing blocker already has its specific explanation in the alert (WDR-05).
+  const missingBlocker = kind === "task.dependency.add" && refusal?.status === 404;
+  const hint = kind && !refusal?.reasoned && !missingBlocker ? REFUSAL_HINT[kind] : undefined;
+  return `Rejected — AQ refused this action.${hint ? ` ${hint}` : ""}`;
+}
+
+function operationStatusMessage(status: OperationStatus, kind: ActionKind | null, intent: FrozenAction, operation: ActionOperation | null, refusal: Refusal | null, roleName: (id: string) => string): string {
+  switch (status) {
+    case "retired": return "Receipt details expired — the outcome is unavailable. Keep the original operation reference; do not submit it as a new operation.";
+    case "confirmed": return confirmedMessage(kind, intent, operation, roleName);
+    case "conflict":
+      return kind === "task.activate"
+        ? "Conflict — the task changed since you opened it. Nothing was activated. Reload current versions, then review it."
+        : "Conflict — your draft is preserved.";
+    case "rejected": return rejectedMessage(kind, operation, refusal);
+    case "pending": return "Action pending — awaiting confirmation.";
+    default: return "Outcome unknown — keep this operation and check its status.";
+  }
+}
 
 /** After a conflict reload: what came from AQ, and AQ's value for each field both sides changed (WDR-01). */
 function RebaseNotice({rebased,draft,onUseCurrent}:{rebased:Rebased;draft:Draft;onUseCurrent:(field:EditField,value:string)=>void}){
