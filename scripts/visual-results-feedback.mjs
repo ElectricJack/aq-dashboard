@@ -15,7 +15,7 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true }), raster = await browser.newPage();
 async function pixels(width, height, name) {
-  return raster.evaluate(({ width, height, name }) => {
+  const encoded = await raster.evaluate(async ({ width, height, name }) => {
     const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height; const c = canvas.getContext("2d");
     c.fillStyle = "#10151c"; c.fillRect(6, 6, width - 12, height - 12); c.fillStyle = "#b4a9ff"; c.fillRect(28, 28, width - 56, 66);
     c.fillStyle = "#121523"; c.font = "bold 25px sans-serif"; c.fillText("SYNTHETIC SOURCE UI", 44, 69);
@@ -23,8 +23,17 @@ async function pixels(width, height, name) {
     c.fillStyle = "#aebbd0"; c.font = "18px sans-serif"; c.fillText("Illustrative media fixture — no live AQ data", 30, 183);
     const count = height > width ? 4 : 2, gap = 22, cardHeight = Math.floor((height - 260 - gap * count) / count);
     for (let n = 0; n < count; n++) { const y = 215 + n * (cardHeight + gap); c.fillStyle = "#202a37"; c.fillRect(30, y, width - 60, cardHeight); c.fillStyle = "#b4a9ff"; c.fillRect(46, y + 18, 8, cardHeight - 36); c.fillStyle = "#edf2ff"; c.font = "bold 21px sans-serif"; c.fillText(`Example panel ${n + 1}`, 76, y + 43); c.fillStyle = "#aebbd0"; c.font = "17px sans-serif"; c.fillText("Preview rendering only", 76, y + 75); }
-    return [...c.getImageData(0, 0, width, height).data];
+    // Transfer the raw RGBA bytes in one string instead of millions of protocol values.
+    const data = c.getImageData(0, 0, width, height).data;
+    const reader = new FileReader();
+    const done = new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result.slice(reader.result.indexOf(",") + 1));
+      reader.onerror = () => reject(reader.error);
+    });
+    reader.readAsDataURL(new Blob([data]));
+    return done;
   }, { width, height, name });
+  return Buffer.from(encoded, "base64");
 }
 function chunk(kind, bytes) {
   const body = Buffer.concat([Buffer.from(kind), Buffer.from(bytes)]); let crc = 0xffffffff;
@@ -76,8 +85,15 @@ async function verifyServedAsset(response) {
   served.push({ name, sha256: actual });
 }
 
+function fixtureCapabilities(state) {
+  const enabled = new Set(["results.read", "results.comment", "results.feedback", "results.media.read"]);
+  // Optional capabilities need to be advertised alongside the required bundle capabilities.
+  const advertised = new Set([...manifest.required_capabilities, ...enabled]);
+  return [...advertised].map(name => ({ name, version: "1", enabled: enabled.has(name) && state !== "disabled", reason: "Unavailable in labelled fixture preview" }));
+}
+
 function readResultPage(path, state) {
-  if(path==="/api/v1/bootstrap")return {json:{...originalBootstrap,api_version:"dashboard-read-1",data:{...originalBootstrap.data,contracts:[{name:"dashboard-read",version:"dashboard-read-1",digest:"sha256:"+"a".repeat(64)},{name:"dashboard-actions",version:"dashboard-actions-1",digest:"sha256:97fdea9aa4aeae795415d53bb3a4081684416bafd6f1b44e598a8e70a51df9ce"}],principal:{id:id(900),display_name:"G7 labelled fixtures",authorization_revision:"1"},product:{version:"G7-fixture-preview",dashboard_digest:hash(manifestBytes)},capabilities:[...manifest.required_capabilities.map(name=>({name,version:"1",enabled:["results.read","results.comment","results.feedback","results.media.read"].includes(name)&&state!=="disabled",reason:"Unavailable in labelled fixture preview"})),...[]],global_supervisor:{status:"unconfigured",conversation_id:null}}}};
+  if(path==="/api/v1/bootstrap")return {json:{...originalBootstrap,api_version:"dashboard-read-1",data:{...originalBootstrap.data,contracts:[{name:"dashboard-read",version:"dashboard-read-1",digest:"sha256:"+"a".repeat(64)},{name:"dashboard-actions",version:"dashboard-actions-1",digest:"sha256:97fdea9aa4aeae795415d53bb3a4081684416bafd6f1b44e598a8e70a51df9ce"}],principal:{id:id(900),display_name:"G7 labelled fixtures",authorization_revision:"1"},product:{version:"G7-fixture-preview",dashboard_digest:hash(manifestBytes)},capabilities:fixtureCapabilities(state),global_supervisor:{status:"unconfigured",conversation_id:null}}}};
   if(path==="/api/projects")return {json:{items:[],next_cursor:null}};
   if (path === "/api/v1/results") {
     if (state === "unavailable") return { status: 503, json: { message: "Fixture unavailable" } };
@@ -131,12 +147,24 @@ try{
   const page=await pageFor(viewport);await page.goto(new URL("/results",origin).href);await expect(page.getByRole("heading",{name:detail.revision.summary,exact:true})).toBeVisible();
   const gallery=page.getByRole("region",{name:"Human supplemental images"}).first();await expect(gallery.getByRole("img")).toBeVisible();await expect(page.getByRole("button",{name:"Comments 1",exact:true})).toBeVisible();
   await page.evaluate(()=>window.scrollTo(0,0));await capture(page,`${viewport.width}-feed.png`);await page.screenshot({path:join(output,`${viewport.width}-feed-full.png`),fullPage:true});captures.push(join(output,`${viewport.width}-feed-full.png`));
-  await page.getByRole("button",{name:"Comments 1",exact:true}).click();const sheet=page.getByRole("dialog",{name:"Result comments",exact:true});await expect(sheet).toBeVisible();await capture(page,`${viewport.width}-comments.png`);
+  await page.getByRole("button",{name:"Comments 1",exact:true}).click();const sheet=page.getByRole("complementary",{name:"Discussion",exact:true}).or(page.getByRole("dialog",{name:"Result comments",exact:true}));await expect(sheet).toBeVisible();await capture(page,`${viewport.width}-comments.png`);
   await sheet.getByRole("combobox",{name:/Anchor/}).selectOption("image");const editor=sheet.getByRole("region",{name:"Image region editor"});
   const view=editor.getByRole("button",{name:"View supplemental images"});if(await view.count())await view.click();await expect(editor.getByRole("img")).toBeVisible();const slider=editor.getByRole("slider",{name:/Region x/});await slider.press("Home");for(let n=0;n<25;n++)await slider.press("ArrowRight");
-  await sheet.getByLabel("Comment",{exact:true}).fill("Fixture: adjust this selected image region.");await capture(page,`${viewport.width}-region.png`);await editor.getByRole("slider",{name:/Region height/}).scrollIntoViewIfNeeded();await expect(sheet.getByRole("button",{name:"Close comments",exact:true})).toBeInViewport();await capture(page,`${viewport.width}-region-controls.png`);await sheet.getByRole("button",{name:"Post comment",exact:true}).click();await expect(sheet.getByText("Fixture: adjust this selected image region.",{exact:true})).toBeVisible();
-  await sheet.getByRole("button",{name:"Close comments",exact:true}).click();await page.getByRole("button",{name:"Create feedback task",exact:true}).click();const draft=page.getByRole("dialog",{name:"Create feedback task",exact:true});await draft.getByLabel("Title",{exact:true}).fill("Fixture · Repair caption wrapping");await draft.getByLabel("Acceptance criteria",{exact:true}).fill("Caption remains readable at 320 CSS pixels.");await capture(page,`${viewport.width}-draft.png`);await draft.getByRole("button",{name:"Create linked task",exact:true}).scrollIntoViewIfNeeded();await expect(draft.getByRole("button",{name:"Close draft",exact:true})).toBeInViewport();await capture(page,`${viewport.width}-draft-controls.png`);await draft.getByRole("button",{name:"Create linked task",exact:true}).click();await expect(draft.getByText("Feedback task created and linked. Thread remains open.",{exact:true})).toBeVisible();await draft.getByText("Feedback task created and linked. Thread remains open.",{exact:true}).scrollIntoViewIfNeeded();await expect(draft.getByRole("button",{name:"Close draft",exact:true})).toBeInViewport();await capture(page,`${viewport.width}-linked.png`);await draft.getByRole("button",{name:"Close draft",exact:true}).click();
-  await page.getByRole("link",{name:"Review result",exact:true}).scrollIntoViewIfNeeded();await expect(page.getByRole("link",{name:"Review result",exact:true})).toHaveAttribute("href",/\/decisions.*revision=/);await capture(page,`${viewport.width}-actions.png`);await page.close();
+  await sheet.getByLabel("Comment",{exact:true}).fill("Fixture: adjust this selected image region.");await capture(page,`${viewport.width}-region.png`);await editor.getByRole("slider",{name:/Region height/}).scrollIntoViewIfNeeded();const closeComments = sheet.getByRole("button", {name:"Close comments", exact:true});
+  // The modal keeps its exit visible. The desktop discussion shares the page scroll.
+  if (await page.getByRole("dialog", {name:"Result comments"}).isVisible()) await expect(closeComments).toBeInViewport();
+  await expect(editor.getByRole("slider", {name:/Region height/})).toBeInViewport();
+  await capture(page,`${viewport.width}-region-controls.png`);await sheet.getByRole("button",{name:"Post comment",exact:true}).click();await expect(sheet.getByText("Fixture: adjust this selected image region.",{exact:true})).toBeVisible();
+  await sheet.getByRole("button",{name:"Create feedback task",exact:true}).first().click();const draft=page.getByRole("dialog",{name:"Create feedback task",exact:true});await draft.getByLabel("Title",{exact:true}).fill("Fixture · Repair caption wrapping");await draft.getByLabel("Acceptance criteria",{exact:true}).fill("Caption remains readable at 320 CSS pixels.");await capture(page,`${viewport.width}-draft.png`);await draft.getByRole("button",{name:"Create linked task",exact:true}).scrollIntoViewIfNeeded();await expect(draft.getByRole("button",{name:"Close draft",exact:true})).toBeInViewport();await capture(page,`${viewport.width}-draft-controls.png`);await draft.getByRole("button",{name:"Create linked task",exact:true}).click();await expect(draft.getByText("Feedback task created and linked. Thread remains open.",{exact:true})).toBeVisible();await draft.getByText("Feedback task created and linked. Thread remains open.",{exact:true}).scrollIntoViewIfNeeded();await expect(draft.getByRole("button",{name:"Close draft",exact:true})).toBeInViewport();await capture(page,`${viewport.width}-linked.png`);await draft.getByRole("button",{name:"Close draft",exact:true}).click();
+  await sheet.getByRole("button", {name:"Close comments", exact:true}).click();
+  const card = page.getByRole("article").first();
+  await card.getByText("Result context and evidence", {exact:true}).click();
+  const link = card.getByRole("link", {name:"Exact revision", exact:true});
+  await link.scrollIntoViewIfNeeded();
+  await expect(link).toHaveAttribute("href", new RegExp(`/results/${binding.report_id}/revisions/${binding.report_revision}`));
+  await expect(card.getByText("Acceptance: Unreviewed", {exact:true})).toBeVisible();
+  await expect(card.getByRole("link", {name:"Review result", exact:true})).toHaveCount(0);
+  await capture(page,`${viewport.width}-actions.png`);await page.close();
  }
  for(const state of ["empty","unavailable","disabled"]){const page=await pageFor({width:390,height:844},state);await page.goto(new URL("/results",origin).href);await expect(page.getByText(state==="empty"?"No results in this scope and filter.":state==="disabled"?"Unavailable in labelled fixture preview":"Couldn't load results. Nothing is shown rather than possibly incomplete data.",{exact:true})).toBeVisible();await capture(page,`390-${state}.png`);await page.close();}
  expect(errors).toEqual([]);expect(unexpected).toEqual([]);expect(mutations.filter(m=>m.kind==="feedback")).toHaveLength(4);expect(mutations.filter(m=>m.kind==="comment").every(m=>m.body.anchor.kind==="image_region"&&m.body.anchor.x===.25)).toBe(true);
