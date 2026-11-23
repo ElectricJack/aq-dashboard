@@ -39,6 +39,9 @@ const HOLD_SHORT: Record<string, string> = {
   attempt_finished_stop_unconfirmed: "stop not confirmed",
   role_disabled: "its role is disabled", role_missing: "its role does not exist", level_missing: "its level does not exist",
   startup_over_limit: "startup text over its limit", platform_text_missing: "no platform text for its environment",
+  owner_retry_pending: "owner retry pending",
+  closure_does_not_prove_nonstart: "launch not proven stopped", closed_launch_settlement_pending: "closed launch settling",
+  stopped_result_recovery_pending: "stopped result recovering", launch_retry_backoff: "launch retry backing off",
 };
 const count = (n: number) => n.toLocaleString("en-US");
 /** "70,112 of 65,536 bytes": the startup text's size and the limit it is over. */
