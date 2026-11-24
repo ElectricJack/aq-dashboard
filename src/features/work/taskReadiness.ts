@@ -19,8 +19,12 @@ export function adaptTaskRole(v: unknown): TaskRole | undefined {
 export const READINESS_STATES = ["draft", "completed", "canceled", "running", "held", "waiting", "unknown", "ready"] as const;
 /** A known readiness state, or `unrecognized` for a value a newer server sends that this bundle doesn't know (W77). */
 export type WorkReadiness = (typeof READINESS_STATES)[number] | "unrecognized";
+/** A stopped attempt's recorded result and its delivery or Graph settlement: they name the attempt and its result, no status. */
+const RESULT_CODES = ["result_ready_no_delivery_policy", "result_ready", "delivery_settlement_pending", "delivery_settlement_grant_required", "replacement_facts_pending", "replacement_facts_ready", "graph_completion_identity_required", "graph_completion_permission_required", "graph_version_conflict", "graph_completion_receipt_conflict", "graph_completion_receipt_pending"];
+/** The recovery a stopped or closed attempt waits for, or the backoff after repeated launch failures (aq-server #271): they name the attempt, no status. */
+const RECOVERY_CODES = ["closure_does_not_prove_nonstart", "closed_launch_settlement_pending", "stopped_result_recovery_pending", "launch_retry_backoff"] as const;
 /** Codes AQ gives for a hold; a newer code is kept as reported and its message still shown. */
-export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held", "role_disabled", "role_missing", "level_missing", "startup_over_limit", "platform_text_missing"] as const;
+export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopped_not_released", "attempt_finished_stop_unconfirmed", "task_held", "role_disabled", "role_missing", "level_missing", "startup_over_limit", "platform_text_missing", "owner_retry_pending", ...RECOVERY_CODES] as const;
 /**
  * The startup text of a refused offer (`startup_over_limit`, aq-server spec 0014 §6.1): it is `bytes` long, over `limit`,
  * the smaller of the execution profile's `startup_context_bytes` and the project's `context_bytes` ceiling; `limiting`
@@ -28,7 +32,7 @@ export const HOLD_REASON_CODES = ["cancelled_attempt_holds_task", "attempt_stopp
  */
 export type StartupOverLimit = { bytes: number; limit: number; execution_profile: string; limiting: "startup_context_bytes" | "project_context_bytes" };
 /**
- * Why AQ is not running the task (`readiness.reasons`, at most 4). A stopped or finished attempt that still holds it
+ * Why AQ is not running the task (`readiness.reasons`, at most 8). A stopped or finished attempt that still holds it
  * names that attempt (`attempt_id`, `status`). A role hold (`role_disabled`, `role_missing`) names the `role` and a
  * level hold (`level_missing`) the `level`; those have no attempt. Nor has a refused offer: `startup_over_limit` carries
  * its two numbers (`startup`), `platform_text_missing` the `environment`.
@@ -50,12 +54,22 @@ export type TaskWork = { state: WorkReadiness; reported: string; role?: TaskRole
   noChanges?: true };
 
 function reasonAttempt(raw: Record<string, unknown>, reason: HoldReason) {
-  if (["result_ready", "result_ready_no_delivery_policy"].includes(reason.code)) {
-    check(validGraphId(raw.result_id));
+  const result = RESULT_CODES.includes(reason.code);
+  if (result || (RECOVERY_CODES as readonly string[]).includes(reason.code)) {
     check(validGraphId(raw.attempt_id));
     check(raw.status === undefined);
     reason.attempt_id = raw.attempt_id;
-    reason.result_id = raw.result_id;
+    if (result) {
+      check(validGraphId(raw.result_id));
+      reason.result_id = raw.result_id;
+    }
+  } else if (reason.code === "owner_retry_pending") {
+    // The owner's retry may name the attempt it retries, or null.
+    check(raw.status === undefined);
+    if (raw.attempt_id !== null && raw.attempt_id !== undefined) {
+      check(validGraphId(raw.attempt_id));
+      reason.attempt_id = raw.attempt_id;
+    }
   } else if (raw.attempt_id === undefined) {
     check(raw.status === undefined);
   } else {
@@ -71,7 +85,7 @@ const REASON_TEXT_LIMITS = { hold_reason: 96, role: 128, level: 128 } as const;
 function reasonDetails(raw: Record<string, unknown>, reason: HoldReason) {
   for (const key of Object.keys(REASON_TEXT_LIMITS) as (keyof typeof REASON_TEXT_LIMITS)[]) {
     const value = raw[key];
-    if (value === undefined) continue;
+    if (value === undefined || (value === null && raw.code === "owner_retry_pending")) continue;
     check(text(value, REASON_TEXT_LIMITS[key]));
     reason[key] = value;
   }
@@ -112,7 +126,7 @@ function readiness(raw: unknown) {
   // An older server omits state and reasons.
   const { state: reported = "unknown", reasons = [] } = raw;
   check(openEnumValue(reported));
-  check(boundedList(reasons, 4));
+  check(boundedList(reasons, 8));
   return { state: knownReadiness(reported), reported, reasons: reasons.map(holdReason), blockers: raw.blockers.map(taskBlocker), complete: raw.complete };
 }
 

@@ -83,8 +83,39 @@ test("work read: the server's held example (aq-server #99) keeps the state and A
   }
   // A hold code this bundle doesn't know still shows AQ's message.
   expect(adaptTaskWork(withReasons([{ ...reason, code: "attempt_parked" }]), project, id).data.reasons[0]!.code).toBe("attempt_parked");
-  for (const bad of [null, [{ ...reason, message: "" }], [{ ...reason, message: "m".repeat(513) }], [{ ...reason, attempt_id: "x" }], [{ ...reason, code: 3 }], Array(5).fill(reason)])
+  for (const bad of [null, [{ ...reason, message: "" }], [{ ...reason, message: "m".repeat(513) }], [{ ...reason, attempt_id: "x" }], [{ ...reason, code: 3 }], Array(9).fill(reason)])
     expect(() => adaptTaskWork(withReasons(bad), project, id)).toThrow();
+});
+
+test("work read: the server's recovery waits, owner retry with an attempt and up to 8 reasons adapt (aq-server #271)", () => {
+  const readiness = workExample.data.readiness, reason = readiness.reasons[0]!;
+  const withReasons = (reasons: unknown) => ({ ...workExample, data: { ...workExample.data, readiness: { ...readiness, reasons } } });
+  const recovery = [
+    ["closure_does_not_prove_nonstart", "aq_operator", "original_launch_evidence_reconciled", "launch not proven stopped"],
+    ["closed_launch_settlement_pending", "aq_scheduler", "closed_launch_settlement", "closed launch settling"],
+    ["stopped_result_recovery_pending", "aq_worker", "stopped_result_reconciled", "stopped result recovering"],
+    ["launch_retry_backoff", "aq_scheduler", "launch_retry_backoff_elapsed", "launch retry backing off"],
+  ].map(([code, blocker_owner, wake_condition, short], n) => ({ raw: { code, attempt_id: uuid(60 + n), blocker_owner, wake_condition, next_check_at_ms: 1_800_000_000_000, message: `AQ is waiting: ${code}.` }, short }));
+  for (const { raw, short } of recovery) {
+    const w = adaptTaskWork(withReasons([raw]), project, id).data;
+    expect(w.reasons).toEqual([{ code: raw.code, attempt_id: raw.attempt_id, message: raw.message }]);
+    expect(statusReason(w.state, w)).toBe(short);
+    const { next_check_at_ms: _next, ...noCheck } = raw;
+    expect(adaptTaskWork(withReasons([noCheck]), project, id).data.reasons).toHaveLength(1);
+    for (const bad of [{ ...raw, attempt_id: undefined }, { ...raw, attempt_id: null }, { ...raw, status: "finished" }])
+      expect(() => adaptTaskWork(withReasons([bad]), project, id), JSON.stringify(bad)).toThrow();
+  }
+  const retry = { code: "owner_retry_pending", operation_id: uuid(70), attempt_id: uuid(71), hold_reason: "lineage_retry_budget_exhausted", blocker_owner: "aq_worker", wake_condition: "prior_execution_verified", next_check_at_ms: 1_800_000_000_000, message: "Your retry waits for AQ to verify the prior attempt." };
+  const pending = adaptTaskWork(withReasons([retry]), project, id).data;
+  expect(pending.reasons).toEqual([{ code: retry.code, attempt_id: retry.attempt_id, hold_reason: retry.hold_reason, message: retry.message }]);
+  const bare = adaptTaskWork(withReasons([{ ...retry, attempt_id: null, hold_reason: null }]), project, id).data;
+  expect(bare.reasons).toEqual([{ code: retry.code, message: retry.message }]);
+  expect(statusReason(bare.state, bare)).toBe("owner retry pending");
+  for (const bad of [{ ...retry, attempt_id: "x" }, { ...retry, status: "finished" }, { ...retry, hold_reason: "" }])
+    expect(() => adaptTaskWork(withReasons([bad]), project, id), JSON.stringify(bad)).toThrow();
+  const eight = [reason, retry, ...recovery.map(r => r.raw), { code: "delivery_settlement_pending", attempt_id: reason.attempt_id, result_id: uuid(80), blocker_owner: "aq_delivery", wake_condition: "delivery_reconciliation", next_check_at_ms: null, message: "Delivery is settling." }, { code: "swarm_concurrency_limit_reached", provider: "claude", intelligence_class: "standard-high", message: "The swarm is at its concurrency limit." }];
+  expect(eight).toHaveLength(8);
+  expect(adaptTaskWork(withReasons(eight), project, id).data.reasons.map(r => r.code)).toEqual(eight.map(r => r.code));
 });
 
 test("work read: routing is optional; the server's routed and waiting shapes adapt, malformed ones fail (spec 0011 §8)", () => {
