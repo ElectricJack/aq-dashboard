@@ -1,5 +1,7 @@
 # aq-dashboard
 
+> **Running AQ locally?** Start with aq-server's [getting started guide](https://github.com/ElectricJack/aq-server/blob/main/docs/getting-started.md): one sequence builds and runs the whole stack from sibling checkouts, this repository included.
+
 The standalone dashboard for Agent Q v2. It consumes the central AQ API and owns browser presentation, interaction and accessibility. AQ owns authorization, scheduling, lifecycle policy and authoritative state.
 
 The application includes responsive task/knowledge inspection, recorded Overview contributions, Agents/source events, human Supervisor history, Results metadata and capability-gated policy/review views. The [current local availability matrix](docs/plans/0003-live-dashboard-delivery.md#delivered-increments-and-remaining-gates-at-canonical-state37) records actual canonical AQ37/source511ee99 with bundle6247: real Playbooks/Decisions owners, successful empty current Definitions/Activations and review queue. Its unchanged frontend has 633 passing tests. Full page designs, workflow automation, live Supervisor responses, provider quota and terminal control remain open; canonical PNG uploads remain disabled. The [cutover evidence](../aq-server/docs/implementation/evidence/canonical-uds-empty-owner-live/README.md) distinguishes live features from disposable populated/action fixtures.
