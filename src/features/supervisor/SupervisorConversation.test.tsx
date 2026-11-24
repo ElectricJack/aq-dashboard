@@ -284,22 +284,43 @@ test("SO-14/ISSUE-007: opening the dock moves focus into it and closing returns 
 });
 
 
-test("global and project supervisors keep separate drafts, and Start works before a controller is online",async()=>{
+test.each(["Codex", "Claude"])("global and project supervisors preserve drafts and can start with %s", async harness => {
  const app=setup();
  const project='a22afccc-d61a-5f77-aef8-9fd73311c68a',conversation='e0000000-0000-4000-8000-000000000099';
- const profile={snapshot_digest:'sha256:fixture',profile_id:'standard-medium',candidate_id:'openai:gpt-test:medium',name:'Standard',provider:'openai',model:'gpt-test',reasoning:'medium',harness:'codex'};
+ const codex = { snapshot_digest: "sha256:fixture", profile_id: "standard-medium", candidate_id: "openai:gpt-test:medium", name: "Standard", provider: "openai", model: "gpt-test", reasoning: "medium", harness: "codex" };
+ const claude = { ...codex, candidate_id: "anthropic:fixture-model:medium", provider: "anthropic", model: "fixture-model", harness: "claude" };
+ const chosen = harness === "Claude" ? claude : codex;
  const scope=(id:string,project_id:string|null,label:string)=>({id,actor_id:supervisorActor,project_id,label,enabled:false,revision:0,profile:null,phase:'unavailable',stage:'Controller not started',observed_at_ms:null,generation:null,session_id:null,last_error:null});
  const global=scope(discovery.conversation.id,null,'Global supervisor'),local=scope(conversation,project,'AQ server supervisor');
- const controls:unknown[]=[];
- server.use(http.get('/api/supervisors',()=>HttpResponse.json({supervisors:[global,local],profiles:[profile],server_time_ms:1})),
+ const controls: Array<{ conversation: string; body: unknown }> = [];
+ server.use(http.get('/api/supervisors',()=>HttpResponse.json({supervisors:[global,local],profiles:[codex,claude],server_time_ms:1})),
  http.get(`/api/human/conversations/projects/${project}`,()=>HttpResponse.json({...discovery,conversation:{id:conversation,revision:'1',label:local.label}})),
  http.get(`/api/human/conversations/${conversation}/messages`,()=>HttpResponse.json({...supervisorHistory([]),conversation:{id:conversation,revision:'1',label:local.label}})),
- http.post(`/api/supervisors/${conversation}/control`,async({request})=>{const body=await request.json() as Record<string,unknown>;controls.push(body);return HttpResponse.json({...body,conversation_id:conversation,revision:1});}));
+ http.post("/api/supervisors/:id/control", async ({ request, params }) => {
+   const id = String(params.id);
+   const body = await request.json() as Record<string, unknown>;
+   controls.push({ conversation: id, body });
+   return HttpResponse.json({ ...body, conversation_id: id, revision: 1 });
+ }));
  await ready();await userEvent.type(await composer(),'Global draft');
  await userEvent.selectOptions(await screen.findByRole('combobox',{name:'Supervisor'}),`project:${project}`);
  const input=await screen.findByRole('textbox',{name:'Message the project supervisor'});expect(input).toHaveValue('');await userEvent.type(input,'Project draft');
- await userEvent.click(screen.getByRole('button',{name:'Start supervisor'}));await waitFor(()=>expect(controls).toHaveLength(1));/* aq-supervisor-control refuses unknown fields: the body is exactly these four, and the choice exactly a level and a candidate. */expect(controls[0]).toEqual({operation_id:expect.any(String),enabled:true,expected_revision:0,intelligence_profile:{profile_id:'standard-medium',candidate_id:'openai:gpt-test:medium'}});
+ async function startSupervisor(id: string, count: number) {
+   const level = screen.getByRole("combobox", { name: "Supervisor level" });
+   await userEvent.selectOptions(level, `${harness} · Standard · ${chosen.model} · medium`);
+   await userEvent.click(screen.getByRole("button", { name: "Start supervisor" }));
+   await waitFor(() => expect(controls).toHaveLength(count));
+   expect(controls[count - 1]).toEqual({
+     conversation: id,
+     body: {
+       operation_id: expect.any(String), enabled: true, expected_revision: 0,
+       intelligence_profile: { profile_id: chosen.profile_id, candidate_id: chosen.candidate_id },
+     },
+   });
+ }
+ await startSupervisor(conversation, 1);
  await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),'global');expect(await composer()).toHaveValue('Global draft');
+ await startSupervisor(discovery.conversation.id, 2);
  await userEvent.selectOptions(screen.getByRole('combobox',{name:'Supervisor'}),`project:${project}`);expect(await screen.findByRole('textbox',{name:'Message the project supervisor'})).toHaveValue('Project draft');
  app.unmount();
 });
@@ -318,9 +339,9 @@ test("an enabled supervisor whose level no longer lists its model says so and ta
  expect(within(panel).getByText('Waiting for a level')).toBeInTheDocument();
  const level=within(panel).getByRole('combobox',{name:'Supervisor level'});
  // The level it had is not replaced silently: nothing is chosen, and nothing can be applied, until the owner picks.
- expect(level).toHaveValue('');expect(level).toHaveTextContent('Choose a level (was Standard · gpt-6.1-sol · medium)');
+ expect(level).toHaveValue('');expect(level).toHaveTextContent('Choose a level (was Codex · Standard · gpt-6.1-sol · medium)');
  expect(within(panel).queryByRole('button',{name:'Apply level'})).not.toBeInTheDocument();
- await userEvent.selectOptions(level,'Standard high · gpt-test · high');
+ await userEvent.selectOptions(level,'Codex · Standard high · gpt-test · high');
  await userEvent.click(within(panel).getByRole('button',{name:'Apply level'}));
  await waitFor(()=>expect(controls).toHaveLength(1));
  expect(controls[0]).toEqual({operation_id:expect.any(String),enabled:true,expected_revision:4,intelligence_profile:{profile_id:'standard-high',candidate_id:'openai:gpt-test:high'}});
