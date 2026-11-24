@@ -34,7 +34,7 @@ function validObservation(value: Record<string, unknown>): boolean {
 export function adaptSupervisors(value: unknown): SupervisorFleet {
   if (isRecord(value) && Number.isSafeInteger(value.server_time_ms)) {
     const controls = boundedList(value.supervisors, 257, validControl);
-    const profiles = boundedList(value.profiles, 2048, p => validLaunchProfile(p) && p.harness === 'codex');
+    const profiles = boundedList(value.profiles, 2048, p => validLaunchProfile(p) && (p.harness === 'codex' || p.harness === 'claude'));
     if (controls && profiles) return value as SupervisorFleet;
   }
   throw new ContractError('Invalid supervisor controls');

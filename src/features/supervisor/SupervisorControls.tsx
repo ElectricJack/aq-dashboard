@@ -98,9 +98,14 @@ function selectedProfile(profiles: Profile[], selected: string, stored: Stored) 
   return profiles.find(profile => profile.profile_id === "standard-medium") ?? profiles[0];
 }
 
+function profileDescription(profile: Partial<Profile>) {
+  const harness = profile.harness === "claude" ? "Claude" : profile.harness === "codex" ? "Codex" : profile.harness;
+  return [harness, profile.name ?? profile.profile_id, profile.model, profile.reasoning].filter(Boolean).join(" · ");
+}
+
 function profilePlaceholder(profiles: Profile[], stored: Stored) {
   if (!profiles.length) return "No level available";
-  const name = stored && [stored.name ?? stored.profile_id, stored.model, stored.reasoning].filter(Boolean).join(" · ");
+  const name = stored && profileDescription(stored);
   return name ? `Choose a level (was ${name})` : "Choose a level";
 }
 
@@ -202,7 +207,7 @@ function ProfilePicker({ profiles, stored, current, disabled, select }: {
   return (
     <label>Level<select aria-label="Supervisor level" value={current ? key(current) : ""} disabled={disabled} onChange={e => select(e.target.value)}>
       {!current && <option value="" disabled>{profilePlaceholder(profiles, stored)}</option>}
-      {profiles.map(profile => <option key={key(profile)} value={key(profile)}>{profile.name} · {profile.model} · {profile.reasoning}</option>)}
+      {profiles.map(profile => <option key={key(profile)} value={key(profile)}>{profileDescription(profile)}</option>)}
     </select></label>
   );
 }
@@ -216,7 +221,7 @@ function Settings({ value: supervisor, fleet, onChanged }: SettingsProps) {
     <ProfilePicker profiles={fleet.profiles} stored={supervisor.profile} current={current} disabled={change.busy || !!change.pending} select={select} />
     <ChangeButtons supervisor={supervisor} change={change} current={current} />
     <SupervisorStatus supervisor={supervisor} />
-    {!fleet.profiles.length && <Link to="/settings?tab=intelligence">Add a Codex model to a level</Link>}
+    {!fleet.profiles.length && <Link to="/settings?tab=intelligence">Add a supervisor model to a level</Link>}
     {change.error && <span role="status">{change.error}</span>}
   </>;
 }

@@ -20,7 +20,7 @@ const GLOBAL = "e0000000-0000-4000-8000-0000000000a1", ACTOR = "e0000000-0000-40
 const stored = ({ snapshot_digest: _digest, ...rest }: (typeof FIXTURE_LAUNCH_PROFILES)[number]) => rest;
 
 function selectedProfile(selected: Record<string, unknown> | undefined) {
-  return selected ? FIXTURE_LAUNCH_PROFILES.find(p => p.harness === "codex" && p.profile_id === selected.profile_id && p.candidate_id === selected.candidate_id) : undefined;
+  return selected ? FIXTURE_LAUNCH_PROFILES.find(p => p.profile_id === selected.profile_id && p.candidate_id === selected.candidate_id) : undefined;
 }
 
 function unknownControlField(body: Record<string, unknown>, selected: Record<string, unknown> | undefined) {
@@ -72,7 +72,7 @@ export function supervisorHandlers(name: string | null | undefined) {
   const receipts = new Map<string, Record<string, unknown>>();
 
   return [
-    http.get("/api/supervisors", () => HttpResponse.json({ supervisors: listed ? [control] : [], profiles: FIXTURE_LAUNCH_PROFILES.filter(p => p.harness === "codex"), server_time_ms: Date.now() })),
+    http.get("/api/supervisors", () => HttpResponse.json({ supervisors: listed ? [control] : [], profiles: FIXTURE_LAUNCH_PROFILES, server_time_ms: Date.now() })),
     http.post("/api/supervisors/:id/control", async ({ request, params }) => {
       const body = await request.json() as Record<string, unknown>;
       const selected = body.intelligence_profile as Record<string, unknown> | undefined;
