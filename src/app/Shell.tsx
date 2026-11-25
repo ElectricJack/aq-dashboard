@@ -9,6 +9,7 @@ import { TitleFocusContext } from "./DestinationPage";
 import { DocumentTitleProvider } from "./documentTitle";
 import { useBackFocusRestore } from "./focusReturn";
 import { navigationDestinations } from "./destinations";
+import { PERFORMANCE } from "../api/adapters/performance";
 import { HOST_DECISIONS } from "../api/adapters/hostDecisions";
 import { scopeSearch, useScope } from "./scope";
 import { isFocusedSessionPath } from "./focusedSession";
@@ -42,7 +43,7 @@ function connectionState(connection: Connection, online: boolean, unreachable: b
 export function Shell() {
   const { bootstrap, connection } = useSession();
   const hostDecisions = bootstrap.capability(HOST_DECISIONS).enabled;
-  const destinations = navigationDestinations(hostDecisions);
+  const destinations = navigationDestinations(hostDecisions, bootstrap.capability(PERFORMANCE).enabled);
   const location = useLocation();
   const focusedSession = focusedRoute(location);
   const [scope, setScope] = useScope();

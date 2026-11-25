@@ -1,4 +1,5 @@
 import {
+  Activity,
   Ban,
   BookOpen,
   CircleAlert,
@@ -50,6 +51,7 @@ export const DESTINATION_ICON: Record<DestinationId, LucideIcon> = {
   agents: Users,
   playbooks: BookOpen,
   knowledge: Database,
+  performance: Activity,
   settings: Settings,
 };
 

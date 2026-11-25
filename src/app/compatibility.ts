@@ -1,9 +1,12 @@
 import type { BootstrapView } from "../api/adapters/bootstrap";
 
+import { PERFORMANCE } from "../api/adapters/performance";
+
 export const UPGRADE_PATH = "Install compatible versions, then reload.";
 
 // More specific prefixes precede their broader resource families.
 const PREFIX_CAPABILITIES = [
+  ["performance-", PERFORMANCE],
   ["human-graph-", "human.graph.read"],
   ["supervisor-", "supervisor.history.read"],
   ["notification-", "notifications.read"],
