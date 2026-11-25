@@ -29,7 +29,9 @@ for (const width of [1440, 390]) {
     // Project scope changes in the shell retain the selected task URL. Open the
     // project's Work list before reviewing its incoming requests.
     if (width < 768) await page.getByRole("button", { name: "More", exact: false }).click();
-    await page.getByRole("link", { name: "Work", exact: true }).click();
+    const work = page.getByRole("link", { name: "Work", exact: true });
+    await expect(work).toHaveAttribute("href", `/work?scope=project%3A${target}`);
+    await work.click();
     await page.getByText("Incoming workspace requests", { exact: true }).click();
     const requests = page.getByRole("list", { name: "Incoming workspace requests" });
     await expect(requests.getByText("Read and write")).toBeVisible();
