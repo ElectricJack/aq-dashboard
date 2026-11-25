@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // Read-only smoke against an explicitly configured actual AQ human listener.
 // No MSW, route interception, provider calls or domain mutations.
@@ -30,7 +30,7 @@ test("production dashboard connects to AQ and supports direct navigation", async
 
 test("unsupported features are explicit and unknown API routes stay JSON errors", async ({ page, request }) => {
   const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
-  const enabled = (name: string) => bootstrap.data.capabilities.some((c: { name: string; version: string; enabled: boolean }) => c.name === name && c.version === "1" && c.enabled === true);
+  const enabled = (name: string) => advertises(bootstrap.data.capabilities, name);
   await page.goto("/work");
   if (enabled("tasks.read")) {
     await expect(page.getByRole("heading", { level: 1, name: "Work", exact: true })).toBeVisible();
@@ -93,9 +93,32 @@ async function expectLifecycle(container: Locator, session: SessionRead) {
 }
 
 
+type Capability = {name: string;version: string;enabled: boolean};
+function advertises(capabilities: Capability[], name: string) {
+  return capabilities.some(cap => cap.name === name && cap.version === "1" && cap.enabled === true);
+}
+function noLifecycleReports(session: SessionRead) {
+  const history = session.lifecycle;
+  return !!history && !history.started_at && !history.stopped_at;
+}
+async function expectTerminal(detail: Locator, session: SessionRead, watchEnabled: boolean) {
+  if (session.terminal && watchEnabled) {
+    const tail = detail.getByRole("region", { name: "Read-only output tail" });
+    await expect(tail).toBeVisible();
+    await expect(tail.getByRole("status")).toHaveText("Not watching");
+    await expect(tail.getByRole("button", { name: "Watch output for up to 15 seconds" })).toBeVisible();
+    await expect(tail).toContainText("This is not a terminal screen or snapshot");
+  } else await expect(detail.getByText("Terminal is not available", { exact: true })).toBeVisible();
+}
+
+async function attachScreen(page: Page, name: string) {
+  const path = test.info().outputPath(name + ".png");
+  await page.screenshot({path,fullPage:true});
+  await test.info().attach(name,{path,contentType:"image/png"});
+}
 test("visible sessions connect roster, exact detail and deep-link refresh", async ({ page, request }) => {
   const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
-  const watchEnabled = bootstrap.data.capabilities.some((c: { name: string; version: string; enabled: boolean }) => c.name === "terminal.watch" && c.version === "1" && c.enabled === true);
+  const watchEnabled = advertises(bootstrap.data.capabilities,"terminal.watch");
   const rosterRead = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/v1/sessions" && r.request().method() === "GET");
   await page.goto("/agents/sessions");
   const response = await rosterRead;
@@ -113,13 +136,11 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
     await expect(row).toContainText(`Central state: ${centralState(s.execution_authority)}`);
     await expectLifecycle(row, s);
   }
-  const noReports = sessions.filter((s) => s.lifecycle && !s.lifecycle.started_at && !s.lifecycle.stopped_at).length;
+  const noReports = sessions.filter(noLifecycleReports).length;
   test.info().annotations.push({ type: "actual-api-lifecycle", description: `${sessions.length} rows checked; ${noReports} explicit no-reports rows` });
-  const rosterImage = test.info().outputPath("sessions-desktop.png");
-  await page.screenshot({ path: rosterImage, fullPage: true });
-  await test.info().attach("sessions-desktop", { path: rosterImage, contentType: "image/png" });
+  await attachScreen(page, "sessions-desktop");
 
-  const session = sessions.find((s) => s.lifecycle && !s.lifecycle.started_at && !s.lifecycle.stopped_at) ?? sessions[0]!;
+  const session = sessions.find(noLifecycleReports) ?? sessions[0]!;
   const detailPath = `/api/v1/sessions/${encodeURIComponent(session.id)}`;
   const detailRead = page.waitForResponse((r) => new URL(r.url()).pathname === detailPath && r.request().method() === "GET");
   await roster.getByRole("link", { name: session.label, exact: true }).click();
@@ -133,17 +154,9 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   await expect(detail.getByText("Central execution state", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText(centralState(detailApi.execution_authority));
   await expectLifecycle(detail, detailApi);
   if (detailApi.observation.state === "unknown") await expect(detail).toContainText("Not observed");
-  if (detailApi.terminal && watchEnabled) {
-    const tail = detail.getByRole("region", { name: "Read-only output tail" });
-    await expect(tail).toBeVisible();
-    await expect(tail.getByRole("status")).toHaveText("Not watching");
-    await expect(tail.getByRole("button", { name: "Watch output for up to 15 seconds" })).toBeVisible();
-    await expect(tail).toContainText("This is not a terminal screen or snapshot");
-  } else await expect(detail.getByText("Terminal is not available", { exact: true })).toBeVisible();
+  await expectTerminal(detail,detailApi,watchEnabled);
   await expect(detail).toContainText("Recorded lifecycle reports are historical evidence");
-  const detailImage = test.info().outputPath("session-detail-desktop.png");
-  await page.screenshot({ path: detailImage, fullPage: true });
-  await test.info().attach("session-detail-desktop", { path: detailImage, contentType: "image/png" });
+  await attachScreen(page, "session-detail-desktop");
 
   const reloadRead = page.waitForResponse((r) => new URL(r.url()).pathname === detailPath && r.request().method() === "GET");
   await page.reload();
@@ -157,6 +170,27 @@ test("visible sessions connect roster, exact detail and deep-link refresh", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
+
+type SavedBinding = {
+  revision: string | number;
+  validation: {expires_at_ms: number};
+  binding: {project_id:string;enabled:boolean;repository_id:string;graph_workspace_id:string;
+    allowed_worker_groups:string[];allowed_node_ids:string[];default_role?:string;default_intelligence?:string};
+};
+async function expectBinding(list: Locator, row: SavedBinding) {
+    const item = list.locator(`li[data-project-id="${row.binding.project_id}"]`);
+    await expect(item).toContainText(row.binding.enabled ? "Configured enabled" : "Configured disabled");
+    await expect(item).toContainText(`Revision ${row.revision}`);
+    await expect(item).toContainText(row.binding.repository_id);
+    await expect(item).toContainText(row.binding.graph_workspace_id);
+    await expect(item).toContainText("Recorded external checks");
+    for (const group of row.binding.allowed_worker_groups) await expect(item).toContainText(group);
+    // Bindings name their defaults once the server has moved to roles; an older server states none.
+    for (const stated of [row.binding.default_role, row.binding.default_intelligence]) if (stated) await expect(item).toContainText(stated);
+    await item.getByText("Identifiers and check times", { exact: true }).click();
+    for (const node of row.binding.allowed_node_ids) await expect(item).toContainText(node);
+    await expect(item.locator(`time[datetime="${new Date(row.validation.expires_at_ms).toISOString()}"]`)).toBeVisible();
+}
 
 test("saved project bindings match the actual owner API without implying readiness", async ({ page, request }) => {
   const bootstrap = await (await request.get("/api/v1/bootstrap")).json();
@@ -174,20 +208,7 @@ test("saved project bindings match the actual owner API without implying readine
   const actual = await result.json();
   const list = page.getByRole("list", { name: "Project execution bindings" });
   await expect(list.getByRole("listitem")).toHaveCount(actual.items.length);
-  for (const row of actual.items) {
-    const item = list.locator(`li[data-project-id="${row.binding.project_id}"]`);
-    await expect(item).toContainText(row.binding.enabled ? "Configured enabled" : "Configured disabled");
-    await expect(item).toContainText(`Revision ${row.revision}`);
-    await expect(item).toContainText(row.binding.repository_id);
-    await expect(item).toContainText(row.binding.graph_workspace_id);
-    await expect(item).toContainText("Recorded external checks");
-    for (const group of row.binding.allowed_worker_groups) await expect(item).toContainText(group);
-    // Bindings name their defaults once the server has moved to roles; an older server states none.
-    for (const stated of [row.binding.default_role, row.binding.default_intelligence]) if (stated) await expect(item).toContainText(stated);
-    await item.getByText("Identifiers and check times", { exact: true }).click();
-    for (const node of row.binding.allowed_node_ids) await expect(item).toContainText(node);
-    await expect(item.locator(`time[datetime="${new Date(row.validation.expires_at_ms).toISOString()}"]`)).toBeVisible();
-  }
+  for (const row of actual.items) await expectBinding(list,row);
   test.info().annotations.push({ type: "actual-project-bindings", description: `${actual.items.length} first-page saved bindings checked; no current readiness assertion` });
   if (actual.items.length === 0) await expect(page.getByText("No project execution bindings configured.")).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("project-bindings-desktop.png"), fullPage: true });

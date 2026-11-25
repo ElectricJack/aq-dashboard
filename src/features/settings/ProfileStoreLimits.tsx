@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError, ApiError } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
 import { DOCUMENT_LIMIT_KEYS, problemsOf, problemText, ROLE_SETTINGS, saveProfileLimits, useProfileLimits, type Fence, type Problem, type ProfileLimits } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
@@ -65,15 +65,16 @@ export function ProfileStoreLimits({ scope }: { scope: string }) {
     } catch (failure) {
       const status = failure instanceof ApiError ? failure.status : undefined;
       if (status === 409) { await query.refetch(); setError("The limits changed since you opened them. Your entries are kept. Save again to replace the saved values, or discard your changes."); }
-      else if (status !== undefined && status >= 400 && status < 500) {
+      else if (isHttpClientError(failure)) {
         const found = problemsOf(failure);
-        if (found.length) setProblems(found); else setError((failure as ApiError).serverMessage ?? "AQ refused these limits.");
+        if (found.length) setProblems(found); else setError(failure.serverMessage ?? "AQ refused these limits.");
       } else { setRetry(request); setError("The save could not be confirmed. Your entries are kept. Retrying sends the same save again; AQ applies it once."); }
       return false;
     } finally { setSaving(false); }
   }
   async function save(): Promise<boolean> {
-    if (!dirty || !draft || !saved) return true;
+    if (!draft || !saved) return true;
+    if (!dirty) return true;
     if (invalid) { setError("Enter every limit as a whole number."); return false; }
     return send({ limits: toLimits(draft), expected_revision: saved.revision, operation_id: crypto.randomUUID() });
   }

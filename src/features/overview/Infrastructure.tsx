@@ -34,6 +34,42 @@ function SlotSummary({ slots }: { slots: ReturnType<typeof fleetSlots> }) {
   </>;
 }
 
+function MachineResources({ headroom }: { headroom: MachineCapacity["headroom"] }) {
+  return <dl className={styles.machineResources}>
+          {RESOURCES.filter(resource => resource !== "GPU").map(resource => {
+            const reading = headroom[resource];
+            return <div key={resource}>
+              <dt>{resource}</dt>
+              <dd>{reading === undefined ? "Not reported" : formatFreePercent(reading.percent)}</dd>
+              {reading?.freeBytes !== undefined && <dd>{resource === "Memory" && "~"}{formatBytes(reading.freeBytes)}</dd>}
+            </div>;
+          })}
+        </dl>;
+}
+
+function FleetHeadroom({ machines }: { machines: MachineCapacity[] }) {
+  return <section className={styles.resourceSection} aria-labelledby="overview-headroom-heading">
+      <h3 id="overview-headroom-heading">Tightest reported headroom</h3>
+      <ul className={styles.resourceGrid}>
+        {RESOURCES.map(resource => {
+          const lowest = tightestHeadroom(machines, resource);
+          return <li key={resource}>
+            <div className={styles.resourceValue}>
+              <strong>{resource}</strong>
+              <span>{lowest ? formatFreePercent(lowest.reading.percent) : "Not reported"}</span>
+            </div>
+            {lowest && <>
+              <span className={styles.resourceBar} aria-hidden="true">
+                <span style={{ inlineSize: `${lowest.reading.percent}%` }} />
+              </span>
+              <span className={styles.meta}>{lowest.machine}</span>
+            </>}
+          </li>;
+        })}
+      </ul>
+    </section>;
+}
+
 function MachineDetails({ machines }: { machines: MachineCapacity[] }) {
   return <details className={styles.capacityDetails}>
     <summary>By machine <span className={styles.meta}>({machines.length})</span></summary>
@@ -45,16 +81,7 @@ function MachineDetails({ machines }: { machines: MachineCapacity[] }) {
           {" · "}{slots.inUse} in use{slots.held > 0 && ` · ${slots.held} unavailable`}
         </p>
         {holds.length > 0 && <p className={styles.capacityHold}>{holds.join(" · ")}</p>}
-        <dl className={styles.machineResources}>
-          {RESOURCES.filter(resource => resource !== "GPU").map(resource => {
-            const reading = headroom[resource];
-            return <div key={resource}>
-              <dt>{resource}</dt>
-              <dd>{reading === undefined ? "Not reported" : formatFreePercent(reading.percent)}</dd>
-              {reading?.freeBytes !== undefined && <dd>{resource === "Memory" && "~"}{formatBytes(reading.freeBytes)}</dd>}
-            </div>;
-          })}
-        </dl>
+        <MachineResources headroom={headroom} />
         {loadLabel && <p className={styles.meta}>{loadLabel}</p>}
       </li>)}
     </ul>
@@ -77,26 +104,7 @@ function CapacityRead({ view, coverage }: Read<SwarmView>) {
       : slots.open === 0 && slots.held > 0 && holds.length === 1
         ? <p className={styles.capacityHold}>{holds[0]}</p>
         : <p className={styles.meta}>Launches also depend on project, provider, and worker readiness.</p>}
-    <section className={styles.resourceSection} aria-labelledby="overview-headroom-heading">
-      <h3 id="overview-headroom-heading">Tightest reported headroom</h3>
-      <ul className={styles.resourceGrid}>
-        {RESOURCES.map(resource => {
-          const lowest = tightestHeadroom(machines, resource);
-          return <li key={resource}>
-            <div className={styles.resourceValue}>
-              <strong>{resource}</strong>
-              <span>{lowest ? formatFreePercent(lowest.reading.percent) : "Not reported"}</span>
-            </div>
-            {lowest && <>
-              <span className={styles.resourceBar} aria-hidden="true">
-                <span style={{ inlineSize: `${lowest.reading.percent}%` }} />
-              </span>
-              <span className={styles.meta}>{lowest.machine}</span>
-            </>}
-          </li>;
-        })}
-      </ul>
-    </section>
+    <FleetHeadroom machines={machines} />
     <MachineDetails machines={machines} />
   </>;
 }

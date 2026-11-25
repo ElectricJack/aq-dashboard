@@ -1,3 +1,5 @@
+import { PERFORMANCE } from "../api/adapters/performance";
+
 export type DestinationId =
   | "overview"
   | "supervisor"
@@ -7,6 +9,7 @@ export type DestinationId =
   | "agents"
   | "playbooks"
   | "knowledge"
+  | "performance"
   | "settings";
 
 export type Destination = {
@@ -29,16 +32,17 @@ export const DESTINATIONS: readonly Destination[] = [
   { id: "decisions", label: "Decisions", capability: "decisions.read", workPackage: "D05", phone: "more" },
   { id: "playbooks", label: "Playbooks", capability: "playbooks.inspect", workPackage: "D11", phone: "more" },
   { id: "knowledge", label: "Knowledge", capability: "knowledge.read", workPackage: "D11", phone: "more" },
+  { id: "performance", label: "Performance", capability: PERFORMANCE, workPackage: "Fleet performance metrics", phone: "more" },
   { id: "settings", label: "Settings", capability: null, workPackage: "D03", phone: "more" },
 ];
 
 /** Incomplete surfaces kept out of the navigation; their routes and deep links still work. Empty it to restore them. */
 export const NAV_HIDDEN: ReadonlySet<DestinationId> = new Set<DestinationId>(["results", "decisions", "knowledge"]);
 
-export const NAV_DESTINATIONS: readonly Destination[] = DESTINATIONS.filter((d) => !NAV_HIDDEN.has(d.id));
+export const NAV_DESTINATIONS: readonly Destination[] = navigationDestinations(false);
 
-export function navigationDestinations(hostDecisions: boolean): readonly Destination[] {
-  return hostDecisions ? DESTINATIONS.filter(d => d.id === "decisions" || !NAV_HIDDEN.has(d.id)) : NAV_DESTINATIONS;
+export function navigationDestinations(hostDecisions: boolean, performance = false): readonly Destination[] {
+  return DESTINATIONS.filter(d => (d.id === "decisions" && hostDecisions || !NAV_HIDDEN.has(d.id)) && (d.id !== "performance" || performance));
 }
 
 /** Phone bottom bar order: Overview, Results, Supervisor, Agents, then More. */

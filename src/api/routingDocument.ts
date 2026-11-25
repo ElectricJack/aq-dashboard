@@ -1,4 +1,5 @@
-import { apiGet, apiSend, ApiError } from "./client";
+import { settingsRevision, settingsSaves, savedRevision } from "./settingsSaves";
+import { apiGet } from "./client";
 import { ContractError, isRecord } from "./adapters/contract";
 
 /**
@@ -20,37 +21,21 @@ export type RoutingDocumentSaved = RoutingDocument & { disposition: "saved" | "u
 export const ROUTING_DOCUMENT_READ_BYTES = 8 * 1024 * 1024;
 
 export const ROUTING_DOCUMENT_PATH = "/api/settings/routing-document";
-const revision = (value: unknown): value is string => typeof value === "string" && value.length <= 128 && /^(0|[1-9]\d*)$/.test(value);
 function ensure(condition: unknown): asserts condition { if (!condition) throw new ContractError("Invalid routing document response"); }
 function shown(value: unknown): RoutingDocument {
-  ensure(isRecord(value) && revision(value.revision) && typeof value.markdown === "string" && value.markdown.length <= ROUTING_DOCUMENT_READ_BYTES);
+  ensure(isRecord(value) && settingsRevision(value.revision) && typeof value.markdown === "string" && value.markdown.length <= ROUTING_DOCUMENT_READ_BYTES);
   return { markdown: value.markdown, revision: value.revision };
 }
-/** The saves this page has sent, by operation id, so a retry or a status check sends exactly the same save. */
-const sent = new Map<string, SaveRoutingDocument>();
+export const readRoutingDocument = async (signal?: AbortSignal): Promise<RoutingDocument> =>
+  shown(await apiGet<unknown>(ROUTING_DOCUMENT_PATH, signal));
 
-export const readRoutingDocument = async (signal?: AbortSignal): Promise<RoutingDocument> => shown(await apiGet<unknown>(ROUTING_DOCUMENT_PATH, signal));
+const saves = settingsSaves(ROUTING_DOCUMENT_PATH,
+  ({ markdown, expected_revision, operation_id }: SaveRoutingDocument) => ({ markdown, expected_revision, operation_id }),
+  (receipt, request): RoutingDocumentSaved => ({
+    markdown: request.markdown, revision: savedRevision(receipt, "routing document"), disposition: "saved",
+  }),
+);
 
-export async function saveRoutingDocument(request: SaveRoutingDocument): Promise<RoutingDocumentSaved> {
-  const save = sent.get(request.operation_id) ?? { markdown: request.markdown, expected_revision: request.expected_revision, operation_id: request.operation_id };
-  if (!sent.has(save.operation_id)) { if (sent.size >= 16) sent.delete(sent.keys().next().value!); sent.set(save.operation_id, save); }
-  let receipt: unknown;
-  try { receipt = await apiSend<unknown>("PUT", ROUTING_DOCUMENT_PATH, save); } catch (error) {
-    // A refusal is an answer: the save is over. Anything else leaves it kept for the retry.
-    if (error instanceof ApiError && error.status !== undefined && error.status >= 400 && error.status < 500) sent.delete(save.operation_id);
-    throw error;
-  }
-  ensure(isRecord(receipt) && revision(receipt.revision));
-  sent.delete(save.operation_id);
-  return { markdown: save.markdown, revision: receipt.revision, disposition: "saved" };
-}
-
-/**
- * The outcome of a save whose answer was lost: the same save again, which the server answers as it did the first time
- * (or performs, if the first never arrived). A save this page did not send cannot be checked; that reads as not recorded.
- */
-export async function inspectRoutingDocumentSave(operationId: string): Promise<RoutingDocumentSaved> {
-  const save = sent.get(operationId);
-  if (!save) throw new ApiError("http", "This save was not sent from this page", { status: 404 });
-  return saveRoutingDocument(save);
-}
+export const saveRoutingDocument = saves.save;
+/** Inspect an ambiguous outcome by submitting the exact retained operation again. */
+export const inspectRoutingDocumentSave = saves.inspect;

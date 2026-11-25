@@ -19,7 +19,7 @@ function agent(i: number, provider: string, model: string, harness: string, cls:
   };
 }
 /** A worker node as the server lists it: `total` is its one slot count, and each agent row carries its slot, from one. */
-function worker(n: number, name: string, backend: string, total: number | null, rows: SwarmAgent[], extra: Partial<SwarmNode> = {}): SwarmNode {
+function worker({ n, name, backend }: { n: number; name: string; backend: string }, total: number | null, rows: SwarmAgent[], extra: Partial<SwarmNode> = {}): SwarmNode {
   const agents = rows.map((row, i): SwarmAgent => ({ slot: i + 1, ...row }));
   return {
     node: { id: uuid(n), type: "worker" }, name, health: "online", service: { state: "unreported", since: null }, backend_kind: backend,
@@ -38,19 +38,19 @@ export const SWARM_MOCKUP: Swarm = {
       hardware: { logical_cpus: 24, memory_total_bytes: 64 * 2 ** 30, disk_total_bytes: 2e12, disk_free_bytes: 294e9 }, agent_max: 5, cost: null,
       control: { desired: "running", generation: "1", since: null, pending_handoffs: 0 },
       nodes: [
-        worker(1, "local-1", "docker-local", 3, [agent(0, "claude", "claude-sonnet-5", "claude", "standard"), agent(1, "claude", "claude-opus-5-5", "claude", "deep"), agent(2, "codex", "gpt-5.3-codex", "codex", "fast")]),
-        worker(2, "local-2", "docker-local", 2, [agent(3, "claude", "claude-haiku-5", "claude", "fast")]),
+        worker({ n: 1, name: "local-1", backend: "docker-local" }, 3, [agent(0, "claude", "claude-sonnet-5", "claude", "standard"), agent(1, "claude", "claude-opus-5-5", "claude", "deep"), agent(2, "codex", "gpt-5.3-codex", "codex", "fast")]),
+        worker({ n: 2, name: "local-2", backend: "docker-local" }, 2, [agent(3, "claude", "claude-haiku-5", "claude", "fast")]),
       ],
     },
     {
       id: "laptop", label: "laptop", kind: "local", state: "offline", holding: [], last_seen_at: ago(2 * 3_600_000), load: null, hardware: null, agent_max: null, cost: null, control: null,
-      nodes: [worker(3, "laptop-1", "docker-local", 2, [], { health: "offline", last_seen_at: ago(2 * 3_600_000) })],
+      nodes: [worker({ n: 3, name: "laptop-1", backend: "docker-local" }, 2, [], { health: "offline", last_seen_at: ago(2 * 3_600_000) })],
     },
     {
       id: "studio", label: "studio", kind: "local", state: "holding", holding: [CAPABILITY_EXPIRED], last_seen_at: ago(6_000),
       load: { source: "linux", host_probe: "not_applicable", cpu_busy_bps: 2350, memory_used_bps: 4000, cpu_avg_15m_bps: 2000, memory_avg_15m_bps: 3900, samples_15m: 58, observed_at: ago(6_000), fresh: true },
       hardware: { logical_cpus: 8, memory_total_bytes: 32 * 2 ** 30, disk_total_bytes: 1e12, disk_free_bytes: 600e9 }, agent_max: 2, cost: null, control: null,
-      nodes: [worker(4, "studio-1", "docker-local", 2, [], { holding: [CAPABILITY_EXPIRED] })],
+      nodes: [worker({ n: 4, name: "studio-1", backend: "docker-local" }, 2, [], { holding: [CAPABILITY_EXPIRED] })],
     },
     {
       id: "boat:vm-a", label: "boat vm-a", kind: "cloud", state: "booting", holding: [], last_seen_at: null, load: null, hardware: null, agent_max: null,
@@ -72,7 +72,7 @@ export const SWARM_LARGE_FLEET: Swarm = {
   server: { ...SWARM_MOCKUP.server, running_agents: 200 },
   machines: [{
     ...SWARM_MOCKUP.machines[0]!, id: "fixture-fleet", label: "Fixture fleet", agent_max: 204,
-    nodes: [0, 1].map((workerIndex) => worker(100 + workerIndex, `fixture-worker-${workerIndex + 1}`, "fixture", workerIndex === 0 ? 152 : 52,
+    nodes: [0, 1].map((workerIndex) => worker({ n: 100 + workerIndex, name: `fixture-worker-${workerIndex + 1}`, backend: "fixture" }, workerIndex === 0 ? 152 : 52,
       Array.from({ length: workerIndex === 0 ? 150 : 50 }, (_, index): SwarmAgent => {
         const n = (workerIndex === 0 ? 0 : 150) + index;
         return {
@@ -143,19 +143,26 @@ const DEMO_WORKERS: { machine: 0 | 1; name: string; total: number; agents: [slot
 const demoTask = (i: number) => uuid(7100 + i), demoAttempt = (i: number) => uuid(7200 + i), demoSession = (i: number) => uuid(7300 + i);
 const demoRanWith = (d: Demo) => ({ role: d.role, level: d.level[0], provider: d.provider, model: d.model, reasoning: d.reasoning, harness: d.harness, execution_profile: "fixture-sandbox", snapshot_digest: "d".repeat(64) });
 
-/** The demo swarm at `now`. `next` is the shape the server sends now; without it, an older server's. */
-export function demoSwarm(now: string, next = false): Swarm {
-  const at = (ms: number) => new Date(Date.parse(now) - ms).toISOString();
-  const row = (d: Demo, i: number): SwarmAgent => ({
+function demoPhase(index: number): "running" | "starting" | "finishing" {
+  return index < DEMO_RUNNING ? "running" : index === DEMO_STARTING ? "starting" : "finishing";
+}
+
+function demoAgent(d: Demo, i: number, next: boolean, at: (ms: number) => string): SwarmAgent {
+  return {
     session_id: demoSession(i), attempt_id: demoAttempt(i), task: { id: demoTask(i), title: next ? d.title : demoTask(i) }, project: DEMO_PROJECTS[d.project]!,
     provider: d.provider, model: d.model, harness: d.harness, intelligence_class: d.cls, routing_profile: { id: d.level[0], display_name: d.level[1] },
     terminal: null, started_at: i === DEMO_STARTING ? null : at(d.ranMs),
-    ...(next ? { phase: i < DEMO_RUNNING ? "running" as const : i === DEMO_STARTING ? "starting" as const : "finishing" as const, ran_with: demoRanWith(d), last_output_at: i === DEMO_STARTING ? null : at(i === DEMO_FINISHING ? 20_000 : d.outputAgoMs) } : {}),
-  });
+    ...(next ? { phase: demoPhase(i), ran_with: demoRanWith(d), last_output_at: i === DEMO_STARTING ? null : at(i === DEMO_FINISHING ? 20_000 : d.outputAgoMs) } : {}),
+  };
+}
+
+/** The demo swarm at `now`. `next` is the shape the server sends now; without it, an older server's. */
+export function demoSwarm(now: string, next = false): Swarm {
+  const at = (ms: number) => new Date(Date.parse(now) - ms).toISOString();
   const nodes = (machine: 0 | 1): SwarmNode[] => DEMO_WORKERS.map((w, index) => ({ w, index })).filter(x => x.w.machine === machine).map(({ w, index }) => {
     const held = w.agents.length;
-    const agents = w.agents.filter(([, i]) => next || i < DEMO_RUNNING).map(([slot, i]): SwarmAgent => ({ ...row(DEMO_AGENTS[i]!, i), slot }));
-    return { ...worker(7400 + index, w.name, "docker-local", w.total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total: w.total, occupied: held, idle: w.total - held } };
+    const agents = w.agents.filter(([, i]) => next || i < DEMO_RUNNING).map(([slot, i]): SwarmAgent => ({ ...demoAgent(DEMO_AGENTS[i]!, i, next, at), slot }));
+    return { ...worker({ n: 7400 + index, name: w.name, backend: "docker-local" }, w.total, agents, { service: { state: "running", since: at(3_600_000) }, last_seen_at: at(1_500) }), slots: { total: w.total, occupied: held, idle: w.total - held } };
   });
   const machine = (id: string, label: string, cpus: number, cpu: number, ram: number, agentMax: number, list: SwarmNode[]): Swarm["machines"][number] => ({
     id, label, kind: "local", state: "online", holding: [], last_seen_at: at(1_500),

@@ -1,4 +1,4 @@
-import { ContractError, isRecord } from "./contract";
+import { canonicalUuid, timestampMs, ContractError, isRecord } from "./contract";
 
 /**
  * F5 agent questions as the decision inbox reads them. The read shape is the live
@@ -25,8 +25,6 @@ export type QuestionPage = { items: QuestionSummary[]; cursor: string | null; se
 export type QuestionRead = { item: QuestionSummary; serverTime: number };
 
 function ensure(v: unknown): asserts v { if (!v) throw new ContractError("Invalid question response"); }
-function uuid(v: unknown): v is string { return typeof v === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(v) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(v); }
-function time(v: unknown): v is number { return typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= 8640000000000000; }
 const revision = (v: unknown): v is string => typeof v === "string" && /^[1-9][0-9]{0,18}$/.test(v);
 const bytes = (v: string) => new TextEncoder().encode(v).length;
 const prose = (v: unknown, limit: number): v is string => typeof v === "string" && v.trim().length > 0 && bytes(v) <= limit;
@@ -36,29 +34,56 @@ export function isQuestionExpired(q: Pick<QuestionSummary, "state" | "expires">,
   return q.state === "pending" && q.expires < serverNowMs;
 }
 
-function question(v: unknown): QuestionSummary {
-  ensure(isRecord(v) && v.kind === "question" && uuid(v.decision_id) && revision(v.decision_revision) && (v.state === "pending" || v.state === "answered"));
-  ensure(uuid(v.project_id) && uuid(v.workspace_id) && uuid(v.task_id) && prose(v.question, MAX_QUESTION_BYTES) && time(v.asked_at_ms) && time(v.expires_at_ms));
-  ensure(v.task_title === undefined || v.task_title === null || (typeof v.task_title === "string" && bytes(v.task_title) <= MAX_TITLE_BYTES));
-  let delivery: QuestionDelivery | null = null;
-  if (v.state === "pending") ensure(v.answer === null && v.answered_at_ms === null && v.delivery === null);
-  else {
-    ensure(prose(v.answer, MAX_ANSWER_BYTES) && time(v.answered_at_ms) && v.decision_revision !== "1" && isRecord(v.delivery));
-    const d = v.delivery;
-    ensure(d.kind === "wait" || (d.kind === "task_mail" && uuid(d.message_id)));
-    delivery = d.kind === "wait" ? { kind: "wait" } : { kind: "task_mail", messageId: String(d.message_id) };
+function answerFields(v: Record<string, unknown>): Pick<QuestionSummary, "answer" | "answeredAt" | "delivery"> {
+  if (v.state === "pending") {
+    ensure(v.answer === null && v.answered_at_ms === null && v.delivery === null);
+    return { answer: null, answeredAt: null, delivery: null };
   }
+  ensure(prose(v.answer, MAX_ANSWER_BYTES) && timestampMs(v.answered_at_ms));
+  ensure(v.decision_revision !== "1" && isRecord(v.delivery));
+  const delivery = v.delivery;
+  if (delivery.kind === "wait") {
+    return { answer: v.answer, answeredAt: v.answered_at_ms, delivery: { kind: "wait" } };
+  }
+  ensure(delivery.kind === "task_mail" && canonicalUuid(delivery.message_id));
+  return { answer: v.answer, answeredAt: v.answered_at_ms, delivery: { kind: "task_mail", messageId: delivery.message_id } };
+}
+
+function taskTitle(value: unknown): string | null {
+  if (value == null) return null;
+  ensure(typeof value === "string" && bytes(value) <= MAX_TITLE_BYTES);
+  return value.trim() ? value : null;
+}
+
+function question(v: unknown): QuestionSummary {
+  ensure(isRecord(v) && v.kind === "question");
+  ensure(canonicalUuid(v.decision_id) && revision(v.decision_revision));
+  ensure(v.state === "pending" || v.state === "answered");
+  ensure(canonicalUuid(v.project_id));
+  ensure(canonicalUuid(v.workspace_id));
+  ensure(canonicalUuid(v.task_id));
+  ensure(prose(v.question, MAX_QUESTION_BYTES));
+  ensure(timestampMs(v.asked_at_ms) && timestampMs(v.expires_at_ms));
   return {
     decisionId: v.decision_id, revision: v.decision_revision, state: v.state, projectId: v.project_id, workspaceId: v.workspace_id, taskId: v.task_id,
-    taskTitle: typeof v.task_title === "string" && v.task_title.trim() ? v.task_title : null,
+    taskTitle: taskTitle(v.task_title),
     question: v.question, askedAt: v.asked_at_ms, expires: v.expires_at_ms,
-    answer: v.state === "answered" ? String(v.answer) : null, answeredAt: v.state === "answered" ? Number(v.answered_at_ms) : null, delivery,
+    ...answerFields(v),
   };
 }
 
+function validCursor(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && value.length > 0 && value.length <= 4096);
+}
+
+function questionHeader(raw: unknown): asserts raw is Record<string, unknown> & {server_time_ms: number} {
+  ensure(isRecord(raw) && raw.api_version === "question-inbox-1" && timestampMs(raw.server_time_ms));
+}
+
 export function adaptQuestions(raw: unknown, open: boolean, project?: string): QuestionPage {
-  ensure(isRecord(raw) && raw.api_version === "question-inbox-1" && time(raw.server_time_ms) && Array.isArray(raw.items) && raw.items.length <= 50);
-  ensure(raw.next_cursor === null || (typeof raw.next_cursor === "string" && raw.next_cursor.length > 0 && raw.next_cursor.length <= 4096));
+  questionHeader(raw);
+  ensure(Array.isArray(raw.items) && raw.items.length <= 50);
+  ensure(validCursor(raw.next_cursor));
   const items = raw.items.map(question);
   ensure(new Set(items.map(i => i.decisionId)).size === items.length);
   ensure(items.every(i => (i.state === "pending") === open && (!project || i.projectId === project)));
@@ -66,7 +91,7 @@ export function adaptQuestions(raw: unknown, open: boolean, project?: string): Q
 }
 
 export function adaptQuestion(raw: unknown, expected: string): QuestionRead {
-  ensure(isRecord(raw) && raw.api_version === "question-inbox-1" && time(raw.server_time_ms));
+  questionHeader(raw);
   const item = question(raw.item);
   ensure(item.decisionId === expected);
   return { item, serverTime: raw.server_time_ms };

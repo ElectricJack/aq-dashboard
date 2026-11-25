@@ -1,5 +1,13 @@
-import { ContractError } from "./adapters/contract";
 import { ApiError } from "./client";
+
+const TRANSIENT_HTTP_STATUSES = new Set([408, 429, 502, 503, 504]);
+
+function retryableHttp(error: ApiError): boolean {
+  if (error.envelope?.retryable === false) return false;
+  const status = error.status ?? 0;
+  if (TRANSIENT_HTTP_STATUSES.has(status)) return true;
+  return status >= 500 && error.envelope?.retryable === true;
+}
 
 /**
  * Read retry policy (QA SO-10, RA-15, §2B). Only a failure that can clear by
@@ -9,14 +17,9 @@ import { ApiError } from "./client";
  */
 export function isRetryableError(error: unknown): boolean {
   if (error instanceof DOMException) return error.name === "TimeoutError";
-  if (error instanceof ContractError || !(error instanceof ApiError)) return false;
+  if (!(error instanceof ApiError)) return false;
   if (error.kind === "transport") return true;
-  if (error.kind !== "http") return false;
-  const status = error.status ?? 0;
-  if (error.envelope?.retryable === false) return false;
-  if (status === 429 || status === 408) return true;
-  if (status === 502 || status === 503 || status === 504) return true;
-  return status >= 500 && error.envelope?.retryable === true;
+  return error.kind === "http" && retryableHttp(error);
 }
 
 /** Read attempts after the first one. */

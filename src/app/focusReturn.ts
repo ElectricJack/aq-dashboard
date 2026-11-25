@@ -27,6 +27,52 @@ function linksTo(root: ParentNode, href: string): HTMLAnchorElement[] {
   return Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]")).filter((a) => a.getAttribute("href") === href);
 }
 
+function recordNavigation(root: HTMLElement | null, target: EventTarget | null, key: string) {
+  if (!root || !(target instanceof Element)) return;
+  const link = target.closest("a[href]");
+  if (!(link instanceof HTMLAnchorElement) || !root.contains(link)) return;
+  const href = link.getAttribute("href")!;
+  remember(key, { href, index: Math.max(0, linksTo(root, href).indexOf(link)) });
+}
+
+function focusedElement(value: EventTarget | null): value is HTMLElement {
+  return value instanceof HTMLElement && value !== document.body;
+}
+
+function pageHasFocus(root: HTMLElement | null) {
+  const active = document.activeElement;
+  return focusedElement(active) && active.tagName !== "H1" && root?.contains(active);
+}
+
+function originLink(root: HTMLElement | null, origin: Origin) {
+  if (!root) return;
+  const links = linksTo(root, origin.href);
+  return links[origin.index] ?? links[0];
+}
+
+function restoreOrigin(container: () => HTMLElement | null, origin: Origin) {
+  let frame = 0;
+  let moved = false;
+  const deadline = performance.now() + RESTORE_WINDOW_MS;
+  const onFocus = (event: FocusEvent) => { if (focusedElement(event.target)) moved = true; };
+  document.addEventListener("focusin", onFocus);
+  const finish = () => document.removeEventListener("focusin", onFocus);
+  function attempt() {
+    const root = container();
+    // A page that restores its own focus (Work's graph node, a selected row) wins.
+    if (pageHasFocus(root)) return finish();
+    const target = originLink(root, origin);
+    if (target) {
+      target.focus({ preventScroll: true });
+      return finish();
+    }
+    if (moved || performance.now() > deadline) return finish();
+    frame = requestAnimationFrame(attempt);
+  }
+  attempt();
+  return () => { cancelAnimationFrame(frame); finish(); };
+}
+
 /**
  * Shell-level: remembers the link that navigated away from each history entry
  * and, on Back/Forward (POP) to that entry, focuses the same link once the
@@ -39,13 +85,7 @@ export function useBackFocusRestore(container: () => HTMLElement | null) {
   const current = useRef(location.key);
   current.current = location.key;
   useEffect(() => {
-    const record = (event: MouseEvent) => {
-      const root = container();
-      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-      if (!root || !(link instanceof HTMLAnchorElement) || !root.contains(link)) return;
-      const href = link.getAttribute("href")!;
-      remember(current.current, { href, index: Math.max(0, linksTo(root, href).indexOf(link)) });
-    };
+    const record = (event: MouseEvent) => recordNavigation(container(), event.target, current.current);
     // Capture: the router handles the click (and re-renders) before a bubbling listener would run.
     document.addEventListener("click", record, true);
     return () => document.removeEventListener("click", record, true);
@@ -54,28 +94,7 @@ export function useBackFocusRestore(container: () => HTMLElement | null) {
     if (type !== "POP") return;
     const origin = origins.get(location.key);
     if (!origin) return;
-    let frame = 0;
-    let moved = false;
-    const deadline = performance.now() + RESTORE_WINDOW_MS;
-    const onFocus = (event: FocusEvent) => { if (event.target instanceof HTMLElement && event.target !== document.body) moved = true; };
-    document.addEventListener("focusin", onFocus);
-    const attempt = () => {
-      const root = container();
-      // A page that restores its own focus (Work's graph node, a selected row) wins.
-      const active = document.activeElement;
-      if (root && active instanceof HTMLElement && active !== document.body && active.tagName !== "H1" && root.contains(active)) return finish();
-      const links = root ? linksTo(root, origin.href) : [];
-      const target = links[origin.index] ?? links[0];
-      if (target) {
-        target.focus({ preventScroll: true });
-        return finish();
-      }
-      if (moved || performance.now() > deadline) return finish();
-      frame = requestAnimationFrame(attempt);
-    };
-    const finish = () => document.removeEventListener("focusin", onFocus);
-    attempt();
-    return () => { cancelAnimationFrame(frame); finish(); };
+    return restoreOrigin(container, origin);
   }, [location.key, type, container]);
 }
 
@@ -86,7 +105,7 @@ export function useBackFocusRestore(container: () => HTMLElement | null) {
 export function useReturnFocus() {
   const origin = useRef<HTMLElement | null>(null);
   const rememberOrigin = useCallback((element?: HTMLElement | null) => {
-    origin.current = element ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null);
+    origin.current = element ?? (focusedElement(document.activeElement) ? document.activeElement : null);
   }, []);
   const restore = useCallback((fallback?: HTMLElement | null) => {
     const target = origin.current;

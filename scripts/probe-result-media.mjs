@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // ACTUAL disposable AQ Owner only. No interception, fake bootstrap, uploader UI or provider calls.
+import { inputPngPolicy } from "./probe-png-policy.mjs";
 import { chromium, expect, request } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -47,29 +48,6 @@ function pngShape(bytes, descriptor) {
   expect(bytes[24]).toBe(8); expect([2, 6]).toContain(bytes[25]); expect(bytes[28]).toBe(0);
   if (descriptor) { expect(width).toBe(descriptor.width); expect(height).toBe(descriptor.height); expect(bytes[25]).toBe(6); }
   return { width, height };
-}
-function inputPngPolicy(bytes) {
-  // Do not rewrite screenshots. Abort before admission if Chromium emits unsupported metadata.
-  const kinds = []; let offset = 8, idat = false, afterIdat = false, srgb = false, ended = false;
-  while (offset < bytes.length) {
-    expect(offset + 12).toBeLessThanOrEqual(bytes.length);
-    const length = bytes.readUInt32BE(offset), end = offset + 12 + length;
-    expect(end).toBeLessThanOrEqual(bytes.length);
-    const kind = bytes.toString("ascii", offset + 4, offset + 8); kinds.push(kind);
-    expect(["IHDR", "sRGB", "IDAT", "IEND"]).toContain(kind);
-    let crc = 0xffffffff;
-    for (const value of bytes.subarray(offset + 4, end - 4)) { crc ^= value; for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1; }
-    expect(bytes.readUInt32BE(end - 4)).toBe((crc ^ 0xffffffff) >>> 0);
-    if (kinds.length === 1) { expect(kind).toBe("IHDR"); expect(length).toBe(13); }
-    else expect(kind).not.toBe("IHDR");
-    if (kind === "sRGB") { expect(srgb || idat).toBe(false); expect(length).toBe(1); expect(bytes[offset + 8]).toBeLessThanOrEqual(3); srgb = true; }
-    if (kind === "IDAT") { expect(afterIdat).toBe(false); idat = true; }
-    else if (idat) afterIdat = true;
-    if (kind === "IEND") { expect(length).toBe(0); expect(idat).toBe(true); expect(end).toBe(bytes.length); ended = true; }
-    offset = end;
-  }
-  expect(ended).toBe(true); expect(bytes[26]).toBe(0); expect(bytes[27]).toBe(0);
-  return kinds;
 }
 function track(page) {
   pages.push(page); page.on("pageerror", error => errors.push(error.message));

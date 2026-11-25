@@ -14,6 +14,17 @@ type WireSource = Omit<SourceView, "active" | "latest"> & { active: WireActive |
 type Snapshot = { markdown: string; revision: string };
 /** A save, and its receipt. The fixture's digest is a constant: saving the document compiles nothing. */
 type Save = { markdown: string; expected_revision: string; operation_id: string };
+function isSave(body: Save | null): body is Save {
+  if (!body || Object.keys(body).length !== 3) return false;
+  const fields: (keyof Save)[] = ["operation_id", "markdown", "expected_revision"];
+  return fields.every(key => typeof body[key] === "string");
+}
+
+function needsAuthoring(source: WireSource, changed: boolean) {
+  if (source.latest?.status === "running") return false;
+  return changed || !source.active || source.latest?.status !== "saved";
+}
+
 type Receipt = { revision: string; digest: string };
 const FIXTURE_DIGEST = `sha256:${"a".repeat(64)}`;
 
@@ -82,7 +93,8 @@ export function routingDocumentHandlers(scenario?: string | null) {
   /** A fixture run finishes `RUN_MS` after it started and saves a playbook. */
   const settle = () => {
     const latest = source.latest, now = Date.now();
-    if (latest?.status !== "running" || now - latest.created_at_ms < RUN_MS || scenario === "playbook-running") return;
+    if (latest?.status !== "running") return;
+    if (scenario === "playbook-running" || now - latest.created_at_ms < RUN_MS) return;
     previous = source.active;
     source = { ...source, active: fixtureActive(now, source.active ? "behaviour" : null), latest: { ...latest, status: "saved", finished_at_ms: now } };
     changed = false;
@@ -118,7 +130,7 @@ export function routingDocumentHandlers(scenario?: string | null) {
       if (params.id !== ROUTING_SOURCE_ID) return fail(404, `There is no playbook source ${String(params.id)}`);
       settle();
       // As the server: nothing starts while a run is going, or when the document is the one the playbook in effect was written from.
-      if (source.latest?.status !== "running" && (changed || !source.active || source.latest?.status !== "saved")) {
+      if (needsAuthoring(source, changed)) {
         source = { ...source, latest: fixtureRun("running", Date.now()) };
         keepSource();
       }
@@ -128,7 +140,7 @@ export function routingDocumentHandlers(scenario?: string | null) {
     // As the server: the same operation again answers as the first time; its id with another save is a conflict.
     http.put("/api/settings/routing-document", async ({ request }) => {
       const body = await request.json().catch(() => null) as Save | null;
-      if (!body || typeof body.operation_id !== "string" || typeof body.markdown !== "string" || typeof body.expected_revision !== "string" || Object.keys(body).length !== 3) return fail(400, "Invalid settings request");
+      if (!isSave(body)) return fail(400, "Invalid settings request");
       const serialized = JSON.stringify(body), earlier = operations.get(body.operation_id);
       if (earlier) return earlier.request === serialized ? HttpResponse.json(earlier.response) : fail(409, "The operation id was used for another change");
       if (body.expected_revision !== snapshot.revision) return fail(409, "The settings changed; reload and try again");

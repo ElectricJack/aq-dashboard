@@ -10,38 +10,218 @@ import {readSupervisors,setSupervisor,inspectSupervisorControl,type SupervisorCo
 import {launchProfileKey as key,selectionOf} from '../agents/swarm/manualAgents';
 import {ActionButton} from '../../components/layout/Workspace';
 import styles from './SupervisorConversation.module.css';
-export function validSupervisorScope(v:unknown):v is string{return v==='global'||typeof v==='string'&&v.startsWith('project:')&&supervisorId(v.slice(8));}
-export function useSupervisors(enabled:boolean){const {bootstrap,queryContext}=useSession();return useQuery({queryKey:['supervisor-controls',queryContext.principalId,queryContext.authorizationRevision],enabled:enabled&&bootstrap.capability('supervisor.history.read').enabled,queryFn:({signal})=>readSupervisors(signal),refetchInterval:enabled?2000:false,retry:false});}
-const validIntent=(v:unknown):v is SupervisorIntent|null=>v===null||isRecord(v)&&supervisorId(v.operation_id)&&Number.isSafeInteger(v.expected_revision)&&typeof v.enabled==='boolean'&&(v.intelligence_profile===undefined||isRecord(v.intelligence_profile));
-/** An enabled supervisor whose stored level or candidate no longer resolves is waiting for the owner, whatever its last reported phase. */
-const waiting=(s:SupervisorControl|undefined)=>!!s?.enabled&&!!s.unavailable_reason;
-const WAITING='Waiting for a level';
-const labels={idle:'Ready',working:'Working',waiting:'Waiting',stopped:'Stopped',stopping:'Stopping',failed:'Needs attention',uncertain:'Needs inspection',unavailable:'Offline'};
-export function SupervisorControls({fleet,selected,scope,onScope,onChanged}:{fleet:SupervisorFleet|undefined;selected:SupervisorControl|undefined;scope:string;onScope:(scope:string)=>void;onChanged:()=>Promise<unknown>}){
- const [mobile,setMobile]=useState(()=>window.innerWidth<768),[expanded,setExpanded]=useState(false);
- useEffect(()=>{const resize=()=>setMobile(window.innerWidth<768);window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
- const needsLevel=waiting(selected);
- useEffect(()=>{setExpanded(!selected?.enabled||needsLevel);},[scope,selected?.enabled,needsLevel]);
- return <details className={styles.controlDisclosure} open={!mobile||expanded} onToggle={e=>{if(mobile)setExpanded(e.currentTarget.open);}}>
-  <summary><span>Supervisor controls</span><span>{selected?needsLevel?WAITING:labels[selected.phase]:'Unavailable'}</span></summary>
-  <div className={styles.management} aria-label="Supervisor controls">
-  <label>Supervisor<select aria-label="Supervisor" value={scope} onChange={e=>onScope(e.target.value)}><option value="global">Global supervisor</option>{fleet?.supervisors.filter(s=>s.project_id).map(s=><option key={s.id} value={`project:${s.project_id}`}>{s.label}</option>)}{scope!=='global'&&!selected&&<option value={scope}>Project supervisor unavailable</option>}</select></label>
-  {selected&&fleet?<Settings key={selected.id} value={selected} fleet={fleet} onChanged={onChanged}/>:<span role="status">Supervisor controls unavailable</span>}
- </div></details>;
+export function validSupervisorScope(scope: unknown): scope is string {
+  if (scope === "global") return true;
+  if (typeof scope !== "string" || !scope.startsWith("project:")) return false;
+  return supervisorId(scope.slice(8));
 }
-function Settings({value:s,fleet,onChanged}:{value:SupervisorControl;fleet:SupervisorFleet;onChanged:()=>Promise<unknown>}){
- const client=useQueryClient();const [profile,setProfile]=useState('');const [pending,setPending]=useDraft<SupervisorIntent|null>(`supervisor-control:${s.id}`,null,validIntent);const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);const lock=useRef(false),alive=useRef(true);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- // The stored choice, when the active levels still offer it. A stored choice they no longer offer is never replaced silently: the owner picks.
- const storedKey=s.profile?.profile_id&&s.profile.candidate_id?key({profile_id:s.profile.profile_id,candidate_id:s.profile.candidate_id}):null;
- const stored=fleet.profiles.find(p=>key(p)===storedKey);
- const current=fleet.profiles.find(p=>key(p)===profile)??stored??(s.profile?undefined:fleet.profiles.find(p=>p.profile_id==='standard-medium')??fleet.profiles[0]);
- const storedLabel=s.profile?[s.profile.name??s.profile.profile_id,s.profile.model,s.profile.reasoning].filter(Boolean).join(' · '):'';
- async function submit(intent:SupervisorIntent,inspect=false){if(lock.current)return;lock.current=true;setBusy(true);setError(null);try{if(inspect)await inspectSupervisorControl(s.id,intent);else await setSupervisor(s.id,intent);if(!alive.current)return;setPending(null);await onChanged();await client.invalidateQueries({predicate:q=>q.queryKey.includes('bootstrap')||q.queryKey.includes('supervisor-global')});}catch(e){if(alive.current){if(e instanceof ApiError&&[400,401,403,409,422].includes(e.status??0)){setPending(null);setError(e.serverMessage??'Supervisor settings changed. Refresh and try again.');await onChanged();}else setError(inspect&&e instanceof ApiError&&e.status===404?'No receipt found. Retry the same change.':'Confirmation pending. Check the receipt or retry the same change.');}}finally{lock.current=false;if(alive.current)setBusy(false);}}
- function change(enabled:boolean){if(lock.current||pending||enabled&&!current)return;const intent:SupervisorIntent={operation_id:crypto.randomUUID(),expected_revision:s.revision,enabled,...(enabled&&current?{intelligence_profile:selectionOf(current)}:{})};setPending(intent);void submit(intent);}
- return <><label>Level<select aria-label="Supervisor level" value={current?key(current):''} disabled={busy||!!pending} onChange={e=>setProfile(e.target.value)}>{!current&&<option value="" disabled>{fleet.profiles.length?storedLabel?`Choose a level (was ${storedLabel})`:'Choose a level':'No level available'}</option>}{fleet.profiles.map(p=><option key={key(p)} value={key(p)}>{p.name} · {p.model} · {p.reasoning}</option>)}</select></label>
-  {pending?<><ActionButton disabled={busy} onClick={()=>void submit(pending)}>Retry same change</ActionButton><ActionButton disabled={busy} onClick={()=>void submit(pending,true)}>Check change</ActionButton></>:<>{s.enabled?<><ActionButton disabled={busy} onClick={()=>change(false)}>Stop supervisor</ActionButton>{current&&key(current)!==storedKey&&<ActionButton disabled={busy} onClick={()=>change(true)}>Apply level</ActionButton>}</>:<ActionButton disabled={busy||!current||s.phase==='uncertain'} onClick={()=>change(true)}>Start supervisor</ActionButton>}</>}
-  <span role="status" title={s.stage}>{waiting(s)?WAITING:labels[s.phase]}</span>{s.unavailable_reason&&<span className={styles.runtime} role="status" data-supervisor-unavailable="">{s.enabled?'Enabled but not running':'Will not start'}: {s.unavailable_reason}</span>}{(s.phase==='failed'||s.phase==='uncertain')&&<span>{s.last_error??s.stage}</span>}
-  {!fleet.profiles.length&&<Link to="/settings?tab=intelligence">Add a Codex model to a level</Link>}{error&&<span role="status">{error}</span>}
- </>;
+
+export function useSupervisors(enabled: boolean) {
+  const { bootstrap, queryContext } = useSession();
+  return useQuery({
+    queryKey: ["supervisor-controls", queryContext.principalId, queryContext.authorizationRevision],
+    enabled: enabled && bootstrap.capability("supervisor.history.read").enabled,
+    queryFn: ({ signal }) => readSupervisors(signal),
+    refetchInterval: enabled ? 2000 : false,
+    retry: false,
+  });
+}
+
+function validIntent(value: unknown): value is SupervisorIntent | null {
+  if (value === null) return true;
+  if (!isRecord(value) || !supervisorId(value.operation_id)) return false;
+  if (!Number.isSafeInteger(value.expected_revision) || typeof value.enabled !== "boolean") return false;
+  return value.intelligence_profile === undefined || isRecord(value.intelligence_profile);
+}
+
+/** A stored choice missing from the catalog leaves an enabled supervisor waiting for the owner. */
+const waiting = (supervisor: SupervisorControl | undefined) => !!supervisor?.enabled && !!supervisor.unavailable_reason;
+const WAITING = "Waiting for a level";
+const labels = { idle: "Ready", working: "Working", waiting: "Waiting", stopped: "Stopped", stopping: "Stopping", failed: "Needs attention", uncertain: "Needs inspection", unavailable: "Offline" };
+function phaseLabel(selected?: SupervisorControl) {
+  if (!selected) return "Unavailable";
+  return waiting(selected) ? WAITING : labels[selected.phase];
+}
+
+function useMobileControls(scope: string, selected?: SupervisorControl) {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const resize = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  const needsLevel = waiting(selected);
+  useEffect(() => { setExpanded(!selected?.enabled || needsLevel); }, [scope, selected?.enabled, needsLevel]);
+  return { open: !mobile || expanded, toggle(open: boolean) { if (mobile) setExpanded(open); } };
+}
+
+type ControlsProps = {
+  fleet: SupervisorFleet | undefined; selected: SupervisorControl | undefined; scope: string;
+  onScope: (scope: string) => void; onChanged: () => Promise<unknown>;
+};
+
+function ScopePicker({ scope, fleet, selected, onScope }: Omit<ControlsProps, "onChanged">) {
+  return <label>Supervisor<select aria-label="Supervisor" value={scope} onChange={event => onScope(event.target.value)}>
+    <option value="global">Global supervisor</option>
+    {fleet?.supervisors.filter(supervisor => supervisor.project_id).map(supervisor =>
+      <option key={supervisor.id} value={`project:${supervisor.project_id}`}>{supervisor.label}</option>)}
+    {scope !== "global" && !selected && <option value={scope}>Project supervisor unavailable</option>}
+  </select></label>;
+}
+
+export function SupervisorControls({ fleet, selected, scope, onScope, onChanged }: ControlsProps) {
+  const disclosure = useMobileControls(scope, selected);
+  return <details className={styles.controlDisclosure} open={disclosure.open} onToggle={event => disclosure.toggle(event.currentTarget.open)}>
+    <summary><span>Supervisor controls</span><span>{phaseLabel(selected)}</span></summary>
+    <div className={styles.management} aria-label="Supervisor controls">
+      <ScopePicker scope={scope} selected={selected} fleet={fleet} onScope={onScope} />
+      {selected && fleet ? <Settings key={selected.id} value={selected} fleet={fleet} onChanged={onChanged} /> : <span role="status">Supervisor controls unavailable</span>}
+    </div>
+  </details>;
+}
+
+type SettingsProps = { value: SupervisorControl; fleet: SupervisorFleet; onChanged: () => Promise<unknown> };
+type Profile = SupervisorFleet["profiles"][number];
+type Stored = SupervisorControl["profile"];
+
+function storedProfileKey(stored: Stored) {
+  if (!stored?.profile_id || !stored.candidate_id) return null;
+  return key({ profile_id: stored.profile_id, candidate_id: stored.candidate_id });
+}
+
+function selectedProfile(profiles: Profile[], selected: string, stored: Stored) {
+  const storedKey = storedProfileKey(stored);
+  const chosen = profiles.find(profile => key(profile) === selected);
+  if (chosen) return chosen;
+  if (stored) return profiles.find(profile => key(profile) === storedKey);
+  return profiles.find(profile => profile.profile_id === "standard-medium") ?? profiles[0];
+}
+
+function profileDescription(profile: Partial<Profile>) {
+  const harness = profile.harness === "claude" ? "Claude" : profile.harness === "codex" ? "Codex" : profile.harness;
+  return [harness, profile.name ?? profile.profile_id, profile.model, profile.reasoning].filter(Boolean).join(" · ");
+}
+
+function profilePlaceholder(profiles: Profile[], stored: Stored) {
+  if (!profiles.length) return "No level available";
+  const name = stored && profileDescription(stored);
+  return name ? `Choose a level (was ${name})` : "Choose a level";
+}
+
+function receiptMessage(error: unknown, inspect: boolean) {
+  const missing = error instanceof ApiError && error.status === 404;
+  if (inspect && missing) return "No receipt found. Retry the same change.";
+  return "Confirmation pending. Check the receipt or retry the same change.";
+}
+
+function definiteRejection(error: unknown): error is ApiError {
+  return error instanceof ApiError && [400, 401, 403, 409, 422].includes(error.status ?? 0);
+}
+
+function useSupervisorChange(supervisor: SupervisorControl, onChanged: SettingsProps["onChanged"]) {
+  const client = useQueryClient();
+  const [pending, setPending] = useDraft<SupervisorIntent | null>(`supervisor-control:${supervisor.id}`, null, validIntent);
+  const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const lock = useRef(false), alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
+
+  async function failed(error: unknown, inspect: boolean) {
+    if (!alive.current) return;
+    if (!definiteRejection(error)) {
+      setError(receiptMessage(error, inspect));
+      return;
+    }
+    setPending(null);
+    setError(error.serverMessage ?? "Supervisor settings changed. Refresh and try again.");
+    await onChanged();
+  }
+
+  async function submit(intent: SupervisorIntent, inspect = false) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const send = inspect ? inspectSupervisorControl : setSupervisor;
+      await send(supervisor.id, intent);
+      if (!alive.current) return;
+      setPending(null);
+      await onChanged();
+      await client.invalidateQueries({ predicate: query => query.queryKey.includes("bootstrap") || query.queryKey.includes("supervisor-global") });
+    } catch (error) {
+      await failed(error, inspect);
+    } finally {
+      lock.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+
+  function change(enabled: boolean, profile?: Profile) {
+    if (lock.current || pending) return;
+    if (enabled && !profile) return;
+    const intent: SupervisorIntent = { operation_id: crypto.randomUUID(), expected_revision: supervisor.revision, enabled };
+    if (enabled && profile) intent.intelligence_profile = selectionOf(profile);
+    setPending(intent);
+    void submit(intent);
+  }
+  return { pending, busy, error, submit, change };
+}
+
+type Change = ReturnType<typeof useSupervisorChange>;
+function PendingButtons({ intent, busy, submit }: Pick<Change, "busy" | "submit"> & { intent: SupervisorIntent }) {
+  return <>
+    <ActionButton disabled={busy} onClick={() => void submit(intent)}>Retry same change</ActionButton>
+    <ActionButton disabled={busy} onClick={() => void submit(intent, true)}>Check change</ActionButton>
+  </>;
+}
+
+function ChangeButtons({ change, supervisor, current }: { change: Change; supervisor: SupervisorControl; current?: Profile }) {
+  const { pending, busy, submit } = change;
+  if (pending) return <PendingButtons intent={pending} busy={busy} submit={submit} />;
+  if (supervisor.enabled) return <>
+    <ActionButton disabled={busy} onClick={() => change.change(false)}>Stop supervisor</ActionButton>
+    {current && key(current) !== storedProfileKey(supervisor.profile) &&
+      <ActionButton disabled={busy} onClick={() => change.change(true, current)}>Apply level</ActionButton>}
+  </>;
+  const canStart = !!current && supervisor.phase !== "uncertain";
+  return <ActionButton disabled={busy || !canStart} onClick={() => change.change(true, current)}>Start supervisor</ActionButton>;
+}
+
+function SupervisorStatus({ supervisor }: { supervisor: SupervisorControl }) {
+  return <>
+    <span role="status" title={supervisor.stage}>{phaseLabel(supervisor)}</span>
+    {supervisor.unavailable_reason && <span className={styles.runtime} role="status" data-supervisor-unavailable="">
+      {supervisor.enabled ? "Enabled but not running" : "Will not start"}: {supervisor.unavailable_reason}
+    </span>}
+    {(supervisor.phase === "failed" || supervisor.phase === "uncertain") && <span>{supervisor.last_error ?? supervisor.stage}</span>}
+  </>;
+}
+
+function ProfilePicker({ profiles, stored, current, disabled, select }: {
+  profiles: Profile[]; stored: Stored; current?: Profile; disabled: boolean; select: (value: string) => void;
+}) {
+  return (
+    <label>Level<select aria-label="Supervisor level" value={current ? key(current) : ""} disabled={disabled} onChange={e => select(e.target.value)}>
+      {!current && <option value="" disabled>{profilePlaceholder(profiles, stored)}</option>}
+      {profiles.map(profile => <option key={key(profile)} value={key(profile)}>{profileDescription(profile)}</option>)}
+    </select></label>
+  );
+}
+
+function Settings({ value: supervisor, fleet, onChanged }: SettingsProps) {
+  const [selected, select] = useState("");
+  const change = useSupervisorChange(supervisor, onChanged);
+  // A stored choice missing from the active catalog requires an explicit replacement.
+  const current = selectedProfile(fleet.profiles, selected, supervisor.profile);
+  return <>
+    <ProfilePicker profiles={fleet.profiles} stored={supervisor.profile} current={current} disabled={change.busy || !!change.pending} select={select} />
+    <ChangeButtons supervisor={supervisor} change={change} current={current} />
+    <SupervisorStatus supervisor={supervisor} />
+    {!fleet.profiles.length && <Link to="/settings?tab=intelligence">Add a supervisor model to a level</Link>}
+    {change.error && <span role="status">{change.error}</span>}
+  </>;
 }

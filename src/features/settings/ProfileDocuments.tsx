@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError, ApiError } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
-import { deleteDocument, problemsOf, problemText, ROLE_SETTINGS, saveDocument, useDocuments, useProfileLimits, useProfileSnapshot, type DocumentFields, type DocumentKind, type Fence, type Problem, type SettingsDocument } from "../../api/roleSettings";
+import { deleteDocument, problemsOf, problemText, ROLE_SETTINGS, saveDocument, useDocuments, useProfileLimits, useProfileSnapshot, type DocumentFields, type DocumentKind, type Problem, type SettingsDocument } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
@@ -10,6 +10,7 @@ import { useIntelligenceDraft } from "./IntelligenceDrafts";
 import { documentId, frontmatterValue, isDocumentId, setFrontmatterValue } from "./profileMarkdown";
 import { ProfileStoreLimits } from "./ProfileStoreLimits";
 import { Timestamp } from "./Timestamp";
+import { actionError, conflictNotice, isConflict, saveRefusal, type DocumentAction, type Pending, type RowAlert, type Status } from "./profileDocumentStatus";
 import styles from "./ProfileDocuments.module.css";
 
 /** What one kind of document needs from the shared list and editor. */
@@ -40,14 +41,9 @@ export type DocumentsConfig<K extends DocumentKind> = {
 
 /** The key of the one new, unsaved document; never a valid id. */
 const NEW = "+new";
-type Pending = { key: string; id: string; request: Fence & { markdown: string } };
-type Status = { problems?: Problem[]; error?: string; notice?: string; retry?: Pending };
-type RowAlert = { title: string; problems: Problem[]; error?: string };
-
 function ProblemList({ title, problems }: { title: string; problems: Problem[] }) {
   return <div className={styles.problems} role="alert"><p>{title}</p><ul>{problems.map((problem, i) => <li key={i}>{problemText(problem)}</li>)}</ul></div>;
 }
-const refusal = (error: unknown) => error instanceof ApiError && error.status !== undefined && error.status >= 400 && error.status < 500;
 
 /** The active snapshot the saved documents compile into (a short digest and the store revision), and the store's limits beside it. `scope` is the tab it is on. */
 export function ProfileSnapshotNote({ scope }: { scope: string }) {
@@ -78,9 +74,9 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
   const focusEditor = useRef(false);
   const { compare } = config;
   const documents = compare ? [...query.data?.documents ?? []].sort((a, b) => compare(a.id, b.id)) : query.data?.documents ?? [];
-  const find = (id: string) => documents.find(document => document.id === id);
-  const nameOf = (document: SettingsDocument<K> | undefined, id: string) => document?.fields?.name || id;
-  const isDirty = (key: string) => drafts[key] !== undefined && (key === NEW || drafts[key] !== find(key)?.markdown);
+  const byId = new Map(documents.map(document => [document.id, document]));
+  const nameOf = (document: SettingsDocument<K>) => document.fields?.name || document.id;
+  const isDirty = (key: string) => drafts[key] !== undefined && (key === NEW || drafts[key] !== byId.get(key)?.markdown);
   const dirtyKeys = Object.keys(drafts).filter(isDirty);
   const setStatus = (key: string, status: Status) => setStatuses(old => ({ ...old, [key]: status }));
   const dropDraft = (key: string) => setDrafts(old => { const next = { ...old }; delete next[key]; return next; });
@@ -94,8 +90,8 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
     if (result.isError) throw result.error;
   }
   function pendingFor(key: string): Pending | string {
-    const markdown = drafts[key] ?? find(key)?.markdown ?? "";
-    if (key !== NEW) return { key, id: key, request: { markdown, expected_revision: find(key)?.revision ?? "0", operation_id: crypto.randomUUID() } };
+    const markdown = drafts[key] ?? byId.get(key)?.markdown ?? "";
+    if (key !== NEW) return { key, id: key, request: { markdown, expected_revision: byId.get(key)?.revision ?? "0", operation_id: crypto.randomUUID() } };
     const id = documentId(markdown);
     if (!id || !isDocumentId(id)) return `Give the ${noun} an id on its “id:” line: a lowercase letter followed by lowercase letters, digits or “-”.`;
     return { key, id, request: { markdown, expected_revision: "0", operation_id: crypto.randomUUID() } };
@@ -113,14 +109,11 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
       if (key === NEW && open === NEW) setOpen(id);
       return true;
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
+      if (isConflict(error)) {
         await refresh().catch(() => undefined);
-        setStatus(key, { error: pending.request.expected_revision === "0"
-          ? `A ${noun} with the id “${id}” already exists. Your text is kept. Change its id, or open the existing ${noun}.`
-          : `This ${noun} changed since you opened it. Your text is kept and the saved version is shown beside it. Save again to replace the saved version, or discard your changes.` });
-      } else if (refusal(error)) {
-        const problems = problemsOf(error);
-        setStatus(key, problems.length ? { problems } : { error: (error as ApiError).serverMessage ?? `AQ refused this ${noun}.` });
+        setStatus(key, { error: conflictNotice(noun, pending) });
+      } else if (isHttpClientError(error)) {
+        setStatus(key, saveRefusal(error, noun));
       } else setStatus(key, { error: "The save could not be confirmed. Your text is kept. Retrying sends the same save again; AQ applies it once.", retry: pending });
       return false;
     } finally { setBusy(null); }
@@ -135,9 +128,9 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
     return true;
   }
   /** A change made from the list (delete, enable, disable): refusals are shown under the list in the server's words. */
-  async function act(document: SettingsDocument<K>, verb: string, run: (fence: Fence) => Promise<unknown>, done: string | null): Promise<boolean> {
+  async function act(document: SettingsDocument<K>, { verb, run, done }: DocumentAction): Promise<boolean> {
     if (busy) return false;
-    const name = nameOf(document, document.id);
+    const name = nameOf(document);
     setBusy(document.id); setAlert(null); setNotice(null); setConfirming(null);
     try {
       await run({ expected_revision: document.revision, operation_id: crypto.randomUUID() });
@@ -147,41 +140,38 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
     } catch (error) {
       const problems = problemsOf(error), status = error instanceof ApiError ? error.status : undefined;
       if (status === 409 || status === 404) await refresh().catch(() => undefined);
-      setAlert({ title: `AQ did not ${verb} “${name}”:`, problems, ...(problems.length ? {} : { error:
-        status === 409 ? `This ${noun} changed since it was read. Review it, then try again.`
-          : refusal(error) ? (error as ApiError).serverMessage ?? "AQ refused the change."
-            : "The change could not be confirmed. Reload to see whether it was applied." }) });
+      setAlert({ title: `AQ did not ${verb} “${name}”:`, problems, ...(problems.length ? {} : { error: actionError(error, noun) }) });
       return false;
     } finally { setBusy(null); }
   }
   async function remove(document: SettingsDocument<K>) {
-    if (!await act(document, "delete", fence => deleteDocument(kind, document.id, fence), `Deleted “${nameOf(document, document.id)}”.`)) return;
+    if (!await act(document, { verb: "delete", run: fence => deleteDocument(kind, document.id, fence), done: `Deleted “${nameOf(document)}”.` })) return;
     dropDraft(document.id);
     if (open === document.id) setOpen(null);
     newButton.current?.focus();
   }
   function setEnabled(document: SettingsDocument<K>, enabled: boolean) {
     const markdown = setFrontmatterValue(document.markdown, "enabled", String(enabled));
-    if (markdown === null) { setAlert({ title: `“${nameOf(document, document.id)}” could not be changed:`, problems: [], error: "Its text has no frontmatter to edit. Open it and edit the Markdown." }); return; }
-    void act(document, enabled ? "enable" : "disable", fence => saveDocument(kind, document.id, { ...fence, markdown }), null);
+    if (markdown === null) { setAlert({ title: `“${nameOf(document)}” could not be changed:`, problems: [], error: "Its text has no frontmatter to edit. Open it and edit the Markdown." }); return; }
+    void act(document, { verb: enabled ? "enable" : "disable", run: fence => saveDocument(kind, document.id, { ...fence, markdown }), done: null });
   }
   function show(key: string) { focusEditor.current = true; setOpen(key); if (key === open) editorHeading.current?.focus(); }
-  function edit(key: string, markdown: string) { setDrafts(old => ({ ...old, [key]: markdown })); setStatuses(old => ({ ...old, [key]: {} })); }
+  function edit({ key, markdown }: { key: string; markdown: string }) { setDrafts(old => ({ ...old, [key]: markdown })); setStatuses(old => ({ ...old, [key]: {} })); }
 
   const coordinator = useIntelligenceDraft({ id: `documents:${kind}`, label: title.toLowerCase(), dirty: dirtyKeys.length > 0, locked: busy !== null, save: saveAll, order: config.order });
   const locked = busy !== null || coordinator.saving;
   const Heading = `h${config.level}` as "h2" | "h3", SubHeading = `h${config.level + 1}` as "h3" | "h4", SummaryHeading = `h${config.level + 2}` as "h4" | "h5";
-  const openDocument = open && open !== NEW ? find(open) : undefined;
+  const openDocument = open && open !== NEW ? byId.get(open) : undefined;
   const editing = open !== null && (open === NEW ? drafts[NEW] !== undefined : openDocument !== undefined || drafts[open] !== undefined);
   const text = open === null ? "" : drafts[open] ?? openDocument?.markdown ?? "";
   const status = (open && statuses[open]) || {};
   const bytes = new TextEncoder().encode(text).length, maxBytes = limits.data?.limits.documents.max_document_bytes;
-  const openName = open === NEW ? `New ${noun}` : nameOf(openDocument, open ?? "");
+  const openName = open === NEW ? `New ${noun}` : openDocument ? nameOf(openDocument) : open ?? "";
 
   return <section className={styles.documents} aria-labelledby={headingId}>
     <div className={styles.toolbar}>
       <div><Heading id={headingId}>{title}</Heading><p className={styles.meta}>{config.description}</p></div>
-      <ActionButton ref={newButton} disabled={!query.data || locked} onClick={() => { if (drafts[NEW] === undefined) edit(NEW, config.template()); show(NEW); }}>New {noun}</ActionButton>
+      <ActionButton ref={newButton} disabled={!query.data || locked} onClick={() => { if (drafts[NEW] === undefined) edit({ key: NEW, markdown: config.template() }); show(NEW); }}>New {noun}</ActionButton>
     </div>
     {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label={title.toLowerCase()} onRetry={() => void query.refetch()} /> : <>
       {query.isError && <p className={styles.warning} role="status">{title} could not be refreshed. Showing the last saved view.</p>}
@@ -191,7 +181,7 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
           <table className={styles.table} aria-label={title}>
             <thead><tr><th scope="col">Name</th>{config.columns.map(column => <th key={column.header} scope="col">{column.header}</th>)}{config.enabledSwitch && <th scope="col">Enabled</th>}<th scope="col">Actions</th></tr></thead>
             <tbody>{documents.map(document => {
-              const name = nameOf(document, document.id), fields = document.fields;
+              const name = nameOf(document), fields = document.fields;
               const enabled = (fields as { enabled?: boolean } | null)?.enabled;
               return <tr key={document.id} aria-label={name} data-document-id={document.id} data-open={open === document.id || undefined}>
                 <td><div className={styles.name}><strong>{name}</strong><span>{document.id}</span>{isDirty(document.id) && <span>Unsaved changes</span>}</div></td>
@@ -219,14 +209,14 @@ export function ProfileDocuments<K extends DocumentKind>({ config }: { config: D
       {editing && open !== null && <section id={editorId} className={styles.editor} aria-label={open === NEW ? `New ${noun}` : `Edit ${openName}`}>
         <SubHeading ref={editorHeading} tabIndex={-1}>{openName}</SubHeading>
         {open !== NEW && !openDocument && <p className={styles.warning} role="status">This {noun} is no longer saved in AQ. Saving your text creates it again.</p>}
-        {config.structured?.({ markdown: text, disabled: locked, onChange: markdown => edit(open, markdown) })}
+        {config.structured?.({ markdown: text, disabled: locked, onChange: markdown => edit({ key: open, markdown }) })}
         <div className={styles.beside}>
           <div className={styles.document}>
             {config.enabledSwitch && frontmatterValue(text, "id") !== null && <label className={styles.switch}>
-              <input type="checkbox" role="switch" checked={frontmatterValue(text, "enabled") !== "false"} disabled={locked} onChange={event => { const next = setFrontmatterValue(text, "enabled", String(event.target.checked)); if (next !== null) edit(open, next); }} />
+              <input type="checkbox" role="switch" checked={frontmatterValue(text, "enabled") !== "false"} disabled={locked} onChange={event => { const next = setFrontmatterValue(text, "enabled", String(event.target.checked)); if (next !== null) edit({ key: open, markdown: next }); }} />
               Hand this {noun} new work</label>}
             <label className={styles.label} htmlFor={`${editorId}-text`}>Markdown</label>
-            <textarea id={`${editorId}-text`} className={styles.text} data-short={config.structured ? true : undefined} value={text} disabled={locked} spellCheck={false} onChange={event => edit(open, event.target.value)} />
+            <textarea id={`${editorId}-text`} className={styles.text} data-short={config.structured ? true : undefined} value={text} disabled={locked} spellCheck={false} onChange={event => edit({ key: open, markdown: event.target.value })} />
             <p className={styles.note}>{bytes.toLocaleString()}{maxBytes !== undefined && ` / ${maxBytes.toLocaleString()}`} bytes</p>
             {maxBytes !== undefined && bytes > maxBytes && <p className={styles.warning} role="alert">A document can be at most {maxBytes.toLocaleString()} bytes.</p>}
           </div>

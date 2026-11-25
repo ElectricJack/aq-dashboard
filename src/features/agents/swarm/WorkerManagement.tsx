@@ -1,64 +1,15 @@
 import { useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
-import { apiGet, apiSend, ApiError } from "../../../api/client";
-import { isRecord, ContractError } from "../../../api/adapters/contract";
-import type { SwarmView } from "../../../api/adapters/swarm";
-import { queryKey } from "../../../api/queryKeys";
-import { useSession, PANEL_READ } from "../../../app/session";
+import { apiSend, isHttpClientError } from "../../../api/client";
+import { ContractError } from "../../../api/adapters/contract";
+import { useSession } from "../../../app/session";
 import { ActionButton } from "../../../components/layout/Workspace";
 import styles from "./Swarm.module.css";
 import inspectorStyles from "./WorkerInspector.module.css";
 
-type Setting = {
-  kind: "machine" | "node";
-  id: string;
-  label: string | null;
-  max_agents: number | null;
-  removed: boolean;
-  revision: number;
-};
-type Settings = { settings: Setting[] };
-function isSetting(raw: unknown): raw is Setting {
-  return isRecord(raw) && ["machine", "node"].includes(String(raw.kind)) && typeof raw.id === "string"
-    && (raw.label === null || typeof raw.label === "string")
-    && (raw.max_agents === null || Number.isInteger(raw.max_agents) && Number(raw.max_agents) >= 0 && Number(raw.max_agents) <= 2_147_483_647)
-    && typeof raw.removed === "boolean" && Number.isSafeInteger(raw.revision) && Number(raw.revision) > 0;
-}
-export function useWorkerSettings() {
-  const { bootstrap, queryContext } = useSession();
-  return useQuery({
-    queryKey: queryKey(queryContext, "worker-settings", {}),
-    queryFn: async ({ signal }): Promise<Settings> => {
-      const raw = await apiGet<unknown>("/api/worker-management", signal);
-      if (!isRecord(raw) || !Array.isArray(raw.settings) || !raw.settings.every(isSetting)) {
-        throw new ContractError("Invalid worker settings");
-      }
-      return raw as Settings;
-    },
-    enabled: bootstrap.capability("swarm.worker.control").enabled,
-    refetchInterval: 10_000,
-    retry: false,
-    meta: PANEL_READ,
-  });
-}
-
-export function applyWorkerSettings(view: SwarmView, settings: Settings | undefined): SwarmView {
-  if (!settings) return view;
-  return {
-    ...view,
-    machines: view.machines.map(machine => {
-      const setting = settings.settings.find(s => s.kind === "machine" && s.id === machine.id);
-      const nodes = machine.nodes.filter(n => !settings.settings.some(s => s.kind === "node" && s.id === n.id && s.removed))
-        .map(node => {
-          const own = settings.settings.find(s => s.kind === "node" && s.id === node.id);
-          return { ...node, name: own?.label ?? node.name };
-        });
-      const total = nodes.every(n => n.slots.total !== null) ? nodes.reduce((sum, n) => sum + n.slots.total!, 0) : machine.agentMax;
-      return { ...machine, label: setting?.label ?? machine.label, agentMax: setting?.max_agents ?? total, nodes };
-    }),
-  };
-}
+export { applyWorkerSettings, useWorkerSettings } from "./workerManagementData";
+import { isSetting, useWorkerSettings, type Setting } from "./workerManagementData";
 
 type Props = { kind: "machine" | "node"; id: string; name: string; maximum: number | null };
 export function WorkerManagement(props: Props) {
@@ -73,6 +24,32 @@ export function WorkerManagement(props: Props) {
 }
 
 type Change = { operation_id: string; expected_revision: number; label: string; max_agents: number | null; remove: boolean };
+function receiptMatches(receipt: unknown, kind: Props["kind"], id: string, change: Change) {
+  if (!isSetting(receipt)) return false;
+  const target = receipt.kind === kind && receipt.id === id;
+  return target && receipt.revision === change.expected_revision + 1;
+}
+
+function newChange(remove: boolean, current: Setting | undefined, draft: { label: string; name: string; limit: string }): Change {
+  const { label, name, limit } = draft;
+  const submittedLimit = limit === "" ? null : Number(limit);
+  return {
+    operation_id: crypto.randomUUID(), expected_revision: current?.revision ?? 0,
+    label: remove ? current?.label ?? name : label.trim(),
+    max_agents: remove ? current?.max_agents ?? null : submittedLimit, remove,
+  };
+}
+
+async function submitChange(kind: Props["kind"], id: string, change: Change) {
+  const receipt = await apiSend<unknown>("POST", `/api/worker-management/${kind}/${encodeURIComponent(id)}`, change);
+  if (!receiptMatches(receipt, kind, id, change)) throw new ContractError("Invalid settings receipt");
+}
+
+function allowSave(remove: boolean, valid: boolean, pending: Change | null) {
+  if (!remove) return valid;
+  return Boolean(pending) || window.confirm("Are you sure?");
+}
+
 function ManagementForm({ kind, id, name, maximum, current }: Props & { current: Setting | undefined }) {
   const [label, setLabel] = useState(current?.label ?? name);
   const [limit, setLimit] = useState(current?.max_agents?.toString() ?? "");
@@ -85,22 +62,15 @@ function ManagementForm({ kind, id, name, maximum, current }: Props & { current:
   const valid = label.trim().length > 0 && label.trim().length <= 64
     && (limit === "" || /^\d+$/.test(limit) && Number(limit) <= (kind === "node" ? 8 : 2_147_483_647));
   async function save(remove: boolean) {
-    if (lock.current || !remove && !valid) return;
-    if (remove && !pending && !window.confirm("Are you sure?")) return;
-    const change = pending ?? {
-      operation_id: crypto.randomUUID(), expected_revision: current?.revision ?? 0,
-      label: remove ? current?.label ?? name : label.trim(),
-      max_agents: remove ? current?.max_agents ?? null : limit === "" ? null : Number(limit), remove,
-    };
+    if (lock.current) return;
+    if (!allowSave(remove, valid, pending)) return;
+    const change = pending ?? newChange(remove, current, { label, name, limit });
     lock.current = true;
     setBusy(true);
     setMessage(null);
     setPending(change);
     try {
-      const receipt = await apiSend<unknown>("POST", `/api/worker-management/${kind}/${encodeURIComponent(id)}`, change);
-      if (!isSetting(receipt) || receipt.kind !== kind || receipt.id !== id || receipt.revision !== change.expected_revision + 1) {
-        throw new ContractError("Invalid settings receipt");
-      }
+      await submitChange(kind, id, change);
       setPending(null);
       setMessage(change.remove ? "Removed." : "Saved.");
       if (change.remove) setParams(previous => {
@@ -110,7 +80,7 @@ function ManagementForm({ kind, id, name, maximum, current }: Props & { current:
       }, { replace: true });
       await client.invalidateQueries({ predicate: query => ["worker-settings", "swarm", "capacity", "worker-nodes", "manual-agents"].some(key => query.queryKey.includes(key)) });
     } catch (error) {
-      const refused = error instanceof ApiError && (error.status ?? 0) >= 400 && (error.status ?? 0) < 500;
+      const refused = isHttpClientError(error);
       if (refused) setPending(null);
       setMessage(refused ? error.serverMessage ?? "Settings could not be saved." : "Confirmation is pending. Retry to check the same request.");
       if (refused) await client.invalidateQueries({ predicate: query => query.queryKey.includes("worker-settings") });

@@ -44,6 +44,16 @@ describe("slots an attempt holds and the facts a newer server adds", () => {
     expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]!.agents[0]).toMatchObject({ phase: "starting", lastOutputAt: "2026-11-07T10:00:03.000Z",
       ranWith: { role: "developer", level: "standard-high", provider: "anthropic", model: "claude-sonnet-5", reasoning: "high", harness: "claude-code" } });
   });
+  it("reads capability reporting diagnostics and drops an incomplete rejection", () => {
+    const f = fixture();
+    Object.assign(f.machines[0]!.nodes[0]!, { capability_observed_at: "2026-11-07T09:59:00.000Z",
+      inventory_rejection: { request_id: "10000000-0000-4000-8000-000000000009", observed_at_ms: 1_762_509_600_000, stage: "verify_presence_qualification", status: 409, code: "conflict" } });
+    expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]).toMatchObject({ capabilityObservedAt: "2026-11-07T09:59:00.000Z",
+      inventoryRejection: { requestId: "10000000-0000-4000-8000-000000000009", observedAt: "2025-11-07T10:00:00.000Z", stage: "verify_presence_qualification", status: 409, code: "conflict" } });
+    Object.assign(f.machines[0]!.nodes[0]!, { inventory_rejection: { request_id: "x", stage: "validate", status: 409 } });
+    expect(adaptSwarm(f, TIME).machines[0]!.nodes[0]!.inventoryRejection).toBeNull();
+    expect(adaptSwarm(fixture(), TIME).machines[0]!.nodes[0]).toMatchObject({ capabilityObservedAt: null, inventoryRejection: null });
+  });
   it("reads the 09ee5e98 shape and the same read with fields it does not know (held-since times, a real title)", () => {
     const today = adaptSwarm((pinned as unknown as { data: Swarm }).data, TIME);
     const f = fixture();

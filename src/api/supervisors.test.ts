@@ -19,8 +19,14 @@ test('an enabled supervisor whose level no longer lists its candidate carries th
 test('a choice carried from the old catalog (other fields) does not blank the controls',()=>{
  expect(adaptSupervisors({supervisors:[control({profile:{profile_id:'engineering',profile_version:3,candidate_id:'codex',options:{}}})],profiles:[choice],server_time_ms:2}).supervisors).toHaveLength(1);
 });
-test('a non-Codex choice or a malformed one is refused',()=>{
- expect(()=>adaptSupervisors({supervisors:[],profiles:[{...choice,harness:'claude'}],server_time_ms:2})).toThrow();
+test('Codex and Claude choices can share a level',()=>{
+ const claude={...choice,candidate_id:'anthropic:fixture-model:high',provider:'anthropic',model:'fixture-model',harness:'claude'};
+ const fleet=adaptSupervisors({supervisors:[control({profile:claude})],profiles:[choice,claude],server_time_ms:2});
+ expect(fleet.profiles).toEqual([choice,claude]);
+ expect(fleet.supervisors[0]?.profile).toEqual(claude);
+});
+test('an unsupported harness or malformed choice is refused',()=>{
+ expect(()=>adaptSupervisors({supervisors:[],profiles:[{...choice,harness:'opencode'}],server_time_ms:2})).toThrow();
  expect(()=>adaptSupervisors({supervisors:[],profiles:[{...choice,candidate_id:undefined}],server_time_ms:2})).toThrow();
 });
 test('the control body holds only what the server accepts',()=>{

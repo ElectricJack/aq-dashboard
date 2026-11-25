@@ -1,12 +1,13 @@
 import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../api/client";
+import { isHttpClientError, ApiError } from "../../api/client";
 import { queryKey } from "../../api/queryKeys";
 import { FALLBACK_REASONS, problemsOf, problemText, ROLE_SETTINGS, saveSelectionDefaults, useSelectionDefaults, type Fence, type FallbackReason, type Problem, type SelectionDefaults as Defaults, type UnknownCost } from "../../api/roleSettings";
 import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { useIntelligenceDraft } from "./IntelligenceDrafts";
+import { TASK_ROUTE_PREFERENCES } from "../work/taskRouting";
 import styles from "./ProfileDocuments.module.css";
 
 const REASON_LABELS: Record<FallbackReason, string> = {
@@ -37,7 +38,8 @@ type Pending = Fence & { selection_defaults: Defaults };
 
 /** The one selection policy every level starts from. A level overrides single values in its own document. */
 export function SelectionDefaults() {
-  const { queryContext } = useSession();
+  const { bootstrap, queryContext } = useSession();
+  const taskPreferences = bootstrap.capability(TASK_ROUTE_PREFERENCES).enabled;
   const client = useQueryClient();
   const query = useSelectionDefaults();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -64,15 +66,16 @@ export function SelectionDefaults() {
     } catch (failure) {
       const status = failure instanceof ApiError ? failure.status : undefined;
       if (status === 409) { await query.refetch(); setError("The defaults changed since you opened them. Your edits are kept. Save again to replace the saved values, or discard your changes."); }
-      else if (status !== undefined && status >= 400 && status < 500) {
+      else if (isHttpClientError(failure)) {
         const found = problemsOf(failure);
-        if (found.length) setProblems(found); else setError((failure as ApiError).serverMessage ?? "AQ refused these defaults.");
+        if (found.length) setProblems(found); else setError(failure.serverMessage ?? "AQ refused these defaults.");
       } else { setRetry(request); setError("The save could not be confirmed. Your edits are kept. Retrying sends the same save again; AQ applies it once."); }
       return false;
     } finally { setSaving(false); }
   }
   async function save(): Promise<boolean> {
-    if (!dirty || !draft || !saved) return true;
+    if (!draft || !saved) return true;
+    if (!dirty) return true;
     const values = toDefaults(draft);
     if (typeof values === "string") { setError(values); return false; }
     return send({ selection_defaults: values, expected_revision: saved.revision, operation_id: crypto.randomUUID() });
@@ -103,7 +106,11 @@ export function SelectionDefaults() {
           <input id={`${id}-currency`} type="text" value={current.currency} maxLength={3} disabled={locked} aria-describedby={`${id}-currency-hint`} spellCheck={false} onChange={event => edit({ currency: event.target.value.toUpperCase() })} />
           <span id={`${id}-currency-hint`} className={styles.note}>Three letters, such as USD. Given together with the cost limit.</span></div>
       </div>
-      <fieldset className={styles.group}><legend>Move on to the next candidate when</legend>
+      <fieldset className={styles.group} aria-describedby={taskPreferences ? `${id}-queue-fallback` : undefined}>
+        <legend>Move on to the next candidate when</legend>
+        {taskPreferences && <p id={`${id}-queue-fallback`} className={styles.meta}>
+          Queued tasks can try another eligible provider when a preference can’t be met.
+        </p>}
         <div className={styles.choices}>{FALLBACK_REASONS.map(reason => <label key={reason} className={styles.switch}>
           <input type="checkbox" checked={current.fallback_on.includes(reason)} disabled={locked} onChange={event => edit({ fallback_on: event.target.checked ? [...current.fallback_on, reason] : current.fallback_on.filter(item => item !== reason) })} />{REASON_LABELS[reason]}</label>)}</div>
       </fieldset>

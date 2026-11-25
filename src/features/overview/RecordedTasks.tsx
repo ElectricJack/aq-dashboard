@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { apiGet } from "../../api/client";
-import { adaptOverviewTasks, type OverviewTaskProject } from "../../api/adapters/overviewTasks";
+import { adaptOverviewTasks, type OverviewTasks, type OverviewTaskProject } from "../../api/adapters/overviewTasks";
 import { scopedKey } from "../../api/queryKeys";
 import { useScope, scopeSearch } from "../../app/scope";
 import { useSession } from "../../app/session";
@@ -21,21 +21,30 @@ function Project({ row, serverTime }: { row: OverviewTaskProject; serverTime?: s
   </>}
  </li>;
 }
+function ProjectObservations({ data, serverTime, workLink }: { data: OverviewTasks; serverTime?: string; workLink?: string }) {
+ return <>
+   {data.projects.length===0 ? <p>No configured projects in this scope.</p> : <ul className={styles.projectList} aria-label="Project task observations">{data.projects.map(row=><Project row={row} serverTime={serverTime ?? data.observed_at} key={row.project.id}/>)}</ul>}
+   {data.coverage==="partial" && <p className={styles.meta}>Partial coverage · More records or unavailable sources may exist.</p>}
+   {data.next_after && workLink !== undefined && <Link to={{pathname:"/work",search:workLink}}>Browse projects in Work →</Link>}
+ </>;
+}
+
+async function readRecordedTasks(project: string | undefined, signal: AbortSignal) {
+  const params=new URLSearchParams({project_limit:"4",task_limit:"16"});if(project)params.set("project_id",project);
+  return adaptOverviewTasks(await apiGet<unknown>(`/api/human/overview/tasks?${params}`,signal),project);
+}
+
 export function RecordedTasks({embedded=false,serverTime}:{embedded?:boolean;serverTime?:string}) {
  const [scope]=useScope(); const {bootstrap,queryContext}=useSession();
  const capability=bootstrap.capability("human.overview.tasks.read");
  const project=scope.kind==="project"?scope.project_id:undefined;
- const query=useQuery({queryKey:scopedKey(queryContext,scope,"overview-task-contributions",{}),enabled:capability.enabled,retry:false,refetchInterval:30000,queryFn:async({signal})=>{
-  const params=new URLSearchParams({project_limit:"4",task_limit:"16"});if(project)params.set("project_id",project);
-  return adaptOverviewTasks(await apiGet<unknown>(`/api/human/overview/tasks?${params}`,signal),project);
- }});
+ const query=useQuery({queryKey:scopedKey(queryContext,scope,"overview-task-contributions",{}),enabled:capability.enabled,retry:false,refetchInterval:30000,queryFn:({signal}) => readRecordedTasks(project, signal)});
  if(!capability.enabled)return null;
+ const Heading = embedded ? "h3" : "h2";
  return <section className={embedded?styles.recordedTasks:styles.panel} aria-labelledby="recorded-tasks-heading">
-  <div className={styles.recordedHeader}>{embedded?<h3 id="recorded-tasks-heading">Recorded tasks</h3>:<h2 id="recorded-tasks-heading">Recorded tasks</h2>}<details className={styles.scopeDisclosure}><summary>About these records</summary><p>Observed task lifecycle, excluding retired or disputed records. Active records do not establish running agents or execution readiness.</p></details></div>
+  <div className={styles.recordedHeader}><Heading id="recorded-tasks-heading">Recorded tasks</Heading><details className={styles.scopeDisclosure}><summary>About these records</summary><p>Observed task lifecycle, excluding retired or disputed records. Active records do not establish running agents or execution readiness.</p></details></div>
   {!query.data || query.isError ? <QueryStatus status={query.isError?"error":"pending"} error={query.error} label="project task records" onRetry={()=>void query.refetch()} /> : <>
-   {query.data.projects.length===0 ? <p>No configured projects in this scope.</p> : <ul className={styles.projectList} aria-label="Project task observations">{query.data.projects.map(row=><Project row={row} serverTime={serverTime ?? query.data.observed_at} key={row.project.id}/>)}</ul>}
-   {query.data.coverage==="partial" && <p className={styles.meta}>Partial coverage · More records or unavailable sources may exist.</p>}
-   {query.data.next_after && bootstrap.capability("tasks.read").enabled && <Link to={{pathname:"/work",search:scopeSearch(scope)}}>Browse projects in Work →</Link>}
+   <ProjectObservations data={query.data} serverTime={serverTime} workLink={bootstrap.capability("tasks.read").enabled ? scopeSearch(scope) : undefined} />
   </>}
  </section>;
 }

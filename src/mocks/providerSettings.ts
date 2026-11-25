@@ -1,15 +1,24 @@
 import { http, HttpResponse } from "msw";
 import type { ProviderSettings, SaveProviders } from "../api/providerSettings";
-/** Labelled fixture accounts, never live credentials. */
-export function providerSettingsHandlers() {
-  const storageKey = "aq.fixture.provider-settings";
-  let snapshot: ProviderSettings = { revision: "0", available_revision: "a".repeat(64), providers: ["anthropic", "openai", "fixture-provider"], codex_login_max_age_days: null, available: [
+const storageKey = "aq.fixture.provider-settings";
+function defaultProviders(): ProviderSettings {
+  return { revision: "0", available_revision: "a".repeat(64), providers: ["anthropic", "openai", "fixture-provider"], codex_login_max_age_days: null, available: [
     { id: "anthropic", name: "Anthropic", accounts: ["Fixture team"], credential_status: "present" },
     { id: "openai", name: "OpenAI", accounts: ["Fixture work"], credential_status: "missing" },
     { id: "google", name: "Google", accounts: [], credential_status: "not_configured" },
     { id: "fixture-provider", name: "Fixture provider", accounts: ["Labelled fixture"], credential_status: "present" },
   ] };
-  try { const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null") as ProviderSettings | null; if (saved) snapshot = saved; } catch { /* Fresh fixture. */ }
+}
+
+function savedProviders(): ProviderSettings {
+  try {
+    return JSON.parse(sessionStorage.getItem(storageKey) || "null") || defaultProviders();
+  } catch { return defaultProviders(); }
+}
+
+/** Labelled fixture accounts, never live credentials. */
+export function providerSettingsHandlers() {
+  let snapshot = savedProviders();
   const receipts = new Map<string, { body: string; result: ProviderSettings & { operation_id: string } }>();
   return [http.get("/api/settings/providers", () => HttpResponse.json(snapshot)),
     http.get("/api/settings/providers/operations/:id", ({ params }) => {

@@ -32,6 +32,8 @@ export const appRoutes: RouteObject[] = [
           { index: true, Component: IndexRedirect },
           { path: "overview", lazy: () => import("../features/overview") },
           { path: "supervisor", lazy: () => import("../features/supervisor") },
+          { path: "performance", lazy: () => import("../features/performance") },
+          { path: "performance/tasks/:taskId", lazy: () => import("../features/performance") },
           { path: "work/:taskId?", lazy: () => import("../features/work") },
           { path: "results", lazy: () => import("../features/results") },
           { path: "results/:resultId/revisions/:revision", lazy: () => import("../features/results") },

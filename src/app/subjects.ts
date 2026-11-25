@@ -1,28 +1,21 @@
 import type { EntityRef } from "../api/wire/proposed";
 
+const SUBJECT_ROUTES = new Map([
+  ["task", "/work"], ["decision", "/decisions"], ["session", "/agents"],
+  ["knowledge", "/knowledge"], ["playbook_run", "/playbooks/runs"],
+]);
+
 /** Dashboard route for an entity reference, or null when this client has no view for it. */
 export function subjectPath(ref: EntityRef): string | null {
   const id = encodeURIComponent(ref.id);
-  switch (ref.type) {
-    case "task":
-      return `/work/${id}`;
-    case "decision":
-      return `/decisions/${id}`;
-    case "session":
-      return `/agents/${id}`;
-    case "knowledge":
-      return `/knowledge/${id}`;
-    case "playbook_run":
-      return `/playbooks/runs/${id}`;
-    case "internal_run":
-      // No run page: History lists internal runs with its Internal filter on.
-      return "/agents/history?internal=1";
-    case "result":
-      // Overview references carry digests as `sha256:<hex>`; the results routes use the bare hex revision.
-      return ref.revision ? `/results/${id}/revisions/${encodeURIComponent(ref.revision.replace(/^sha256:/, ""))}` : null;
-    default:
-      return null;
-  }
+  const base = SUBJECT_ROUTES.get(ref.type);
+  if (base) return `${base}/${id}`;
+  // History lists internal runs with its Internal filter on.
+  if (ref.type === "internal_run") return "/agents/history?internal=1";
+  if (ref.type !== "result" || !ref.revision) return null;
+  // Overview references carry digest prefixes; the result route takes bare hex.
+  const revision = encodeURIComponent(ref.revision.replace(/^sha256:/, ""));
+  return `/results/${id}/revisions/${revision}`;
 }
 
 /** Outcome/fact labels shared by every surface (SO-04: `process_success` is a real outcome). */

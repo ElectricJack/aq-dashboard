@@ -1,5 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { sourceFailure, type ActivePlaybook, type AuthoringQuestion, type LatestRun, type PlaybookCase, type PlaybookChange, type SourceView } from "../../api/playbookSources";
+import { Latest } from "./LatestPlaybookRun";
+import { useEffect, useId, useRef, useState } from "react";
+import { sourceFailure, type ActivePlaybook, type PlaybookCase, type PlaybookChange, type SourceView } from "../../api/playbookSources";
 import { ActionButton } from "../../components/layout/Workspace";
 import { InternalRun } from "../internal/InternalRun";
 import { Timestamp } from "./Timestamp";
@@ -16,39 +17,7 @@ const CHANGES: Record<PlaybookChange, { label: string; detail: string }> = {
   abilities: { label: "Abilities changed", detail: "It needs different abilities than the previous playbook." },
 };
 
-/** Whole seconds or minutes and seconds, for how long a run has been going. */
-export function elapsed(ms: number) {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
-}
-function useNow(running: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!running) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [running]);
-  return now;
-}
-
-/** "Line 3", or "Lines 3–4" for a sentence that spans several lines. */
-const lines = (line: number, end: number | null) => end !== null && end !== line ? `Lines ${line}–${end}` : `Line ${line}`;
-
-/** The agent's question, with each sentence of the document it is about and its line number. Everything here is the agent's text, shown as text. */
-export function PlaybookQuestion({ question }: { question: AuthoringQuestion }) {
-  const id = useId();
-  return <section className={styles.question} aria-labelledby={id}>
-    <h4 id={id}>The playbook needs an answer</h4>
-    <p className={styles.text}>{question.question}</p>
-    {question.sentences.length > 0 && <>
-      <p className={styles.meta}>These sentences in the document are what it is asking about. Change them, then save.</p>
-      <ol className={styles.sentences} aria-label="Sentences in question">
-        {question.sentences.map((sentence, index) => <li key={index}><span className={styles.line}>{lines(sentence.line, sentence.end_line)}</span><span className={styles.text}>{sentence.text}</span></li>)}
-      </ol>
-    </>}
-  </section>;
-}
+export { elapsed, PlaybookQuestion } from "./LatestPlaybookRun";
 
 function Mark({ passed }: { passed: boolean }) {
   return passed ? <span className={styles.passed}><span aria-hidden="true">✓ </span>Passed</span> : <span className={styles.failed}><span aria-hidden="true">✗ </span>Did not pass</span>;
@@ -70,10 +39,15 @@ function Group({ result, members }: { result: string; members: PlaybookCase[] })
     <ul>{members.map((one, index) => <li key={index}><span className={styles.text}>{one.situation}</span><Mark passed={one.passed} /></li>)}</ul>
   </section>;
 }
-/** Many cases: one block per result, so the owner reads each result once with its situations under it. */
-function CasesGrouped({ cases }: { cases: PlaybookCase[] }) {
+function groupCases(cases: PlaybookCase[]) {
   const groups = new Map<string, PlaybookCase[]>();
   for (const one of cases) groups.set(one.result, [...(groups.get(one.result) ?? []), one]);
+  return groups;
+}
+
+/** Many cases: one block per result, so the owner reads each result once with its situations under it. */
+function CasesGrouped({ cases }: { cases: PlaybookCase[] }) {
+  const groups = groupCases(cases);
   const ordered = [...groups.entries()].sort(([, a], [, b]) => Number(b.some(one => !one.passed)) - Number(a.some(one => !one.passed)));
   return <div className={styles.groups} aria-label="What the playbook does in each situation" role="group">
     {ordered.map(([result, members]) => <Group key={result} result={result} members={members} />)}
@@ -99,77 +73,54 @@ function RollbackConfirm({ active, busy, onConfirm, onCancel }: { active: Active
   </div>;
 }
 
-function Active({ active, onRollback }: { active: ActivePlaybook; onRollback: () => Promise<unknown> }) {
-  const heading = useId();
-  const [confirming, setConfirming] = useState(false);
-  const [rolling, setRolling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function groupRepeatedResults(cases: PlaybookCase[]) {
+  // Grouping by result only helps when it makes the list shorter.
+  return cases.length > GROUP_CASES_ABOVE && new Set(cases.map(one => one.result)).size < cases.length;
+}
+
+function ActiveCases({ active }: { active: ActivePlaybook }) {
   const passed = active.cases.filter(one => one.passed).length;
   // A failing case comes first: it is what the owner most needs to see.
   const cases = [...active.cases].sort((a, b) => Number(a.passed) - Number(b.passed));
-  const change = active.comparison ? CHANGES[active.comparison.change] : null;
-  // Grouping by result only helps when it makes the list shorter.
-  const grouped = active.cases.length > GROUP_CASES_ABOVE && new Set(active.cases.map(one => one.result)).size < active.cases.length;
+  const grouped = groupRepeatedResults(active.cases);
+  return active.cases.length === 0 ? <p className={styles.meta}>No situations were tried on it.</p> : <>
+      <p className={styles.meta}>Each situation was tried on this playbook: {passed} of {active.cases.length} passed.</p>
+      {grouped ? <CasesGrouped cases={cases} /> : <CasesFlat cases={cases} />}
+    </>;
+}
+
+function Rollback({ active, onRollback }: { active: ActivePlaybook; onRollback: () => Promise<unknown> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [rolling, setRolling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const rollBack = async () => {
     setRolling(true); setError(null);
     try { await onRollback(); } catch (caught) { setError(sourceFailure(caught, "The previous playbook could not be put back.")); } finally { setRolling(false); setConfirming(false); }
   };
-  return <section className={styles.active} aria-labelledby={heading}>
-    <h4 id={heading}>What the playbook does</h4>
-    <p className={styles.meta}>In effect since {when(active.since_ms)}.</p>
-    {change ? <p className={styles.change}><strong>{change.label}.</strong> {change.detail}</p> : <p className={styles.meta}>There is no earlier playbook to compare it with.</p>}
-    {active.cases.length === 0 ? <p className={styles.meta}>No situations were tried on it.</p> : <>
-      <p className={styles.meta}>Each situation was tried on this playbook: {passed} of {active.cases.length} passed.</p>
-      {grouped ? <CasesGrouped cases={cases} /> : <CasesFlat cases={cases} />}
-    </>}
-    {active.can_rollback && (confirming
+  if (!active.can_rollback) return null;
+  return confirming
       ? <RollbackConfirm active={active} busy={rolling} onConfirm={() => void rollBack()} onCancel={() => setConfirming(false)} />
       : <div className={styles.actions}>
         <ActionButton onClick={() => setConfirming(true)}>Roll back to the previous playbook</ActionButton>
         {error && <span className={styles.failed} role="alert">{error}</span>}
-      </div>)}
-  </section>;
+      </div>;
 }
 
-function Latest({ latest, hasActive, showQuestion }: { latest: LatestRun; hasActive: boolean; showQuestion: boolean }) {
-  const now = useNow(latest.status === "running");
-  // The server says how long the run has taken by its own clock; this page only adds the time since it read that.
-  const read = useMemo(() => Date.now(), [latest.run, latest.elapsed_ms]);
-  const still = hasActive ? "The previous playbook is still in effect." : "No playbook is in effect yet.";
-  switch (latest.status) {
-    case "running": return <div className={styles.notice} role="status">
-      <p><strong>Writing the playbook…</strong> Running for {elapsed(latest.elapsed_ms + Math.max(0, now - read))}.</p>
-      <p className={styles.meta}>{hasActive ? "The current playbook keeps working meanwhile. " : ""}Saving the document again replaces this run: the newest save wins.</p>
-    </div>;
-    case "question": return <div className={styles.notice}>
-      {!latest.question ? <p><strong>The playbook needs an answer.</strong></p> : showQuestion && <PlaybookQuestion question={latest.question} />}
-      <p className={styles.meta}>{still}</p>
-    </div>;
-    case "unable": return <div className={styles.problem} role="alert">
-      <h4>{latest.unable?.host_fault ? "The playbook could not be written" : "This sentence cannot be carried out"}</h4>
-      {latest.unable ? <div className={styles.unable}>
-        <p className={styles.text}>{latest.unable.line !== null && <span className={styles.line}>Line {latest.unable.line}</span>}{latest.unable.sentence}</p>
-        <p className={styles.text}>{latest.unable.reason}</p>
-      </div> : <p className={styles.meta}>The agent did not say which sentence.</p>}
-      <p className={styles.meta}>{still}</p>
-    </div>;
-    case "refused": return <div className={styles.problem} role="alert">
-      <h4>The playbook was not written</h4>
-      {latest.refusal && <p className={styles.text}>{latest.refusal}</p>}
-      <p className={styles.meta}>{still}</p>
-    </div>;
-    case "superseded": return <div className={styles.notice} role="status">
-      <p><strong>A newer save replaced this run.</strong> It did not take effect.</p>
-      <p className={styles.meta}>{still}</p>
-    </div>;
-    case "failed": return <div className={styles.problem} role="alert">
-      <h4>The run ended without a playbook</h4>
-      {latest.refusal && <p className={styles.text}>{latest.refusal}</p>}
-      <p className={styles.meta}>{still}</p>
-    </div>;
-    case "saved": return null;
-    default: return <div className={styles.notice} role="status"><p>The latest run is in a state this page does not recognise.</p><p className={styles.meta}>{still}</p></div>;
-  }
+function Comparison({ active }: { active: ActivePlaybook }) {
+  const change = active.comparison ? CHANGES[active.comparison.change] : null;
+  return change ? <p className={styles.change}><strong>{change.label}.</strong> {change.detail}</p> : <p className={styles.meta}>There is no earlier playbook to compare it with.</p>;
+}
+
+function Active({ active, onRollback }: { active: ActivePlaybook; onRollback: () => Promise<unknown> }) {
+  const heading = useId();
+
+  return <section className={styles.active} aria-labelledby={heading}>
+    <h4 id={heading}>What the playbook does</h4>
+    <p className={styles.meta}>In effect since {when(active.since_ms)}.</p>
+    <Comparison active={active} />
+    <ActiveCases active={active} />
+    <Rollback active={active} onRollback={onRollback} />
+  </section>;
 }
 
 /** Starts another run from the saved document. The server starts none when nothing changed, and the owner is told so. */

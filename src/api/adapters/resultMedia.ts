@@ -1,4 +1,4 @@
-import { ContractError, isRecord } from "./contract";
+import { canonicalUuid as uuid, ContractError, isRecord, sameFields } from "./contract";
 import type { ResultMetadata, ResultPage } from "./results";
 export const MEDIA_CONTRACT = "human-result-media-1";
 export type MediaBinding = { coverage: "recorded_legacy_native_only"; report_id: string; report_revision: string; project_id: string; task_id: string; attempt_id: string; source: { repository_id: string; base: { format: "sha1" | "sha256"; hex: string } } };
@@ -18,7 +18,6 @@ export const isImageArtifact = (artifact: MediaArtifact) => artifact.receipt.ren
 export function mediaCheck(value: unknown): asserts value { if (!value) throw new ContractError("Invalid supplemental result media"); }
 /** Closed object: every `fields` key present, and nothing outside `fields` plus `optional`. */
 export function mediaShape(value: unknown, fields: string, optional = ""): asserts value is Record<string, unknown> { mediaCheck(isRecord(value)); const keys = fields.split(" "), allowed = new Set([...keys, ...optional.split(" ").filter(Boolean)]); mediaCheck(keys.every(key => Object.hasOwn(value, key)) && Object.keys(value).every(key => allowed.has(key))); }
-function uuid(v: unknown): v is string { return typeof v === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(v) && v !== "00000000-0000-0000-0000-000000000000"; }
 function sha(v: unknown, prefix = true): v is string { return typeof v === "string" && (prefix ? /^sha256:[0-9a-f]{64}$/ : /^[0-9a-f]{64}$/).test(v); }
 function uint(v: unknown, max: number, min = 1): v is number { return typeof v === "number" && Number.isSafeInteger(v) && v >= min && v <= max; }
 function time(v: unknown): v is number { return uint(v, Number.MAX_SAFE_INTEGER); }
@@ -26,14 +25,22 @@ function label(v: unknown, max: number): v is string { return typeof v === "stri
 function objectId(v: unknown) { mediaShape(v, "format hex"); mediaCheck(typeof v.hex === "string" && (v.format === "sha1" ? /^[0-9a-f]{40}$/ : v.format === "sha256" ? /^[0-9a-f]{64}$/ : /$a/).test(v.hex)); }
 function binding(v: unknown): asserts v is MediaBinding {
   mediaShape(v, "coverage report_id report_revision project_id task_id attempt_id source");
-  mediaCheck(v.coverage === "recorded_legacy_native_only" && uuid(v.report_id) && sha(v.report_revision, false) && uuid(v.project_id) && uuid(v.task_id) && uuid(v.attempt_id));
+  mediaCheck(v.coverage === "recorded_legacy_native_only");
+  mediaCheck(uuid(v.report_id));
+  mediaCheck(sha(v.report_revision, false));
+  mediaCheck(uuid(v.project_id));
+  mediaCheck(uuid(v.task_id));
+  mediaCheck(uuid(v.attempt_id));
   mediaShape(v.source, "repository_id base"); mediaCheck(uuid(v.source.repository_id)); objectId(v.source.base);
 }
 export function resultMediaBinding(row: ResultMetadata, coverage: ResultPage["coverage"]): MediaBinding {
   const expected: MediaBinding = { coverage, report_id: row.report_id, report_revision: row.revision, project_id: row.project_id, task_id: row.task_id, attempt_id: row.attempt_id, source: { repository_id: row.repository_id, base: { ...row.source_base } } };
   binding(expected); return expected;
 }
-export function sameMediaBinding(a: MediaBinding, b: MediaBinding): boolean { return a.coverage === b.coverage && a.report_id === b.report_id && a.report_revision === b.report_revision && a.project_id === b.project_id && a.task_id === b.task_id && a.attempt_id === b.attempt_id && a.source.repository_id === b.source.repository_id && a.source.base.format === b.source.base.format && a.source.base.hex === b.source.base.hex; }
+export function sameMediaBinding(a: MediaBinding, b: MediaBinding): boolean {
+  return sameFields(a, b, ["coverage", "report_id", "report_revision", "project_id", "task_id", "attempt_id"])
+    && a.source.repository_id === b.source.repository_id && sameFields(a.source.base, b.source.base, ["format", "hex"]);
+}
 /** Integrity fingerprint of the closed receipt, not a signature or capture assertion. */
 export function canonicalMedia(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalMedia).join(",")}]`;
@@ -44,48 +51,139 @@ export function canonicalMedia(value: unknown): string {
 export async function mediaDigest(bytes: Uint8Array): Promise<string> { const hash = await crypto.subtle.digest("SHA-256", Uint8Array.from(bytes)); return `sha256:${Array.from(new Uint8Array(hash), v => v.toString(16).padStart(2, "0")).join("")}`; }
 function variant(v: unknown, maximum: number, mime: MediaVariant["mime"] = "image/png", dimension = 4096): asserts v is MediaVariant {
   mediaShape(v, "digest bytes mime width height");
-  mediaCheck(sha(v.digest) && uint(v.bytes, maximum) && v.mime === mime && uint(v.width, dimension) && uint(v.height, dimension) && (mime !== "image/png" || v.width * v.height <= 2000000));
+  mediaCheck(sha(v.digest));
+  mediaCheck(uint(v.bytes, maximum));
+  mediaCheck(v.mime === mime);
+  mediaCheck(uint(v.width, dimension));
+  mediaCheck(uint(v.height, dimension));
+  mediaCheck(mime !== "image/png" || v.width * v.height <= 2000000);
 }
+function mediaLimits(value: unknown): MediaLimits {
+  mediaShape(value, Object.keys(MEDIA_MAX).join(" "), Object.keys(MEDIA_CLIP_MAX).join(" "));
+  for (const [key, maximum] of Object.entries(MEDIA_MAX)) mediaCheck(uint(value[key], maximum));
+  for (const [key, maximum] of Object.entries(MEDIA_CLIP_MAX)) {
+    if (Object.hasOwn(value, key)) mediaCheck(uint(value[key], maximum));
+  }
+  mediaCheck(Number(value.upload_ttl_ms) < Number(value.retention_ms));
+  return value as MediaLimits;
+}
+
+function checkCapture(capture: unknown) {
+  if (capture === null) return;
+  mediaShape(capture, "scenario captured_at_ms viewport environment claimed_source");
+  mediaCheck(label(capture.scenario, 128));
+  mediaCheck(time(capture.captured_at_ms));
+  mediaCheck(label(capture.environment, 128));
+  mediaShape(capture.viewport, "width_css height_css dpr_milli");
+  mediaCheck(uint(capture.viewport.width_css, 4096));
+  mediaCheck(uint(capture.viewport.height_css, 4096));
+  mediaCheck(uint(capture.viewport.dpr_milli, 8000, 100));
+  if (capture.claimed_source !== null) objectId(capture.claimed_source);
+}
+
+function checkInput(input: unknown, clip: boolean) {
+  mediaShape(input, "digest bytes filename");
+  mediaCheck(sha(input.digest));
+  mediaCheck(uint(input.bytes, clip ? MEDIA_CLIP_MAX.max_clip_bytes : MEDIA_MAX.max_input_bytes));
+  mediaCheck(label(input.filename, 256));
+  mediaCheck(!/[\/\\]/.test(input.filename));
+  mediaCheck(![".", ".."].includes(input.filename));
+}
+
+function checkVariants(receipt: Record<string, unknown>, clip: boolean) {
+  mediaShape(receipt.variants, "preview render");
+  const variants = receipt.variants;
+  variant(variants.preview, MEDIA_MAX.max_preview_bytes, "image/png", clip ? 384 : 4096);
+  variant(variants.render, MEDIA_MAX.max_render_bytes, clip ? "video/mp4" : "image/png");
+  // A clip's preview comes from its poster. An image's preview is a downscale of the render.
+  if (clip) {
+    mediaShape(receipt.clip, "duration_ms poster_artifact_id");
+    mediaCheck(uint(receipt.clip.duration_ms, MEDIA_CLIP_MAX.max_clip_duration_ms));
+    mediaCheck(uuid(receipt.clip.poster_artifact_id));
+    mediaCheck(receipt.clip.poster_artifact_id !== receipt.artifact_id);
+  } else {
+    const render = variants.render, longest = Math.max(render.width, render.height);
+    const scaled = (dimension: number) => longest <= 384 ? dimension : Math.max(1, Math.floor(dimension * 384 / longest));
+    mediaCheck(variants.preview.width === scaled(render.width));
+    mediaCheck(variants.preview.height === scaled(render.height));
+  }
+}
+
+function checkReceipt(value: unknown, expected: MediaBinding, previous: string): asserts value is MediaReceipt {
+  mediaShape(value, "schema_version artifact_id binding uploader_id input capture rendering_policy variants retained_at_ms retain_until_ms", "clip");
+  const clip = value.rendering_policy === CLIP_POLICY;
+  mediaCheck(clip || value.rendering_policy === IMAGE_POLICY);
+  mediaCheck(Object.hasOwn(value, "clip") === clip);
+  mediaCheck(value.schema_version === 1);
+  mediaCheck(uuid(value.artifact_id) && value.artifact_id > previous);
+  mediaCheck(uuid(value.uploader_id));
+  binding(value.binding);
+  mediaCheck(sameMediaBinding(value.binding, expected));
+  checkInput(value.input, clip);
+  checkCapture(value.capture);
+  checkVariants(value, clip);
+  mediaCheck(time(value.retained_at_ms));
+  mediaCheck(time(value.retain_until_ms));
+  mediaCheck(value.retain_until_ms > value.retained_at_ms);
+  mediaCheck(value.retain_until_ms - value.retained_at_ms <= MEDIA_MAX.retention_ms);
+}
+
+function checkAvailable(receipt: MediaReceipt, limits: MediaLimits) {
+  const { preview, render } = receipt.variants;
+  mediaCheck(render.bytes <= limits.max_render_bytes);
+  mediaCheck(preview.bytes <= limits.max_preview_bytes);
+  mediaCheck(Math.max(render.width, render.height) <= limits.max_dimension);
+  if (receipt.rendering_policy === CLIP_POLICY) {
+    mediaCheck(receipt.input.bytes <= Number(limits.max_clip_bytes));
+    mediaCheck(receipt.clip!.duration_ms <= Number(limits.max_clip_duration_ms));
+  } else {
+    mediaCheck(receipt.input.bytes <= limits.max_input_bytes);
+    mediaCheck(render.width * render.height <= limits.max_pixels);
+  }
+}
+
+function checkAvailability(value: unknown, receipt: MediaReceipt, serverTime: number, limits: MediaLimits) {
+  mediaShape(value, "state observed_at_ms reason");
+  mediaCheck(time(value.observed_at_ms));
+  mediaCheck(value.observed_at_ms >= receipt.retained_at_ms);
+  mediaCheck(value.observed_at_ms <= serverTime);
+  switch (value.state) {
+    case "available":
+      mediaCheck(value.reason === null);
+      mediaCheck(serverTime < receipt.retain_until_ms);
+      checkAvailable(receipt, limits);
+      break;
+    case "expired":
+      mediaCheck(value.reason === "retention_expired");
+      mediaCheck(value.observed_at_ms >= receipt.retain_until_ms);
+      break;
+    case "missing": mediaCheck(value.reason === "files_missing"); break;
+    case "withheld": mediaCheck(value.reason === "owner_withheld"); break;
+    default:
+      mediaCheck(value.state === "failed");
+      mediaCheck(["integrity_failed", "storage_unavailable"].includes(String(value.reason)));
+  }
+}
+
 export async function adaptResultMedia(raw: unknown, expected: MediaBinding): Promise<MediaPage> {
-  binding(expected); mediaShape(raw, "contract server_time_ms binding limits items");
-  mediaCheck(raw.contract === MEDIA_CONTRACT && time(raw.server_time_ms)); binding(raw.binding); mediaCheck(sameMediaBinding(raw.binding, expected));
-  mediaShape(raw.limits, Object.keys(MEDIA_MAX).join(" "), Object.keys(MEDIA_CLIP_MAX).join(" "));
-  for (const [key, maximum] of Object.entries(MEDIA_MAX)) mediaCheck(uint(raw.limits[key], maximum));
-  for (const [key, maximum] of Object.entries(MEDIA_CLIP_MAX)) if (Object.hasOwn(raw.limits, key)) mediaCheck(uint(raw.limits[key], maximum));
-  mediaCheck(Number(raw.limits.upload_ttl_ms) < Number(raw.limits.retention_ms));
-  const limits = raw.limits as MediaLimits;
-  mediaCheck(Array.isArray(raw.items) && raw.items.length <= limits.max_result_artifacts); let previous = "";
+  binding(expected);
+  mediaShape(raw, "contract server_time_ms binding limits items");
+  mediaCheck(raw.contract === MEDIA_CONTRACT);
+  mediaCheck(time(raw.server_time_ms));
+  binding(raw.binding);
+  mediaCheck(sameMediaBinding(raw.binding, expected));
+  const limits = mediaLimits(raw.limits);
+  mediaCheck(Array.isArray(raw.items) && raw.items.length <= limits.max_result_artifacts);
+  let previous = "";
   for (const item of raw.items) {
     mediaShape(item, "receipt receipt_digest availability");
-    mediaShape(item.receipt, "schema_version artifact_id binding uploader_id input capture rendering_policy variants retained_at_ms retain_until_ms", "clip");
-    const receipt = item.receipt, clip = receipt.rendering_policy === CLIP_POLICY;
-    mediaCheck(clip ? Object.hasOwn(receipt, "clip") : receipt.rendering_policy === IMAGE_POLICY && !Object.hasOwn(receipt, "clip"));
-    mediaCheck(receipt.schema_version === 1 && uuid(receipt.artifact_id) && receipt.artifact_id > previous && uuid(receipt.uploader_id)); previous = receipt.artifact_id;
-    binding(receipt.binding); mediaCheck(sameMediaBinding(receipt.binding, expected));
-    mediaShape(receipt.input, "digest bytes filename"); mediaCheck(sha(receipt.input.digest) && uint(receipt.input.bytes, clip ? MEDIA_CLIP_MAX.max_clip_bytes : MEDIA_MAX.max_input_bytes) && label(receipt.input.filename, 256) && !/[\/\\]/.test(receipt.input.filename) && ![".", ".."].includes(receipt.input.filename));
-    if (receipt.capture !== null) {
-      mediaShape(receipt.capture, "scenario captured_at_ms viewport environment claimed_source"); const capture = receipt.capture;
-      mediaCheck(label(capture.scenario, 128) && time(capture.captured_at_ms) && label(capture.environment, 128)); mediaShape(capture.viewport, "width_css height_css dpr_milli");
-      mediaCheck(uint(capture.viewport.width_css, 4096) && uint(capture.viewport.height_css, 4096) && uint(capture.viewport.dpr_milli, 8000, 100));
-      if (capture.claimed_source !== null) objectId(capture.claimed_source);
-    }
-    mediaShape(receipt.variants, "preview render");
-    variant(receipt.variants.preview, MEDIA_MAX.max_preview_bytes, "image/png", clip ? 384 : 4096); variant(receipt.variants.render, MEDIA_MAX.max_render_bytes, clip ? "video/mp4" : "image/png");
-    const preview = receipt.variants.preview, render = receipt.variants.render, longest = Math.max(render.width, render.height);
-    // A clip's preview is its poster's preview, not a downscale of the video track.
-    if (clip) { mediaShape(receipt.clip, "duration_ms poster_artifact_id"); mediaCheck(uint(receipt.clip.duration_ms, MEDIA_CLIP_MAX.max_clip_duration_ms) && uuid(receipt.clip.poster_artifact_id) && receipt.clip.poster_artifact_id !== receipt.artifact_id); }
-    else mediaCheck(preview.width === (longest <= 384 ? render.width : Math.max(1, Math.floor(render.width * 384 / longest))) && preview.height === (longest <= 384 ? render.height : Math.max(1, Math.floor(render.height * 384 / longest))));
-    mediaCheck(time(receipt.retained_at_ms) && time(receipt.retain_until_ms) && receipt.retain_until_ms > receipt.retained_at_ms && receipt.retain_until_ms - receipt.retained_at_ms <= MEDIA_MAX.retention_ms);
-    mediaCheck(sha(item.receipt_digest)); const canonical = new TextEncoder().encode(canonicalMedia(receipt)); mediaCheck(canonical.length <= 16384 && await mediaDigest(canonical) === item.receipt_digest);
-    mediaShape(item.availability, "state observed_at_ms reason"); const availability = item.availability;
-    mediaCheck(time(availability.observed_at_ms) && availability.observed_at_ms >= receipt.retained_at_ms && availability.observed_at_ms <= raw.server_time_ms);
-    if (availability.state === "available") mediaCheck(availability.reason === null && raw.server_time_ms < receipt.retain_until_ms && render.bytes <= limits.max_render_bytes && preview.bytes <= limits.max_preview_bytes && longest <= limits.max_dimension && (clip
-      ? receipt.input.bytes <= Number(limits.max_clip_bytes) && Number((receipt.clip as Record<string, unknown>).duration_ms) <= Number(limits.max_clip_duration_ms)
-      : receipt.input.bytes <= limits.max_input_bytes && render.width * render.height <= limits.max_pixels));
-    else if (availability.state === "expired") mediaCheck(availability.reason === "retention_expired" && availability.observed_at_ms >= receipt.retain_until_ms);
-    else if (availability.state === "missing") mediaCheck(availability.reason === "files_missing");
-    else if (availability.state === "withheld") mediaCheck(availability.reason === "owner_withheld");
-    else mediaCheck(availability.state === "failed" && ["integrity_failed", "storage_unavailable"].includes(String(availability.reason)));
+    checkReceipt(item.receipt, expected, previous);
+    previous = item.receipt.artifact_id;
+    mediaCheck(sha(item.receipt_digest));
+    const canonical = new TextEncoder().encode(canonicalMedia(item.receipt));
+    mediaCheck(canonical.length <= 16384);
+    mediaCheck(await mediaDigest(canonical) === item.receipt_digest);
+    checkAvailability(item.availability, item.receipt, raw.server_time_ms, limits);
   }
   return raw as unknown as MediaPage;
 }

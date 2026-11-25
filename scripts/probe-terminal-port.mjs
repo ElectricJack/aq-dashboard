@@ -16,18 +16,54 @@ let generation = 0, lease = null, sequence = 0; const frames = [], subscriptions
 const append = text => { const bytes = [...Buffer.from(text)]; frames.push({ terminal, sequence: ++sequence, byte_length: bytes.length, bytes, digest: createHash('sha256').update(Buffer.from(bytes)).digest('hex') }); };
 append('\x1b[?1049h\x1b[2J\x1b[H\x1b[36mSynthetic terminal port fixture\x1b[0m\r\n\r\nV1 xterm renderer · v2 finite-input transport\r\n\r\n› ');
 const control = () => ({ terminal, session_revision: 1, generation, lease, fence_acknowledged: !!lease, input_paused: false });
+function watchTerminal(r) {
+  const id = crypto.randomUUID();
+  subscriptions.set(id, r.expires_at_ms);
+  return { kind: 'watch', body: { terminal, operation_id: r.operation_id, subscription_id: id, session_revision: 1, expires_at_ms: r.expires_at_ms } };
+}
+
+function controlTerminal(r, now, kind) {
+  if (kind === 'control') generation++;
+  lease = { terminal, principal_id: 'fixture', lease_id: lease?.lease_id ?? crypto.randomUUID(), generation, issued_at_ms: now, expires_at_ms: r.expires_at_ms, execution_expires_at_ms: now + 60000 };
+  return { kind: 'control', body: { operation_id: r.operation_id, status: control() } };
+}
+
+function inputTerminal(r, now) {
+  expect(lease).not.toBeNull();
+  inputs.push(r.bytes);
+  const receipt = { terminal, operation_id: r.operation_id, disposition: 'applied', input_paused: false, observed_at_ms: now };
+  receipts.set(r.operation_id, receipt);
+  append(Buffer.from(r.bytes).toString());
+  return { kind: 'input', body: receipt };
+}
+
+function resizeTerminal(r) {
+  return { kind: 'resize', body: { terminal, operation_id: r.operation_id, sequence: r.sequence } };
+}
+
+function releaseTerminal(r) {
+  lease = null;
+  generation++;
+  return { kind: 'released', body: { terminal, operation_id: r.operation_id, generation } };
+}
+
+const mutationHandlers = {
+  watch: watchTerminal, control: controlTerminal, renew: controlTerminal, input: inputTerminal,
+  resize: resizeTerminal, release: releaseTerminal,
+};
+
+function terminalMutation(doc, now) {
+  mutations.push(doc.kind);
+  if (!Object.hasOwn(mutationHandlers, doc.kind)) throw new Error(`Unexpected mutation ${doc.kind}`);
+  return mutationHandlers[doc.kind](doc.body, now, doc.kind);
+}
+
 page.on('pageerror', e => errors.push(e.message));
 await page.route('**/api/v1/bootstrap', async route => { const response = await route.fetch(); const json = await response.json(); for (const cap of json.data.capabilities) if (cap.name === 'terminal.control') { cap.enabled = true; delete cap.reason; } await route.fulfill({ response, json }); });
 await page.route('**/api/v1/terminals/**', async route => {
   const request = route.request(), url = new URL(request.url()); const now = Date.now(); let body;
   if (request.method() === 'POST') {
-    const doc = request.postDataJSON(); mutations.push(doc.kind); const r = doc.body;
-    if (doc.kind === 'watch') { const id = crypto.randomUUID(); subscriptions.set(id, r.expires_at_ms); body = { kind: 'watch', body: { terminal, operation_id: r.operation_id, subscription_id: id, session_revision: 1, expires_at_ms: r.expires_at_ms } }; }
-    else if (doc.kind === 'control' || doc.kind === 'renew') { if (doc.kind === 'control') generation++; lease = { terminal, principal_id: 'fixture', lease_id: lease?.lease_id ?? crypto.randomUUID(), generation, issued_at_ms: now, expires_at_ms: r.expires_at_ms, execution_expires_at_ms: now + 60000 }; body = { kind: 'control', body: { operation_id: r.operation_id, status: control() } }; }
-    else if (doc.kind === 'input') { expect(lease).not.toBeNull(); inputs.push(r.bytes); const receipt = { terminal, operation_id: r.operation_id, disposition: 'applied', input_paused: false, observed_at_ms: now }; receipts.set(r.operation_id, receipt); append(Buffer.from(r.bytes).toString()); body = { kind: 'input', body: receipt }; }
-    else if (doc.kind === 'resize') body = { kind: 'resize', body: { terminal, operation_id: r.operation_id, sequence: r.sequence } };
-    else if (doc.kind === 'release') { lease = null; generation++; body = { kind: 'released', body: { terminal, operation_id: r.operation_id, generation } }; }
-    else throw new Error(`Unexpected mutation ${doc.kind}`);
+    body = terminalMutation(request.postDataJSON(), now);
   } else if (url.pathname.endsWith('/tail')) { const after = Number(url.searchParams.get('after_sequence')); const id = url.searchParams.get('subscription_id'); body = { terminal, subscription_id: id, session_revision: 1, expires_at_ms: subscriptions.get(id), server_time_ms: now, last_observed_at_ms: now, availability: 'resident_tail', disconnected: false, initial_incomplete: true, frames: frames.filter(f => f.sequence > after), gaps: [], next_sequence: sequence, more: false }; }
   else if (url.pathname.includes('/receipts/')) body = receipts.get(url.pathname.split('/').at(-1));
   else body = { terminal, session_revision: 1, input_mode: 'finite_v1', terminal_policy: { input_enabled: true }, disconnected: false, control: control() };

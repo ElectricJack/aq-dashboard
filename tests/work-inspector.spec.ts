@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // WK-E: contextual task inspector against design reference 02 (labelled mock fixture, src/mocks/humanGraph.ts).
 const project = "00000000-0000-0000-0000-000000000001", approve = "00000000-0000-0000-0000-000000000104";
@@ -12,6 +12,16 @@ async function axe(page: Page) {
 }
 const inspector = (page: Page) => page.locator("[data-task-inspector]");
 
+async function actionsAboveStatus(panel: Locator) {
+  const statusTop = (await panel.getByRole("heading", { name: "Status" }).boundingBox())!.y;
+  // Copy controls (spec 0004 item 1), Expand and section folds are not actions; one primary action plus More
+  // actions (a phone has one Task actions menu, P1-02).
+  return panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => !e.getAttribute("aria-label")?.startsWith("Copy") && !e.hasAttribute("aria-expanded") && !e.hasAttribute("aria-pressed") || e.getAttribute("aria-haspopup") === "menu").filter((e) => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && r.top < top;
+  }).length, statusTop);
+}
+
 for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone", width: 390, height: 844 }]) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
@@ -22,13 +32,7 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       const description = panel.getByRole("heading", { name: "Description" });
       await expect(description).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-${vp.name}.png` });
-      const statusTop = (await panel.getByRole("heading", { name: "Status" }).boundingBox())!.y;
-      // Copy controls (spec 0004 item 1), Expand and section folds are not actions; one primary action plus More
-      // actions (a phone has one Task actions menu, P1-02).
-      const above = await panel.getByRole("button").evaluateAll((els, top) => els.filter((e) => !e.getAttribute("aria-label")?.startsWith("Copy") && !e.hasAttribute("aria-expanded") && !e.hasAttribute("aria-pressed") || e.getAttribute("aria-haspopup") === "menu").filter((e) => {
-        const r = e.getBoundingClientRect();
-        return r.width > 0 && r.height > 0 && r.top < top;
-      }).length, statusTop);
+      const above = await actionsAboveStatus(panel);
       expect(above).toBe(vp.name === "desktop" ? 2 : 1);
       // Header, then Status, then the comment composer, all in the first desktop viewport (spec 0004 §3, P1-03).
       if (vp.name === "desktop") await expect(panel.getByLabel("Add a comment")).toBeInViewport({ ratio: 1 });
@@ -82,13 +86,16 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       };
       const set = await choose("Set route");
       await set.getByLabel("Level").selectOption("standard-high");
-      await expect(set.getByRole("checkbox", { name: "fixture-provider" })).toBeVisible();
+      await set.getByLabel("Preferred harness").selectOption("claude");
+      await set.getByLabel("Preferred provider").selectOption("fixture-provider");
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-set-route-${vp.name}.png` });
       await axe(page);
       await set.getByRole("button", { name: "Submit" }).click();
       await expect(set.getByText("Route set to Standard · High")).toBeVisible();
       await set.getByRole("button", { name: "Close action" }).click();
       await expect(route).toContainText("Standard · High");
+      await expect(route).toContainText("Preferred harness: Claude");
+      await expect(route).toContainText("Preferred provider: fixture-provider");
       await expect(route).toContainText("Set by the owner");
       await route.getByText("Why this route").click();
       await expect(route.getByText("Fixture: the owner set this route.")).toBeVisible();

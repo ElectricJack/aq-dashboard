@@ -1,6 +1,6 @@
 import { agentClassLabel } from "../../../api/adapters/swarm";
 import { Link, useLocation } from "react-router";
-import type { HoldReasonView, MachineView, SwarmView } from "../../../api/adapters/swarm";
+import type { AgentView, HoldReasonView, MachineView, NodeView, SwarmView } from "../../../api/adapters/swarm";
 import { formatAge } from "../../../components/time/relative";
 import { DetailList } from "../../../components/layout/Workspace";
 import { useProjects } from "../../../app/useProjects";
@@ -91,14 +91,17 @@ function MachinePane({ m, serverTime }: { m: MachineView; serverTime: string }) 
   </>;
 }
 
-function find(view: SwarmView, selection: Selection) {
-  for (const m of view.machines) for (const n of m.nodes) {
-    if (selection.kind === "node" && n.id === selection.nodeId) return { m, n };
-    if ((selection.kind === "free" || selection.kind === "held") && n.id === selection.nodeId) return { m, n };
-    if (selection.kind === "agent") { const a = n.agents.find(x => x.sessionId === selection.sessionId); if (a) return { m, n, a }; }
+function selectedWorker(view: SwarmView, nodeId: string) {
+  for (const machine of view.machines) {
+    const node = machine.nodes.find(item => item.id === nodeId);
+    if (node) return { machine, node };
   }
-  if (selection.kind === "machine") { const m = view.machines.find(x => x.id === selection.machineId); if (m) return { m }; }
-  return null;
+}
+function selectedAgent(view: SwarmView, sessionId: string) {
+  for (const machine of view.machines) for (const node of machine.nodes) {
+    const agent = node.agents.find(item => item.sessionId === sessionId);
+    if (agent) return agent;
+  }
 }
 
 function Empty() {
@@ -118,9 +121,7 @@ export function SwarmPane({ view, selection, ready, note, onCloseWorker }: { vie
   return <>{note && <p role="note" className={styles.actionNote}>{note}</p>}<Body view={view} selection={selection} ready={ready} onCloseWorker={onCloseWorker} /></>;
 }
 
-function Body({ view, selection, ready, onCloseWorker }: { view: SwarmView; selection: Selection; ready: number | null; onCloseWorker(): void }) {
-  if (selection.kind === "server") return <ServerPane view={view} ready={ready} />;
-  if (selection.kind === "waiting") {
+function WaitingPane({ view, ready }: { view: SwarmView; ready: number | null }) {
     const n = view.waiting.agents.length || ready || 0;
     return <>
       <Head kicker="Waiting" title={`${n} waiting`} />
@@ -129,9 +130,10 @@ function Body({ view, selection, ready, onCloseWorker }: { view: SwarmView; sele
         <dt>Fix</dt><dd>{view.waiting.reasons.filter(r => r.remedy).map(r => <div key={r.code}>{r.remedy}</div>)}</dd>
       </DetailList>
     </>;
-  }
-  if (selection.kind === "waitingAgent") {
-    const w = view.waiting.agents.find(x => x.taskId === selection.taskId);
+}
+
+function WaitingAgentPane({ view, taskId }: { view: SwarmView; taskId: string }) {
+    const w = view.waiting.agents.find(x => x.taskId === taskId);
     if (!w) return <Empty />;
     return <>
       <Head kicker="Waiting agent" title={w.title} />
@@ -140,40 +142,62 @@ function Body({ view, selection, ready, onCloseWorker }: { view: SwarmView; sele
         <dt>Fix</dt><dd>{w.reasons.flatMap(r => (r.remedy ? [r.remedy] : [])).join("; ")}</dd>
       </DetailList>
     </>;
-  }
-  const hit = find(view, selection);
-  if (!hit) return <Empty />;
-  if (selection.kind === "machine") return <MachinePane key={hit.m.id} m={hit.m} serverTime={view.serverTime} />;
-  if (selection.kind === "node" && hit.n) return <WorkerInspector key={hit.n.id} node={hit.n} machine={hit.m} serverTime={view.serverTime} onClose={onCloseWorker} />;
-  if (selection.kind === "free" && hit.n) {
-    const hold = hit.m.state === "holding" ? hit.m.holding[0] : undefined;
+}
+
+function FreePane({ machine, node }: { machine: MachineView; node: NodeView }) {
+    const hold = machine.state === "holding" ? machine.holding[0] : undefined;
     return <>
       <Head kicker="Free slot" title="waiting for ready work" />
       <DetailList className={styles.facts}>
-        <dt>Node</dt><dd>{hit.n.name}</dd>
+        <dt>Node</dt><dd>{node.name}</dd>
         <dt>Takes</dt><dd>any provider and class allowed on this node</dd>
         {hold && <><dt>Why</dt><dd>{`Free, but this machine is holding back: ${hold.message}`}</dd>{hold.remedy && <><dt>Fix</dt><dd>{hold.remedy}</dd></>}</>}
       </DetailList>
     </>;
-  }
-  if (selection.kind === "held" && hit.n) {
+}
+
+function HeldPane({ node }: { node: NodeView }) {
     return <>
       <Head kicker="Slot held" title="Starting or settling" />
       <DetailList className={styles.facts}>
-        <dt>Node</dt><dd>{hit.n.name}</dd>
+        <dt>Node</dt><dd>{node.name}</dd>
         <dt>What</dt><dd>{HELD_TEXT}</dd>
         <dt>Which</dt><dd>The server does not say which task holds this slot until its agent has started.</dd>
       </DetailList>
     </>;
-  }
-  if (selection.kind === "agent" && hit.a) {
-    if(hit.a.manual) return <AgentPane agent={hit.a} serverTime={view.serverTime} />;
+}
+
+function SelectedAgent({ agent, serverTime }: { agent: AgentView; serverTime: string }) {
+    if (agent.manual) return <AgentPane agent={agent} serverTime={serverTime} />;
     return <>
-      <Head kicker={`Agent · ${hit.a.provider ?? "agent"} · ${agentClassLabel(hit.a)}`} title={taskLabel(hit.a)} />
-      <AgentPane agent={hit.a} serverTime={view.serverTime} />
+      <Head kicker={`Agent · ${agent.provider ?? "agent"} · ${agentClassLabel(agent)}`} title={taskLabel(agent)} />
+      <AgentPane agent={agent} serverTime={serverTime} />
     </>;
+}
+
+function Body({ view, selection, ready, onCloseWorker }: { view: SwarmView; selection: Selection; ready: number | null; onCloseWorker(): void }) {
+  switch (selection.kind) {
+    case "server": return <ServerPane view={view} ready={ready} />;
+    case "waiting": return <WaitingPane view={view} ready={ready} />;
+    case "waitingAgent": return <WaitingAgentPane view={view} taskId={selection.taskId} />;
+    case "machine": {
+      const machine = view.machines.find(item => item.id === selection.machineId);
+      return machine ? <MachinePane key={machine.id} m={machine} serverTime={view.serverTime} /> : <Empty />;
+    }
+    case "agent": {
+      const agent = selectedAgent(view, selection.sessionId);
+      return agent ? <SelectedAgent agent={agent} serverTime={view.serverTime} /> : <Empty />;
+    }
+    default: return <SelectedWorker view={view} selection={selection} onCloseWorker={onCloseWorker} />;
   }
-  return <Empty />;
+}
+
+function SelectedWorker({ view, selection, onCloseWorker }: { view: SwarmView; selection: Extract<Selection, { nodeId: string }>; onCloseWorker(): void }) {
+  const worker = selectedWorker(view, selection.nodeId);
+  if (!worker) return <Empty />;
+  if (selection.kind === "free") return <FreePane {...worker} />;
+  if (selection.kind === "held") return <HeldPane node={worker.node} />;
+  return <WorkerInspector key={worker.node.id} {...worker} serverTime={view.serverTime} onClose={onCloseWorker} />;
 }
 
 /** "anthropic 42%", or "anthropic unknown" when the percentage is not known. */

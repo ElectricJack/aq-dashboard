@@ -7,16 +7,59 @@ import { http, HttpResponse } from "msw";
  * anything else, as the server does.
  */
 const DIGEST = "sha256:fixture-role-snapshot";
-const choice = (level: string, name: string, provider: string, model: string, reasoning: string, harness: string) =>
+type FixtureChoice = { provider: string; model: string; reasoning: string; harness: string };
+const choice = (level: string, name: string, { provider, model, reasoning, harness }: FixtureChoice) =>
   ({ snapshot_digest: DIGEST, profile_id: level, candidate_id: `${provider}:${model}:${reasoning}`, name, provider, model, reasoning, harness });
 export const FIXTURE_LAUNCH_PROFILES = [
-  choice("standard-low", "Fixture standard, low", "openai", "fixture-codex-model", "low", "codex"),
-  choice("standard-low", "Fixture standard, low", "anthropic", "fixture-model", "low", "claude"),
-  choice("standard-high", "Fixture standard, high", "openai", "fixture-codex-model", "high", "codex"),
-  choice("standard-high", "Fixture standard, high", "anthropic", "fixture-model-large", "high", "claude"),
+  choice("standard-low", "Fixture standard, low", { provider: "openai", model: "fixture-codex-model", reasoning: "low", harness: "codex" }),
+  choice("standard-low", "Fixture standard, low", { provider: "anthropic", model: "fixture-model", reasoning: "low", harness: "claude" }),
+  choice("standard-high", "Fixture standard, high", { provider: "openai", model: "fixture-codex-model", reasoning: "high", harness: "codex" }),
+  choice("standard-high", "Fixture standard, high", { provider: "anthropic", model: "fixture-model-large", reasoning: "high", harness: "claude" }),
 ];
 const GLOBAL = "e0000000-0000-4000-8000-0000000000a1", ACTOR = "e0000000-0000-4000-8000-0000000000a2";
 const stored = ({ snapshot_digest: _digest, ...rest }: (typeof FIXTURE_LAUNCH_PROFILES)[number]) => rest;
+
+function selectedProfile(selected: Record<string, unknown> | undefined) {
+  return selected ? FIXTURE_LAUNCH_PROFILES.find(p => p.profile_id === selected.profile_id && p.candidate_id === selected.candidate_id) : undefined;
+}
+
+function unknownControlField(body: Record<string, unknown>, selected: Record<string, unknown> | undefined) {
+  return Object.keys(body).some(k => !["operation_id", "expected_revision", "enabled", "intelligence_profile"].includes(k))
+        || selected && Object.keys(selected).some(k => !["profile_id", "candidate_id"].includes(k));
+}
+
+const refused = (status: number, message: string) => HttpResponse.json({ error: "refused", message }, { status });
+type ControlRequest = { id: string | readonly string[] | undefined; body: Record<string, unknown>; selected: Record<string, unknown> | undefined };
+function checkControl({ id, body, selected }: ControlRequest, listed: boolean, control: Record<string, unknown>) {
+  if (unknownControlField(body, selected)) return refused(422, "unknown field");
+  if (!listed || id !== GLOBAL) return refused(404, "Supervisor not found");
+  if (body.expected_revision !== control.revision) return refused(409, "Supervisor settings changed; refresh before retrying");
+  return null;
+}
+
+function selectControlProfile(body: Record<string, unknown>, selected: Record<string, unknown> | undefined, control: Record<string, unknown>) {
+  const found = selectedProfile(selected);
+  if (selected && !found) return { error: refused(409, "Intelligence profile changed or is unavailable; select it again") };
+  const profile = found ? stored(found) : control.profile;
+  if (body.enabled && !profile) return { error: refused(400, "Choose a supervisor intelligence profile") };
+  return { found, profile };
+}
+
+function updatedControl(control: Record<string, unknown>, body: Record<string, unknown>, profile: unknown, found: boolean) {
+  const { unavailable_reason: _reason, ...rest } = control;
+  return { ...(found ? rest : control), enabled: body.enabled, revision: Number(control.revision) + 1, profile };
+}
+
+function initialControl(waiting: boolean): Record<string, unknown> {
+  const identity = { id: GLOBAL, actor_id: ACTOR, project_id: null, label: "Global supervisor", generation: null, session_id: null, last_error: null };
+  if (!waiting) return { ...identity, enabled: false, revision: 0, profile: null, phase: "unavailable", stage: "Supervisor service is unavailable", observed_at_ms: null };
+  return {
+    ...identity, enabled: true, revision: 3,
+    profile: { ...stored(FIXTURE_LAUNCH_PROFILES[0]!), model: "fixture-retired-model", candidate_id: "openai:fixture-retired-model:low" },
+    unavailable_reason: "its level `standard-low` no longer lists fixture-retired-model on codex; choose a level",
+    phase: "stopped", stage: "Stopped", observed_at_ms: Date.now(),
+  };
+}
 
 /**
  * The default scenario lists the choices and no control, as before (pages that inject a conversation rely on that).
@@ -25,30 +68,20 @@ const stored = ({ snapshot_digest: _digest, ...rest }: (typeof FIXTURE_LAUNCH_PR
  */
 export function supervisorHandlers(name: string | null | undefined) {
   const waiting = name === "supervisor-waiting", listed = waiting || name === "supervisor-stopped";
-  let control: Record<string, unknown> = {
-    id: GLOBAL, actor_id: ACTOR, project_id: null, label: "Global supervisor", enabled: waiting, revision: waiting ? 3 : 0,
-    profile: waiting ? { ...stored(FIXTURE_LAUNCH_PROFILES[0]!), model: "fixture-retired-model", candidate_id: "openai:fixture-retired-model:low" } : null,
-    ...(waiting ? { unavailable_reason: "its level `standard-low` no longer lists fixture-retired-model on codex; choose a level" } : {}),
-    phase: waiting ? "stopped" : "unavailable", stage: waiting ? "Stopped" : "Supervisor service is unavailable",
-    observed_at_ms: waiting ? Date.now() : null, generation: null, session_id: null, last_error: null,
-  };
+  let control = initialControl(waiting);
   const receipts = new Map<string, Record<string, unknown>>();
-  const refused = (status: number, message: string) => HttpResponse.json({ error: "refused", message }, { status });
+
   return [
-    http.get("/api/supervisors", () => HttpResponse.json({ supervisors: listed ? [control] : [], profiles: FIXTURE_LAUNCH_PROFILES.filter(p => p.harness === "codex"), server_time_ms: Date.now() })),
+    http.get("/api/supervisors", () => HttpResponse.json({ supervisors: listed ? [control] : [], profiles: FIXTURE_LAUNCH_PROFILES, server_time_ms: Date.now() })),
     http.post("/api/supervisors/:id/control", async ({ request, params }) => {
       const body = await request.json() as Record<string, unknown>;
       const selected = body.intelligence_profile as Record<string, unknown> | undefined;
-      if (Object.keys(body).some(k => !["operation_id", "expected_revision", "enabled", "intelligence_profile"].includes(k))
-        || selected && Object.keys(selected).some(k => !["profile_id", "candidate_id"].includes(k))) return refused(422, "unknown field");
-      if (!listed || params.id !== GLOBAL) return refused(404, "Supervisor not found");
-      if (body.expected_revision !== control.revision) return refused(409, "Supervisor settings changed; refresh before retrying");
-      const found = selected ? FIXTURE_LAUNCH_PROFILES.find(p => p.harness === "codex" && p.profile_id === selected.profile_id && p.candidate_id === selected.candidate_id) : undefined;
-      if (selected && !found) return refused(409, "Intelligence profile changed or is unavailable; select it again");
-      const profile = found ? stored(found) : control.profile;
-      if (body.enabled && !profile) return refused(400, "Choose a supervisor intelligence profile");
-      const { unavailable_reason: _reason, ...rest } = control;
-      control = { ...(found ? rest : control), enabled: body.enabled, revision: Number(control.revision) + 1, profile };
+      const refusedControl = checkControl({ id: params.id, body, selected }, listed, control);
+      if (refusedControl) return refusedControl;
+      const change = selectControlProfile(body, selected, control);
+      if ("error" in change) return change.error;
+      const { found, profile } = change;
+      control = updatedControl(control, body, profile, Boolean(found));
       const receipt = { operation_id: body.operation_id, conversation_id: GLOBAL, revision: control.revision, enabled: body.enabled, profile };
       receipts.set(String(body.operation_id), receipt);
       return HttpResponse.json(receipt);

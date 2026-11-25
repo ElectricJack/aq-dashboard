@@ -185,6 +185,11 @@
 .launcher { display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2); }
 @media(max-width:767px) { .launcherText { display:none; } .launcher { inline-size:var(--touch-target); padding-inline:0; } }
 
+/* Keep the latest reply visible beside the composer when a phone keyboard shortens the viewport. */
+@media (max-width: 767px) and (max-height: 600px) {
+  .workspace[data-presentation=full] { row-gap: var(--space-1); }
+}
+
 /* Owner attachments: picker beside the composer hint, pending files above the actions, retained files under a message. */
 .attachControl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
 .composerActions .attachButton { display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: var(--control-height); padding: var(--space-1) var(--space-3); background: transparent; color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; cursor: pointer; }

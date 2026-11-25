@@ -56,9 +56,17 @@ const EXTRA: Seed[] = [
 
 const VERBS = ["Audit", "Refactor", "Document", "Benchmark", "Harden", "Migrate", "Profile", "Simplify"];
 const NOUNS = ["scheduler", "mailbox", "workspace pool", "telemetry", "cache layer", "CLI help", "artifact store", "auth guard"];
+const FILLER_EXPLANATIONS = {
+  ready: "Eligible; waiting for a worker slot",
+  waiting: "Waiting on an upstream task",
+  blocked: "Blocked by project eligibility",
+  done: "Accepted",
+  draft: "Draft; not yet submitted",
+};
+const FILLER_STATES = { done: "completed", draft: "draft", ready: "active", running: "active", waiting: "active", blocked: "active" } as const;
 const FILLER: Seed[] = Array.from({ length: 36 }, (_, i) => {
-  const readiness: ReadinessState = (["ready", "running", "waiting", "done", "draft", "blocked"] as const)[i % 6]!;
-  const state: TaskState = readiness === "done" ? "completed" : readiness === "draft" ? "draft" : "active";
+  const readiness = (["ready", "running", "waiting", "done", "draft", "blocked"] as const)[i % 6]!;
+  const state: TaskState = FILLER_STATES[readiness];
   const running = readiness === "running";
   return {
     id: `t-${400 + i}`,
@@ -66,13 +74,7 @@ const FILLER: Seed[] = Array.from({ length: 36 }, (_, i) => {
     project: PROJECTS[i % PROJECTS.length]!.id,
     state,
     readiness,
-    explanation:
-      readiness === "ready" ? "Eligible; waiting for a worker slot"
-      : running ? `Attempt 1 is running on worker-${20 + i}`
-      : readiness === "waiting" ? "Waiting on an upstream task"
-      : readiness === "blocked" ? "Blocked by project eligibility"
-      : readiness === "done" ? "Accepted"
-      : "Draft; not yet submitted",
+    explanation: readiness === "running" ? `Attempt 1 is running on worker-${20 + i}` : FILLER_EXPLANATIONS[readiness],
     ...(running && { session: `sess-${20 + i}`, agent: `Worker ${20 + i}` }),
     ...(readiness === "blocked" && { blocker: { kind: "eligibility", explanation: "Project concurrency limit reached" } }),
     minutesAgo: 30 + i * 7,
@@ -179,26 +181,37 @@ export const SESSIONS: SessionDetail[] = SESSION_SEEDS.map((t, i) => ({
   last_activity_at: at(0.05),
 }));
 
+function taskHit(t: typeof TASKS[number]): SearchResults["groups"][number]["hits"][number] {
+  return { ref: { type: "task", id: t.id, revision: t.revision }, title: t.title, excerpt: t.readiness.explanation, project: t.project };
+}
+function sessionHit(s: typeof SESSIONS[number]): SearchResults["groups"][number]["hits"][number] {
+  return { ref: { type: "session", id: s.id }, title: s.label, excerpt: s.task?.title ?? "", project: s.project };
+}
+
+function taskSearch(inScope: (project: ProjectRef | null) => boolean, needle: string): SearchResults["groups"][number] | undefined {
+  const taskHits = TASKS.filter((t) => inScope(t.project) && t.title.toLowerCase().includes(needle));
+  if (!taskHits.length) return undefined;
+  return {
+    type: "task",
+    hits: taskHits.slice(0, 5).map(taskHit),
+    has_more: taskHits.length > 5,
+  };
+}
+
+function sessionSearch(inScope: (project: ProjectRef | null) => boolean, needle: string): SearchResults["groups"][number] | undefined {
+  const sessionHits = SESSIONS.filter((s) => inScope(s.project) && `${s.label} ${s.task?.title ?? ""}`.toLowerCase().includes(needle));
+  if (!sessionHits.length) return undefined;
+  return {
+    type: "session",
+    hits: sessionHits.slice(0, 5).map(sessionHit),
+    has_more: sessionHits.length > 5,
+  };
+}
+
 export function search(q: string, projectId: string | null): SearchResults {
   const needle = q.trim().toLowerCase();
   if (!needle) return { groups: [] };
   const inScope = (p: ProjectRef | null) => !projectId || p?.id === projectId;
-  const taskHits = TASKS.filter((t) => inScope(t.project) && t.title.toLowerCase().includes(needle));
-  const sessionHits = SESSIONS.filter((s) => inScope(s.project) && `${s.label} ${s.task?.title ?? ""}`.toLowerCase().includes(needle));
-  const groups: SearchResults["groups"] = [];
-  if (taskHits.length) {
-    groups.push({
-      type: "task",
-      hits: taskHits.slice(0, 5).map((t) => ({ ref: { type: "task", id: t.id, revision: t.revision }, title: t.title, excerpt: t.readiness.explanation, project: t.project })),
-      has_more: taskHits.length > 5,
-    });
-  }
-  if (sessionHits.length) {
-    groups.push({
-      type: "session",
-      hits: sessionHits.slice(0, 5).map((s) => ({ ref: { type: "session", id: s.id }, title: s.label, excerpt: s.task?.title ?? "", project: s.project })),
-      has_more: sessionHits.length > 5,
-    });
-  }
+  const groups = [taskSearch(inScope, needle), sessionSearch(inScope, needle)].filter(group => group !== undefined);
   return { groups };
 }

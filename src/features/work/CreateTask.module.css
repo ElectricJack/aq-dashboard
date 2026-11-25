@@ -21,3 +21,6 @@
 @media(max-width:767px){.heading{flex-wrap:nowrap;margin-block-end:var(--space-3)}.heading>.action{flex-wrap:nowrap}.hint{position:absolute;inline-size:1px;block-size:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}}
 
 .hint { position:absolute; inline-size:1px; block-size:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+.workspaceDeclaration summary { cursor:pointer; min-block-size:var(--control-height); align-content:center; }
+.dialog:has(.workspaceDeclaration[open]) .header { position:sticky; inset-block-start:0; z-index:1; background:var(--color-panel); }

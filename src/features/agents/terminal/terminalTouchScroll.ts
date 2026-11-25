@@ -74,6 +74,10 @@ export function attachTouchScroll(element: HTMLElement, { lineHeight, scroll, on
     pixels = 0;
     samples = [{ at: event.timeStamp, y: touch.clientY }];
   };
+  const sample = (at: number, y: number) => {
+    samples.push({ at, y });
+    while (samples.length > 2 && at - samples[0]!.at > VELOCITY_WINDOW_MS) samples.shift();
+  };
   const onMove = (event: TouchEvent) => {
     if (!tracking) return;
     if (event.touches.length !== 1) { tracking = false; return; }
@@ -87,8 +91,7 @@ export function attachTouchScroll(element: HTMLElement, { lineHeight, scroll, on
     // A finger moving down drags earlier output into view.
     move(lastY - touch.clientY);
     lastY = touch.clientY;
-    samples.push({ at: event.timeStamp, y: touch.clientY });
-    while (samples.length > 2 && event.timeStamp - samples[0]!.at > VELOCITY_WINDOW_MS) samples.shift();
+    sample(event.timeStamp, touch.clientY);
   };
   const onEnd = (event: TouchEvent) => {
     if (!tracking) return;

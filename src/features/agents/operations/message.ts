@@ -28,9 +28,10 @@ export function freezeMessage(session: Pick<SessionDetailView, "id" | "project" 
 export type MessageState = { kind: "queued" | "unknown" | "not_sent"; label: string; detail: string };
 /** Confirmation means queued in the session's mailbox, nothing more; delivery isn't reported. */
 export function messageState(op: ActionOperation | null, unknown: boolean): MessageState {
-  if (unknown || !op || op.disposition === "unknown") return { kind: "unknown", label: "Message outcome unknown", detail: "AQ may or may not have queued it. Check the outcome or re-send the same message; it is never queued twice." };
-  if (op.disposition === "pending") return { kind: "queued", label: "Message pending", detail: "AQ is recording the message." };
-  if (op.disposition === "conflict") return { kind: "not_sent", label: "Message not sent", detail: "The session changed generation. Refresh and message the current session." };
-  if (op.disposition === "rejected") return { kind: "not_sent", label: "Message not sent", detail: "AQ refused the message. The session may no longer have a mailbox to receive it." };
+  const disposition = unknown ? "unknown" : op?.disposition ?? "unknown";
+  if (disposition === "unknown") return { kind: "unknown", label: "Message outcome unknown", detail: "AQ may or may not have queued it. Check the outcome or re-send the same message; it is never queued twice." };
+  if (disposition === "pending") return { kind: "queued", label: "Message pending", detail: "AQ is recording the message." };
+  if (disposition === "conflict") return { kind: "not_sent", label: "Message not sent", detail: "The session changed generation. Refresh and message the current session." };
+  if (disposition === "rejected") return { kind: "not_sent", label: "Message not sent", detail: "AQ refused the message. The session may no longer have a mailbox to receive it." };
   return { kind: "queued", label: "Message queued", detail: "Queued in the session's mailbox. The agent reads it at its next mailbox check; delivery isn't reported here." };
 }

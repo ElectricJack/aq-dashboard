@@ -1,6 +1,24 @@
 import type { BootstrapView } from "../api/adapters/bootstrap";
 
+import { PERFORMANCE } from "../api/adapters/performance";
+
 export const UPGRADE_PATH = "Install compatible versions, then reload.";
+
+// More specific prefixes precede their broader resource families.
+const PREFIX_CAPABILITIES = [
+  ["performance-", PERFORMANCE],
+  ["human-graph-", "human.graph.read"],
+  ["supervisor-", "supervisor.history.read"],
+  ["notification-", "notifications.read"],
+  ["decision-", "decisions.read"],
+  ["host-decision-", "playbooks.decisions"],
+  ["result-media-upload", "results.media.upload"],
+  ["result-media-", "results.media.read"],
+  ["result-", "results.read"],
+  ["playbook-current-", "playbooks.catalog.read"],
+  ["playbook-", "playbooks.inspect"],
+  ["terminal-", "terminal.watch"],
+] as const;
 
 /** Existing query resources grouped by their independently negotiated feature. */
 export function capabilitiesForResource(resource: string): string[] {
@@ -16,21 +34,13 @@ export function capabilitiesForResource(resource: string): string[] {
     "session-source-events": ["session.events.read"], "session-usage": ["session.usage.read"],
     "project-execution-bindings": ["projects.read"],
     swarm: ["swarm.read"], "task-attempt-session": ["sessions.read"], "task-results": ["results.read"], "task-comments": ["tasks.comments.read"],
+    "playbook-loaded-definitions": ["playbooks.loaded-definitions.read"],
+    "playbook-definition-graph": ["playbooks.definition-graph.read"],
   };
   if (exact[resource]) return exact[resource];
-  if (resource.startsWith("human-graph-")) return ["human.graph.read"];
-  if (resource.startsWith("supervisor-")) return ["supervisor.history.read"];
-  if (resource.startsWith("notification-")) return ["notifications.read"];
-  if (resource.startsWith("decision-")) return ["decisions.read"];
-  if (resource.startsWith("host-decision-")) return ["playbooks.decisions"];
-  if (resource.startsWith("result-media-upload")) return ["results.media.upload"];
-  if (resource.startsWith("result-media-")) return ["results.media.read"];
-  if (resource.startsWith("result-")) return ["results.read"];
-  if (resource.startsWith("playbook-current-")) return ["playbooks.catalog.read"];
-  if (resource === "playbook-loaded-definitions") return ["playbooks.loaded-definitions.read"];
-  if (resource === "playbook-definition-graph") return ["playbooks.definition-graph.read"];
-  if (resource.startsWith("playbook-")) return ["playbooks.inspect"];
-  if (resource.startsWith("terminal-")) return ["terminal.watch"];
+  for (const [prefix, capability] of PREFIX_CAPABILITIES) {
+    if (resource.startsWith(prefix)) return [capability];
+  }
   return [];
 }
 

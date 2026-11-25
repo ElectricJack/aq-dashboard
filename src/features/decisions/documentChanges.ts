@@ -8,6 +8,11 @@ export function documentChanges(previous: string, current: string): ChangedLine[
   const before = lines(previous), after = lines(current);
   if (before.length > MAX_LINES || after.length > MAX_LINES) return null;
 
+  const lengths = commonLengths(before, after);
+  return changedLines(before, after, lengths);
+}
+
+function commonLengths(before: string[], after: string[]) {
   const stride = after.length + 1;
   const lengths = new Uint16Array((before.length + 1) * stride);
   for (let i = before.length - 1; i >= 0; i--) {
@@ -19,18 +24,25 @@ export function documentChanges(previous: string, current: string): ChangedLine[
     }
   }
 
+  return lengths;
+}
+
+function changedLines(before: string[], after: string[], lengths: Uint16Array) {
+  const stride = after.length + 1;
   const changes: ChangedLine[] = [];
   let i = 0, j = 0;
-  while (i < before.length || j < after.length) {
+  while (i < before.length && j < after.length) {
     const k = i * stride + j;
-    if (i < before.length && j < after.length && before[i] === after[j]) {
+    if (before[i] === after[j]) {
       i++;
       j++;
-    } else if (i < before.length && (j === after.length || lengths[k + stride]! >= lengths[k + 1]!)) {
+    } else if (lengths[k + stride]! >= lengths[k + 1]!) {
       changes.push({ kind: "removed", line: i + 1, text: before[i++]! });
     } else {
       changes.push({ kind: "added", line: j + 1, text: after[j++]! });
     }
   }
+  for (; i < before.length; i++) changes.push({ kind: "removed", line: i + 1, text: before[i]! });
+  for (; j < after.length; j++) changes.push({ kind: "added", line: j + 1, text: after[j]! });
   return changes;
 }

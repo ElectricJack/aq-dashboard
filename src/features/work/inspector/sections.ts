@@ -5,19 +5,16 @@ import { useCallback, useSyncExternalStore } from "react";
  * that is missing, full or blocked (private mode) falls back to the defaults for this visit.
  */
 export const SECTIONS_KEY = "aq.dashboard.task-sections";
-export type SectionId = "status" | "description" | "acceptance" | "comments" | "attempts" | "results" | "hierarchy" | "history";
+export type SectionId = "status" | "description" | "acceptance" | "comments" | "attempts" | "results" | "hierarchy" | "history" | "workspace";
 export const SECTION_DEFAULT_OPEN: Record<SectionId, boolean> = {
-  status: true, description: true, acceptance: true, comments: true, attempts: true, results: true, hierarchy: true, history: false,
+  status: true, description: true, acceptance: true, comments: true, attempts: true, results: true, hierarchy: true, history: false, workspace: false,
 };
 
 const listeners = new Set<() => void>();
 let memory: Partial<Record<SectionId, boolean>> = {};
 let cached: { raw: string | null; value: Partial<Record<SectionId, boolean>> } | undefined;
 
-function read(): Partial<Record<SectionId, boolean>> {
-  let raw: string | null = null;
-  try { raw = globalThis.localStorage?.getItem(SECTIONS_KEY) ?? null; } catch { return memory; }
-  if (cached?.raw === raw) return cached.value;
+function storedSections(raw: string | null): Partial<Record<SectionId, boolean>> {
   let parsed: unknown = {};
   try { parsed = raw ? JSON.parse(raw) : {}; } catch { parsed = {}; }
   const value: Partial<Record<SectionId, boolean>> = {};
@@ -25,6 +22,14 @@ function read(): Partial<Record<SectionId, boolean>> {
     const v = (parsed as Record<string, unknown>)[id];
     if (typeof v === "boolean") value[id] = v;
   }
+  return value;
+}
+
+function read(): Partial<Record<SectionId, boolean>> {
+  let raw: string | null = null;
+  try { raw = globalThis.localStorage?.getItem(SECTIONS_KEY) ?? null; } catch { return memory; }
+  if (cached?.raw === raw) return cached.value;
+  const value = storedSections(raw);
   cached = { raw, value: { ...value, ...memory } };
   return cached.value;
 }

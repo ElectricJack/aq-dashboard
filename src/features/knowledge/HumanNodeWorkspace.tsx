@@ -1,58 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import {RecordList} from "./RecordList";
+import {pathFor,withoutRevision} from "./recordRoutes";
+import {useNodeWorkspace,type NodeLocation} from "./useNodeWorkspace";
 import { Link, useParams, useSearchParams } from "react-router";
-import { BookOpen, Circle, List, ListChecks, Network, RefreshCw, Search as SearchIcon, Shield, Tag, Workflow, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import {BookOpen} from "lucide-react";
+import {RecordToolbar} from "./RecordToolbar";
 import { useScope } from "../../app/scope";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useProjects, useProjectsCapability } from "../../app/useProjects";
 import { useGraphList, useGraphDetail } from "../../api/humanGraphReads";
-import { mergeGraphPages, validGraphId, GRAPH_MAX_PAGES, type GraphNode, nodeLabel } from "../../api/adapters/humanGraph";
+import { validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
-import { ActionButton, Panel, Toolbar } from "../../components/layout/Workspace";
-import { HumanTaskGraph, PhoneGraphView, PHONE_QUERY, graphListTarget } from "../work/graph/HumanTaskGraph";
-import { useMediaQuery } from "../../components/useMediaQuery";
+import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { KnowledgeDocument } from "./KnowledgeDocument";
 import { AddRecordAction } from "./KnowledgeActions";
 import { HumanTaskInspector, TaskInspectorUnavailable } from "../work/HumanTaskInspector";
-import { Icon, knowledgeCategoryIcon } from "../../components/icons";
-import { knowledgeCategoryLabel as categoryLabel } from "../actions/actionClient";
 import styles from "./HumanNodeWorkspace.module.css";
 
-type Lifecycle = "active"|"retired"|"deleted";
-const lifecycleOf=(n:GraphNode):Lifecycle=>n.deleted?"deleted":n.retired?"retired":"active";
-const LIFECYCLE_LABEL:Record<Lifecycle,string>={active:"Active",retired:"Retired",deleted:"Deleted"};
-const LIFECYCLES=["active","retired","deleted","all"],VERIFICATIONS=["verified","unverified","disputed"],SORTS=["updated","title"];
-/** Knowledge list filters live in the URL (spec 0002 §3); defaults are omitted and unknown values fall back to them. */
-function knowledgeFilters(params:URLSearchParams) {
-  const pick=(key:string,allowed:string[],fallback:string)=>{const v=params.get(key);return v&&allowed.includes(v)?v:fallback;};
-  const category=params.get("category")??"";
-  return {category:category.length<=64?category:"",lifecycle:pick("lifecycle",LIFECYCLES,"active"),verification:pick("verification",VERIFICATIONS,""),sort:pick("sort",SORTS,"updated")};
-}
-const updated=(n:GraphNode)=>Date.parse(n.updated_at);
-/** Short UTC calendar date ("Oct 28"), matching the document header; the exact instant stays in the title. */
-function shortDate(value:string) {
-  const date=new Date(value),now=new Date();
-  return date.toLocaleDateString(undefined,{month:"short",day:"numeric",timeZone:"UTC",...(date.getUTCFullYear()!==now.getUTCFullYear()?{year:"numeric"}:{})});
-}
-function FilterSelect({icon,label,value,onChange,children}:{icon:LucideIcon;label:string;value:string;onChange:(value:string)=>void;children:ReactNode}) {
-  return <label className={styles.filter}><span className="visually-hidden">{label}</span><Icon icon={icon} size={18} className={styles.filterIcon}/><select value={value} onChange={e=>onChange(e.target.value)}>{children}</select></label>;
-}
-function Dot({tone,children}:{tone:string;children:ReactNode}) { return <span className={styles.dot} data-tone={tone}>{children}</span>; }
-function KnowledgeRow({node}:{node:GraphNode}) {
-  const lifecycle=lifecycleOf(node);
-  return <>
-    <Icon icon={knowledgeCategoryIcon(node.content_type)} size={24} className={styles.categoryIcon} data-category={node.content_type?.toLowerCase()}/>
-    <span className={styles.recordText}><strong>{node.title}</strong><span className={styles.chips}>
-      <Dot tone="category">{categoryLabel(node.content_type)}</Dot>
-      <Dot tone={lifecycle}>{LIFECYCLE_LABEL[lifecycle]}</Dot>
-      <Dot tone={node.verification??"unknown"}>{nodeLabel(node.verification)}</Dot>
-    </span></span>
-    <span className={styles.revision}><span className={styles.revisionNumber}>r{node.content_revision}</span><time dateTime={node.updated_at} title={node.updated_at}>{shortDate(node.updated_at)}</time></span>
-  </>;
-}
-
-export function withoutRevision(search:string) { const params=new URLSearchParams(search);params.delete("revision");const value=params.toString();return value?`?${value}`:""; }
-export const pathFor=(kind:GraphNode["kind"],id?:string)=>`/${kind === "task" ? "work" : "knowledge"}${id?`/${encodeURIComponent(id)}`:""}`;
+export {pathFor,withoutRevision} from "./recordRoutes";
 /** Shared with Work (src/features/work/WorkWorkspace.tsx): honest project-scope choice. */
 export function ProjectChoice({kind,id}:{kind:GraphNode["kind"];id?:string}) {
   const [params] = useSearchParams();
@@ -84,105 +48,34 @@ export function HumanNodeWorkspace({kind}:{kind:GraphNode["kind"]}) {
     <ProjectWorkspace key={`${scope.project_id}:${kind}`} project={scope.project_id} kind={kind} id={id}/>;
   return kind==="knowledge" ? <><KnowledgeHeader/>{body}</> : body;
 }
-function ProjectWorkspace({project,kind,id}:{project:string;kind:GraphNode["kind"];id?:string}) {
-  const [params,setParams]=useSearchParams();
-  const [draft,setDraft]=useState(params.get("q")??"");const q=(params.get("q")??"").slice(0,256);
-  const [taskState,setTaskState]=useState("");
-  const {category,lifecycle,verification,sort}=knowledgeFilters(params);
-  // Successive changes before a re-render build on each other (the router's functional update reads the last render).
-  const latestParams=useRef(params);latestParams.current=params;
-  const setFilter=(key:string,value:string,fallback:string)=>{const n=new URLSearchParams(latestParams.current);if(value&&value!==fallback)n.set(key,value);else n.delete(key);latestParams.current=n;setParams(n,{replace:true});};
-  const query=useGraphList(project,kind,q);let rows:GraphNode[]=[],mergeError:unknown;
-  try{rows=mergeGraphPages(query.data?.pages??[]);}catch(e){mergeError=e;}
-  const search=params.toString()?`?${params}`:"";const graph=kind === "task" && params.get("view")==="graph";const phone=useMediaQuery(PHONE_QUERY);
-  const workspace=useRef<HTMLDivElement>(null),previous=useRef<{id?:string;graph:boolean}>({graph:false}),mounted=useRef(false);
-  useEffect(()=>{
-    const before=previous.current;previous.current={id,graph};
-    // A deep link focuses the heading for screen readers without drawing a focus ring on arrival.
-    // (A StrictMode re-run repeats the same selection, so it is still an arrival.)
-    const arrival=!mounted.current || (before.id===id && before.graph===graph);mounted.current=true;
-    const element=workspace.current;if(!element)return;
-    // Selection focuses its heading; Back restores the previously selected row/node.
-    // Phone graph: a node tap keeps the graph open, so focus stays on the tapped node.
-    const restore=phone&&graph&&before.graph&&id?id:(!id || graph)?before.id:undefined;
-    const focus=()=>{
-      const target=id&&!graph?element.querySelector<HTMLElement>(`.${styles.detail}:not([aria-busy=true]) h2`):restore?[...element.querySelectorAll<HTMLAnchorElement>("a[href]")].find(a=>new URL(a.href).pathname===pathFor(kind,restore)):undefined;
-      if(!target)return false;
-      if(target.tagName==="H2")target.tabIndex=-1;
-      target.focus(arrival?{focusVisible:false} as FocusOptions:undefined);return true;
-    };
-    if(focus())return;
-    const observer=new MutationObserver(()=>{if(focus())observer.disconnect();});
-    observer.observe(element,{childList:true,subtree:true});return()=>observer.disconnect();
-  },[id,graph,kind,phone]);
-  const graphRoot=validGraphId(params.get("root"))?params.get("root")!:id;
-  const knowledge=kind==="knowledge";
-  const filtered=rows.filter(n=>(!taskState || n.task_state===taskState)&&(!knowledge || ((!category || n.content_type===category)&&(lifecycle==="all" || lifecycleOf(n)===lifecycle)&&(!verification || n.verification===verification))));
-  if(knowledge)filtered.sort(sort==="title"?(a,b)=>a.title.localeCompare(b.title):(a,b)=>updated(b)-updated(a));
-  const noun=kind==="task"?(filtered.length===1?"task":"tasks"):(filtered.length===1?"record":"records");
-  // A linked category stays choosable while its records are still loading or absent.
-  const categories=[...new Set([...rows.map(n=>n.content_type).filter((v):v is string=>!!v),...(category?[category]:[])])].sort();
-  const projectName=query.data?.pages[0]?.project.name;
-  // A failed or pending read has no count; never present it as "0 loaded" (spec 0002 §10).
-  // Knowledge filters narrow loaded records, so a narrowed count says so ("1 of 3 loaded records").
-  const narrowed=knowledge&&filtered.length!==rows.length;
-  const listTitle=query.isError || mergeError ? `${kind==="task"?"Tasks":"Records"} unavailable` : !query.data ? (kind==="task"?"Tasks":"Records") : narrowed ? `${filtered.length} of ${rows.length} loaded ${rows.length===1?"record":"records"}` : `${filtered.length} ${noun} loaded`;
-  const emptyText=rows.length?"No loaded records match these filters.":!knowledge?"No records returned for this search.":q?"No knowledge records match this search.":"No knowledge records in this project yet.";
-  // Build on latestParams, not the router's functional update: that reads the last committed render and would drop a filter change still pending (e.g. lifecycle reset, then Enter in search).
-  const update=(key:string,value:string)=>{const n=new URLSearchParams(latestParams.current);if(value)n.set(key,value);else n.delete(key);if(key==="view" && value==="graph" && id && !n.has("root"))n.set("root",id);latestParams.current=n;setParams(n);};
+function ProjectWorkspace(route:NodeLocation) {
+  const {kind,id,project}=route;
+  const model=useNodeWorkspace(route);
+  const {params,workspace,search,graph,projectName}=model;
   return <div ref={workspace} className={styles.workspace} data-kind={kind} data-detail={!!id} data-view={graph?"graph":"list"}>
     {kind==="task" && <p className={styles.subtitle}>Inspect project tasks and their recorded dependencies.{projectName && <span> · {projectName}</span>}</p>}
-    <Toolbar className={styles.filters}>
-      <form onSubmit={e=>{e.preventDefault();update("q",draft.trim());}} className={styles.search}>
-        <label className="visually-hidden" htmlFor={`find-${kind}`}>Search {kind==="task"?"tasks":"knowledge"}</label>
-        {knowledge && <Icon icon={SearchIcon} size={18} className={styles.filterIcon}/>}
-        <input id={`find-${kind}`} type="search" maxLength={256} value={draft} onChange={e=>setDraft(e.target.value)} placeholder={`Search project ${kind==="task"?"tasks":"knowledge"}…`}/>
-        {/* Knowledge submits on Enter, as in reference 07. */}
-        {!knowledge && <ActionButton type="submit">Search</ActionButton>}
-      </form>
-      {knowledge && <>
-        <FilterSelect icon={Tag} label="Category" value={category} onChange={v=>setFilter("category",v,"")}><option value="">All categories</option>{categories.map(c=><option key={c} value={c}>{categoryLabel(c)}</option>)}</FilterSelect>
-        <FilterSelect icon={Circle} label="Lifecycle" value={lifecycle} onChange={v=>setFilter("lifecycle",v,"active")}><option value="active">Active records</option><option value="retired">Retired records</option><option value="deleted">Deleted records</option><option value="all">Any lifecycle</option></FilterSelect>
-        <FilterSelect icon={Shield} label="Verification" value={verification} onChange={v=>setFilter("verification",v,"")}><option value="">Any verification</option><option value="verified">Verified</option><option value="unverified">Unverified</option><option value="disputed">Disputed</option></FilterSelect>
-        <div role="group" aria-label="Knowledge view" className={styles.segmented}>
-          <button type="button" aria-pressed="true"><Icon icon={List} size={18}/>List</button>
-          <button type="button" disabled title="Relationship browsing is not offered by this read contract"><Icon icon={Network} size={18}/>Relationships</button>
-        </div>
-      </>}
-      {kind==="task" && <label><span className="visually-hidden">State of loaded tasks</span><select value={taskState} onChange={e=>setTaskState(e.target.value)}><option value="">{phone?"All states":"All task states loaded"}</option>{["draft","active","completed","canceled"].map(state=><option value={state} key={state}>{nodeLabel(state)}</option>)}</select></label>}
-      {kind==="task" && <nav aria-label="Work view" className={styles.views}><ActionButton aria-pressed={!graph} onClick={()=>update("view","")}><List size={18} aria-hidden/>List</ActionButton><ActionButton aria-pressed={graph} onClick={()=>update("view","graph")}><Workflow size={18} aria-hidden/>Graph</ActionButton></nav>}
-    </Toolbar>
+    <RecordToolbar model={model} kind={kind}/>
     <div className={styles.panes}>
       <div className={styles.listPane}>
-      {graph && phone && !id ? <PhoneTaskGraph project={project} root={graphRoot??filtered[0]?.id} search={search} status={query.isError||mergeError?"error":!query.data?"pending":undefined} error={mergeError??query.error} onRetry={()=>void query.refetch()}/> :
-      graph ? id ? <HumanTaskGraph project={project} root={graphRoot!} selected={id} search={search}/> : <Panel title="Dependency graph"><p>Select a task from the list to open its neighborhood.</p><ActionButton onClick={()=>update("view","")}>Choose a task</ActionButton></Panel> :
-      <Panel title={listTitle} className={styles.listPanel} actions={knowledge ? <div className={styles.listActions}>
-          <label><span className="visually-hidden">Sort records</span><select value={sort} onChange={e=>setFilter("sort",e.target.value,"updated")}><option value="updated">Updated recently</option><option value="title">Title A–Z</option></select></label>
-          <ActionButton className={styles.iconButton} aria-label="Refresh list" title="Refresh list" disabled={query.isFetching} onClick={()=>void query.refetch()}><Icon icon={RefreshCw} size={18}/></ActionButton>
-        </div> : <ActionButton disabled={query.isFetching} onClick={()=>void query.refetch()}>Refresh list</ActionButton>}>
-        {query.isError || mergeError || !query.data ? <QueryStatus status={query.isError||mergeError?"error":"pending"} error={mergeError??query.error} label={kind==="task"?"tasks":"knowledge records"} onRetry={()=>void query.refetch()}/> : <>
-          {!filtered.length && <p>{emptyText}</p>}
-          <ul className={styles.records} aria-label={kind==="task"?"Tasks":"Knowledge records"}>{filtered.map(n=><li key={n.id} data-selected={id===n.id}><Link className={styles.record} aria-current={id===n.id?"page":undefined} to={{pathname:pathFor(kind,n.id),search:withoutRevision(search)}}>{knowledge ? <KnowledgeRow node={n}/> : <><ListChecks size={21} aria-hidden/><span><strong>{n.title}</strong><span className={styles.meta}>{nodeLabel(n.task_state)} · {LIFECYCLE_LABEL[lifecycleOf(n)]} · {nodeLabel(n.verification)}</span></span><span className={styles.revision}>r{n.content_revision}</span></>}</Link></li>)}</ul>
-          {query.hasNextPage && <ActionButton disabled={query.isFetchingNextPage} onClick={()=>void query.fetchNextPage()}>Load more {kind==="task"?"tasks":"records"}</ActionButton>}
-          {query.data.pages.length===GRAPH_MAX_PAGES && query.data.pages.at(-1)?.data.next_cursor && <p className={styles.meta}>Showing at most 100 records. Refine your search for more.</p>}
-          <p className={styles.meta}>{knowledge?"Filters and counts cover loaded records only; this is not a project total.":"Loaded records only; this is not a project total."}</p>
-        </>}
-      </Panel>}
+        <RecordList model={model} route={route}/>
       </div>
       {id ? <NodeDetail key={`${id}:${params.get("revision")??"current"}`} project={project} kind={kind} id={id} search={search}/> : <Panel title={kind==="knowledge"?"Project knowledge":"Task inspector"} className={styles.emptyInspector}><BookOpen size={34} aria-hidden/><p>Select a {kind==="task"?"task":"record"} to read its content and exact revision.</p></Panel>}
     </div>
   </div>;
 }
-/** Phone graph without a selected task: open the dedicated view on the root (or first loaded task) instead of a dead end. */
-function PhoneTaskGraph({project,root,search,status,error,onRetry}:{project:string;root?:string;search:string;status?:"error"|"pending";error:unknown;onRetry:()=>void}) {
-  if(root)return <HumanTaskGraph project={project} root={root} search={search}/>;
-  return <PhoneGraphView backTo={graphListTarget(search)}><div className={styles.phoneGraphStatus}>{status ? <QueryStatus status={status} error={error} label="tasks" onRetry={onRetry}/> : <p>No loaded tasks to show in a graph.</p>}</div></PhoneGraphView>;
-}
 function NodeDetail({project,kind,id,search}:{project:string;kind:GraphNode["kind"];id:string;search:string}) {
-  const [params]=useSearchParams();const raw=params.get("revision");const pinned=kind==="knowledge" && raw && /^[1-9][0-9]{0,19}$/.test(raw)?raw:undefined;
+  const [params]=useSearchParams();const raw=kind==="knowledge"?params.get("revision"):null;
+  const pinned=raw && /^[1-9][0-9]{0,19}$/.test(raw)?raw:undefined;
   const query=useGraphDetail(project,kind,id,pinned);
-  if(raw && kind==="knowledge" && !pinned)return <p role="status">This revision is not available.</p>;
-  if(!query.data){const status=<QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/>;return kind==="task"?<TaskInspectorUnavailable className={styles.detail} search={withoutRevision(search)} status={status} busy={!query.isError}/>:<Panel title="Record">{status}</Panel>;}
+  if(raw && !pinned)return <p role="status">This revision is not available.</p>;
+  if(!query.data) return <MissingDetail query={query} kind={kind} search={search}/>;
   const notice=query.isError?<p role="status">Latest record unavailable. Showing previously read revision. <ActionButton onClick={()=>void query.refetch()}>Refresh record</ActionButton></p>:undefined;
   return kind === "task" ? <HumanTaskInspector className={styles.detail} record={query.data} search={withoutRevision(search)} notice={notice}/> : <KnowledgeDocument record={query.data} pinned={pinned} notice={notice}/>;
+}
+
+
+function MissingDetail({query,kind,search}:{query:ReturnType<typeof useGraphDetail>;kind:GraphNode["kind"];search:string}) {
+ const status=<QueryStatus status={query.isError?"error":"pending"} error={query.error} label="this record" onRetry={()=>void query.refetch()}/>;
+ if (kind==="task")return <TaskInspectorUnavailable className={styles.detail} search={withoutRevision(search)} status={status} busy={!query.isError}/>;
+ return <Panel title="Record">{status}</Panel>;
 }

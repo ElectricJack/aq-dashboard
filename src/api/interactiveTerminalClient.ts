@@ -1,12 +1,17 @@
 /** V1 terminalSocket lifecycle adapted to v2's authenticated finite-input relay.
  * Raw bytes never retry; receipt lookup is the only recovery after a POST failure.
  */
-import { adaptControl, adaptInputReceipt, adaptInteractiveInfo, type TerminalInfo } from './adapters/terminalControl';
-import { adaptTerminalTail, adaptWatch, sameTerminal } from './adapters/terminalTail';
-import { isRecord, ContractError } from './adapters/contract';
+import { adaptInputReceipt, adaptInteractiveInfo, type TerminalInfo } from './adapters/terminalControl';
+import { adaptTerminalTail, adaptWatch } from './adapters/terminalTail';
+import { ContractError } from './adapters/contract';
 import { terminalInputChunks } from './terminalInput';
 import { terminalJson } from './terminalClient';
 import { isRetryableError, retryDelayMs } from './retry';
+import {
+  canWrite, checkResizeReply, controlLease, delivered, heldByOtherViewer, inputReply, nextInputBatch, NotDelivered, outputGap, outputMessage, sameBinding,
+  type InputPacket, type Tail, type Watch,
+} from './interactiveTerminalProtocol';
+
 export interface TerminalGrid { columns: number; rows: number }
 export interface TerminalConnection {
   takeControl(): Promise<void>;
@@ -29,8 +34,6 @@ export const TAKEOVER_NOTICE_LOST = 'Another connection is using this terminal. 
 export const TAKEOVER_NOTICE_TOOK = 'You took control from another viewer.';
 export interface TerminalBinding { terminal: TerminalInfo['terminal']; session_revision: number }
 class EpochChanged extends Error {}
-class NotDelivered extends Error {}
-type InputPacket = { bytes: Uint8Array; escapeKey?: true };
 type Read = (part: string, fetcher: () => ReturnType<typeof terminalJson>) => ReturnType<typeof terminalJson>;
 /** Consecutive retryable failures before the watch stops and waits for an explicit Reconnect. */
 export const MAX_AUTOMATIC_RECONNECTS = 6;
@@ -55,10 +58,19 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   let inputBatchTimer: ReturnType<typeof setTimeout> | undefined;
   let grid: TerminalGrid | undefined;
   const now = () => clock + performance.now() - clockAt;
-  const active = () => !!(connected && !paused && info?.input_enabled && !info.disconnected && info.control.fence_acknowledged && !info.control.input_paused && info.control.lease?.lease_id === owned && info.control.lease.expires_at_ms > now());
-  const emit = (message = active() ? 'You have control' : paused ? 'Input delivery uncertain — typing paused' : connected ? 'Waiting for interactive connection' : 'Connecting…') => {
+  const active = () => !!(connected && !paused && info && canWrite(info, owned, now()));
+  function statusMessage() {
+    if (active()) return 'You have control';
+    if (paused) return 'Input delivery uncertain — typing paused';
+    return connected ? 'Waiting for interactive connection' : 'Connecting…';
+  }
+  function displayLease(): TerminalLease | null {
+    const held = connected && info?.control.lease;
+    return held ? { mine: acquired.has(held.lease_id), expiresAtMs: held.expires_at_ms } : null;
+  }
+  const emit = (message = statusMessage()) => {
     if (signal.aborted) return;
-    const lease = connected && info?.control.lease ? { mine: acquired.has(info.control.lease.lease_id), expiresAtMs: info.control.lease.expires_at_ms } : null;
+    const lease = displayLease();
     options.state({ message, connected, controlling: active(), canControl: !!(info?.input_enabled && options.allowControl && !paused), paused, lease, clock: { serverMs: clock, at: clockAt }, outputObservedAtMs, grid, inputDeliveryUncertain, notice, binding: info ? { terminal: info.terminal, session_revision: info.session_revision } : undefined });
   };
   const request: Read = async (part, fetcher) => {
@@ -75,42 +87,67 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     const timer = setTimeout(end, ms); signal.addEventListener('abort', end, { once: true }); sleeping.add(end);
   });
   const reconnectDelay = options.reconnectDelay ?? ((attempt: number, error: unknown) => retryDelayMs(attempt + 1, error));
+  function clearQueue() { queue = []; queued = 0; }
+
+  function loseLease(next: TerminalInfo) {
+    owned = null;
+    clearQueue();
+    const lease = next.control.lease;
+    if (lease && !acquired.has(lease.lease_id)) notice = TAKEOVER_NOTICE_LOST;
+  }
+
+  function validateBinding(next: TerminalInfo) {
+    const previous = info ?? options.expect;
+    if (!previous || sameBinding(next, previous)) return;
+    if (info) throw new ContractError('Terminal binding changed');
+    throw new EpochChanged();
+  }
+
   async function inspect() {
     const raw = await json('info'); const next = adaptInteractiveInfo(raw.body, options.terminalId);
-    const pinned = !info && options.expect;
-    if (pinned && (!sameTerminal(next.terminal, pinned.terminal) || next.session_revision !== pinned.session_revision)) throw new EpochChanged();
-    if (info && (!sameTerminal(next.terminal, info.terminal) || next.session_revision !== info.session_revision)) throw new ContractError('Terminal binding changed');
+    validateBinding(next);
     info = next;
-    if (info.control.input_paused) { paused = true; inputDeliveryUncertain = true; queue = []; queued = 0; }
-    if (owned && info.control.lease?.lease_id !== owned) {
-      const other = !!info.control.lease && !acquired.has(info.control.lease.lease_id);
-      owned = null; queue = []; queued = 0;
-      if (other) notice = TAKEOVER_NOTICE_LOST;
-    }
+    if (info.control.input_paused) { paused = true; inputDeliveryUncertain = true; clearQueue(); }
+    if (owned && info.control.lease?.lease_id !== owned) loseLease(info);
     connected = !info.disconnected; emit();
   }
   function fields() {
-    if (!info || !owned || !active()) throw new Error('Control unavailable');
-    return { terminal: info.terminal, lease_id: owned, expected_controller_generation: info.control.generation, expected_session_revision: info.session_revision };
+    const lease = active() ? owned : null;
+    if (!info || !lease) throw new Error('Control unavailable');
+    return { terminal: info.terminal, lease_id: lease, expected_controller_generation: info.control.generation, expected_session_revision: info.session_revision };
   }
   // Resize is a controller action: it needs the same acknowledged lease as input, but never carries or implies input.
   // `sequence` must exceed the terminal's last resize, so it is the server-clock millisecond, kept strictly increasing.
   let resizeSequence = 0, resizing = false, resizePending: TerminalGrid | undefined;
+  async function sendResize(size: TerminalGrid) {
+    const operation = crypto.randomUUID();
+    resizeSequence = Math.max(resizeSequence + 1, Math.floor(now()));
+    const raw = await json(`resize-${operation}`, '/mutations', { kind: 'resize', body: {
+      ...fields(), operation_id: operation, expires_at_ms: inputExpiry(), sequence: resizeSequence, ...size,
+    } });
+    checkResizeReply(raw.body);
+  }
+
+  function inputExpiry() { return Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)); }
+
   async function flushResize() {
     if (resizing) return;
     resizing = true;
     try {
       while (resizePending && active()) {
-        const size = resizePending; resizePending = undefined;
-        const operation = crypto.randomUUID(); resizeSequence = Math.max(resizeSequence + 1, Math.floor(now()));
-        const raw = await json(`resize-${operation}`, '/mutations', { kind: 'resize', body: { ...fields(), operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), sequence: resizeSequence, columns: size.columns, rows: size.rows } });
-        if (!isRecord(raw.body) || raw.body.kind !== 'resize') throw new ContractError('Resize reply');
+        const size = resizePending;
+        resizePending = undefined;
+        await sendResize(size);
       }
     } catch { if (!signal.aborted) emit('Terminal resize not applied'); }
-    finally { resizing = false; if (resizePending && active() && !signal.aborted) void flushResize(); }
+    finally {
+      resizing = false;
+      const pending = !signal.aborted && resizePending;
+      if (pending && active()) void flushResize();
+    }
   }
   function pause(message?: string, deliveryUncertain = false) {
-    paused = true; inputDeliveryUncertain ||= deliveryUncertain; queue = []; queued = 0; emit(message);
+    paused = true; inputDeliveryUncertain ||= deliveryUncertain; clearQueue(); emit(message);
   }
   async function receipt(operation: string, initial?: unknown) {
     if (!info) throw new Error('No binding');
@@ -118,108 +155,159 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
     for (let n = 0; n < 15 && !signal.aborted; n++) {
       if (body === undefined) body = (await json(`receipt-${operation}`, `/receipts/${operation}`)).body;
       const r = adaptInputReceipt(body, info.terminal, operation);
-      if (r.disposition === 'applied' && !r.input_paused) return;
-      if (r.input_paused || r.disposition === 'delivery_unknown') throw new Error('Input not confirmed');
-      if (r.disposition === 'expired' || r.disposition === 'rejected') throw new NotDelivered(`Input ${r.disposition} — type again`);
+      if (delivered(r)) return;
       await delay(100); body = undefined;
     }
     throw new Error('Receipt not confirmed');
   }
+  async function submitPacket(packet: InputPacket, operation: string, binding: ReturnType<typeof fields>) {
+    let initial: unknown;
+    try {
+      const raw = await json(`input-${operation}`, '/mutations', { kind: 'input', body: {
+        ...binding, operation_id: operation, expires_at_ms: inputExpiry(), bytes: [...packet.bytes],
+        ...(packet.escapeKey ? { escape_key: true } : {}),
+      } });
+      initial = inputReply(raw.body);
+    } catch { /* The operation may already exist; only its receipt can establish delivery. */ }
+    await receipt(operation, initial);
+  }
+
+  function inputFailed(error: unknown, inFlight: boolean) {
+    if (signal.aborted) return;
+    if (error instanceof NotDelivered) { clearQueue(); emit(error.message); }
+    else if (inFlight) pause(undefined, true);
+    else emit('Terminal input unavailable');
+  }
+
   async function flush() {
     if (busy || !active()) return;
-    busy = true; let inputInFlight = false;
+    busy = true;
+    let inFlight = false;
     try {
       while (queue.length && active()) {
-        // Preserve byte order while amortizing one durable receipt across a burst.
-        const first = queue.shift()!;
-        const chunks = [first.bytes]; let length = first.bytes.length;
-        while (!first.escapeKey && queue.length && !queue[0]!.escapeKey && length + queue[0]!.bytes.length <= info!.maxInputBytes) {
-          const next = queue.shift()!.bytes; chunks.push(next); length += next.length;
-        }
-        const bytes = new Uint8Array(length); let offset = 0;
-        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-        queued -= bytes.length;
-        const operation = crypto.randomUUID(); const binding = fields(); inputInFlight = true;
-        let body: unknown;
-        try {
-          const raw = await json(`input-${operation}`, '/mutations', { kind: 'input', body: { ...binding, operation_id: operation, expires_at_ms: Math.floor(Math.min(now() + 1500, info!.control.lease!.expires_at_ms)), bytes: [...bytes], ...(first.escapeKey ? { escape_key: true } : {}) } });
-          if (!isRecord(raw.body) || raw.body.kind !== 'input') throw new ContractError('Input reply');
-          body = raw.body.body;
-        } catch { /* The operation may already exist: never replay its bytes. */ }
-        await receipt(operation, body); inputInFlight = false;
+        const packet = nextInputBatch(queue, info!.maxInputBytes);
+        queued -= packet.bytes.length;
+        const operation = crypto.randomUUID(), binding = fields();
+        inFlight = true;
+        await submitPacket(packet, operation, binding);
+        inFlight = false;
       }
-    } catch (error) { if (!signal.aborted) {
-      if (error instanceof NotDelivered) { queue = []; queued = 0; emit(error.message); }
-      else if (inputInFlight) pause(undefined, true);
-      else emit('Terminal input unavailable');
-    } }
+    } catch (error) { inputFailed(error, inFlight); }
     finally { busy = false; if (queue.length && active()) void flush(); }
   }
   async function control(kind: 'control' | 'renew') {
     if (renewing || !info || (kind === 'renew' && !connected) || paused || !options.allowControl || !info.input_enabled) return;
     renewing = true;
-    const heldByOther = kind === 'control' && !!(info.control.lease && !acquired.has(info.control.lease.lease_id) && info.control.lease.expires_at_ms > now());
+    const tookControl = kind === 'control' && heldByOtherViewer(info, acquired, now());
     try {
       const operation = crypto.randomUUID();
       const raw = await json(kind, '/mutations', { kind, body: { terminal: info.terminal, operation_id: operation, expected_session_revision: info.session_revision, expected_controller_generation: info.control.generation, expires_at_ms: Math.floor(now() + 14000), ...(kind === 'renew' ? { lease_id: owned } : {}) } });
-      if (!isRecord(raw.body) || raw.body.kind !== 'control' || !isRecord(raw.body.body) || raw.body.body.operation_id !== operation) throw new ContractError('Control reply');
-      const status = adaptControl(raw.body.body.status, info.terminal, info.session_revision);
-      if (!status.lease || status.lease.expires_at_ms <= now()) throw new ContractError('Control expiry');
-      owned = status.lease.lease_id; acquired.add(owned); info.control = status;
-      if (kind === 'control') { notice = heldByOther ? TAKEOVER_NOTICE_TOOK : null; }
+      const { status, lease } = controlLease(raw.body, operation, info, now);
+      owned = lease.lease_id; acquired.add(owned); info.control = status;
+      if (kind === 'control') { notice = tookControl ? TAKEOVER_NOTICE_TOOK : null; }
       emit('Waiting for worker control acknowledgement…'); wake();
-    } catch { owned = null; queue = []; queued = 0; emit('Interactive connection unavailable — reconnect to try again'); }
+    } catch { owned = null; clearQueue(); emit('Interactive connection unavailable — reconnect to try again'); }
     finally { renewing = false; }
   }
   let after = 0, failures = 0, availability: string | undefined;
+  async function readTail(subscription: Watch): Promise<Tail> {
+    const raw = await json('tail', `/tail?subscription_id=${encodeURIComponent(subscription.subscription_id)}&after_sequence=${after}`);
+    const tail = await adaptTerminalTail(raw.body, info!.terminal, subscription.subscription_id, after);
+    const sameClock = tail.server_time_ms === raw.serverTime && tail.expires_at_ms === subscription.expires_at_ms;
+    if (!sameClock || tail.session_revision !== info!.session_revision) throw new ContractError('Tail binding');
+    return tail;
+  }
+
+  function updateGrid(tail: Tail) {
+    if (!tail.grid) return;
+    const [columns, rows] = tail.grid;
+    if (columns === grid?.columns && rows === grid.rows) return;
+    grid = { columns, rows };
+    emit();
+  }
+
+  async function renderTail(tail: Tail) {
+    updateGrid(tail);
+    const gap = outputGap(tail, after);
+    const retained = tail.availability !== 'not_retained';
+    // Restart once on a transition to missing coverage, or whenever output contains a gap.
+    const lostCoverage = !retained && availability !== 'not_retained';
+    if (gap || lostCoverage) await options.reset();
+    availability = tail.availability;
+    for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
+    after = tail.next_sequence;
+    outputObservedAtMs = tail.last_observed_at_ms;
+    emit(outputMessage(tail, gap));
+    return retained;
+  }
+
+  type PollState = { lastInspect: number; idle: number; dormant: boolean; dormantMs: number };
+
+  async function subscribe() {
+    const operation = crypto.randomUUID();
+    const requestedUntil = Math.floor(now() + 14000);
+    const raw = await json('watch', '/mutations', { kind: 'watch', body: {
+      terminal: info!.terminal, operation_id: operation, expected_session_revision: info!.session_revision,
+      expires_at_ms: requestedUntil, after_sequence: after,
+    } });
+    const subscription = adaptWatch(raw.body, info!.terminal, operation);
+    const validExpiry = subscription.expires_at_ms <= requestedUntil && subscription.expires_at_ms > now();
+    if (subscription.session_revision !== info!.session_revision || !validExpiry) throw new ContractError('Watch binding');
+    return subscription;
+  }
+
+  async function refreshControl(state: PollState) {
+    const cadence = owned ? TERMINAL_CADENCE.inspectControlling : TERMINAL_CADENCE.inspectWatching;
+    if (!inspectNow && performance.now() - state.lastInspect < cadence) return;
+    inspectNow = false;
+    await inspect();
+    state.lastInspect = performance.now();
+    const lease = owned && info!.control.lease;
+    if (lease && lease.expires_at_ms - now() < 6000) await control('renew');
+  }
+
+  function pollDelay(tail: Tail, idle: number) {
+    if (tail.more) return TERMINAL_CADENCE.more;
+    if (tail.frames.length || owned) return TERMINAL_CADENCE.output;
+    return Math.min(TERMINAL_CADENCE.idleMax, TERMINAL_CADENCE.output * 2 ** idle);
+  }
+
+  async function poll(subscription: Watch, state: PollState) {
+    while (!signal.aborted && now() + 1000 < subscription.expires_at_ms) {
+      const tail = await readTail(subscription);
+      failures = 0;
+      const retained = await renderTail(tail);
+      await refreshControl(state);
+      const disconnected = tail.disconnected || info!.disconnected;
+      const noOutputOrController = !retained && !owned;
+      if (disconnected && noOutputOrController) { state.dormant = true; return; }
+      state.idle = tail.frames.length ? 0 : state.idle + 1;
+      await delay(pollDelay(tail, state.idle));
+    }
+  }
+
+  async function inspectDormant(state: PollState) {
+    emit('Output not retained');
+    await delay(state.dormantMs);
+    state.dormantMs = Math.min(TERMINAL_CADENCE.dormantMax, state.dormantMs * 2);
+    if (signal.aborted) return;
+    await inspect();
+    state.lastInspect = performance.now();
+    inspectNow = false;
+    state.dormant = info!.disconnected;
+    if (!state.dormant) state.dormantMs = TERMINAL_CADENCE.dormantMin;
+  }
+
   async function watch() {
     await inspect();
-    if (options.allowControl) { await control('control'); }
-    let lastInspect = performance.now(), idle = 0, dormant = false, dormantMs: number = TERMINAL_CADENCE.dormantMin;
+    if (options.allowControl) await control('control');
+    const state: PollState = { lastInspect: performance.now(), idle: 0, dormant: false, dormantMs: TERMINAL_CADENCE.dormantMin };
     while (!signal.aborted) {
-      if (dormant) {
-        // Nothing is retained and the terminal is gone: no tail can return output, so only re-check its info.
-        emit('Output not retained');
-        await delay(dormantMs); dormantMs = Math.min(TERMINAL_CADENCE.dormantMax, dormantMs * 2);
-        if (signal.aborted) return;
-        await inspect(); lastInspect = performance.now(); inspectNow = false;
-        if (info!.disconnected) continue;
-        dormant = false; dormantMs = TERMINAL_CADENCE.dormantMin;
+      if (state.dormant) {
+        await inspectDormant(state);
+        if (state.dormant || signal.aborted) continue;
       }
-      const operation = crypto.randomUUID(); const requestedUntil = Math.floor(now() + 14000);
-      const raw = await json('watch', '/mutations', { kind: 'watch', body: { terminal: info!.terminal, operation_id: operation, expected_session_revision: info!.session_revision, expires_at_ms: requestedUntil, after_sequence: after } });
-      const subscription = adaptWatch(raw.body, info!.terminal, operation);
-      if (subscription.session_revision !== info!.session_revision || subscription.expires_at_ms > requestedUntil || subscription.expires_at_ms <= now()) throw new ContractError('Watch binding');
-      while (!signal.aborted && now() + 1000 < subscription.expires_at_ms) {
-        const rawTail = await json('tail', `/tail?subscription_id=${encodeURIComponent(subscription.subscription_id)}&after_sequence=${after}`);
-        const tail = await adaptTerminalTail(rawTail.body, info!.terminal, subscription.subscription_id, after);
-        if (tail.server_time_ms !== rawTail.serverTime || tail.session_revision !== info!.session_revision || tail.expires_at_ms !== subscription.expires_at_ms) throw new ContractError('Tail binding');
-        failures = 0;
-        if (tail.grid && (tail.grid[0] !== grid?.columns || tail.grid[1] !== grid.rows)) {
-          grid = { columns: tail.grid[0], rows: tail.grid[1] };
-          emit();
-        }
-        // Tail retention describes output coverage, not the controller peer.
-        // TerminalInfo is the authority for live input connectivity.
-        let discontinuity = tail.gaps.length > 0;
-        let previous = after;
-        for (const frame of tail.frames) { if (frame.sequence !== previous + 1) discontinuity = true; previous = frame.sequence; }
-        const retained = tail.availability !== 'not_retained';
-        // Restart the screen when coverage breaks, not on every tail that still has nothing retained.
-        if (discontinuity || (!retained && availability !== 'not_retained')) await options.reset();
-        availability = tail.availability;
-        for (const frame of tail.frames) await options.write(new Uint8Array(frame.bytes));
-        after = tail.next_sequence;
-        outputObservedAtMs = tail.last_observed_at_ms;
-        emit(!retained ? 'Output not retained' : discontinuity ? 'Output gap — screen restarted' : tail.disconnected ? 'Output stream disconnected' : undefined);
-        if (inspectNow || performance.now() - lastInspect >= (owned ? TERMINAL_CADENCE.inspectControlling : TERMINAL_CADENCE.inspectWatching)) {
-          inspectNow = false; await inspect(); lastInspect = performance.now();
-          if (owned && info!.control.lease && info!.control.lease.expires_at_ms - now() < 6000) await control('renew');
-        }
-        if (!retained && !owned && (tail.disconnected || info!.disconnected)) { dormant = true; break; }
-        idle = tail.frames.length ? 0 : idle + 1;
-        await delay(tail.more ? TERMINAL_CADENCE.more : tail.frames.length || owned ? TERMINAL_CADENCE.output : Math.min(TERMINAL_CADENCE.idleMax, TERMINAL_CADENCE.output * 2 ** idle));
-      }
+      await poll(await subscribe(), state);
     }
   }
   async function run() {
@@ -227,7 +315,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       try { await watch(); return; }
       catch (error) {
         if (signal.aborted) return;
-        connected = false; owned = null; queue = []; queued = 0;
+        connected = false; owned = null; clearQueue();
         // A changed epoch is a different terminal: keep the last observation and do not attach to it.
         if (error instanceof EpochChanged) { emit('Terminal epoch changed — this is no longer the terminal you were watching; open the session again'); return; }
         // N-01: capacity and unavailability clear by themselves; reattach the same terminal with backoff.
@@ -248,7 +336,7 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
   return {
     takeControl: () => { notice = null; return control('control'); },
     async release() {
-      const lease = owned; owned = null; queue = []; queued = 0; notice = null;
+      const lease = owned; owned = null; clearQueue(); notice = null;
       // The release reply ends this lease; stop showing its countdown now, not at the next inspect.
       if (lease && info?.control.lease?.lease_id === lease) info.control = { ...info.control, lease: null };
       emit();
@@ -268,11 +356,11 @@ export function connectInteractiveTerminal(options: { terminalId: string; allowC
       enqueue([{ bytes: Uint8Array.of(0x1b), escapeKey: true }], 1);
     },
     resize(columns, rows) {
-      if (!active() || !Number.isFinite(columns) || !Number.isFinite(rows)) return;
+      if (!active() || ![columns, rows].every(Number.isFinite)) return;
       // The latest size wins while one is in flight; each request still binds the lease and generation it was made under.
       resizePending = { columns: Math.max(1, Math.min(1000, Math.round(columns))), rows: Math.max(1, Math.min(1000, Math.round(rows))) };
       void flushResize();
     },
-    close() { if (inputBatchTimer !== undefined) clearTimeout(inputBatchTimer); if (busy) pause(undefined, true); abort.abort(); owned = null; queue = []; queued = 0; },
+    close() { if (inputBatchTimer !== undefined) clearTimeout(inputBatchTimer); if (busy) pause(undefined, true); abort.abort(); owned = null; clearQueue(); },
   };
 }
