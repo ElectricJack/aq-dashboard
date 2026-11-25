@@ -40,16 +40,19 @@ function Requests({ target }: { target: string }) {
         <p className={styles.meta}>Review the repository, commit and access requested for this project.</p>
         <ActionButton disabled={query.isFetching || action.pending} onClick={() => void query.refetch()}>Refresh requests</ActionButton>
       </div>
-      {query.data.hasMore && <p className={styles.meta}>Showing the first {query.data.sources.length} pending requests.</p>}
+      {query.data.hasMore && <p className={styles.meta}>Showing the first {query.data.sources.length} requests.</p>}
       {query.data.sources.length === 0 ? <p>No incoming workspace requests.</p> : <ul className={styles.rows} aria-label="Incoming workspace requests">
         {query.data.sources.map(request => <li key={`${request.home_project_id}/${request.task_id}`}>
           <p><Link to={{ pathname: `/work/${request.task_id}`, search: scopeSearch({ kind: "project", project_id: request.home_project_id }) }}>
             Open task <code>{request.task_id}</code>
-          </Link></p>
+          </Link> · {request.state === "denied" ? "Denied" : "Awaiting approval"}</p>
           <SourceIdentity source={request} />
           <div className={styles.toolbar}>
-            <ActionButton disabled={action.pending || query.isFetching} onClick={() => void decide(request, "approved")}>Approve access</ActionButton>
-            <ActionButton disabled={action.pending || query.isFetching} onClick={() => void decide(request, "denied")}>Deny access</ActionButton>
+            <ActionButton disabled={action.pending || query.isFetching} onClick={() => void decide(request, "approved")}>
+              {request.state === "denied" ? "Reconsider and approve" : "Approve access"}
+            </ActionButton>
+            {request.state === "pending" && <ActionButton disabled={action.pending || query.isFetching}
+              onClick={() => void decide(request, "denied")}>Deny access</ActionButton>}
           </div>
         </li>)}
       </ul>}

@@ -36,7 +36,12 @@ for (const width of [1440, 390]) {
     const requests = page.getByRole("list", { name: "Incoming workspace requests" });
     await expect(requests.getByText("Read and write")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("incoming-workspace-requests.png") });
-    await requests.getByRole("button", { name: "Approve access" }).click();
+    await requests.getByRole("button", { name: "Deny access" }).click();
+    await expect(requests.getByText("Denied", { exact: false })).toBeVisible();
+    await expect(requests.getByRole("button", { name: "Reconsider and approve" })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("denied-workspace-request.png") });
+    expect((await new AxeBuilder({ page }).include("details").withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze()).violations).toEqual([]);
+    await requests.getByRole("button", { name: "Reconsider and approve" }).click();
     await expect(page.getByText("Source access approved.")).toBeVisible();
     await expect(page.getByText("No incoming workspace requests.")).toBeVisible();
   });

@@ -61,6 +61,28 @@ test("stale decision requires a fresh review and never confirms the old request"
   expect(screen.queryByText("Source access denied.")).not.toBeInTheDocument();
 });
 
+test("the target owner can reconsider a denied request using the original reviewed pin", async () => {
+  server.use(...handlersFor("workspace-resources", { fixtures: true }));
+  const decisions: unknown[] = [];
+  server.use(http.post(decisionPath, async ({ request }) => { decisions.push(await request.clone().json()); }));
+  const { router } = renderApp(home);
+  await requestSource();
+  await act(async () => { await router.navigate(target); });
+  await userEvent.click(await screen.findByText("Incoming workspace requests"));
+  const inbox = await screen.findByRole("list", { name: "Incoming workspace requests" });
+  await userEvent.click(within(inbox).getByRole("button", { name: "Deny access" }));
+  await screen.findByText("Source access denied.");
+  const reconsider = await within(inbox).findByRole("button", { name: "Reconsider and approve" });
+  expect(within(inbox).getByText(/Denied/)).toBeInTheDocument();
+  expect(within(inbox).queryByRole("button", { name: "Deny access" })).toBeNull();
+  expect(within(inbox).getByText(workspacePin.commit_oid)).toBeInTheDocument();
+  await userEvent.click(reconsider);
+  await screen.findByText("Source access approved.");
+  await screen.findByText("No incoming workspace requests.");
+  const pin = { project_revision: workspacePin.project_revision, commit_oid: workspacePin.commit_oid, access: "write" };
+  expect(decisions).toEqual([{ decision: "denied", ...pin }, { decision: "approved", ...pin }]);
+});
+
 test("older servers hide the workspace controls without reading new endpoints", async () => {
   let reads = 0;
   server.use(...handlersFor("default", { fixtures: true }));

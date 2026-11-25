@@ -51,7 +51,7 @@ export function adaptWorkspaceResources(value: unknown): WorkspaceResources {
 
 function incoming(value: unknown, target: string): value is WorkspaceRequest {
   return isRecord(value) && canonicalUuid(value.home_project_id) && canonicalUuid(value.task_id) && source(value) &&
-    value.target_project_id === target && value.state === "pending";
+    value.target_project_id === target && (value.state === "pending" || value.state === "denied");
 }
 
 function projectPath(project: string) {

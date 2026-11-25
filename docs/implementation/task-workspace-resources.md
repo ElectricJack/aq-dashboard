@@ -1,6 +1,6 @@
 # Task workspace resources
 
-With a project selected, open a task’s **Workspace resources** section to request a sibling source or a disposable PostgreSQL service. To decide a source request, select the target project, open its Work list, and expand **Incoming workspace requests**. Each decision uses the displayed project revision, commit and access type. A conflict refreshes the request for review.
+With a project selected, open a task’s **Workspace resources** section to request a sibling source or a disposable PostgreSQL service. To decide a source request, select the target project, open its Work list, and expand **Incoming workspace requests**. Each decision uses the displayed project revision, commit and access type. A denied request remains in the target project’s review list, where its owner can reconsider and approve the same pin. A conflict refreshes the request for review.
 
 The Create task dialog can declare resources on the initial task request. The composer creates a draft when it includes a resource declaration. The capability `tasks.workspace.resources` enables these surfaces.
 

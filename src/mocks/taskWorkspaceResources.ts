@@ -39,10 +39,11 @@ export function workspaceResourceHandlers() {
       else return conflict();
       return HttpResponse.json(body());
     }),
-    http.get(inboxPath, () => HttpResponse.json({ sources: source?.state === "pending" ? [source] : [], has_more: false })),
+    http.get(inboxPath, () => HttpResponse.json({ sources: source && source.state !== "approved" ? [source] : [], has_more: false })),
     http.post(`${inboxPath}/${workspaceHome.id}/${workspaceTask}/decision`, async ({ request }) => {
       const payload = await request.json() as WorkspaceDecision;
-      if (!source || source.state !== "pending" || payload.project_revision !== source.project_revision ||
+      if (!source || source.state === "approved" || (source.state === "denied" && payload.decision !== "approved") ||
+          payload.project_revision !== source.project_revision ||
           payload.commit_oid !== source.commit_oid || payload.access !== source.access) return conflict();
       source = { ...source, state: payload.decision };
       return HttpResponse.json({ sources: [source], services: [] });
