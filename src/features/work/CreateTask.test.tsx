@@ -10,6 +10,7 @@ import {roleSettingsHandlers} from "../../mocks/roleSettings";
 import {renderApp} from "../../test/renderApp";
 import {graphEnvelope,graphId,graphNode,graphProject} from "../../test/humanGraph";
 import {confirmedTaskOperation,taskActor,taskOperation,taskOperationId} from "../../test/taskCreate";
+import {TASK_WORKSPACE_RESOURCES} from "../../api/taskWorkspaceResources";
 import type {TaskOperation} from "../../api/adapters/taskCreate";
 import * as apiClient from "../../api/client";
 const server=setupServer(...handlersFor("default"));
@@ -17,8 +18,8 @@ beforeAll(()=>server.listen({onUnhandledFrame:"error"}));
 beforeEach(()=>vi.stubGlobal("crypto",webcrypto));
 afterEach(()=>{server.resetHandlers();vi.unstubAllGlobals();vi.restoreAllMocks();});afterAll(()=>server.close());
 const scope=`?scope=project:${graphProject}`;
-function enable(allowed=true){
- server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.create"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner role required"},{name:"tasks.story_points",version:"1",enabled:true}]}})));
+function enable(allowed=true, workspace=false){
+ server.use(http.get("/api/v1/bootstrap",()=>HttpResponse.json({...bootstrap,data:{...bootstrap.data,principal:{...bootstrap.data.principal,id:taskActor},capabilities:[...bootstrap.data.capabilities.filter(c=>!["human.graph.read","tasks.create"].includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"tasks.create",version:"1",enabled:allowed,reason:"Owner role required"},{name:"tasks.story_points",version:"1",enabled:true},...(workspace?[{name:TASK_WORKSPACE_RESOURCES,version:"1",enabled:true},{name:"projects.read",version:"1",enabled:true}]:[])]}})));
  server.use(http.get(`/api/human/projects/${graphProject}/tasks`,()=>HttpResponse.json(graphEnvelope({items:[],next_cursor:null},"9007199254740993"))));
 }
 function forBytes(bytes:string,state:TaskOperation["state"]="confirmed"){
@@ -267,4 +268,41 @@ test("an unknown role is refused in AQ's words and the draft, with its role, sta
  await userEvent.selectOptions(select,"reviewer");await fill(modal);await userEvent.click(within(modal).getByRole("button",{name:"Create task"}));
  expect(await within(modal).findByRole("alert")).toHaveTextContent(`AQ refused this task as invalid; no task was created. AQ: “${message}”. Check the fields and submit again. Your draft is preserved.`);
  const again=within(modal).getByRole("combobox",{name:"Role"});expect(again).toBeEnabled();expect(again).toHaveValue("reviewer");
+});
+
+test("declares workspace resources on the retained create request as a draft", async () => {
+  enable(true, true);
+  const sibling = graphId(76);
+  const bodies: string[] = [];
+  server.use(
+    http.get("/api/v1/projects", () => HttpResponse.json({
+      ...bootstrap, data: { items: [{ id: graphProject, label: "Home" }, { id: sibling, label: "Library" }],
+        next_cursor: null, has_more: false, snapshot_id: "fixture", total: { value: 2, accuracy: "exact" } },
+    })),
+    http.post(`/api/human/projects/${graphProject}/tasks`, async ({ request }) => {
+      const bytes = await request.text();
+      bodies.push(bytes);
+      return HttpResponse.json(forBytes(bytes));
+    }),
+    http.get(`/api/human/projects/${graphProject}/tasks/:task`, ({ params }) =>
+      HttpResponse.json(graphEnvelope({ ...graphNode("task"), id: String(params.task), title: "Create the recovery boundary" }))),
+  );
+  renderApp(`/work${scope}`);
+  const modal = await open();
+  await fill(modal);
+  await userEvent.selectOptions(within(modal).getByLabelText("Initial task state"), "active");
+  await userEvent.click(within(modal).getByText("Declare workspace resources"));
+  const add = await within(modal).findByRole("button", { name: "Add source project" });
+  await waitFor(() => expect(add).toBeEnabled());
+  await userEvent.click(add);
+  await userEvent.selectOptions(within(modal).getByLabelText("Source access 1"), "write");
+  await userEvent.click(within(modal).getByLabelText("Request PostgreSQL service"));
+  expect(within(modal).getByLabelText("Initial task state")).toBeDisabled();
+  expect(within(modal).getByLabelText("Initial task state")).toHaveValue("draft");
+  await userEvent.click(within(modal).getByRole("button", { name: "Create task" }));
+  await within(modal).findByText("Task created and its record verified.");
+  expect(bodies).toHaveLength(1);
+  expect(JSON.parse(bodies[0]!)).toMatchObject({
+    task_state: "draft", workspace: [{ target_project_id: sibling, access: "write" }, { service: "postgres" }],
+  });
 });

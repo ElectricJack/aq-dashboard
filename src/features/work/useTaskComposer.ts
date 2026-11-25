@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import { useSession } from "../../app/session";
 import { useDraft } from "../../app/useDraft";
 import { ApiError, apiGet } from "../../api/client";
+import { TASK_WORKSPACE_RESOURCES } from "../../api/taskWorkspaceResources";
 import { queryKey } from "../../api/queryKeys";
 import { graphPath } from "../../api/humanGraphReads";
 import { adaptGraphPage, validGraphId, type GraphNode } from "../../api/adapters/humanGraph";
@@ -254,7 +255,11 @@ export function useTaskComposer(project: string, onAccessRevoked: () => void) {
     if (busyRef.current || operation) return;
     if (!context.data || context.isFetching) return;
     // AQ counts the (trimmed) title in UTF-8 bytes, like Edit (WDR-03): accented letters and emoji take 2 to 4.
-    const requestDraft = canSetStoryPoints ? draft : { ...draft, storyPoints: undefined };
+    const workspace = canDeclareWorkspace ? draft.workspace : undefined;
+    const requestDraft = {
+      ...draft, workspace, storyPoints: canSetStoryPoints ? draft.storyPoints : undefined,
+      task_state: workspace?.length ? "draft" as const : draft.task_state,
+    };
     const problem = draftProblem(requestDraft);
     if (problem) {
       setError(problem);
@@ -338,6 +343,7 @@ export function useTaskComposer(project: string, onAccessRevoked: () => void) {
     operationParam();
     void context.refetch();
   }
+  const canDeclareWorkspace = bootstrap.capability(TASK_WORKSPACE_RESOURCES).enabled;
   const canSetStoryPoints = bootstrap.capability("tasks.story_points").enabled;
   function leaveConfirmedTask() {
     setOpen(false);
@@ -361,6 +367,7 @@ export function useTaskComposer(project: string, onAccessRevoked: () => void) {
     busy,
     submit,
     canSetStoryPoints,
+    canDeclareWorkspace,
     status,
     created,
     unrecorded,

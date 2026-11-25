@@ -5,9 +5,9 @@ import { useCallback, useSyncExternalStore } from "react";
  * that is missing, full or blocked (private mode) falls back to the defaults for this visit.
  */
 export const SECTIONS_KEY = "aq.dashboard.task-sections";
-export type SectionId = "status" | "description" | "acceptance" | "comments" | "attempts" | "results" | "hierarchy" | "history";
+export type SectionId = "status" | "description" | "acceptance" | "comments" | "attempts" | "results" | "hierarchy" | "history" | "workspace";
 export const SECTION_DEFAULT_OPEN: Record<SectionId, boolean> = {
-  status: true, description: true, acceptance: true, comments: true, attempts: true, results: true, hierarchy: true, history: false,
+  status: true, description: true, acceptance: true, comments: true, attempts: true, results: true, hierarchy: true, history: false, workspace: false,
 };
 
 const listeners = new Set<() => void>();

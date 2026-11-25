@@ -19,6 +19,7 @@ import { listStatus, recordMarker } from "./labels";
 import { StatusIcon } from "./StatusIcon";
 import { AllProjectWorkList } from "./AllProjectWorkList";
 import { useSelectionFocus } from "./useSelectionFocus";
+import { IncomingWorkspaceRequests } from "./resources/IncomingWorkspaceRequests";
 import { WorkFilters } from "./WorkFilters";
 import { useTaskWorkspaceModel, type WorkSpaceProps, type Model } from "./useTaskWorkspaceModel";
 import styles from "./WorkWorkspace.module.css";
@@ -189,6 +190,7 @@ function TaskWorkspace(props: WorkSpaceProps) {
   const workspace = useSelectionFocus({ id, graph, gantt, phone });
   return <div ref={workspace} className={styles.page} data-detail={!!id} data-view={gantt ? "gantt" : graph ? "graph" : "list"} data-focus={focused || undefined}>
     <WorkHead action={action} project={query.data?.pages[0]?.project.name} />
+    {project && !id && <IncomingWorkspaceRequests target={project} />}
     <Toolbar className={styles.toolbar}>
       <WorkView/>
       <WorkFilters q={q} state={state} onChange={update} allProjects={!project} gantt={gantt}/>

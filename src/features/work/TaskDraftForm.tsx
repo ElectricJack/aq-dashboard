@@ -1,8 +1,10 @@
+import { useState } from "react";
 import type { TaskDraft } from "../../api/adapters/taskCreate";
 import { RoleSelect } from "./taskRole";
 import { StoryPointsField } from "./StoryPointsField";
 import {ActionButton} from "../../components/layout/Workspace";
 import type {TaskComposer} from "./useTaskComposer";
+import { WorkspaceDeclaration } from "./resources/WorkspaceDeclaration";
 import styles from "./CreateTask.module.css";
 function hasDraft(draft: TaskDraft) {
   return !!(draft.title || draft.body || draft.acceptance_criteria);
@@ -12,7 +14,9 @@ export function DraftContent({ model, project }: { model: TaskComposer; project:
   return <RecoveredDraft model={model} />;
 }
 function TaskForm({ model, project }: { model: TaskComposer; project: string }) {
-  const { submit, busy, operation, draft, setDraft, canSetStoryPoints } = model;
+  const { submit, busy, operation, draft, setDraft, canSetStoryPoints, canDeclareWorkspace } = model;
+  const [open, setOpen] = useState(false);
+  const declared = canDeclareWorkspace && Boolean(draft.workspace?.length);
   return (
     <form onSubmit={(e) => void submit(e)}>
       <fieldset disabled={busy || !!operation} className={styles.fields}>
@@ -50,7 +54,8 @@ function TaskForm({ model, project }: { model: TaskComposer; project: string }) 
         <label>
           Initial task state
           <select
-            value={draft.task_state}
+            value={declared ? "draft" : draft.task_state}
+            disabled={declared}
             onChange={(e) =>
               setDraft((v) => ({ ...v, task_state: e.target.value as TaskDraft["task_state"] }))
             }
@@ -59,6 +64,11 @@ function TaskForm({ model, project }: { model: TaskComposer; project: string }) 
             <option value="active">Active</option>
           </select>
         </label>
+        {canDeclareWorkspace && <details className={styles.details} onToggle={event => setOpen(event.currentTarget.open)}>
+          <summary>Declare workspace resources{declared && ` (${draft.workspace?.length})`}</summary>
+          {open && <WorkspaceDeclaration project={project} value={draft.workspace ?? []}
+            onChange={workspace => setDraft(value => ({ ...value, workspace }))} />}
+        </details>}
         <RoleSelect
           project={project}
           value={draft.role ?? ""}
