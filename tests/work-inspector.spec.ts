@@ -86,13 +86,16 @@ for (const vp of [{ name: "desktop", width: 1440, height: 900 }, { name: "phone"
       };
       const set = await choose("Set route");
       await set.getByLabel("Level").selectOption("standard-high");
-      await expect(set.getByRole("checkbox", { name: "fixture-provider" })).toBeVisible();
+      await set.getByLabel("Preferred harness").selectOption("claude");
+      await set.getByLabel("Preferred provider").selectOption("fixture-provider");
       if (evidence) await page.screenshot({ path: `${evidence}/work-inspector-set-route-${vp.name}.png` });
       await axe(page);
       await set.getByRole("button", { name: "Submit" }).click();
       await expect(set.getByText("Route set to Standard · High")).toBeVisible();
       await set.getByRole("button", { name: "Close action" }).click();
       await expect(route).toContainText("Standard · High");
+      await expect(route).toContainText("Preferred harness: Claude");
+      await expect(route).toContainText("Preferred provider: fixture-provider");
       await expect(route).toContainText("Set by the owner");
       await route.getByText("Why this route").click();
       await expect(route.getByText("Fixture: the owner set this route.")).toBeVisible();
