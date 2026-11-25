@@ -23,6 +23,8 @@ import { TaskHierarchy } from "./inspector/TaskHierarchy";
 import { TaskResults } from "./inspector/TaskResults";
 import styles from "./HumanTaskInspector.module.css";
 import parts from "./inspector/Inspector.module.css";
+import { TASK_WORKSPACE_RESOURCES } from "../../api/taskWorkspaceResources";
+import { WorkspaceResources } from "./resources/WorkspaceResources";
 
 /** Attempt statuses before a grant (aq-server `role_settings::granted`). */
 const NOT_STARTED = ["offered", "preparing", "declined", "never_granted"];
@@ -154,6 +156,7 @@ function Estimate({ points }: { points: GraphNode["story_points"] }) {
 export function HumanTaskInspector({ record, search, notice, className, focused = false, onFocus }: {
   record: GraphEnvelope<GraphNode>; search: string; notice?: ReactNode; className?: string; focused?: boolean; onFocus?: (on: boolean) => void;
 }) {
+  const { bootstrap } = useSession();
   const n = record.data, project = record.project.id, titleId = useId(), root = useRef<HTMLElement>(null);
   useDocumentTitle(n.title);
   useStickyTop(root);
@@ -188,6 +191,9 @@ export function HumanTaskInspector({ record, search, notice, className, focused 
       </Section>
       {/* Comments come straight after Status: the part the owner reads most stays on the first screen (spec 0004 §3, P1-03). */}
       <Section id="comments" title="Comments" summary={commentSummary(comments)}><TaskComments project={project} task={n.id} query={comments} linkSearch={linkSearch} /></Section>
+      {bootstrap.capability(TASK_WORKSPACE_RESOURCES).enabled && <Section id="workspace" title="Workspace resources">
+        <WorkspaceResources key={n.id} project={project} task={n.id} />
+      </Section>}
       <TaskDescription node={n} />
       <Section id="attempts" title="Attempts" summary={attemptSummary(history)}><TaskAttempts query={history} linkSearch={linkSearch} holding={w?.execution} /></Section>
       <Section id="results" title="Results"><TaskResults project={project} task={n.id} /></Section>
