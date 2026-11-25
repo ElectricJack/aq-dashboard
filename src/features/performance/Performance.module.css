@@ -78,7 +78,7 @@
   vertical-align: top;
 }
 .tableScroll thead { background: var(--color-raised); }
-.tableScroll thead th { white-space: normal; }
+.tableScroll thead th { white-space: normal; overflow-wrap: normal; }
 .tableScroll tbody tr + tr { border-top: 1px solid var(--color-border); }
 .tableScroll th[scope="row"] { font-weight: 600; }
 
