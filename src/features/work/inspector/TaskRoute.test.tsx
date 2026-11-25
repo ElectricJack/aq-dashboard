@@ -5,7 +5,7 @@ import { setupServer } from "msw/node";
 import { handlersFor } from "../../../mocks/handlers";
 import { FIXTURE_IDS } from "../../../mocks/humanGraph";
 import { renderApp } from "../../../test/renderApp";
-import { classLabel, elapsed, whoMayTake } from "./TaskRoute";
+import { classLabel, elapsed, routePreferenceSummary } from "./TaskRoute";
 
 // Spec 0011 §8 against the labelled routing fixtures (src/mocks/humanGraph.ts): "Approve recovery plan" is ready and waits
 // for routing, "Replay reconciliation" was routed by the router, every other task is not under an automatic router.
@@ -32,8 +32,10 @@ test("labels: a class reads in the owner's words and the wait in minutes by the 
   const now = "2026-10-31T12:00:00.000Z", at = Date.parse(now);
   expect([elapsed(now, at - 30_000), elapsed(now, at - 4 * 60_000), elapsed(now, at - 3 * 3_600_000), elapsed(now, at - 3 * 86_400_000), elapsed(now, at + 5_000), elapsed(null, at)])
     .toEqual(["under 1 min", "4 min", "3 h", "3 d", "under 1 min", null]);
-  expect(whoMayTake({ harnesses: [], providers: [], prefer: [] })).toBe("Harness: any · Provider: any");
-  expect(whoMayTake({ harnesses: ["codex"], providers: ["openai", "anthropic"], prefer: ["codex"] })).toBe("Harness: codex · Provider: openai, anthropic, preferring codex");
+  const legacy = { class: "standard-high", harnesses: ["codex"], providers: ["openai"], prefer: [], lane: null, provider_intent: "any", source: "owner", policy_digest: null };
+  expect(routePreferenceSummary(legacy)).toBe("");
+  expect(routePreferenceSummary({ ...legacy, prefer_harnesses: ["codex", "claude"], prefer_providers: ["openai", "anthropic"] }))
+    .toBe("Preferred harness: Codex, then Claude · Preferred provider: OpenAI, then Anthropic");
 });
 
 test("a ready task under an automatic router with no route says it is waiting for routing and for how long", async () => {
@@ -44,13 +46,13 @@ test("a ready task under an automatic router with no route says it is waiting fo
   expect(within(region).queryByText("Why this route")).toBeNull();
 });
 
-test("a routed task shows its class, lane and who may take it, with the reasons behind it in a disclosure", async () => {
+test("a routed task shows its class, lane and preferences, with the reasons behind it in a disclosure", async () => {
   const region = await open(FIXTURE_IDS.replay);
   const route = await within(region).findByText("Standard · High");
   const box = route.closest("[data-task-route]")!;
   expect(box).toHaveAttribute("data-task-route", "routed");
   expect(box).toHaveTextContent("lane backend");
-  expect(box).toHaveTextContent("Harness: any · Provider: any, preferring claude-code");
+  expect(box).toHaveTextContent("Preferred harness: Claude");
   expect(box).toHaveTextContent("Set by the router · 12 min ago");
   // The history is read only when the disclosure opens, and lists each reason's detail.
   let reads = 0;
@@ -88,7 +90,7 @@ test("a failed history read says so inside the disclosure and the rest of Status
   expect(within(region).getByText("Standard · High")).toBeVisible();
 });
 
-test("Set route lists the saved levels by id and sends the level as the class with its limits; the work read then shows the route", async () => {
+test("Set route lists the saved levels by id and sends the level as the class with its preferences; the work read then shows the route", async () => {
   const sent: { kind: string; payload: Record<string, unknown> }[] = [];
   server.events.on("request:start", async ({ request }) => { if (request.method === "POST" && new URL(request.url).pathname === "/api/v1/actions") sent.push(await request.clone().json()); });
   const region = await open(FIXTURE_IDS.approve);
@@ -100,7 +102,8 @@ test("Set route lists the saved levels by id and sends the level as the class wi
   expect(select).toBeInvalid();
   expect(sent).toEqual([]);
   await userEvent.selectOptions(select, "standard-high");
-  await userEvent.click(within(dialog).getByRole("checkbox", { name: "fixture-provider" }));
+  expect(within(dialog).queryByRole("checkbox")).toBeNull();
+  await userEvent.selectOptions(within(dialog).getByLabelText("Preferred provider"), "fixture-provider");
   await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
   expect(await within(dialog).findByText("Route set to Standard · High")).toBeVisible();
   expect(sent).toHaveLength(1);
@@ -108,7 +111,26 @@ test("Set route lists the saved levels by id and sends the level as the class wi
   expect(sent[0]!.payload).not.toHaveProperty("harnesses");
   await userEvent.click(within(dialog).getByRole("button", { name: "Close action" }));
   expect(await within(region).findByText("Standard · High", { selector: "[data-task-route] strong" })).toBeVisible();
+  expect(within(region).getByText(/Preferred provider: fixture-provider/)).toBeVisible();
   expect(within(region).queryByText("Waiting for routing")).toBeNull();
+});
+
+test("an older server receives a class-only route", async () => {
+  server.use(...handlersFor("route-preferences-legacy", { fixtures: true }));
+  const sent: { kind: string; payload: Record<string, unknown> }[] = [];
+  server.events.on("request:start", async ({ request }) => {
+    if (request.method === "POST" && new URL(request.url).pathname === "/api/v1/actions") sent.push(await request.clone().json());
+  });
+  const region = await open(FIXTURE_IDS.approve);
+  const dialog = await action(region, "Set route");
+  await userEvent.selectOptions(await within(dialog).findByLabelText("Level"), "standard-high");
+  expect(within(dialog).queryByLabelText("Preferred provider")).toBeNull();
+  expect(within(dialog).queryByLabelText("Preferred harness")).toBeNull();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+  await within(dialog).findByText("Route set to Standard · High");
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.payload).not.toHaveProperty("providers");
+  expect(sent[0]!.payload).not.toHaveProperty("harnesses");
 });
 
 test("Clear route is offered once the task is routed and sends no fields beyond the common ones", async () => {

@@ -16,6 +16,7 @@ import { validateTitle } from "../../api/adapters/taskCreate";
 import type { TaskRole, TaskRouting } from "../work/taskWork";
 import { RoleSelect, useTaskRoles } from "../work/taskRole";
 import { classLabel } from "../work/inspector/TaskRoute";
+import { TASK_ROUTE_PREFERENCES } from "../work/taskRouting";
 import { NO_ROUTE, RouteFields, type RouteChoice } from "./RouteFields";
 import styles from "./RecordActions.module.css";
 
@@ -171,6 +172,7 @@ export function RecordActions(props:{record:ActionContext;author?:boolean;pinned
 function Actions({record,author=false,pinned,kinds:only,variant="default",execution,hasDraftDescendants}:{record:ActionContext;author?:boolean;pinned?:string;kinds?:ActionKind[];variant?:Variant;execution?:TaskExecutionFacts;hasDraftDescendants?:boolean}) {
   const {bootstrap,queryContext,reportAccessDenied,reportIncompatible}=useSession();const cache=useQueryClient(), navigate=useNavigate();
   const canSetStoryPoints=bootstrap.capability("tasks.story_points").enabled;
+  const canPrefer = bootstrap.capability(TASK_ROUTE_PREFERENCES).enabled;
   const routeKinds:ActionKind[]=!execution?.routing?[]:execution.routing.state==="routed"?["task.route.set","task.route.clear"]:["task.route.set"];
   const [kind,setKind]=useState<ActionKind|null>(null),[open,setOpen]=useState(false),[draft,setDraft]=useState(()=>draftFor(record,author));
   const [baseline,setBaseline]=useState(record),[intent,setIntent]=useState<FrozenAction|null>(null),[operation,setOperation]=useState<ActionOperation|null>(null);
@@ -231,7 +233,11 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
   },[intent,unsettled,busy,accessLost,retired]);
   function launch(k:ActionKind){
     if(unsettled){if(k===kind)setOpen(true);return;}
-    frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRebased(null);setRefusal(null);setBaseline(record);setDraft(draftFor(record,author));setRoute(k==="task.route.set"&&execution?.routing?.route?{class:execution.routing.route.class,harnesses:[],providers:[]}:NO_ROUTE);setRole(execution?.role?.source==="task"?execution.role.id:"");setKind(k);setOpen(true);
+    frozen.current=null;setIntent(null);setOperation(null);setRetired(false);setUnknown(false);setError(null);setRebased(null);setRefusal(null);setBaseline(record);setDraft(draftFor(record,author));setRoute(k === "task.route.set" && execution?.routing?.route ? {
+      class: execution.routing.route.class,
+      preferredHarnesses: canPrefer ? execution.routing.route.prefer_harnesses ?? [] : [],
+      preferredProviders: canPrefer ? execution.routing.route.prefer_providers ?? [] : [],
+    } : NO_ROUTE);setRole(execution?.role?.source==="task"?execution.role.id:"");setKind(k);setOpen(true);
   }
   function fields(k: ActionKind): ActionFields {
     switch (k) {
@@ -265,7 +271,11 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
         return { payload: role ? { role } : {} };
       case "task.route.set":
         if (!route.class) throw new Error("Choose a level.");
-        return { payload: { class: route.class, ...(route.harnesses.length ? { harnesses: route.harnesses } : {}), ...(route.providers.length ? { providers: route.providers } : {}) } };
+        return { payload: {
+          class: route.class,
+          ...(canPrefer && route.preferredHarnesses.length > 0 && { harnesses: route.preferredHarnesses }),
+          ...(canPrefer && route.preferredProviders.length > 0 && { providers: route.preferredProviders }),
+        } };
       case "task.reprioritize": {
         const priority = draft.priority.trim();
         if (!PRIORITY.test(priority) || Math.abs(Number(priority)) > PRIORITY_MAX) throw new Error("Enter a whole-number priority from -1000000 to 1000000.");
@@ -324,7 +334,7 @@ function Actions({record,author=false,pinned,kinds:only,variant="default",execut
         {kind==="task.reprioritize"&&<><label>Priority<input required inputMode="numeric" pattern="-?[0-9]*" maxLength={8} value={draft.priority} onChange={e=>update("priority",e.target.value)}/></label><p className={styles.meta}>A whole number from -1000000 to 1000000. AQ starts higher-priority tasks first. This dashboard can't read the current priority yet.</p></>}
         {kind==="task.role.set"&&<><RoleSelect project={record.project.id} value={role} onChange={setRole} current={execution?.role?.source==="task"?execution.role.id:undefined} hintClassName={styles.meta}/>
           <p className={styles.meta}>The role can be changed until one of the task's attempts has started.</p></>}
-        {kind==="task.route.set"&&<RouteFields value={route} onChange={setRoute}/>}
+        {kind==="task.route.set"&&<RouteFields value={route} canPrefer={canPrefer} onChange={setRoute}/>}
         {kind==="task.route.clear"&&<p>Remove this task's route. Under an automatic router the task then waits for routing until it is routed again.</p>}
         {kind==="task.activate.subtree"&&<p>Make every draft descendant of this task eligible for scheduling.</p>}
         {kind==="task.activate"&&<><p>Change this task from Draft to Active.</p>
@@ -360,7 +370,7 @@ const refusalReason=(code:string)=>REASONS[code]??code.replace(/_/g," ");
 const REFUSAL_HINT:Partial<Record<ActionKind,string>>={
   "task.activate":"It activates only a draft task. Reload current versions to see the task's state.",
   "task.retry":"It retries only an active task whose last attempt can be replaced.",
-  "task.route.set":"It sets only a level that is saved in Settings; check the level and its limits.",
+  "task.route.set":"Choose a level saved in Settings.",
   "task.role.set":"AQ changes a task's role only until one of its attempts has been granted.",
   // AQ accepts a repeated dependency as a no-op; a cycle (or another Graph rule) is what it refuses (WDR-05).
   "task.dependency.add":"AQ refuses a dependency that would create a cycle, for example when this task already blocks the chosen one.",

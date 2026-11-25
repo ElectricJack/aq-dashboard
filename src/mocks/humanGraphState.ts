@@ -47,6 +47,8 @@ function fixtureRouting() {
             harnesses: [],
             providers: [],
             prefer: ["claude-code"],
+            prefer_harnesses: ["claude-code"],
+            prefer_providers: [],
             lane: "backend",
             provider_intent: "any",
             reasons: [

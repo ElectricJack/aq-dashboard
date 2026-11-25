@@ -7,6 +7,7 @@ import { useSession } from "../../app/session";
 import { ActionButton } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { useIntelligenceDraft } from "./IntelligenceDrafts";
+import { TASK_ROUTE_PREFERENCES } from "../work/taskRouting";
 import styles from "./ProfileDocuments.module.css";
 
 const REASON_LABELS: Record<FallbackReason, string> = {
@@ -37,7 +38,8 @@ type Pending = Fence & { selection_defaults: Defaults };
 
 /** The one selection policy every level starts from. A level overrides single values in its own document. */
 export function SelectionDefaults() {
-  const { queryContext } = useSession();
+  const { bootstrap, queryContext } = useSession();
+  const taskPreferences = bootstrap.capability(TASK_ROUTE_PREFERENCES).enabled;
   const client = useQueryClient();
   const query = useSelectionDefaults();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -104,7 +106,11 @@ export function SelectionDefaults() {
           <input id={`${id}-currency`} type="text" value={current.currency} maxLength={3} disabled={locked} aria-describedby={`${id}-currency-hint`} spellCheck={false} onChange={event => edit({ currency: event.target.value.toUpperCase() })} />
           <span id={`${id}-currency-hint`} className={styles.note}>Three letters, such as USD. Given together with the cost limit.</span></div>
       </div>
-      <fieldset className={styles.group}><legend>Move on to the next candidate when</legend>
+      <fieldset className={styles.group} aria-describedby={taskPreferences ? `${id}-queue-fallback` : undefined}>
+        <legend>Move on to the next candidate when</legend>
+        {taskPreferences && <p id={`${id}-queue-fallback`} className={styles.meta}>
+          Queued tasks can try another eligible provider when a preference can’t be met.
+        </p>}
         <div className={styles.choices}>{FALLBACK_REASONS.map(reason => <label key={reason} className={styles.switch}>
           <input type="checkbox" checked={current.fallback_on.includes(reason)} disabled={locked} onChange={event => edit({ fallback_on: event.target.checked ? [...current.fallback_on, reason] : current.fallback_on.filter(item => item !== reason) })} />{REASON_LABELS[reason]}</label>)}</div>
       </fieldset>

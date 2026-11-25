@@ -332,6 +332,8 @@ export type FixtureRouteEntry = {
     harnesses: string[];
     providers: string[];
     prefer: string[];
+    prefer_harnesses?: string[];
+    prefer_providers?: string[];
     lane: string | null;
     provider_intent: string;
     reasons: { code: string; detail: string }[];

@@ -1,5 +1,6 @@
 import bootstrapFixture from "../../contracts/proposed/bootstrap.json";
 import usageFixture from "../../contracts/proposed/provider-usage.json";
+import { TASK_ROUTE_PREFERENCES } from "../features/work/taskRouting";
 import type { Bootstrap, Envelope, ErrorEnvelope, ProviderUsage } from "../api/wire/proposed";
 
 /** Mock-only scenarios over PROPOSED fixtures; never shipped in a live build. */
@@ -16,6 +17,7 @@ export const SCENARIOS = [
   "reads-failed",
   "large",
   "actions-unavailable",
+  "route-preferences-legacy",
   "projects-unlisted",
   "results-media",
 ] as const;
@@ -64,6 +66,7 @@ export const ACTION_CAPABILITIES = [
   "tasks.activate.subtree",
   "tasks.reprioritize",
   "tasks.route",
+  TASK_ROUTE_PREFERENCES,
   "tasks.comments.write",
   "tasks.cancel",
   "tasks.retry",
@@ -141,6 +144,9 @@ const built: Record<ScenarioName, Scenario> = {
   large: { ...defaults, graph: "large" },
   "results-media": { ...defaults, media: true },
   "actions-unavailable": { ...defaults, bootstrap: withActions(false) },
+  "route-preferences-legacy": { ...defaults, bootstrap: {
+    ...baseBootstrap, capabilities: baseBootstrap.capabilities.filter(cap => cap.name !== TASK_ROUTE_PREFERENCES),
+  } },
   "projects-unlisted": { ...defaults, bootstrap: projectsUnlisted },
   stale: {
     ...defaults,

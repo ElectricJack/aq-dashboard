@@ -8,6 +8,7 @@ import { useSession } from "../../app/session";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import { ROUTING_DOCUMENT, useRoutingDocumentDraft } from "./RoutingDocumentDraft";
 import { PlaybookQuestion, PlaybookSourceStatus } from "./PlaybookSourceStatus";
+import { TASK_ROUTE_PREFERENCES } from "../work/taskRouting";
 import styles from "./RoutingPolicyEditor.module.css";
 
 function useRoutingPolicy(pollMs: number) {
@@ -61,6 +62,7 @@ function CompiledPolicy({ state, showQuestion, operations }: { state: RoutingPol
 
 /** The owner's routing document, what the authoring agent made of it, and the routing switch. */
 export function RoutingPolicyEditor({ pollMs = 2000 }: { /** How often to re-read a run in progress; only tests change it. */ pollMs?: number }) {
+  const { bootstrap } = useSession();
   const operations = useRoutingPolicy(pollMs);
   const { query, routing } = operations;
   const draft = useRoutingDocumentDraft();
@@ -69,6 +71,9 @@ export function RoutingPolicyEditor({ pollMs = 2000 }: { /** How often to re-rea
   return <section className={styles.section} aria-labelledby="routing-policy-heading">
     <h3 id="routing-policy-heading">Routing policy</h3>
     <p className={styles.meta}>An agent turns each saved version into a playbook that routes tasks, and it takes effect when it is written. Saving again replaces a run still in progress.</p>
+    {bootstrap.capability(TASK_ROUTE_PREFERENCES).enabled && <p className={styles.meta}>
+      A queued task’s route can express a provider or harness preference. AQ may use another eligible candidate.
+    </p>}
     {!query.data ? <QueryStatus status={query.isError ? "error" : "pending"} error={query.error} label="routing policy" onRetry={() => void query.refetch()} /> : <>
       <div className={asking ? styles.beside : undefined}>
         <RoutingMarkdown draft={draft} saved={query.data.markdown} />

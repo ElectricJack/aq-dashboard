@@ -22,12 +22,14 @@ type GraphAction = {
   };
 };
 
-function ownerRoute(limits: { class?: string; harnesses?: string[]; providers?: string[] }) {
+function ownerRoute(preferences: { class?: string; harnesses?: string[]; providers?: string[] }) {
   return {
-    class: limits.class!,
-    harnesses: limits.harnesses ?? [],
-    providers: limits.providers ?? [],
+    class: preferences.class!,
+    harnesses: preferences.harnesses ?? [],
+    providers: preferences.providers ?? [],
     prefer: [],
+    prefer_harnesses: preferences.harnesses ?? [],
+    prefer_providers: preferences.providers ?? [],
     lane: null,
     provider_intent: "any",
     reasons: [{ code: "owner_set", detail: "Fixture: the owner set this route." }],
