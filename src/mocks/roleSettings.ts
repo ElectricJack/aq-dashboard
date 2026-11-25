@@ -24,6 +24,8 @@ const CONFINEMENTS = ["container", "container-permitted", "native", "native-requ
 const SELECTION_KEYS = ["max_attempts", "fallback_on", "max_lineage_elapsed_ms", "observation_max_age_ms", "allow_unknown_availability", "unknown_cost", "require_complete_accounting", "require_hard_cost_enforcement", "max_cost_microunits", "currency"];
 
 type Entries = Map<string, { line: number; value: string }>;
+type Section = { line: number; lines: { line: number; text: string }[] };
+type Sections = Map<string, Section>;
 function entry(entries: Entries, line: number, text: string, allowed: string[] | null, place: string) {
   const at = text.indexOf(":");
   if (at < 0) refuse(line, `expected \`key: value\` in ${place}, found \`${text}\``);
@@ -42,7 +44,7 @@ function split(kind: DocumentKind, source: string) {
     if (lines[at]!.trimEnd() === "---") break;
     if (lines[at]!.trim()) entry(front, at + 1, lines[at]!, KEYS[kind], "frontmatter");
   }
-  const sections = new Map<string, { line: number; lines: { line: number; text: string }[] }>();
+  const sections = new Map<string, Section>();
   let current: string | null = null, fenced = false;
   for (at++; at < lines.length; at++) {
     const text = lines[at]!;
@@ -72,7 +74,7 @@ function list(line: number, key: string, value: string): string[] {
 }
 const flag = (line: number, key: string, value: string) => value === "true" ? true : value === "false" ? false : refuse(line, `\`${key}\` expects \`true\` or \`false\``);
 const number = (line: number, key: string, value: string) => /^\d+$/.test(value) ? Number(value) : refuse(line, `\`${key}\` expects a whole number`);
-function items(section: { line: number; lines: { line: number; text: string }[] }, heading: string, allowed: string[] | null): Entries {
+function items(section: Section, heading: string, allowed: string[] | null): Entries {
   const out: Entries = new Map();
   for (const { line, text } of section.lines) {
     if (!text.trim()) continue;
@@ -91,39 +93,59 @@ function parse(kind: DocumentKind, markdown: string): Fields {
   const description = front.get("description");
   const identity = { id: of("id"), name: of("name"), description: description ? words(description.line, "description", description.value) : "" };
   if (!isDocumentId(identity.id)) refuse(required(front, "id").line, "`id` is a lowercase letter followed by lowercase letters, digits or `-`");
-  if (kind === "role") {
-    const operations = required(front, "operations"), enabled = front.get("enabled"), role = prose(sections.get("Role"));
-    if (!sections.has("Role") || !role) refuse(sections.get("Role")?.line ?? 0, "`## Role` is required and cannot be empty");
-    return { ...identity, execution: of("execution"), operations: list(operations.line, "operations", operations.value), enabled: enabled ? flag(enabled.line, "enabled", enabled.value) : true, role_md: role, rules_md: prose(sections.get("Rules")) };
+  const fields = kind === "role" ? parseRole(front, sections)
+    : kind === "intelligence" ? parseIntelligence(sections) : parseExecution(front, sections);
+  return { ...identity, ...fields };
+}
+const frontText = (front: Entries, key: string) => {
+  const value = required(front, key);
+  return words(value.line, key, value.value);
+};
+function parseRole(front: Entries, sections: Sections): Fields {
+  const operations = required(front, "operations"), enabled = front.get("enabled"), role = prose(sections.get("Role"));
+  if (!sections.has("Role") || !role) refuse(sections.get("Role")?.line ?? 0, "`## Role` is required and cannot be empty");
+  return { execution: frontText(front, "execution"), operations: list(operations.line, "operations", operations.value), enabled: enabled ? flag(enabled.line, "enabled", enabled.value) : true, role_md: role, rules_md: prose(sections.get("Rules")) };
+}
+function parseIntelligence(sections: Sections): Fields {
+  const table = sections.get("Candidates") ?? refuse(0, "the document has no `## Candidates`");
+  const rows = table.lines.filter(l => l.text.trim());
+  if (cells(rows[0]?.text ?? "")?.join("|") !== "provider|model|reasoning|harnesses") refuse(table.line, "`## Candidates` expects a table that starts with `| provider | model | reasoning | harnesses |`");
+  const rule = cells(rows[1]?.text ?? "");
+  if (rule?.length !== 4 || !rule.every(c => /^:?-+:?$/.test(c))) refuse(table.line, "`## Candidates` expects `|---|---|---|---|` under the table header");
+  const candidates = rows.slice(2).map(({ line, text }) => {
+    const row = cells(text);
+    if (row?.length !== 4) return refuse(line, `a candidate row has four cells, as \`| provider | model | reasoning | harnesses |\`; found \`${text}\``);
+    ["provider", "model", "reasoning"].forEach((column, i) => { if (!isToken(row[i]!)) refuse(line, `candidate \`${column}\` is malformed: \`${row[i]}\``); });
+    return { provider: row[0]!, model: row[1]!, reasoning: row[2]!, harnesses: list(line, "harnesses", `[${row[3]}]`) };
+  });
+  const selection: Fields = {};
+  const stated = sections.get("Selection");
+  for (const [key, { line, value }] of stated ? items(stated, "Selection", SELECTION_KEYS) : []) {
+    selection[key] = parseSelectionValue(key, line, value);
   }
-  if (kind === "intelligence") {
-    const table = sections.get("Candidates") ?? refuse(0, "the document has no `## Candidates`");
-    const rows = table.lines.filter(l => l.text.trim());
-    if (cells(rows[0]?.text ?? "")?.join("|") !== "provider|model|reasoning|harnesses") refuse(table.line, "`## Candidates` expects a table that starts with `| provider | model | reasoning | harnesses |`");
-    const rule = cells(rows[1]?.text ?? "");
-    if (rule?.length !== 4 || !rule.every(c => /^:?-+:?$/.test(c))) refuse(table.line, "`## Candidates` expects `|---|---|---|---|` under the table header");
-    const candidates = rows.slice(2).map(({ line, text }) => {
-      const row = cells(text);
-      if (row?.length !== 4) return refuse(line, `a candidate row has four cells, as \`| provider | model | reasoning | harnesses |\`; found \`${text}\``);
-      ["provider", "model", "reasoning"].forEach((column, i) => { if (!isToken(row[i]!)) refuse(line, `candidate \`${column}\` is malformed: \`${row[i]}\``); });
-      return { provider: row[0]!, model: row[1]!, reasoning: row[2]!, harnesses: list(line, "harnesses", `[${row[3]}]`) };
-    });
-    const selection: Fields = {};
-    const stated = sections.get("Selection");
-    for (const [key, { line, value }] of stated ? items(stated, "Selection", SELECTION_KEYS) : []) {
-      selection[key] = key === "fallback_on" ? list(line, key, value) : key === "unknown_cost" ? value : key === "currency" ? (value === "none" ? null : words(line, key, value))
-        : key === "max_cost_microunits" ? (value === "none" ? null : number(line, key, value)) : key.startsWith("allow_") || key.startsWith("require_") ? flag(line, key, value) : number(line, key, value);
-    }
-    return { ...identity, candidates, ...(Object.keys(selection).length ? { selection } : {}) };
+  return { candidates, ...(Object.keys(selection).length ? { selection } : {}) };
+}
+function parseSelectionValue(key: string, line: number, value: string): unknown {
+  switch (key) {
+    case "fallback_on": return list(line, key, value);
+    case "unknown_cost": return value;
+    case "currency": return value === "none" ? null : words(line, key, value);
+    case "max_cost_microunits": return value === "none" ? null : number(line, key, value);
+    default:
+      return key.startsWith("allow_") || key.startsWith("require_")
+        ? flag(line, key, value) : number(line, key, value);
   }
-  const harnesses = required(front, "harnesses"), confinement = of("confinement");
+}
+function parseExecution(front: Entries, sections: Sections): Fields {
+  const harnesses = required(front, "harnesses"), confinement = frontText(front, "confinement");
   if (!CONFINEMENTS.includes(confinement)) refuse(required(front, "confinement").line, `\`confinement\` has an unknown value \`${confinement}\``);
   const credentials: Record<string, string> = {};
   for (const [harness, { line, value }] of items(sections.get("Credentials") ?? refuse(0, "the document has no `## Credentials`"), "Credentials", null)) credentials[harness] = words(line, harness, value);
   const stated = items(sections.get("Limits") ?? refuse(0, "the document has no `## Limits`"), "Limits", [...EXECUTION_LIMIT_KEYS]);
   const limits = Object.fromEntries(EXECUTION_LIMIT_KEYS.map(key => { const e = required(stated, key, "`## Limits`"); return [key, number(e.line, key, e.value)]; }));
-  return { ...identity, harnesses: list(harnesses.line, "harnesses", harnesses.value), environment: of("environment"), confinement, credentials, limits };
+  return { harnesses: list(harnesses.line, "harnesses", harnesses.value), environment: frontText(front, "environment"), confinement, credentials, limits };
 }
+
 function read(kind: DocumentKind, markdown: string): { fields: Fields; problem: null } | { fields: null; problem: string } {
   try { return { fields: parse(kind, markdown), problem: null }; } catch (error) {
     if (!(error instanceof Refusal)) throw error;
@@ -143,27 +165,10 @@ function validate(state: State): Problem[] {
   const ids = (kind: DocumentKind) => parsed.filter(p => p.document.kind === kind).map(p => p.fields.id);
   for (const { document, fields } of parsed) {
     const say = (field: string, message: string) => problems.push({ document: `${LABELS[document.kind]} \`${String(fields.id)}\``, field, message });
-    if (document.kind === "role") {
-      if (!ids("execution").includes(fields.execution)) say("execution", `no execution profile \`${String(fields.execution)}\` exists`);
-      for (const operation of fields.operations as string[]) if (!OPERATIONS.includes(operation)) say("operations", `\`${operation}\` is not an AQ operation a role can hold`);
-    } else if (document.kind === "intelligence") {
-      const seen = new Set<string>();
-      for (const c of fields.candidates as { provider: string; model: string; reasoning: string; harnesses: string[] }[]) {
-        const id = `${c.provider}:${c.model}:${c.reasoning}`;
-        if (seen.has(id)) say("candidates", `\`${id}\` is listed twice`);
-        seen.add(id);
-        if (!c.harnesses.length) say("candidates", `\`${id}\` names no harness`);
-        for (const harness of c.harnesses) {
-          if (!HARNESS_REASONING[harness]) say("candidates", `\`${harness}\` is not a harness`);
-          else if (!HARNESS_REASONING[harness].includes(c.reasoning)) say("candidates", `the \`${harness}\` harness does not accept reasoning \`${c.reasoning}\``);
-          else if (HARNESS_PROVIDER[harness] && HARNESS_PROVIDER[harness] !== c.provider) say("candidates", `the \`${harness}\` harness takes provider \`${HARNESS_PROVIDER[harness]}\`, not \`${c.provider}\``);
-        }
-      }
-      if (!(fields.candidates as unknown[]).length) say("candidates", "a profile needs at least one candidate");
-    } else {
-      const harnesses = fields.harnesses as string[], credentials = Object.keys(fields.credentials as object);
-      for (const harness of harnesses) if (!credentials.includes(harness)) say("credentials", `no credential profile is given for \`${harness}\``);
-      for (const harness of credentials) if (!harnesses.includes(harness)) say("credentials", `\`${harness}\` is not one of this profile's harnesses`);
+    switch (document.kind) {
+      case "role": validateRole(fields, ids("execution"), say); break;
+      case "intelligence": validateIntelligence(fields, say); break;
+      case "execution": validateExecution(fields, say); break;
     }
   }
   const roles = parsed.filter(p => p.document.kind === "role");
@@ -172,6 +177,32 @@ function validate(state: State): Problem[] {
   if (d.max_attempts < 1 || d.max_attempts > 32 || d.observation_max_age_ms < 1000 || d.observation_max_age_ms > 3_600_000 || d.max_lineage_elapsed_ms < 1 || d.max_lineage_elapsed_ms > 604_800_000) problems.push({ document: "selection defaults", field: "", message: "selection policy bounds" });
   if ((d.max_cost_microunits === null) !== (d.currency === null)) problems.push({ document: "selection defaults", field: "", message: "selection cost basis" });
   return problems;
+}
+
+type ReportProblem = (field: string, message: string) => void;
+function validateRole(fields: Fields, executionIds: unknown[], say: ReportProblem): void {
+  if (!executionIds.includes(fields.execution)) say("execution", `no execution profile \`${String(fields.execution)}\` exists`);
+  for (const operation of fields.operations as string[]) if (!OPERATIONS.includes(operation)) say("operations", `\`${operation}\` is not an AQ operation a role can hold`);
+}
+function validateIntelligence(fields: Fields, say: ReportProblem): void {
+  const seen = new Set<string>();
+  for (const c of fields.candidates as { provider: string; model: string; reasoning: string; harnesses: string[] }[]) {
+    const id = `${c.provider}:${c.model}:${c.reasoning}`;
+    if (seen.has(id)) say("candidates", `\`${id}\` is listed twice`);
+    seen.add(id);
+    if (!c.harnesses.length) say("candidates", `\`${id}\` names no harness`);
+    for (const harness of c.harnesses) {
+      if (!HARNESS_REASONING[harness]) say("candidates", `\`${harness}\` is not a harness`);
+      else if (!HARNESS_REASONING[harness].includes(c.reasoning)) say("candidates", `the \`${harness}\` harness does not accept reasoning \`${c.reasoning}\``);
+      else if (HARNESS_PROVIDER[harness] && HARNESS_PROVIDER[harness] !== c.provider) say("candidates", `the \`${harness}\` harness takes provider \`${HARNESS_PROVIDER[harness]}\`, not \`${c.provider}\``);
+    }
+  }
+  if (!(fields.candidates as unknown[]).length) say("candidates", "a profile needs at least one candidate");
+}
+function validateExecution(fields: Fields, say: ReportProblem): void {
+  const harnesses = fields.harnesses as string[], credentials = Object.keys(fields.credentials as object);
+  for (const harness of harnesses) if (!credentials.includes(harness)) say("credentials", `no credential profile is given for \`${harness}\``);
+  for (const harness of credentials) if (!harnesses.includes(harness)) say("credentials", `\`${harness}\` is not one of this profile's harnesses`);
 }
 
 const role = (id: string, name: string, description: string, operations: string) =>
