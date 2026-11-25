@@ -11,10 +11,10 @@ export type Read<V> = { view: V; serverTime: string; coverage: Coverage };
 
 type Params = Record<string, string | number | undefined>;
 
-function url(path: string, params: Params, scope?: Scope): string {
+function url(path: string, params: Params, scope?: Scope, scopeParameter: "scope" | "project_id" = "scope"): string {
   const search = new URLSearchParams();
-  const s = scope && scopeParam(scope);
-  if (s) search.set("scope", s);
+  const s = scope?.kind === "project" ? (scopeParameter === "project_id" ? scope.project_id : scopeParam(scope)) : null;
+  if (s) search.set(scopeParameter, s);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") search.set(k, String(v));
   const qs = search.toString();
   return qs ? `${path}?${qs}` : path;
@@ -28,6 +28,7 @@ export function useRead<W, V>(opts: {
   resource: string;
   path: string;
   scope?: Scope;
+  scopeParameter?: "scope" | "project_id";
   params?: Params;
   adapt(data: W, serverTime: string): V;
   pollMs?: number;
@@ -44,7 +45,7 @@ export function useRead<W, V>(opts: {
       ? scopedKey(queryContext, opts.scope, opts.resource, keyParams)
       : queryKey(queryContext, opts.resource, keyParams),
     queryFn: async ({ signal }): Promise<Read<V>> => {
-      const env = await apiGet<Envelope<W>>(url(opts.path, params, opts.scope), signal);
+      const env = await apiGet<Envelope<W>>(url(opts.path, params, opts.scope, opts.scopeParameter), signal);
       validateReadEnvelope(env, queryContext.contractVersion, opts.scope);
       return { view: opts.adapt(env.data, env.server_time), serverTime: env.server_time, coverage: env.coverage };
     },

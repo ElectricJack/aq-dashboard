@@ -16,6 +16,7 @@ import { roleSettingsHandlers } from "./roleSettings";
 import { withDecisionFixtures } from "./decisionFixtures";
 import { questionHandlers, withQuestionFixtures } from "./questions";
 import { enrollmentHandlers, swarmActionHandlers } from "./swarmActions";
+import { performanceCapabilities, performanceHandlers } from "./performance";
 import { PLAYBOOK_CAPABILITIES, playbookActionHandlers, playbookCapabilities, playbookHandlers, playbookMode } from "./playbooks";
 
 export function envelope<T>(data: T, scope: Scope = { kind: "all_authorized" }, coverage: Coverage = { state: "complete" }): Envelope<T> {
@@ -98,6 +99,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
   };
 
   return [
+    ...(fixtures ? performanceHandlers(name) : []),
     ...supervisorHandlers(name),
     ...decisionHandlers({ reads: s.reads, conflict: name === "decision-conflict", principal: bootstrap.principal.id }),
     ...(fixtures ? [...terminalHandlers(FIXTURE_TERMINALS), ...resultsHandlers({ media: s.media })] : []),
@@ -117,7 +119,7 @@ export function handlersFor(name: string | null | undefined, { fixtures = false 
       ? HttpResponse.json({ revision: 1, binding: { schema_version: 1, project_id: fixtureProject.id, name: fixtureProject.name, enabled: true, default_role: "developer", default_intelligence: "standard-high" } })
       : HttpResponse.json({ error: "not_found", message: "project not found" }, { status: 404 })),
     // Grant the human-graph reads, the labelled playbook fixtures (fixture mode) and, unless the scenario declares otherwise, the fixture project list.
-    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"&&c.name!=="tasks.comments.read"&&c.name!=="tasks.story_points"&&!playbookNames.includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},{name:"tasks.comments.read",version:"1",enabled:true},{name:"tasks.story_points",version:"1",enabled:true},...playbookCaps,...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
+    http.get("/api/v1/bootstrap", () => HttpResponse.json(envelope<Bootstrap>({...bootstrap,capabilities:[...bootstrap.capabilities.filter(c=>c.name!=="human.graph.read"&&c.name!=="knowledge.read"&&c.name!=="tasks.comments.read"&&c.name!=="tasks.story_points"&&!playbookNames.includes(c.name)),{name:"human.graph.read",version:"1",enabled:true},{name:"knowledge.read",version:"1",enabled:true},{name:"tasks.comments.read",version:"1",enabled:true},{name:"tasks.story_points",version:"1",enabled:true},...playbookCaps,...(fixtures ? performanceCapabilities(name) : []),...(bootstrap.capabilities.some(c=>c.name==="projects.read")?[]:[{name:"projects.read",version:"1",enabled:true}])]}))),
     http.get("/api/v1/provider-usage", () =>
       s.providerUsage.kind === "ok"
         ? HttpResponse.json(s.providerUsage.body)
