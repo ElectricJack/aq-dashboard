@@ -51,6 +51,7 @@ for (const width of [1440, 390]) {
     await dialog.getByRole("checkbox", { name: "Request PostgreSQL service" }).check();
     await expect(dialog.getByLabel("Initial task state")).toHaveValue("draft");
     await expect(dialog.getByLabel("Initial task state")).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "Close task composer" })).toBeInViewport();
     await page.screenshot({ path: testInfo.outputPath("create-task-with-workspace.png") });
     expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
     expect((await new AxeBuilder({ page }).include("dialog")

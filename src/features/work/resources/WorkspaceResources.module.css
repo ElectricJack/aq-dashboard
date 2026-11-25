@@ -19,3 +19,6 @@
 .incoming { min-width: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-panel); }
 .incoming summary { cursor: pointer; min-height: var(--control-height); align-content: center; }
 .incoming[open] summary { margin-bottom: var(--space-3); }
+
+.toolbar .serviceChoice { display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: var(--control-height); }
+.serviceChoice input[type="checkbox"] { inline-size: auto; }

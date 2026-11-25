@@ -64,7 +64,7 @@ function TaskForm({ model, project }: { model: TaskComposer; project: string }) 
             <option value="active">Active</option>
           </select>
         </label>
-        {canDeclareWorkspace && <details className={styles.details} onToggle={event => setOpen(event.currentTarget.open)}>
+        {canDeclareWorkspace && <details className={`${styles.details} ${styles.workspaceDeclaration}`} onToggle={event => setOpen(event.currentTarget.open)}>
           <summary>Declare workspace resources{declared && ` (${draft.workspace?.length})`}</summary>
           {open && <WorkspaceDeclaration project={project} value={draft.workspace ?? []}
             onChange={workspace => setDraft(value => ({ ...value, workspace }))} />}

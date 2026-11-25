@@ -45,7 +45,7 @@ export function WorkspaceDeclaration({ project, value, onChange }: {
       <ActionButton disabled={!choice || sources.length >= MAX_WORKSPACE_PROJECTS} onClick={() => {
         if (choice) onChange([...value, { target_project_id: choice.id, access: "read" }]);
       }}>Add source project</ActionButton>
-      <label>
+      <label className={styles.serviceChoice}>
         <input type="checkbox" checked={service} aria-describedby={description}
           onChange={event => onChange(event.target.checked ? [...value, { service: "postgres" }] : value.filter(item => !("service" in item)))} />
         Request PostgreSQL service
