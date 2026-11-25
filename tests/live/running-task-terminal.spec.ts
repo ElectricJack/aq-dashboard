@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { realpathSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, dirname } from "node:path";
 import { expect, test } from "@playwright/test";
 
 // The fixture must be a disposable queued task running a shell in its real PTY.
@@ -50,8 +54,25 @@ test("running queued task terminal retains output and accepts input across recon
   await pane.getByRole("button", { name: "Disconnect", exact: true }).click();
   await expect(pane.getByLabel("Last observation")).toContainText("AQ_TERMINAL_PILOT_INPUT");
   await expect(pane).not.toHaveAttribute("data-controlling", "true");
+  const pilotSocket = process.env.AQ_DISPOSABLE_TERMINAL_SOCKET;
+  if (pilotSocket) {
+    const socket = realpathSync(pilotSocket);
+    const directory = dirname(socket);
+    expect(dirname(directory)).toBe(realpathSync(tmpdir()));
+    expect(basename(directory)).toMatch(/^aq-terminal-pilot-[a-z0-9_]+$/);
+    expect(basename(socket)).toBe("tmux");
+    expect(statSync(socket).isSocket()).toBe(true);
+    const tmux = (...args: string[]) => execFileSync("tmux", ["-S", socket, ...args], { encoding: "utf8" });
+    expect(tmux("capture-pane", "-p")).toContain("AQ_TERMINAL_PILOT_INPUT");
+    tmux("send-keys", "-l", "printf '%s%s\\n' AQ_TERMINAL_ PILOT_OFFLINE");
+    tmux("send-keys", "Enter");
+    await expect.poll(() => tmux("capture-pane", "-p")).toContain("AQ_TERMINAL_PILOT_OFFLINE");
+    await expect(pane.getByLabel("Last observation")).not.toContainText("AQ_TERMINAL_PILOT_OFFLINE");
+  }
+
   await pane.getByRole("button", { name: "Reconnect", exact: true }).click();
   await expect(rows).toContainText("AQ_TERMINAL_PILOT_INPUT");
+  if (pilotSocket) await expect(rows).toContainText("AQ_TERMINAL_PILOT_OFFLINE");
   await expect(pane).toHaveAttribute("data-controlling", "true");
   expect(acquisitions).toEqual(sockets);
   expect(sockets).toHaveLength(2);
