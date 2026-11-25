@@ -58,13 +58,18 @@ export function TaskAttribution({ data }: { data: TaskUsage }) {
       <div><dt>First route recorded</dt><dd>{time(data.first_route?.recorded_at_ms ?? null)}</dd></div>
     </dl>
     <p className={styles.note}>Delegated calls cannot be identified in the available usage records.</p>
-    {data.attempts.map((attempt, i) => <details key={attempt.attempt_id}>
-      <summary>Attempt {i + 1} · {labelOf(attempt.attempt_status ?? "execution state unknown")}</summary>
-      <p className={styles.note}>{attempt.attempt_id}{attempt.attempt_id === data.first_route?.attempt_id && " · First routing decision"}</p>
-      <p className={styles.note}>Intended model {attempt.intended_model ?? "unknown"} · Usage {labelOf(attempt.status)} · {count(attempt.unresolved_events)} unresolved events</p>
-      <Costs costs={attempt.costs} />
-      <Models models={attempt.models} label={`Actual models for attempt ${i + 1}`} />
-    </details>)}
+    {data.attempts.map(attempt => {
+      const name = attempt.assignment_generation == null
+        ? `Attempt …${attempt.attempt_id.slice(-8)}`
+        : `Attempt generation ${count(attempt.assignment_generation)}`;
+      return <details key={attempt.attempt_id}>
+        <summary>{name} · {labelOf(attempt.attempt_status ?? "execution state unknown")}</summary>
+        <p className={styles.note}>{attempt.attempt_id}{attempt.attempt_id === data.first_route?.attempt_id && " · First routing decision"}</p>
+        <p className={styles.note}>Intended model {attempt.intended_model ?? "unknown"} · Usage {labelOf(attempt.status)} · {count(attempt.unresolved_events)} unresolved events</p>
+        <Costs costs={attempt.costs} />
+        <Models models={attempt.models} label={`Actual models for ${name}`} />
+      </details>;
+    })}
     <Usage data={data} />
   </>;
 }

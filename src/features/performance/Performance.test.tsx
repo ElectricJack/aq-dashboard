@@ -54,6 +54,15 @@ test("project reads stay scoped and keep their cutoff across the holds cursor an
   await userEvent.click(screen.getByRole("link", { name: "View usage" }));
   expect(await screen.findByText("First submission · accepted")).toBeInTheDocument();
   expect(screen.getByText("First intended model")).toBeInTheDocument();
+  const attempts = screen.getAllByText(/^Attempt (generation|…)/);
+  expect(attempts.map(attempt => attempt.textContent)).toEqual([
+    "Attempt generation 4 · failed",
+    "Attempt …00000302 · completed",
+  ]);
+  await userEvent.click(attempts[0]!);
+  expect(screen.getByRole("table", { name: "Actual models for Attempt generation 4" })).toBeInTheDocument();
+  await userEvent.click(screen.getByText("Attempt …00000302 · completed"));
+  expect(screen.getByRole("table", { name: "Actual models for Attempt …00000302" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open task in Work" })).toHaveAttribute("href",
     `/work/${FIXTURE_IDS.lease}?scope=project%3A${fixtureProject.id}`);
   expect(urls.some(url => url.pathname.endsWith("/machines"))).toBe(false);

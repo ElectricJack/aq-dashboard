@@ -91,7 +91,7 @@ export type UsageData = {
 export type Usage = Section<UsageData>;
 export type TaskUsage = Section<UsageData & {
   first_route: { attempt_id: string; candidate: string | null; policy_revision: number | null; registry_revision: number | null; recorded_at_ms: number; intended_model: string | null } | null;
-  attempts: { attempt_id: string; status: string; attempt_status: string | null; intended_model: string | null; models: Model[]; costs: Cost[]; unresolved_events: number }[];
+  attempts: { attempt_id: string; assignment_generation?: number | null; status: string; attempt_status: string | null; intended_model: string | null; models: Model[]; costs: Cost[]; unresolved_events: number }[];
 }>;
 type Snapshot = { cutoff_ms: number; definition_version: 1 };
 export type SummaryData = Snapshot & { outcomes: Outcomes; usage: Usage };
