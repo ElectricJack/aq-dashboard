@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { setupServer } from "msw/node";
@@ -6,6 +6,8 @@ import examples from "../../../contracts/live/performance/examples.json";
 import { handlersFor } from "../../mocks/handlers";
 import { fixtureProject, FIXTURE_IDS } from "../../mocks/humanGraphData";
 import { renderApp } from "../../test/renderApp";
+import type { Machines as MachineReport } from "../../api/adapters/performance";
+import { Machines } from "./Machines";
 
 const server = setupServer(...handlersFor("default", { fixtures: true }));
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
@@ -117,4 +119,15 @@ test("stale capacity retains the last machine observations", async () => {
   const machines = await screen.findByRole("region", { name: "Machine utilization" });
   expect(await within(machines).findByText("Latest capacity observation is stale.")).toBeInTheDocument();
   expect(within(machines).getByText("Lab worker")).toBeInTheDocument();
+});
+
+test("overbooked online capacity shows the observed slots with a bounded occupancy bar", () => {
+  const { cutoff_ms } = examples.populated.machines;
+  const data = structuredClone(examples.populated.machines.machines) as Exclude<MachineReport, { state: "unavailable" }>;
+  const machine = data.machines[0]!;
+  machine.samples = [{ minute_ms: cutoff_ms - 60_000, state: "online", enabled_slots: 1, occupied_slots: 2, free_slots: 0 }];
+  data.machines = [machine];
+  const { container } = render(<Machines data={data} cutoff={cutoff_ms} />);
+  expect(screen.getByText("online · 2 occupied · 0 free · 1 enabled")).toBeInTheDocument();
+  expect(container.querySelector('[data-state="online"] > i')).toHaveStyle({ height: "100%" });
 });

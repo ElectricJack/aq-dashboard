@@ -39,7 +39,7 @@ function MachineRow({ machine, cutoff }: { machine: Machine; cutoff: number }) {
         {runs.map(({ start, end, sample }) => <span key={start} className={styles.interval}
           data-state={sample.state} style={position(start, end, cutoff)}>
           {sample.state === "online" && sample.enabled_slots && sample.occupied_slots != null
-            ? <i style={{ height: `${sample.occupied_slots / sample.enabled_slots * 100}%` }} /> : null}
+            ? <i style={{ height: `${Math.min(sample.occupied_slots / sample.enabled_slots, 1) * 100}%` }} /> : null}
         </span>)}
         {machine.idle_with_queue.map(({ start_ms, end_ms }) => <span key={start_ms} className={styles.idle}
           style={position(start_ms, end_ms, cutoff)} />)}
