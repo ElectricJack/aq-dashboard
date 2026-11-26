@@ -13,6 +13,7 @@ import { Selected, SelectedQuestion, StatusPanel } from "./SelectedDecision";
 import { useDecisionInboxes } from "./useDecisionInboxes";
 import { DecisionInbox, type InboxState } from "./DecisionInbox";
 import { SelectedHostDecision } from "./HostDecisionDetail";
+import { OtherAttention } from "./OtherAttention";
 import styles from "./Decisions.module.css";
 type DecisionKind = "review" | "playbook" | "question";
 type Selection = { decisionId?: string; kind: DecisionKind; project?: string; permission: CapabilityState; hostPermission: CapabilityState };
@@ -66,6 +67,7 @@ export function Component() {
   const selectionKey = `${queryContext.principalId}:${queryContext.authorizationRevision}:${decisionId}:${project ?? "all"}`;
   return <>
     <DecisionHeader content={content} offered={offered} />
+    {state === "open" && <div className={decisionId ? styles.otherSelected : undefined}><OtherAttention covered={offered} /></div>}
     {!canRead ? <p role="status">{permission.reason}</p> : <div className={[styles.layout, decisionId && styles.selected].filter(Boolean).join(" ")}>
       <DecisionInbox {...inbox} className={styles.inboxPane} state={state} onState={setState} selected={decisionId} selectedKind={kind} project={project} />
       {decisionId && <Link className={styles.back} to={{ pathname: "/decisions", search: back }}><Icon icon={ChevronLeft} size={18} />All decisions</Link>}

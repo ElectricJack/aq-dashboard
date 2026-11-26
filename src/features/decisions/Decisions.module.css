@@ -18,3 +18,5 @@
   .selected>.inboxPane, .placeholder { display:none; } .selected>.back { display:inline-flex; } }
 
 .layout { margin-block-start:0; }
+.other { margin-block-end: var(--space-3); }
+@media (max-width: 767px) { .otherSelected { display: none; } }

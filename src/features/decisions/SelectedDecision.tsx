@@ -12,6 +12,7 @@ import { DecisionAction } from "./DecisionAction";
 import { DecisionContext } from "./DecisionContext";
 import { DecisionEvidence } from "./DecisionEvidence";
 import { QuestionAnswer, QuestionContext, QuestionPanel } from "./QuestionDetail";
+import { refreshOverview } from "./decisionHooks";
 
 const ROOT = "/api/reviews/decisions";
 
@@ -32,6 +33,7 @@ function useEvidenceRefresh(read: { refetch(): Promise<{ isError: boolean }> }, 
   function recorded() {
     void read.refetch();
     void client.invalidateQueries({ queryKey: queryKey(queryContext, inbox, {}).slice(0, 5) });
+    void refreshOverview(client, queryContext.principalId);
   }
   return { refreshes, refresh, recorded };
 }

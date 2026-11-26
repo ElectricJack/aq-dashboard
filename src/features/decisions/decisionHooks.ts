@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import { useGraphDetail } from "../../api/humanGraphReads";
 import { useSession } from "../../app/session";
 import { formatUntil } from "../../components/time/relative";
@@ -28,4 +29,9 @@ export function useRefusedRefresh(refreshes: number, refused: boolean, reset: ()
     seenRefreshes.current = refreshes;
     if (refused) reset();
   }, [refreshes, refused, reset]);
+}
+
+/** A recorded answer changes the overview's Needs you list and count, so re-read it with the inbox. */
+export function refreshOverview(client: QueryClient, principalId: string) {
+  return client.invalidateQueries({ predicate: q => q.queryKey[0] === "aq" && q.queryKey[1] === principalId && q.queryKey[4] === "overview" });
 }
