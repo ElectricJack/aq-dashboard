@@ -14,6 +14,7 @@ import { ActionButton, Panel } from "../../components/layout/Workspace";
 import { QueryStatus } from "../../components/QueryStatus/QueryStatus";
 import layoutStyles from "./Decisions.module.css";
 import contextStyles from "./DecisionContext.module.css";
+import { refreshOverview } from "./decisionHooks";
 import { HostDecisionEvidence, hostWorkLink } from "./HostDecisionEvidence";
 import evidenceStyles from "./HostDecision.module.css";
 import styles from "./QuestionDetail.module.css";
@@ -63,7 +64,10 @@ export function SelectedHostDecision({ handle, project }: { handle: string; proj
     error={read.error} subject="item" label="playbook decision" onRetry={() => void read.refetch()} /></Panel>;
   if (!inScope) return <Panel title="Decision outside selected scope"><p>Select its project or return to All projects to inspect this decision.</p></Panel>;
 
-  const refreshInbox = () => void client.invalidateQueries({ queryKey: queryKey(queryContext, "host-decision-inbox", {}).slice(0, 5) });
+  const refreshInbox = () => {
+    void client.invalidateQueries({ queryKey: queryKey(queryContext, "host-decision-inbox", {}).slice(0, 5) });
+    void refreshOverview(client, queryContext.principalId);
+  };
 
   return <>
     <section className={styles.panel} aria-labelledby={headingId}>
