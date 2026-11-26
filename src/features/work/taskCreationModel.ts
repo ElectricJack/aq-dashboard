@@ -6,6 +6,7 @@ import {
   adaptTaskOperation,
   validateTitle,
   validateTaskDraft,
+  validWorkspaceDeclaration,
   type FrozenTaskCreate,
   type TaskDraft,
   type TaskOperation,
@@ -25,7 +26,8 @@ export function validDraft(value: unknown): value is TaskDraft {
   if (!bounded(value.title, 1024)) return false;
   if (typeof value.body !== "string" || typeof value.acceptance_criteria !== "string") return false;
   if (value.task_state !== "draft" && value.task_state !== "active") return false;
-  return optionalText(value.role, 128) && optionalText(value.storyPoints, 16);
+  return optionalText(value.role, 128) && optionalText(value.storyPoints, 16) &&
+    (value.workspace === undefined || validWorkspaceDeclaration(value.workspace));
 }
 export type CreateAttempt = { kind: "lookup" | "submit" | "recover"; id: string; intent?: FrozenTaskCreate };
 export async function requestCreation(

@@ -128,6 +128,9 @@ test("work read: routing is optional; the server's routed and waiting shapes ada
   expect(read({ ...routed, route: { ...routed.route, class: "fast-high" } }).routing?.route?.class).toBe("fast-high");
   expect(read().routing).toBeUndefined();
   expect(read(routed).routing).toEqual(routed);
+  const preferences = { ...routed, route: { ...routed.route, prefer_harnesses: ["claude", "codex"], prefer_providers: ["anthropic"] } };
+  expect(read(preferences).routing).toEqual(preferences);
+  expect(() => read({ ...preferences, route: { ...preferences.route, prefer_harnesses: "claude" } })).toThrow();
   expect(read(waiting).routing).toEqual(waiting);
   expect(read({ state: "unrouted" }).routing).toEqual({ state: "unrouted" });
   for (const bad of [null, "waiting", { state: "unrouted", since_ms: 5 }, { state: "unrouted", route: routed.route }, { ...waiting, state: "later" }, { ...waiting, since_ms: -1 }, { ...waiting, since_ms: "5" }, { state: "waiting" }, { ...waiting, route: routed.route },

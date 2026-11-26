@@ -7,8 +7,34 @@ import { PANEL_READ, useSession } from "../../app/session";
 import { isRecord } from "../../api/adapters/contract";
 import { boundedList, boundedString, check, openEnumValue, text } from "./taskWorkFields";
 
-/** The route on a task (`routing.route` of the work read; spec 0011 §3): its class, e.g. `standard-high`, and who may take the task. */
-export type TaskRouteView = { class: string; harnesses: string[]; providers: string[]; prefer: string[]; lane: string | null; provider_intent: string; source: string; policy_digest: string | null };
+export const TASK_ROUTE_PREFERENCES = "tasks.route.preferences";
+
+/** Effective preferences are reported separately from historical routing fields. */
+export type TaskRouteView = {
+  class: string;
+  harnesses: string[];
+  providers: string[];
+  prefer: string[];
+  prefer_harnesses?: string[];
+  prefer_providers?: string[];
+  lane: string | null;
+  provider_intent: string;
+  source: string;
+  policy_digest: string | null;
+};
+
+export function routeHarnessLabel(value: string): string {
+  if (value === "claude") return "Claude";
+  if (value === "claude-code") return "Claude Code";
+  if (value === "codex") return "Codex";
+  return value;
+}
+
+export function routeProviderLabel(value: string): string {
+  if (value === "anthropic") return "Anthropic";
+  if (value === "openai") return "OpenAI";
+  return value;
+}
 /**
  * Where a task stands in routing (aq-server, human-graph-1 `routing`, optional): `routed` with its route, or `waiting`
  * (routing is on and the task is ready with no route, so AQ does not offer it yet), or `unrouted` (no route, nothing held
@@ -25,11 +51,18 @@ function adaptRoute(r: unknown): TaskRouteView {
   check(names(r.harnesses));
   check(names(r.providers));
   check(names(r.prefer));
+  check(r.prefer_harnesses === undefined || names(r.prefer_harnesses));
+  check(r.prefer_providers === undefined || names(r.prefer_providers));
   check(r.lane === null || text(r.lane, 128));
   check(openEnumValue(r.provider_intent));
   check(openEnumValue(r.source));
   check(r.policy_digest === null || text(r.policy_digest, 128));
-  return { class: r.class, harnesses: r.harnesses, providers: r.providers, prefer: r.prefer, lane: r.lane, provider_intent: r.provider_intent, source: r.source, policy_digest: r.policy_digest };
+  return {
+    class: r.class, harnesses: r.harnesses, providers: r.providers, prefer: r.prefer,
+    ...(r.prefer_harnesses !== undefined && { prefer_harnesses: r.prefer_harnesses }),
+    ...(r.prefer_providers !== undefined && { prefer_providers: r.prefer_providers }),
+    lane: r.lane, provider_intent: r.provider_intent, source: r.source, policy_digest: r.policy_digest,
+  };
 }
 /** `routing` is optional: an older server, or a project not on an automatic router, omits it. */
 export function adaptTaskRouting(r: unknown): TaskRouting | undefined {

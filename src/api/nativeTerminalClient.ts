@@ -2,7 +2,6 @@
  * viewer. When finite input is offered, it remains the keyboard authority. */
 import { adaptInteractiveInfo } from './adapters/terminalControl';
 import { sameTerminal } from './adapters/terminalTail';
-import { apiSend } from './client';
 import { connectInteractiveTerminal, type TerminalConnection, type TerminalState } from './interactiveTerminalClient';
 import { connectManualTerminal } from './manualTerminalClient';
 import { terminalJson } from './terminalClient';
@@ -16,13 +15,7 @@ export async function liveAttempt(terminalId: string, signal: AbortSignal, expec
     const info = adaptInteractiveInfo((await terminalJson(`/api/v1/terminals/${encodeURIComponent(terminalId)}`, signal)).body, terminalId);
     if (info.terminal.session.kind !== 'remote' ||
       (expect && (!sameTerminal(expect.terminal, info.terminal) || expect.session_revision !== info.session_revision))) return null;
-    const attempt = { id: info.terminal.session.attempt_id, finiteInput: info.input_enabled };
-    // A finite session uses the raw attachment only when the viewer asks for
-    // a fresh screen. Keep its receipt-based input path in either view.
-    if (!attempt.finiteInput) {
-      await apiSend<unknown>('POST', `${livePath(attempt)}/connect`, { client_id: crypto.randomUUID() }, AbortSignal.any([signal, AbortSignal.timeout(5000)]));
-    }
-    return attempt;
+    return { id: info.terminal.session.attempt_id, finiteInput: info.input_enabled };
   } catch {
     return null;
   }

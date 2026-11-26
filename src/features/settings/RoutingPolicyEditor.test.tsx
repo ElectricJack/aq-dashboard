@@ -8,7 +8,10 @@ import { RoutingPolicyEditor } from "./RoutingPolicyEditor";
 
 const registered = vi.hoisted(() => ({ entry: null as null | { save(): Promise<boolean>; locked: boolean; dirty: boolean } }));
 vi.mock("./IntelligenceDrafts", () => ({ useIntelligenceDraft: (entry: typeof registered.entry) => { registered.entry = entry; return { saving: false }; } }));
-vi.mock("../../app/session", () => ({ useSession: () => ({ queryContext: { principalId: "p", authorizationRevision: "1", contractVersion: "1" } }) }));
+vi.mock("../../app/session", () => ({ useSession: () => ({
+  queryContext: { principalId: "p", authorizationRevision: "1", contractVersion: "1" },
+  bootstrap: { capability: () => ({ enabled: false, reason: "The fixture server does not offer this capability" }) },
+}) }));
 // The routing document's own route: GET {markdown, revision}; PUT {markdown, expected_revision, operation_id} answers {revision, digest}.
 const path = "/api/settings/routing-document";
 const snapshot = () => ({ revision: "1", markdown: "# Policy\n" });
