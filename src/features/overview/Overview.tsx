@@ -387,7 +387,10 @@ function renderOverviewData({ query, data, search, gantt, taskContributions, can
       )}
       <div className={styles.columns}>
         <div className={styles.primary}>
-          <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
+          {/* Hidden when nothing is listed and the server reports nothing: no heading, panel or placeholder. */}
+          {(attention.length > 0 || (needsYou.value ?? 0) > 0) && (
+            <Attention view={view} attention={attention} total={needsYou} serverTime={serverTime} complete={complete} search={search} />
+          )}
           <section className={styles.panel} aria-labelledby="motion-heading">
             <h2 id="motion-heading">Work in motion</h2>
             {gantt || <ProjectActivitySummary rows={view.inMotion} serverTime={serverTime} complete={complete} canOpenWork={canOpenWork} />}

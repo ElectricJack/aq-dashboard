@@ -42,11 +42,13 @@ test("shows counts with unknown rendered as unknown, not zero", async () => {
   expect(within(recovering).getByLabelText("unknown")).toBeInTheDocument();
 });
 
-test("an empty complete read says nothing needs attention", async () => {
+test("an empty complete read omits the Needs your attention section entirely", async () => {
   server.use(...handlersFor("empty"));
   renderApp("/overview");
-  const region = await attention();
-  expect(await within(region).findByText("Nothing needs your attention")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Work in motion" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Needs your attention" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Needs your attention" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Nothing needs your attention")).not.toBeInTheDocument();
 });
 
 test("a partial read warns that the list may be incomplete", async () => {
@@ -116,11 +118,12 @@ test('question and unsupported attention kinds have distinct controls',async()=>
 
 test('failed refresh of an empty read never claims nothing needs attention',async()=>{
  server.use(...handlersFor('empty'));const {queryClient}=renderApp('/overview');
- expect(await within(await attention()).findByText('Nothing needs your attention')).toBeVisible();
+ expect(await screen.findByRole('heading',{name:'Work in motion'})).toBeVisible();
+ expect(screen.queryByRole('region',{name:'Needs your attention'})).toBeNull();
  const {http,HttpResponse}=await import('msw');server.use(http.get('/api/v1/overview',()=>HttpResponse.json({},{status:503})));
  await queryClient.invalidateQueries({predicate:q=>q.queryKey.includes('overview')});
  await waitFor(()=>expect(screen.queryByText('Nothing needs your attention')).toBeNull());
- expect(within(await attention()).getByText(/may be incomplete/i)).toBeVisible();
+ expect(screen.queryByRole('region',{name:'Needs your attention'})).toBeNull();
 });
 
 /* ----- QA 2026-11-06 shell-overview regressions ----- */
