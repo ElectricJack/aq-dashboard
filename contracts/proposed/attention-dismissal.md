@@ -19,3 +19,7 @@
 6. Optional: `attention[]` continuation (`cursor`, `limit`) or a full list route so counts above the sample size can be listed.
 
 The dashboard will add the control only against this published contract, with its own tests.
+
+## Dashboard behaviour (task fd752dc4)
+
+The dashboard now calls this route, gated on capability `attention.dismiss`. The control shows only on kinds `blocked`, `failed`, `worker_offline` and `internal_work` that carry a subject revision and no decision-style action (never `decision`, `question`, `uncertain_operation` or a review gate). It sends `{ expected_revision: subject.revision }`, removes the item and lowers `needs_you` at once, then re-reads the overview. 404/410 count as already dismissed; 409/422 are not shown as errors (the re-read decides); any other failure restores the row with "Couldn't dismiss. Try again."

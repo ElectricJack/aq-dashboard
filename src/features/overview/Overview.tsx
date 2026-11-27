@@ -149,6 +149,19 @@ function OverviewHeader({ children, action = true }: { children: ReactNode; acti
   </>);
 }
 
+/**
+ * An empty list is "nothing needs you" only when the server count says zero. A positive or
+ * unknown count with no rows listed is stated as such, never as an empty queue.
+ */
+function EmptyAttention({ total, complete }: { total: NeedsYou; complete: boolean }) {
+  if (total.value !== null && total.value > 0) {
+    return <p className={styles.empty} role="status">AQ reports {total.value} {total.value === 1 ? "item needs" : "items need"} you, but none are listed here.</p>;
+  }
+  if (!complete) return null;
+  if (total.value === null) return <p className={styles.empty}>No items are listed, and the number that need you is not reported.</p>;
+  return <p className={styles.empty}>Nothing needs your attention</p>;
+}
+
 function Attention({ view, attention, total, serverTime, complete, search }: {
   view: OverviewView;
   attention: AttentionView[];
@@ -177,9 +190,7 @@ function Attention({ view, attention, total, serverTime, complete, search }: {
             <AttentionRow key={a.id} item={a} serverTime={serverTime} search={search} />
           ))}
         </ul>
-      ) : (
-        complete && <p className={styles.empty}>Nothing needs your attention</p>
-      )}
+      ) : <EmptyAttention total={total} complete={complete} />}
       {partialWorkers && (
         <p className={styles.meta}>Offline workers are listed here when they are linked to recorded work. Swarm shows worker status.</p>
       )}

@@ -20,13 +20,15 @@ export function otherAttention(items: readonly AttentionView[], covered: Covered
     !((item.kind === "decision" && (covered.reviews || covered.host)) || (item.kind === "question" && covered.questions)));
 }
 
-/** Overview attention the decision inbox does not list. Failure shows its own status; loading and empty render nothing in the inbox's place. */
+/** Overview attention the decision inbox does not list. Loading and failure each show their own status; a genuinely empty list renders nothing. */
 export function OtherAttention({ covered }: { covered: Covered }) {
   const [scope] = useScope();
   const query = useOverviewRead(scope);
   const data = query.data;
   if (!data) {
-    if (!query.isError) return null;
+    if (!query.isError) return <Panel title="Other items that need you" className={styles.other}>
+      <QueryStatus status="pending" error={null} label="other items that need you" onRetry={() => void query.refetch()} />
+    </Panel>;
     return <Panel title="Other items that need you" className={styles.other}>
       <QueryStatus status="error" error={query.error} label="other items that need you" onRetry={() => void query.refetch()} />
     </Panel>;
