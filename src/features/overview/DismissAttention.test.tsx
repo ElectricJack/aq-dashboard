@@ -91,7 +91,9 @@ test("the row leaves the page before the server answers", async () => {
   renderApp("/overview");
   await userEvent.click(await dismissButton(/Dismiss: Failed result 1/));
   await waitFor(() => expect(screen.queryByText("Failed result 1")).not.toBeInTheDocument());
-  expect(await screen.findByText("Nothing needs your attention")).toBeInTheDocument();
+  // The last notification is gone: the whole section leaves, with no empty placeholder.
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Needs your attention" })).not.toBeInTheDocument());
+  expect(screen.queryByText("Nothing needs your attention")).not.toBeInTheDocument();
   release();
 });
 

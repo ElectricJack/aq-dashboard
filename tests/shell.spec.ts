@@ -196,7 +196,9 @@ test.describe("rail scope, Decisions badge, connection and avatar (gap SH-J)", (
     test.skip(NAV_HIDDEN.has("decisions"), "Decisions is hidden from the nav");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/overview?scenario=empty");
-    await expect(page.getByText("Nothing needs your attention")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Work in motion" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Needs your attention" })).toHaveCount(0);
+    await expect(page.getByText("Nothing needs your attention")).toHaveCount(0);
     const primary = page.getByRole("navigation", { name: "Primary", exact: true });
     await expect(primary.getByRole("link", { name: "Decisions", exact: true })).toBeVisible();
     await expect(primary.getByRole("link", { name: /pending/i })).toHaveCount(0);
